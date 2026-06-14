@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,7 @@ import { router as messagesRouter } from "./routes/messages.js";
 import { router as metaRouter } from "./routes/meta.js";
 
 import { router as vAuthRouter } from "./routes/vauth.js";
+import { router as vOAuthRouter } from "./routes/voauth.js";
 import { router as vMetaRouter } from "./routes/vmetaRoute.js";
 import { router as vMarketplaceRouter } from "./routes/vmarketplace.js";
 import { router as vMissionsRouter } from "./routes/vmissions.js";
@@ -37,6 +39,7 @@ if (builderCount === 0) {
 
 const app = express();
 app.use(cors());
+app.use(cookieParser());
 app.use(express.json());
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
@@ -52,6 +55,7 @@ app.use("/api/messages", messagesRouter);
 app.use("/api/meta", metaRouter);
 
 app.use("/api/v/auth", vAuthRouter);
+app.use("/api/v/auth/oauth", vOAuthRouter);
 app.use("/api/v/meta", vMetaRouter);
 app.use("/api/v/marketplace", vMarketplaceRouter);
 app.use("/api/v/missions", vMissionsRouter);

@@ -16,6 +16,7 @@ import { VAuthProvider, useVAuth } from "./vcontext/VAuthContext";
 import { VMetaProvider } from "./vcontext/VMetaContext";
 import VLayout from "./vcomponents/VLayout";
 import VLogin from "./vpages/VLogin";
+import OAuthCallback from "./vpages/OAuthCallback";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
 import Workspace from "./vpages/Workspace";
@@ -75,6 +76,7 @@ function ValidatorRoutes() {
   return (
     <Routes>
       <Route path="login" element={validator ? <Navigate to="/validator" replace /> : <VLogin />} />
+      <Route path="oauth-callback" element={<OAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
       <Route element={<RequireVAuth><VLayout /></RequireVAuth>}>
         <Route index element={<Discover />} />

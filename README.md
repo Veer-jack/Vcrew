@@ -79,6 +79,56 @@ http://localhost:5173
   the backend separately, e.g. via a reverse proxy, since the dev proxy only applies
   to `npm run dev`).
 
+## Validator social login
+
+The Validator login page can show "Continue with GitHub / Google / LinkedIn" buttons.
+Each is **independent and hidden until configured** — the app calls
+`/api/v/auth/oauth/providers` to check, so you can enable them one at a time in
+any order.
+
+Signing in with any provider creates a new validator account automatically on
+first use (or links to an existing account with the same email), starting at
+Level 1 with empty stats — a real "new validator" experience, separate from the
+seeded demo account.
+
+For **all** providers, the callback URL pattern is:
+```
+https://vcrew-production.up.railway.app/api/v/auth/oauth/<provider>/callback
+```
+(replace `<provider>` with `github`, `google`, or `linkedin`, and use your actual domain)
+
+And every provider needs the shared `APP_URL` variable set once:
+- `APP_URL` = `https://vcrew-production.up.railway.app` (your actual domain, no trailing slash)
+
+### GitHub
+
+1. https://github.com/settings/developers → **OAuth Apps** → **New OAuth App**
+2. Homepage URL: your app URL. Authorization callback URL: as above with `github`.
+3. **Register application** → **Generate a new client secret**.
+4. Railway → Variables: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`.
+
+### Google
+
+1. https://console.cloud.google.com/ → create/select a project.
+2. **APIs & Services → OAuth consent screen** — set up an "External" app (name, support email). For testing, you can leave it in "Testing" mode and add your own Google account as a test user.
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID** → Application type: **Web application**.
+4. Under **Authorized redirect URIs**, add the callback URL above with `google`.
+5. Copy the **Client ID** and **Client secret**.
+6. Railway → Variables: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+
+### LinkedIn
+
+1. https://www.linkedin.com/developers/apps → **Create app**. LinkedIn requires
+   linking the app to a **LinkedIn Company Page** — if you don't have one, you can
+   create a free company page in a couple of clicks during this step.
+2. On the new app's **Products** tab, add **"Sign In with LinkedIn using OpenID Connect"**.
+3. On the **Auth** tab, add the callback URL above with `linkedin` under **Authorized redirect URLs**.
+4. Copy the **Client ID** and **Client Secret** from the Auth tab.
+5. Railway → Variables: `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`.
+
+After adding any of these variables, Railway redeploys automatically and the
+matching button appears on `/validator/login`.
+
 ## Deploying to Railway
 
 This repo is set up to deploy as a **single Railway service** — the Express backend

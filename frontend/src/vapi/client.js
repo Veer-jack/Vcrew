@@ -39,6 +39,7 @@ export const vapi = {
   me: () => request("/auth/me"),
 
   meta: () => request("/meta"),
+  oauthProviders: () => request("/auth/oauth/providers"),
 
   marketplace: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null && v !== false));

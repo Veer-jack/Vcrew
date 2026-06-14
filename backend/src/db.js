@@ -188,6 +188,8 @@ export function migrate() {
     handle TEXT,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    oauth_provider TEXT,
+    oauth_id TEXT,
     level INTEGER DEFAULT 1,
     rating REAL DEFAULT 0,
     rating_count INTEGER DEFAULT 0,
@@ -299,6 +301,16 @@ export function migrate() {
     created_at TEXT DEFAULT (datetime('now'))
   );
   `);
+
+  // Migrations for databases created before OAuth support was added.
+  const validatorCols = db.prepare(`PRAGMA table_info(validators)`).all().map(c => c.name);
+  if (!validatorCols.includes("oauth_provider")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN oauth_provider TEXT`);
+  }
+  if (!validatorCols.includes("oauth_id")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN oauth_id TEXT`);
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_oauth ON validators(oauth_provider, oauth_id) WHERE oauth_provider IS NOT NULL`);
 }
 
 migrate();
