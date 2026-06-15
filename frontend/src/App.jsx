@@ -11,6 +11,7 @@ import CreateMissionWizard from "./pages/CreateMissionWizard";
 import Audience from "./pages/Audience";
 import Analytics from "./pages/Analytics";
 import Wallet from "./pages/Wallet";
+import Settings from "./pages/Settings";
 import Messages from "./pages/Messages";
 
 import { VAuthProvider, useVAuth } from "./vcontext/VAuthContext";
@@ -54,6 +55,7 @@ function BuilderRoutes() {
         <Route path="/audience" element={<Audience />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/wallet" element={<Wallet />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/messages" element={<Messages />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
+import { consumeStepUpToken } from "../firebaseRoutes.js";
 import { LEVELS } from "../vmeta.js";
 
 export const router = Router();
@@ -30,11 +31,16 @@ router.get("/", (req, res) => {
   });
 });
 
-// POST /api/v/earnings/withdraw { amount }
+// POST /api/v/earnings/withdraw { amount, stepUpToken? }
 router.post("/withdraw", (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
   if (amount > req.validator.available) return res.status(400).json({ error: "Amount exceeds available balance" });
+
+  if (req.validator.phone_verified) {
+    const ok = consumeStepUpToken({ table: "validators", userId: req.validator.id, purpose: "withdraw", token: req.body?.stepUpToken });
+    if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
+  }
 
   db.prepare(`UPDATE validators SET available = available - ? WHERE id = ?`).run(amount, req.validator.id);
   db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)

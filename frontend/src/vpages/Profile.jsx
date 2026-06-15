@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../components/Icon";
+import PhoneSetup from "../components/PhoneSetup";
 import { ScoreRing, StatTile, VAvatar, VStars } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
 
@@ -85,6 +86,8 @@ export default function Profile() {
         </div>
 
         <div className="col gap-5 rise-3">
+          <PhoneSetup client={vapi} phone={data.phone} phoneVerified={data.phoneVerified}
+            onUpdate={(phone) => setData(d => ({ ...d, phone, phoneVerified: !!phone }))} />
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>Verification badges</h3>
             <div style={{ display: "grid", gap: 10 }}>

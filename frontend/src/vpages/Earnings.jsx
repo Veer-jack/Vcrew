@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../components/Icon";
+import StepUpModal from "../components/StepUpModal";
 import { VAvatar, VStars, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
@@ -11,6 +12,7 @@ export default function Earnings() {
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [stepUp, setStepUp] = useState(false);
 
   const load = () => vapi.earnings().then(setData);
   useEffect(() => { load(); }, []);
@@ -18,16 +20,20 @@ export default function Earnings() {
 
   const weekPct = Math.round((data.weekEarnings / data.weekTarget) * 100);
 
-  const withdraw = async () => {
+  const doWithdraw = async (stepUpToken) => {
     setBusy(true); setError("");
     try {
-      await vapi.withdraw(Number(amount));
+      await vapi.withdraw(Number(amount), stepUpToken);
       await load();
-      setWithdrawing(false); setAmount("");
+      setWithdrawing(false); setAmount(""); setStepUp(false);
     } catch (err) {
+      if (err.code === "STEP_UP_REQUIRED") { setStepUp(true); return; }
       setError(err.message || "Couldn't withdraw");
+      setStepUp(false);
     } finally { setBusy(false); }
   };
+
+  const withdraw = () => doWithdraw();
 
   return (
     <div className="page">
@@ -63,6 +69,11 @@ export default function Earnings() {
               </div>
               <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>Minimum withdrawal is ₹200. Funds land in your linked UPI/bank within 24h.</p>
             </div>
+          )}
+          {stepUp && (
+            <StepUpModal client={vapi} phone={data.phone} title="Verify withdrawal"
+              onVerified={(token) => doWithdraw(token)}
+              onClose={() => { setStepUp(false); setBusy(false); }} />
           )}
         </div>
 

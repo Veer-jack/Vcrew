@@ -15,6 +15,7 @@ function publicValidator(v) {
     weekEarnings: v.week_earnings, weekTarget: v.week_target,
     pending: v.pending, available: v.available, lifetime: v.lifetime,
     completed: v.completed, acceptRate: v.accept_rate,
+    phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
   };
 }
 

@@ -132,6 +132,64 @@ And every provider needs the shared `APP_URL` variable set once:
 After adding any of these variables, Railway redeploys automatically and the
 matching button appears on `/validator/login`.
 
+## Phone / SMS login and verification (Firebase Phone Auth)
+
+Both apps support phone-based login and step-up verification, powered by Firebase
+Phone Authentication. Like social login, it's **hidden until configured** — until
+then, everything works exactly as before with email/password only.
+
+**What it adds, once configured:**
+- **"Sign in with phone instead"** on both login pages — enter your phone, get a
+  6-digit code by SMS, sign in with no password.
+- **Settings → Phone number** (Builder) and **Profile → Phone number** (Validator) —
+  add and verify a phone number once. This is required before phone login or step-up
+  works for that account.
+- **Step-up verification** — once a phone is verified, withdrawing earnings
+  (Validator) or adding wallet funds (Builder) requires entering a fresh SMS code
+  first. Accounts without a verified phone are unaffected (no extra step).
+
+### Setting up Firebase
+
+**1. Create a Firebase project**
+- Go to https://console.firebase.google.com/ → **Add project** → name it (e.g.
+  `validationcrew`) → you can disable Google Analytics for this project → **Create**.
+
+**2. Enable Phone sign-in**
+- In the project, go to **Build → Authentication → Get started**.
+- Under the **Sign-in method** tab, click **Phone**, toggle it **Enable**, **Save**.
+
+**3. Register a Web app (gets you the public config)**
+- Project Overview → click the **`</>`** (Web) icon → register an app (any nickname,
+  no hosting needed) → Firebase shows a `firebaseConfig` object. You need 4 values
+  from it: `apiKey`, `authDomain`, `projectId`, `appId`.
+
+**4. Add your deployed domain to authorized domains**
+- Authentication → Settings → **Authorized domains** → **Add domain** →
+  `vcrew-production.up.railway.app` (your actual Railway domain).
+
+**5. Generate a service account key (for the backend)**
+- Project Settings (gear icon) → **Service accounts** tab → **Generate new private
+  key** → downloads a JSON file. From it you need: `project_id`, `client_email`,
+  `private_key`.
+
+**6. Add all 7 values to Railway → your service → Variables:**
+- `FIREBASE_API_KEY` (from step 3)
+- `FIREBASE_AUTH_DOMAIN` (from step 3, looks like `<project>.firebaseapp.com`)
+- `FIREBASE_PROJECT_ID` (from step 3 or 5)
+- `FIREBASE_APP_ID` (from step 3)
+- `FIREBASE_CLIENT_EMAIL` (from step 5's JSON, `client_email`)
+- `FIREBASE_PRIVATE_KEY` (from step 5's JSON, `private_key` — paste the whole
+  multi-line value including `-----BEGIN PRIVATE KEY-----`/`-----END PRIVATE KEY-----`;
+  Railway's variable editor handles the newlines fine)
+
+Railway redeploys automatically. "Sign in with phone instead" now appears on both
+login pages, and the Phone number cards appear in Settings/Profile.
+
+**Free tier**: Firebase Phone Auth includes a free quota of SMS verifications per
+month (no manual "verified numbers" restriction like Twilio's trial) — sufficient
+for testing and early usage. Check the current Firebase pricing page for limits
+beyond that.
+
 ## Deploying to Railway
 
 This repo is set up to deploy as a **single Railway service** — the Express backend

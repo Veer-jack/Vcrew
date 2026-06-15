@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
+import StepUpModal from "../components/StepUpModal";
 import { Btn, KpiCard, inr, inrK } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
@@ -19,18 +20,24 @@ export default function Wallet() {
   const [adding, setAdding] = useState(false);
   const [amount, setAmount] = useState(10000);
   const [busy, setBusy] = useState(false);
+  const [stepUp, setStepUp] = useState(false);
+  const [error, setError] = useState("");
 
   const load = () => api.wallet().then(setData);
   useEffect(() => { load(); }, []);
 
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
-  const addFunds = async () => {
-    setBusy(true);
+  const addFunds = async (stepUpToken) => {
+    setBusy(true); setError("");
     try {
-      await api.topup(Number(amount));
+      await api.topup(Number(amount), stepUpToken);
       await Promise.all([load(), refreshBuilder()]);
-      setAdding(false);
+      setAdding(false); setStepUp(false);
+    } catch (err) {
+      if (err.code === "STEP_UP_REQUIRED") { setStepUp(true); return; }
+      setError(err.message || "Couldn't add funds");
+      setStepUp(false);
     } finally {
       setBusy(false);
     }
@@ -45,15 +52,21 @@ export default function Wallet() {
 
       {adding && (
         <div className="card rise" style={{ padding: 18, marginBottom: 18 }}>
+          {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}
           <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
             <div className="fld" style={{ flex: 1, minWidth: 180 }}>
               <label>Amount to add</label>
               <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             </div>
-            <Btn variant="primary" icon="plus" disabled={busy} onClick={addFunds}>{busy ? "Adding…" : "Add to wallet"}</Btn>
-            <Btn variant="quiet" onClick={() => setAdding(false)}>Cancel</Btn>
+            <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? "Adding…" : "Add to wallet"}</Btn>
+            <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>Cancel</Btn>
           </div>
         </div>
+      )}
+      {stepUp && (
+        <StepUpModal client={api} phone={builder?.phone} title="Verify wallet top-up"
+          onVerified={(token) => addFunds(token)}
+          onClose={() => { setStepUp(false); setBusy(false); }} />
       )}
 
       <div className="wallet-hero sec">

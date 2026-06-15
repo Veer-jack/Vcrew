@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
+import { consumeStepUpToken } from "../firebaseRoutes.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -23,10 +24,15 @@ router.get("/", (req, res) => {
   });
 });
 
-// POST /api/wallet/topup { amount }
+// POST /api/wallet/topup { amount, stepUpToken? }
 router.post("/topup", (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
+
+  if (req.builder.phone_verified) {
+    const ok = consumeStepUpToken({ table: "builders", userId: req.builder.id, purpose: "topup", token: req.body?.stepUpToken });
+    if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
+  }
 
   db.prepare(`UPDATE builders SET balance = balance + ? WHERE id = ?`).run(amount, req.builder.id);
   db.prepare(`INSERT INTO transactions (builder_id, date_label, description, type, amount, mission_id) VALUES (?,?,?,?,?,?)`)

@@ -28,6 +28,7 @@ async function request(path, { method = "GET", body } = {}) {
     const message = (data && data.error) || `Request failed (${res.status})`;
     const err = new Error(message);
     err.status = res.status;
+    err.code = data && data.code;
     throw err;
   }
   return data;
@@ -38,6 +39,11 @@ export const api = {
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
   oauthProviders: () => request("/auth/oauth/providers"),
+  firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
+  phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
+  phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
+  phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
+  stepUpVerify: (idToken) => request("/wallet/stepup/verify", { method: "POST", body: { idToken } }),
 
   meta: () => request("/meta"),
 
@@ -63,7 +69,7 @@ export const api = {
   analytics: () => request("/analytics"),
 
   wallet: () => request("/wallet"),
-  topup: (amount) => request("/wallet/topup", { method: "POST", body: { amount } }),
+  topup: (amount, stepUpToken) => request("/wallet/topup", { method: "POST", body: { amount, stepUpToken } }),
 
   notifications: () => request("/notifications"),
   markAllRead: () => request("/notifications/read-all", { method: "POST" }),

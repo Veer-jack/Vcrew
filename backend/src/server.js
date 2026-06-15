@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { db, migrate } from "./db.js";
 
-import { router as authRouter } from "./routes/auth.js";
+import { router as authRouter, publicBuilder } from "./routes/auth.js";
 import { router as bOAuthRouter } from "./routes/boauth.js";
 import { router as dashboardRouter } from "./routes/dashboard.js";
 import { router as missionsRouter } from "./routes/missions.js";
@@ -17,7 +17,7 @@ import { router as notificationsRouter } from "./routes/notifications.js";
 import { router as messagesRouter } from "./routes/messages.js";
 import { router as metaRouter } from "./routes/meta.js";
 
-import { router as vAuthRouter } from "./routes/vauth.js";
+import { router as vAuthRouter, publicValidator } from "./routes/vauth.js";
 import { router as vOAuthRouter } from "./routes/voauth.js";
 import { router as vMetaRouter } from "./routes/vmetaRoute.js";
 import { router as vMarketplaceRouter } from "./routes/vmarketplace.js";
@@ -27,6 +27,9 @@ import { router as vProfileRouter } from "./routes/vprofile.js";
 import { router as vNotificationsRouter } from "./routes/vnotifications.js";
 import { router as vMessagesRouter } from "./routes/vmessages.js";
 import { router as vSupportRouter } from "./routes/vsupport.js";
+
+import { authMiddleware, validatorAuthMiddleware, createSession, createValidatorSession } from "./auth.js";
+import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
 
 migrate();
 
@@ -47,6 +50,10 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRouter);
 app.use("/api/auth/oauth", bOAuthRouter);
+app.use("/api/auth/phone-login", buildFirebaseLoginRouter({ table: "builders", createSession, publicUser: publicBuilder, userKey: "builder" }));
+app.use("/api/auth/phone", buildPhoneLinkRouter({ table: "builders", authMiddleware, userKey: "builder" }));
+app.use("/api/wallet/stepup", buildStepUpRouter({ table: "builders", purpose: "topup", authMiddleware, userKey: "builder" }));
+app.use("/api/firebase", buildFirebaseConfigRouter());
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/missions", missionsRouter);
 app.use("/api/audience", audienceRouter);
@@ -58,6 +65,9 @@ app.use("/api/meta", metaRouter);
 
 app.use("/api/v/auth", vAuthRouter);
 app.use("/api/v/auth/oauth", vOAuthRouter);
+app.use("/api/v/auth/phone-login", buildFirebaseLoginRouter({ table: "validators", createSession: createValidatorSession, publicUser: publicValidator, userKey: "validator" }));
+app.use("/api/v/auth/phone", buildPhoneLinkRouter({ table: "validators", authMiddleware: validatorAuthMiddleware, userKey: "validator" }));
+app.use("/api/v/earnings/stepup", buildStepUpRouter({ table: "validators", purpose: "withdraw", authMiddleware: validatorAuthMiddleware, userKey: "validator" }));
 app.use("/api/v/meta", vMetaRouter);
 app.use("/api/v/marketplace", vMarketplaceRouter);
 app.use("/api/v/missions", vMissionsRouter);

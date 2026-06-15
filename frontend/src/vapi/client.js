@@ -28,6 +28,7 @@ async function request(path, { method = "GET", body } = {}) {
     const message = (data && data.error) || `Request failed (${res.status})`;
     const err = new Error(message);
     err.status = res.status;
+    err.code = data && data.code;
     throw err;
   }
   return data;
@@ -40,6 +41,11 @@ export const vapi = {
 
   meta: () => request("/meta"),
   oauthProviders: () => request("/auth/oauth/providers"),
+  firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
+  phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
+  phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
+  phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
+  stepUpVerify: (idToken) => request("/earnings/stepup/verify", { method: "POST", body: { idToken } }),
 
   marketplace: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null && v !== false));
@@ -54,7 +60,7 @@ export const vapi = {
   submit: (taskId, payload) => request(`/missions/${taskId}/submit`, { method: "POST", body: payload }),
 
   earnings: () => request("/earnings"),
-  withdraw: (amount) => request("/earnings/withdraw", { method: "POST", body: { amount } }),
+  withdraw: (amount, stepUpToken) => request("/earnings/withdraw", { method: "POST", body: { amount, stepUpToken } }),
 
   profile: () => request("/profile"),
 

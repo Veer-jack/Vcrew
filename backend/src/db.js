@@ -22,6 +22,8 @@ export function migrate() {
     password_hash TEXT NOT NULL,
     oauth_provider TEXT,
     oauth_id TEXT,
+    phone TEXT,
+    phone_verified INTEGER DEFAULT 0,
     role TEXT DEFAULT 'Founder',
     plan TEXT DEFAULT 'Growth',
     color TEXT DEFAULT '#4f46e5',
@@ -192,6 +194,8 @@ export function migrate() {
     password_hash TEXT NOT NULL,
     oauth_provider TEXT,
     oauth_id TEXT,
+    phone TEXT,
+    phone_verified INTEGER DEFAULT 0,
     level INTEGER DEFAULT 1,
     rating REAL DEFAULT 0,
     rating_count INTEGER DEFAULT 0,
@@ -302,6 +306,18 @@ export function migrate() {
     updated_label TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  /* ============ PHONE VERIFICATION (Firebase Phone Auth) ============ */
+
+  CREATE TABLE IF NOT EXISTS step_up_tokens (
+    token TEXT PRIMARY KEY,
+    table_name TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    purpose TEXT NOT NULL,
+    used INTEGER DEFAULT 0,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
   `);
 
   // Migrations for databases created before OAuth support was added.
@@ -313,7 +329,14 @@ export function migrate() {
   if (!builderCols.includes("oauth_id")) {
     db.exec(`ALTER TABLE builders ADD COLUMN oauth_id TEXT`);
   }
+  if (!builderCols.includes("phone")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN phone TEXT`);
+  }
+  if (!builderCols.includes("phone_verified")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN phone_verified INTEGER DEFAULT 0`);
+  }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_builders_oauth ON builders(oauth_provider, oauth_id) WHERE oauth_provider IS NOT NULL`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_builders_phone ON builders(phone) WHERE phone_verified = 1`);
 
   const validatorCols = db.prepare(`PRAGMA table_info(validators)`).all().map(c => c.name);
   if (!validatorCols.includes("oauth_provider")) {
@@ -322,7 +345,14 @@ export function migrate() {
   if (!validatorCols.includes("oauth_id")) {
     db.exec(`ALTER TABLE validators ADD COLUMN oauth_id TEXT`);
   }
+  if (!validatorCols.includes("phone")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN phone TEXT`);
+  }
+  if (!validatorCols.includes("phone_verified")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN phone_verified INTEGER DEFAULT 0`);
+  }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_oauth ON validators(oauth_provider, oauth_id) WHERE oauth_provider IS NOT NULL`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_phone ON validators(phone) WHERE phone_verified = 1`);
 }
 
 migrate();

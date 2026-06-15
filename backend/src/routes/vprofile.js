@@ -18,5 +18,6 @@ router.get("/", (req, res) => {
     acceptRate: v.accept_rate, completed: v.completed, lifetime: v.lifetime,
     levelPct: lvlPct, nextLevel: nextLvl,
     levels: LEVELS, badges: BADGES, expertise: EXPERTISE,
+    phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
   });
 });

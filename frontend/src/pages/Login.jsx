@@ -3,11 +3,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { PROVIDER_META, PROVIDER_ICONS } from "../components/SocialIcons";
+import PhoneLoginForm from "../components/PhoneLoginForm";
 import { useAuth } from "../context/AuthContext";
-import { api } from "../api/client";
+import { api, setToken } from "../api/client";
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, refreshBuilder } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("aarav@kettleand.co");
@@ -15,9 +16,12 @@ export default function Login() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [providers, setProviders] = useState({});
+  const [smsReady, setSmsReady] = useState(false);
+  const [mode, setMode] = useState("password"); // 'password' | 'phone'
 
   useEffect(() => {
     api.oauthProviders().then(d => setProviders(d.providers)).catch(() => {});
+    api.firebaseConfig().then(d => setSmsReady(!!d.configured)).catch(() => {});
     const params = new URLSearchParams(location.search);
     const oauthError = params.get("error");
     if (oauthError) setError(oauthError);
@@ -34,6 +38,12 @@ export default function Login() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onOtpSuccess = async (token) => {
+    setToken(token);
+    await refreshBuilder();
+    navigate(location.state?.from || "/", { replace: true });
   };
 
   const activeProviders = Object.entries(providers).filter(([, on]) => on);
@@ -66,17 +76,28 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={submit} className="col gap-4">
-          <div className="fld">
-            <label>Email</label>
-            <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
-          </div>
-          <div className="fld">
-            <label>Password</label>
-            <input className="fin" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
-          </div>
-          <Btn type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Btn>
-        </form>
+        {mode === "password" ? (
+          <form onSubmit={submit} className="col gap-4">
+            <div className="fld">
+              <label>Email</label>
+              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
+            </div>
+            <div className="fld">
+              <label>Password</label>
+              <input className="fin" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+            </div>
+            <Btn type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Btn>
+          </form>
+        ) : (
+          <PhoneLoginForm client={api} userKey="builder" onSuccess={onOtpSuccess} />
+        )}
+
+        {smsReady && (
+          <button className="backlink" style={{ margin: "16px auto 0" }} onClick={() => { setMode(m => m === "password" ? "phone" : "password"); setError(""); }}>
+            {mode === "password" ? "Sign in with phone instead" : "Sign in with email and password"}
+          </button>
+        )}
+
         <p className="faint" style={{ marginTop: 18, fontSize: 12.5 }}>
           Demo account — aarav@kettleand.co / password123
         </p>
