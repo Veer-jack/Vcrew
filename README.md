@@ -140,7 +140,8 @@ then, everything works exactly as before with email/password only.
 
 **What it adds, once configured:**
 - **"Sign in with phone instead"** on both login pages — enter your phone, get a
-  6-digit code by SMS, sign in with no password.
+  6-digit code by SMS, sign in with no password. If no account exists for that
+  number yet, a new account is created automatically (same as social login).
 - **Settings → Phone number** (Builder) and **Profile → Phone number** (Validator) —
   add and verify a phone number once. This is required before phone login or step-up
   works for that account.

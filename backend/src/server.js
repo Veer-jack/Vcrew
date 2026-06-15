@@ -3,6 +3,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { db, migrate } from "./db.js";
 
@@ -28,7 +29,7 @@ import { router as vNotificationsRouter } from "./routes/vnotifications.js";
 import { router as vMessagesRouter } from "./routes/vmessages.js";
 import { router as vSupportRouter } from "./routes/vsupport.js";
 
-import { authMiddleware, validatorAuthMiddleware, createSession, createValidatorSession } from "./auth.js";
+import { authMiddleware, validatorAuthMiddleware, createSession, createValidatorSession, hashPassword } from "./auth.js";
 import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
 
 migrate();
@@ -50,7 +51,19 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRouter);
 app.use("/api/auth/oauth", bOAuthRouter);
-app.use("/api/auth/phone-login", buildFirebaseLoginRouter({ table: "builders", createSession, publicUser: publicBuilder, userKey: "builder" }));
+app.use("/api/auth/phone-login", buildFirebaseLoginRouter({
+  table: "builders", createSession, publicUser: publicBuilder, userKey: "builder",
+  createUser: (phone) => {
+    const email = `${phone.replace(/[^0-9]/g, "")}@phone.validationcrew.app`;
+    const randomPassword = hashPassword(crypto.randomBytes(24).toString("hex"));
+    db.prepare(`INSERT INTO builders (name, org, email, password_hash, phone, phone_verified) VALUES (?,?,?,?,?,1)`)
+      .run("New Builder", "My workspace", email, randomPassword, phone);
+    const builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(email);
+    db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
+      .run(builder.id, "Welcome to ValidationCrew", "Your account was created via phone sign-in. Update your workspace name and email in Settings any time.");
+    return builder;
+  },
+}));
 app.use("/api/auth/phone", buildPhoneLinkRouter({ table: "builders", authMiddleware, userKey: "builder" }));
 app.use("/api/wallet/stepup", buildStepUpRouter({ table: "builders", purpose: "topup", authMiddleware, userKey: "builder" }));
 app.use("/api/firebase", buildFirebaseConfigRouter());
@@ -65,7 +78,19 @@ app.use("/api/meta", metaRouter);
 
 app.use("/api/v/auth", vAuthRouter);
 app.use("/api/v/auth/oauth", vOAuthRouter);
-app.use("/api/v/auth/phone-login", buildFirebaseLoginRouter({ table: "validators", createSession: createValidatorSession, publicUser: publicValidator, userKey: "validator" }));
+app.use("/api/v/auth/phone-login", buildFirebaseLoginRouter({
+  table: "validators", createSession: createValidatorSession, publicUser: publicValidator, userKey: "validator",
+  createUser: (phone) => {
+    const email = `${phone.replace(/[^0-9]/g, "")}@phone.validationcrew.app`;
+    const randomPassword = hashPassword(crypto.randomBytes(24).toString("hex"));
+    db.prepare(`INSERT INTO validators (name, handle, email, password_hash, phone, phone_verified, specialties_json) VALUES (?,?,?,?,?,1,'[]')`)
+      .run("New Validator", null, email, randomPassword, phone);
+    const validator = db.prepare(`SELECT * FROM validators WHERE email = ?`).get(email);
+    db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'system','shield','green',?,?, 'Just now', 1)`)
+      .run(validator.id, "Welcome to ValidationCrew", "Your account was created via phone sign-in. Complete your profile to start getting matched to missions.");
+    return validator;
+  },
+}));
 app.use("/api/v/auth/phone", buildPhoneLinkRouter({ table: "validators", authMiddleware: validatorAuthMiddleware, userKey: "validator" }));
 app.use("/api/v/earnings/stepup", buildStepUpRouter({ table: "validators", purpose: "withdraw", authMiddleware: validatorAuthMiddleware, userKey: "validator" }));
 app.use("/api/v/meta", vMetaRouter);

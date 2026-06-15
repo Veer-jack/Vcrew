@@ -12,15 +12,18 @@ export function buildFirebaseConfigRouter() {
   return router;
 }
 
-// Passwordless login for an existing, phone-verified account.
+// Passwordless login. Creates a new account on first use if `createUser` is
+// provided (matching how social login works) — otherwise requires an existing
+// phone-verified account.
 // POST / { idToken } -> { token, [userKey]: ... }
-export function buildFirebaseLoginRouter({ table, createSession, publicUser, userKey }) {
+export function buildFirebaseLoginRouter({ table, createSession, publicUser, userKey, createUser }) {
   const router = Router();
 
   router.post("/", async (req, res) => {
     try {
       const phone = await verifyPhoneToken(req.body?.idToken);
-      const user = db.prepare(`SELECT * FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
+      let user = db.prepare(`SELECT * FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
+      if (!user && createUser) user = createUser(phone);
       if (!user) return res.status(404).json({ error: "No account found for that phone number" });
       const token = createSession(user.id);
       res.json({ token, [userKey]: publicUser(user) });
