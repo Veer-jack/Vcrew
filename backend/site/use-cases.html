@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Use Cases — ValidationCrew</title>
+<meta name="description" content="See how founders, brands, researchers, universities, enterprises and governments use ValidationCrew to validate ideas, products and decisions with real humans." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="site.css" />
+<style>
+  .persona-nav { display:flex; flex-wrap:wrap; gap:9px; justify-content:center; margin-top:30px; }
+  .persona-nav a { display:inline-flex; align-items:center; gap:8px; padding:9px 15px; border-radius:30px; font-size:13.5px; font-weight:700;
+    background:#fff; border:1px solid var(--line); color:var(--ink-2); box-shadow:var(--shadow-sm); transition:border-color .15s, transform .12s; }
+  .persona-nav a:hover { border-color:var(--indigo); transform:translateY(-2px); }
+  .persona-nav a svg { width:15px; height:15px; color:var(--indigo); }
+
+  .deep { scroll-margin-top:90px; }
+  .deep .outcome { display:flex; gap:26px; flex-wrap:wrap; margin-top:24px; padding-top:22px; border-top:1px solid var(--line); }
+  .deep .outcome .o .n { font-family:var(--mono); font-size:30px; font-weight:600; letter-spacing:-.03em; color:var(--indigo); }
+  .deep .outcome .o .l { font-size:12.5px; color:var(--muted); margin-top:2px; max-width:18ch; }
+  .deep .badges { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 4px; }
+  .deep .badges span { font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    background:var(--bg-soft); border:1px solid var(--line); color:var(--muted); padding:5px 11px; border-radius:20px; }
+</style>
+</head>
+<body data-page="use-cases">
+<div id="vc-nav"></div>
+
+<section class="page-hero">
+  <div class="hero-bg"><div class="hero-grid-fade"></div></div>
+  <div class="wrap" style="position:relative;z-index:1">
+    <span class="eyebrow"><span class="ln"></span>Use Cases</span>
+    <h1 class="display" style="max-width:18ch;margin:0 auto 18px">One network.<br>Every kind of decision.</h1>
+    <p class="lead">From a napkin idea to a national rollout — see how different teams turn real human feedback into confidence. Pick the path that looks like yours.</p>
+    <div class="persona-nav">
+      <a href="#founder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14"/></svg>Startup Founder</a>
+      <a href="#brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>Consumer Brand</a>
+      <a href="#research"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20M4 22V8l8-5 8 5v14"/></svg>Research &amp; Academia</a>
+      <a href="#enterprise"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/></svg>Enterprise Team</a>
+      <a href="#government"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/></svg>Government</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== persona overview grid ===== -->
+<section class="sec-pad" style="padding-top:40px">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Who validates with us</span>
+      <h2 class="h2">Six teams. One source of truth:<br>what real humans actually think.</h2>
+    </div>
+    <div class="usecases">
+      <a class="usecase reveal" href="#founder"><div class="ui" style="background:#eef0ff;color:#4f46e5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01"/></svg></div><span class="tag">Startup Founder</span><h3>Find product-market fit faster</h3><p>Validate the idea, the MVP and the pricing — all before the seed round.</p><div class="quote">"We killed two bad features and doubled down on the one users loved."</div></a>
+      <a class="usecase reveal d1" href="#brand"><div class="ui" style="background:#e3f6ee;color:#0f9d6b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg></div><span class="tag">Consumer Brand</span><h3>Test taste, packaging &amp; shelf appeal</h3><p>Ship samples to matched households and capture real reactions.</p><div class="quote">"Picked the winning packaging with 240 real shoppers in 3 days."</div></a>
+      <a class="usecase reveal d2" href="#research"><div class="ui" style="background:#f1ecff;color:#7c3aed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 22h20M4 22V8l8-5 8 5v14M9 22v-5h6v5"/></svg></div><span class="tag">Research Scholar</span><h3>Recruit precise study cohorts</h3><p>Reach verified participants that fit strict inclusion criteria.</p><div class="quote">"Recruited a hard-to-reach cohort in a week, not a semester."</div></a>
+      <a class="usecase reveal" href="#research"><div class="ui" style="background:#fdf0d9;color:#e0890b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10 12 5 2 10l10 5 10-5ZM6 12v5c0 1 3 3 6 3s6-2 6-3v-5"/></svg></div><span class="tag">University</span><h3>Run studies at population scale</h3><p>Give labs and departments a compliant participant network.</p><div class="quote">"Our whole department now runs pilots through ValidationCrew."</div></a>
+      <a class="usecase reveal d1" href="#enterprise"><div class="ui" style="background:#eef0ff;color:#4f46e5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M10 8h4M10 12h4"/></svg></div><span class="tag">Enterprise Product Team</span><h3>De-risk every launch</h3><p>Continuous validation pipelines feeding real signal to roadmaps.</p><div class="quote">"Validation is now a gate in our release process, not an afterthought."</div></a>
+      <a class="usecase reveal d2" href="#government"><div class="ui" style="background:#e3f6ee;color:#0f9d6b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/></svg></div><span class="tag">Government Program</span><h3>Test policy &amp; services with citizens</h3><p>Gather representative public feedback before rollout.</p><div class="quote">"Citizen feedback reshaped the service before a single rupee was spent."</div></a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEEP DIVE 1 — FOUNDER ===== -->
+<section class="sec-pad sec-soft deep" id="founder">
+  <div class="wrap split">
+    <div class="split-copy reveal">
+      <span class="eyebrow"><span class="ln"></span>Startup Founder</span>
+      <h2 class="h2" style="margin-top:14px">Stop building on a hunch.</h2>
+      <p class="lead">You have ten ideas and one runway. ValidationCrew lets you put each one in front of the exact people you're building for — before you write a line of code or pitch a single investor.</p>
+      <div class="badges"><span>Idea testing</span><span>MVP feedback</span><span>Pricing</span><span>Positioning</span></div>
+      <div class="feat-list">
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg></span><div><b>Concept tests in hours</b><p>Run three directions in parallel and let demand decide.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span><div><b>Willingness-to-pay signals</b><p>Find the price the market will actually bear.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg></span><div><b>Investor-ready evidence</b><p>Walk into the room with real numbers, not opinions.</p></div></div>
+      </div>
+      <div class="outcome">
+        <div class="o"><div class="n">3 days</div><div class="l">idea to a validated direction</div></div>
+        <div class="o"><div class="n">2&times;</div><div class="l">conversion on the feature users chose</div></div>
+      </div>
+    </div>
+    <div class="split-media reveal d1">
+      <div class="browser"><div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">app.validationcrew.com/dashboard</span></div><img src="shots/builder-dashboard.png" alt="Founder dashboard with live validation missions" loading="lazy" /></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEEP DIVE 2 — BRAND ===== -->
+<section class="sec-pad deep" id="brand">
+  <div class="wrap split rev">
+    <div class="split-media reveal">
+      <div class="browser"><div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">app.validationcrew.com/audience</span></div><img src="shots/wizard-audience.png" alt="Audience builder matching real shoppers" loading="lazy" /></div>
+    </div>
+    <div class="split-copy reveal d1">
+      <span class="eyebrow"><span class="ln"></span>Consumer Brand</span>
+      <h2 class="h2" style="margin-top:14px">Win the shelf before you print it.</h2>
+      <p class="lead">Flavour, fragrance, packaging, claims — the things that make or break a launch live in the hands of real shoppers. Match the precise household, ship the sample, and read the reaction.</p>
+      <div class="badges"><span>Packaging</span><span>Taste tests</span><span>Sampling</span><span>Claims</span></div>
+      <div class="feat-list">
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/></svg></span><div><b>Demographic precision</b><p>Age, city, income, category usage — matched to your buyer.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span><div><b>Real in-home sampling</b><p>Send physical product and capture genuine first use.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg></span><div><b>Side-by-side comparison</b><p>A/B your variants and see the winner emerge clearly.</p></div></div>
+      </div>
+      <div class="outcome">
+        <div class="o"><div class="n">240</div><div class="l">matched shoppers in one mission</div></div>
+        <div class="o"><div class="n">72 hrs</div><div class="l">from brief to ranked results</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEEP DIVE 3 — RESEARCH & ACADEMIA ===== -->
+<section class="sec-pad sec-soft deep" id="research">
+  <div class="wrap split">
+    <div class="split-copy reveal">
+      <span class="eyebrow"><span class="ln"></span>Research &amp; Academia</span>
+      <h2 class="h2" style="margin-top:14px">Recruit the cohort, not the convenience sample.</h2>
+      <p class="lead">Rigorous studies need the right participants — verified, screened and consenting. Reach niche, hard-to-find populations across the country without months of recruitment.</p>
+      <div class="badges"><span>Cohort recruitment</span><span>Surveys &amp; diaries</span><span>Screening</span><span>Longitudinal</span></div>
+      <div class="feat-list">
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><div><b>Strict inclusion criteria</b><p>Screen on dozens of dimensions before anyone enrols.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><div><b>Verified &amp; consenting</b><p>Identity-checked participants with documented consent.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg></span><div><b>Institutional support</b><p>Department-wide workspaces with academic pricing.</p></div></div>
+      </div>
+      <div class="outcome">
+        <div class="o"><div class="n">1 week</div><div class="l">to recruit a hard-to-reach cohort</div></div>
+        <div class="o"><div class="n">60+</div><div class="l">industries &amp; domains represented</div></div>
+      </div>
+    </div>
+    <div class="split-media reveal d1">
+      <div class="browser"><div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">app.validationcrew.com/marketplace</span></div><img src="shots/marketplace.png" alt="Mission marketplace for matched participants" loading="lazy" /></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEEP DIVE 4 — ENTERPRISE ===== -->
+<section class="sec-pad deep" id="enterprise">
+  <div class="wrap split rev">
+    <div class="split-media reveal">
+      <div class="browser"><div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">admin.validationcrew.com/verification</span></div><img src="shots/admin-verification.png" alt="Trust and verification console for enterprise teams" loading="lazy" /></div>
+    </div>
+    <div class="split-copy reveal d1">
+      <span class="eyebrow"><span class="ln"></span>Enterprise Product Team</span>
+      <h2 class="h2" style="margin-top:14px">Make validation a step, not a scramble.</h2>
+      <p class="lead">Turn ad-hoc research into a repeatable pipeline. Standing audiences, structured rubrics and continuous missions feed real signal straight into your roadmap and release gates.</p>
+      <div class="badges"><span>Continuous discovery</span><span>Launch readiness</span><span>Concept tests</span><span>Governance</span></div>
+      <div class="feat-list">
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/></svg></span><div><b>Verified, NDA-ready humans</b><p>Gated access and confidentiality for sensitive work.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span><div><b>Team workspaces &amp; seats</b><p>Shared missions, roles and a single source of insight.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></span><div><b>SSO, audit logs &amp; SLA</b><p>Enterprise controls and reliability you can sign off on.</p></div></div>
+      </div>
+      <div class="outcome">
+        <div class="o"><div class="n">Every</div><div class="l">release gated on real validation</div></div>
+        <div class="o"><div class="n">40+</div><div class="l">countries in one reachable network</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DEEP DIVE 5 — GOVERNMENT ===== -->
+<section class="sec-pad sec-soft deep" id="government">
+  <div class="wrap split">
+    <div class="split-copy reveal">
+      <span class="eyebrow"><span class="ln"></span>Government &amp; Public Sector</span>
+      <h2 class="h2" style="margin-top:14px">Hear citizens before you roll out.</h2>
+      <p class="lead">Policies and public services land better when the people they serve are heard first. Gather representative feedback across regions and demographics — transparently and at scale.</p>
+      <div class="badges"><span>Policy testing</span><span>Service design</span><span>Public consultation</span><span>Accessibility</span></div>
+      <div class="feat-list">
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM2 12h20M12 2c3 3 3 17 0 20M12 2c-3 3-3 17 0 20"/></svg></span><div><b>Representative reach</b><p>Balance regions, languages and demographics fairly.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg></span><div><b>Plain-language feedback</b><p>Structured input anyone can give, on any device.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg></span><div><b>Auditable results</b><p>Transparent, exportable evidence for the record.</p></div></div>
+      </div>
+      <div class="outcome">
+        <div class="o"><div class="n">₹0</div><div class="l">spent on a service citizens reshaped first</div></div>
+        <div class="o"><div class="n">1,200+</div><div class="l">cities you can consult</div></div>
+      </div>
+    </div>
+    <div class="split-media reveal d1">
+      <div class="browser"><div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">app.validationcrew.com/earnings</span></div><img src="shots/validator-earnings.png" alt="Participants rewarded for public feedback" loading="lazy" /></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== TESTIMONIALS ===== -->
+<section class="sec-pad">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">In their words</span>
+      <h2 class="h2">Better decisions, on the record.</h2>
+    </div>
+    <div class="tgrid">
+      <div class="tcard reveal">
+        <div class="stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg></div>
+        <p class="quote">"We validated three product directions in a week. The matched audience was so precise it felt like reading our customers' minds."</p>
+        <div class="who"><span class="av" style="background:#4f46e5">AM</span><div><b>Aarav Mehta</b><span>Founder, Kettle &amp; Co</span></div></div>
+      </div>
+      <div class="tcard reveal d1">
+        <div class="stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg></div>
+        <p class="quote">"Recruiting a verified, niche research cohort used to take a month. We did it in four days with airtight screening."</p>
+        <div class="who"><span class="av" style="background:#7c3aed">SK</span><div><b>Dr. Sameer Khan</b><span>Research Lead, IIM-B Insights</span></div></div>
+      </div>
+      <div class="tcard reveal d2">
+        <div class="stars"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7.4L12 17l-6.3 4.4 2.3-7.4-6-4.6h7.6L12 2Z"/></svg></div>
+        <p class="quote">"Validation is now a gate in our release process, not an afterthought. The team ships with far more confidence."</p>
+        <div class="who"><span class="av" style="background:#0f9d6b">NV</span><div><b>Neha Verma</b><span>Group PM, Enterprise SaaS</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FINAL CTA ===== -->
+<section style="padding:40px 0 100px">
+  <div class="wrap">
+    <div class="finalcta reveal"><div class="finalcta-grid"></div>
+      <h2>Whatever you're deciding,<br>decide it with evidence.</h2>
+      <p>Start your first validation mission today — most teams see real human feedback within hours.</p>
+      <div class="btns"><a class="btn btn-white btn-lg" href="builders.html">Start validating</a><a class="btn btn-lg" href="validators.html" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3)">Join the Crew</a></div>
+    </div>
+  </div>
+</section>
+
+<div id="vc-footer"></div>
+<script src="worldmap.js"></script>
+<script src="chrome.js"></script>
+<script src="site.js"></script>
+</body>
+</html>

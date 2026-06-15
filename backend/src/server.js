@@ -117,6 +117,12 @@ if (fs.existsSync(FRONTEND_DIST)) {
   app.use(express.static(FRONTEND_DIST));
 }
 
+// ---- serve the marketing/landing site at /site ----
+const SITE_DIST = path.join(__dirname, "..", "site");
+if (fs.existsSync(SITE_DIST)) {
+  app.use("/site", express.static(SITE_DIST));
+}
+
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
   const indexHtml = path.join(FRONTEND_DIST, "index.html");

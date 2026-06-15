@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>About — ValidationCrew</title>
+<meta name="description" content="ValidationCrew is the world's human validation network — on a mission to put real human judgement at the heart of every important decision." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="site.css" />
+<style>
+  .mission-statement { max-width:24ch; margin:0 auto 18px; }
+  .values { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .value { padding:28px; border-radius:var(--r-lg); border:1px solid var(--line); background:#fff; box-shadow:var(--shadow-sm);
+    transition:transform .16s, box-shadow .16s; }
+  .value:hover { transform:translateY(-4px); box-shadow:var(--shadow-lg); }
+  .value .vi { width:46px; height:46px; border-radius:12px; display:grid; place-items:center; margin-bottom:16px; }
+  .value .vi svg { width:23px; height:23px; }
+  .value h3 { font-size:18px; margin:0 0 8px; }
+  .value p { margin:0; font-size:14px; color:var(--muted); line-height:1.6; }
+
+  .story-card { padding:30px; border-radius:var(--r-lg); border:1px solid var(--line); background:#fff; box-shadow:var(--shadow-md); }
+  .story-card .q { font-family:var(--mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--indigo); margin-bottom:14px; }
+  .story-card p { margin:0 0 14px; color:var(--ink-2); font-size:15.5px; line-height:1.7; }
+  .story-card p:last-child { margin-bottom:0; }
+  .story-card .sig { margin-top:20px; padding-top:18px; border-top:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  .story-card .sig .av { width:42px; height:42px; border-radius:50%; background:var(--indigo); color:#fff; display:grid; place-items:center; font-weight:800; font-size:14px; flex:none; }
+  .story-card .sig b { display:block; color:var(--ink); font-size:14px; }
+  .story-card .sig span { font-size:12.5px; color:var(--muted); }
+
+  @media (max-width:860px){ .values{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body data-page="about">
+<div id="vc-nav"></div>
+
+<section class="page-hero">
+  <div class="hero-bg"><div class="hero-grid-fade"></div></div>
+  <div class="wrap" style="position:relative;z-index:1">
+    <span class="eyebrow"><span class="ln"></span>About ValidationCrew</span>
+    <h1 class="display mission-statement">Real human judgement, behind every decision.</h1>
+    <p class="lead">We're building the world's human validation network — so that no great idea dies from a guess, and no bad one ships because nobody asked.</p>
+  </div>
+</section>
+
+<!-- ===== MISSION / STORY ===== -->
+<section class="sec-pad" style="padding-top:40px">
+  <div class="wrap split">
+    <div class="split-copy reveal">
+      <span class="eyebrow">Our mission</span>
+      <h2 class="h2" style="margin-top:14px">Put humans back<br>at the centre of building.</h2>
+      <p class="lead">The world is full of dashboards, surveys and AI summaries — yet most important decisions still come down to a guess. We think the missing ingredient is the same one it's always been: the honest opinion of the right human, at the right moment.</p>
+      <p class="lead">ValidationCrew connects builders with a global, verified network of testers, experts and everyday people — so feedback arrives in hours, not weeks, and confidence replaces guesswork.</p>
+    </div>
+    <div class="split-media reveal d1">
+      <div class="story-card">
+        <div class="q">Why we exist</div>
+        <p>"We started ValidationCrew after watching brilliant teams pour months into things nobody wanted — and watching honest, capable people struggle to have their voices heard or valued."</p>
+        <p>"So we built one network for both: a place where builders find the exact humans they need, and humans are verified, respected and rewarded for sharing what they really think."</p>
+        <div class="sig"><span class="av">VC</span><div><b>The ValidationCrew team</b><span>Building since day one</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== VALUES ===== -->
+<section class="sec-pad sec-soft">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">What we believe</span>
+      <h2 class="h2">The principles behind the network.</h2>
+    </div>
+    <div class="values">
+      <div class="value reveal"><div class="vi" style="background:#eef0ff;color:#4f46e5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.9"/></svg></div><h3>Human-first</h3><p>Real people, real opinions. Tools should amplify human judgement, not replace it.</p></div>
+      <div class="value reveal d1"><div class="vi" style="background:#e3f6ee;color:#0f9d6b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Trust is the product</h3><p>Verification, scoring and accountability aren't features bolted on — they're the foundation.</p></div>
+      <div class="value reveal d2"><div class="vi" style="background:#f1ecff;color:#7c3aed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM2 12h20M12 2c3 3 3 17 0 20M12 2c-3 3-3 17 0 20"/></svg></div><h3>Global by default</h3><p>The right human might be in Bengaluru, Berlin or Bogotá. We make distance irrelevant.</p></div>
+      <div class="value reveal"><div class="vi" style="background:#fdf0d9;color:#e0890b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><h3>Fair rewards</h3><p>Honest feedback has real value. The people who give it deserve to be paid well and promptly.</p></div>
+      <div class="value reveal d1"><div class="vi" style="background:#eef0ff;color:#4f46e5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 14l4-4 4 4 5-6"/></svg></div><h3>Signal over noise</h3><p>Structured, comparable insight beats a pile of raw responses. Clarity is a feature.</p></div>
+      <div class="value reveal d2"><div class="vi" style="background:#fde7f0;color:#e11d6b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h3>Privacy you can rely on</h3><p>Your unreleased ideas stay yours. Participants are bound to confidentiality, always.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== BY THE NUMBERS ===== -->
+<section class="sec-pad sec-ink">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">By the numbers</span>
+      <h2 class="h2">A network that already spans the world.</h2>
+      <p class="lead" style="color:#aab2c8">And it grows with every mission, every validation, every honest opinion shared.</p>
+    </div>
+    <div class="globe-wrap reveal" style="height:360px;position:relative">
+      <canvas data-worldmap="dark" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+    </div>
+    <div class="stat-row">
+      <div class="stat reveal"><div class="n"><span data-count="120000" data-suffix="+">0</span></div><div class="l">Verified humans</div></div>
+      <div class="stat reveal d1"><div class="n"><span data-count="40" data-suffix="+">0</span></div><div class="l">Countries</div></div>
+      <div class="stat reveal d2"><div class="n"><span data-count="1200" data-suffix="+">0</span></div><div class="l">Cities</div></div>
+      <div class="stat reveal d3"><div class="n"><span data-count="60" data-suffix="+">0</span></div><div class="l">Industries &amp; domains</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== HOW WE'RE BUILT / TRUST ===== -->
+<section class="sec-pad">
+  <div class="wrap split rev">
+    <div class="split-media reveal">
+      <div class="browser"><div class="browser-bar"><span class="dots"><i></i><i></i><i></i></span><span class="url">admin.validationcrew.com/verification</span></div><img src="shots/admin-verification.png" alt="Trust and verification at the core of the platform" loading="lazy" /></div>
+    </div>
+    <div class="split-copy reveal d1">
+      <span class="eyebrow">How we're built</span>
+      <h2 class="h2" style="margin-top:14px">Engineered for trust,<br>at every layer.</h2>
+      <p class="lead">Identity, expertise and intent are checked before anyone joins. Live trust and completion scores keep quality high, and an operations team keeps the two-sided network healthy and fair for everyone.</p>
+      <div class="feat-list">
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M10 9v12M10 14a4 4 0 0 1 8 0v7"/></svg></span><div><b>Verified at the door</b><p>LinkedIn, résumé and organization checks before access.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z"/></svg></span><div><b>Reputation that travels</b><p>Live trust and completion scores on every profile.</p></div></div>
+        <div class="it"><span class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><div><b>Fair by design</b><p>Escrowed rewards, auto-flagging and human oversight.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CAREERS / JOIN CTA ===== -->
+<section style="padding:40px 0 100px">
+  <div class="wrap">
+    <div class="finalcta reveal"><div class="finalcta-grid"></div>
+      <h2>Help us build the future<br>of human validation.</h2>
+      <p>Whether you want to validate your next big idea or earn by sharing what you really think — there's a place for you in the crew.</p>
+      <div class="btns"><a class="btn btn-white btn-lg" href="builders.html">Start validating</a><a class="btn btn-lg" href="validators.html" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.3)">Join the Crew</a></div>
+    </div>
+  </div>
+</section>
+
+<div id="vc-footer"></div>
+<script src="worldmap.js"></script>
+<script src="chrome.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
