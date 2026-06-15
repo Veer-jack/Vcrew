@@ -4,8 +4,8 @@
 
 const APP_URL = (process.env.APP_URL || "http://localhost:4000").replace(/\/$/, "");
 
-function redirectUri(provider) {
-  return `${APP_URL}/api/v/auth/oauth/${provider}/callback`;
+function redirectUri(provider, base) {
+  return `${APP_URL}${base}/oauth/${provider}/callback`;
 }
 
 export const PROVIDERS = {
@@ -14,16 +14,16 @@ export const PROVIDERS = {
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     scope: "read:user user:email",
-    authorizeUrl(state) {
+    authorizeUrl(state, base) {
       const params = new URLSearchParams({
         client_id: this.clientId,
-        redirect_uri: redirectUri("github"),
+        redirect_uri: redirectUri("github", base),
         scope: this.scope,
         state,
       });
       return `https://github.com/login/oauth/authorize?${params}`;
     },
-    async exchangeCode(code) {
+    async exchangeCode(code, base) {
       const res = await fetch("https://github.com/login/oauth/access_token", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -31,7 +31,7 @@ export const PROVIDERS = {
           client_id: this.clientId,
           client_secret: this.clientSecret,
           code,
-          redirect_uri: redirectUri("github"),
+          redirect_uri: redirectUri("github", base),
         }),
       });
       const data = await res.json();
@@ -68,17 +68,17 @@ export const PROVIDERS = {
     clientId: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     scope: "openid email profile",
-    authorizeUrl(state) {
+    authorizeUrl(state, base) {
       const params = new URLSearchParams({
         client_id: this.clientId,
-        redirect_uri: redirectUri("google"),
+        redirect_uri: redirectUri("google", base),
         response_type: "code",
         scope: this.scope,
         state,
       });
       return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
     },
-    async exchangeCode(code) {
+    async exchangeCode(code, base) {
       const res = await fetch("https://oauth2.googleapis.com/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -86,7 +86,7 @@ export const PROVIDERS = {
           client_id: this.clientId,
           client_secret: this.clientSecret,
           code,
-          redirect_uri: redirectUri("google"),
+          redirect_uri: redirectUri("google", base),
           grant_type: "authorization_code",
         }),
       });
@@ -107,17 +107,17 @@ export const PROVIDERS = {
     clientId: process.env.LINKEDIN_CLIENT_ID,
     clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
     scope: "openid profile email",
-    authorizeUrl(state) {
+    authorizeUrl(state, base) {
       const params = new URLSearchParams({
         client_id: this.clientId,
-        redirect_uri: redirectUri("linkedin"),
+        redirect_uri: redirectUri("linkedin", base),
         response_type: "code",
         scope: this.scope,
         state,
       });
       return `https://www.linkedin.com/oauth/v2/authorization?${params}`;
     },
-    async exchangeCode(code) {
+    async exchangeCode(code, base) {
       const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -125,7 +125,7 @@ export const PROVIDERS = {
           client_id: this.clientId,
           client_secret: this.clientSecret,
           code,
-          redirect_uri: redirectUri("linkedin"),
+          redirect_uri: redirectUri("linkedin", base),
           grant_type: "authorization_code",
         }),
       });

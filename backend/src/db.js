@@ -20,6 +20,8 @@ export function migrate() {
     org TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    oauth_provider TEXT,
+    oauth_id TEXT,
     role TEXT DEFAULT 'Founder',
     plan TEXT DEFAULT 'Growth',
     color TEXT DEFAULT '#4f46e5',
@@ -303,6 +305,16 @@ export function migrate() {
   `);
 
   // Migrations for databases created before OAuth support was added.
+  // Migrations for databases created before OAuth support was added.
+  const builderCols = db.prepare(`PRAGMA table_info(builders)`).all().map(c => c.name);
+  if (!builderCols.includes("oauth_provider")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN oauth_provider TEXT`);
+  }
+  if (!builderCols.includes("oauth_id")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN oauth_id TEXT`);
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_builders_oauth ON builders(oauth_provider, oauth_id) WHERE oauth_provider IS NOT NULL`);
+
   const validatorCols = db.prepare(`PRAGMA table_info(validators)`).all().map(c => c.name);
   if (!validatorCols.includes("oauth_provider")) {
     db.exec(`ALTER TABLE validators ADD COLUMN oauth_provider TEXT`);

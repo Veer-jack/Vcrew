@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { db, migrate } from "./db.js";
 
 import { router as authRouter } from "./routes/auth.js";
+import { router as bOAuthRouter } from "./routes/boauth.js";
 import { router as dashboardRouter } from "./routes/dashboard.js";
 import { router as missionsRouter } from "./routes/missions.js";
 import { router as audienceRouter } from "./routes/audience.js";
@@ -45,6 +46,7 @@ app.use(express.json());
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRouter);
+app.use("/api/auth/oauth", bOAuthRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/missions", missionsRouter);
 app.use("/api/audience", audienceRouter);

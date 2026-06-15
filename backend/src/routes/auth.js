@@ -4,7 +4,7 @@ import { hashPassword, createSession, destroySession, authMiddleware } from "../
 
 export const router = Router();
 
-function publicBuilder(b) {
+export function publicBuilder(b) {
   return {
     id: b.id, name: b.name, org: b.org, email: b.email, role: b.role, plan: b.plan,
     color: b.color, balance: b.balance, pending: b.pending, monthSpend: b.month_spend,

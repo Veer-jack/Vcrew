@@ -8,14 +8,14 @@ export const router = Router();
 
 const STATE_COOKIE = "vc_oauth_state";
 
-// GET /api/v/auth/oauth/providers — which providers are usable (have credentials configured)
+// GET /api/v/auth/providers — which providers are usable (have credentials configured)
 router.get("/providers", (req, res) => {
   const providers = {};
   for (const key of Object.keys(PROVIDERS)) providers[key] = isConfigured(key);
   res.json({ providers });
 });
 
-// GET /api/v/auth/oauth/:provider — kick off the redirect to the provider
+// GET /api/v/auth/:provider — kick off the redirect to the provider
 router.get("/:provider", (req, res) => {
   const provider = PROVIDERS[req.params.provider];
   if (!provider || !isConfigured(req.params.provider)) {
@@ -23,10 +23,10 @@ router.get("/:provider", (req, res) => {
   }
   const state = crypto.randomBytes(16).toString("hex");
   res.cookie(STATE_COOKIE, state, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: "lax", secure: req.protocol === "https" });
-  res.redirect(provider.authorizeUrl(state));
+  res.redirect(provider.authorizeUrl(state, "/api/v/auth"));
 });
 
-// GET /api/v/auth/oauth/:provider/callback
+// GET /api/v/auth/:provider/callback
 router.get("/:provider/callback", async (req, res) => {
   const key = req.params.provider;
   const provider = PROVIDERS[key];
@@ -45,7 +45,7 @@ router.get("/:provider/callback", async (req, res) => {
   }
 
   try {
-    const accessToken = await provider.exchangeCode(code);
+    const accessToken = await provider.exchangeCode(code, "/api/v/auth");
     const profile = await provider.fetchProfile(accessToken);
 
     // 1) match an existing account already linked to this provider+id

@@ -79,20 +79,23 @@ http://localhost:5173
   the backend separately, e.g. via a reverse proxy, since the dev proxy only applies
   to `npm run dev`).
 
-## Validator social login
+## Social login (Builder + Validator)
 
-The Validator login page can show "Continue with GitHub / Google / LinkedIn" buttons.
-Each is **independent and hidden until configured** — the app calls
-`/api/v/auth/oauth/providers` to check, so you can enable them one at a time in
-any order.
+Both the **Builder** login (`/login`) and **Validator** login (`/validator/login`)
+can show "Continue with GitHub / Google / LinkedIn" buttons. Each provider is
+**independent and hidden until configured** — the apps call
+`/api/auth/oauth/providers` and `/api/v/auth/oauth/providers` respectively, so you
+can enable providers one at a time in any order, and they apply to **both** sides
+automatically once configured (same credentials, two different callback URLs).
 
-Signing in with any provider creates a new validator account automatically on
-first use (or links to an existing account with the same email), starting at
-Level 1 with empty stats — a real "new validator" experience, separate from the
-seeded demo account.
+Signing in with any provider creates a new account automatically on first use
+(or links to an existing account with the same email), starting fresh — a real
+"new user" experience, separate from the seeded demo accounts.
 
-For **all** providers, the callback URL pattern is:
+For **each** provider, you'll register **two callback URLs** (one for Builder, one
+for Validator) on the same OAuth app:
 ```
+https://vcrew-production.up.railway.app/api/auth/oauth/<provider>/callback
 https://vcrew-production.up.railway.app/api/v/auth/oauth/<provider>/callback
 ```
 (replace `<provider>` with `github`, `google`, or `linkedin`, and use your actual domain)

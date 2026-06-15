@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { MetaProvider } from "./context/MetaContext";
 import AppLayout from "./components/AppLayout";
 import Login from "./pages/Login";
+import BuilderOAuthCallback from "./pages/OAuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Missions from "./pages/Missions";
 import MissionDetail from "./pages/MissionDetail";
@@ -16,7 +17,7 @@ import { VAuthProvider, useVAuth } from "./vcontext/VAuthContext";
 import { VMetaProvider } from "./vcontext/VMetaContext";
 import VLayout from "./vcomponents/VLayout";
 import VLogin from "./vpages/VLogin";
-import OAuthCallback from "./vpages/OAuthCallback";
+import VOAuthCallback from "./vpages/OAuthCallback";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
 import Workspace from "./vpages/Workspace";
@@ -44,6 +45,7 @@ function BuilderRoutes() {
   return (
     <Routes>
       <Route path="/login" element={builder ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/" element={<Dashboard />} />
@@ -76,7 +78,7 @@ function ValidatorRoutes() {
   return (
     <Routes>
       <Route path="login" element={validator ? <Navigate to="/validator" replace /> : <VLogin />} />
-      <Route path="oauth-callback" element={<OAuthCallback />} />
+      <Route path="oauth-callback" element={<VOAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
       <Route element={<RequireVAuth><VLayout /></RequireVAuth>}>
         <Route index element={<Discover />} />
