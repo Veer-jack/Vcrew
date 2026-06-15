@@ -1,0 +1,164 @@
+import { Router } from "express";
+import { db } from "../db.js";
+import { checkAdminCredentials, isAdminUsingDefaultPassword, createAdminSession, destroyAdminSession, adminAuthMiddleware } from "../auth.js";
+
+export const router = Router();
+
+/* ============ Auth ============ */
+
+router.post("/login", (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
+
+  const token = createAdminSession();
+  res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword() });
+});
+
+router.post("/logout", adminAuthMiddleware, (req, res) => {
+  destroyAdminSession(req.token);
+  res.json({ ok: true });
+});
+
+router.get("/me", adminAuthMiddleware, (req, res) => {
+  res.json({ ok: true, usingDefaultPassword: isAdminUsingDefaultPassword() });
+});
+
+router.use(adminAuthMiddleware);
+
+/* ============ Dashboard ============ */
+
+router.get("/dashboard", (req, res) => {
+  const builders = db.prepare(`SELECT COUNT(*) AS n FROM builders`).get().n;
+  const validators = db.prepare(`SELECT COUNT(*) AS n FROM validators`).get().n;
+  const activeMissions = db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE status IN ('live','active','published')`).get().n;
+  const totalMissions = db.prepare(`SELECT COUNT(*) AS n FROM missions`).get().n;
+
+  const gmv = db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit'`).get().n;
+  const spend = db.prepare(`SELECT COALESCE(SUM(spend),0) AS n FROM missions`).get().n;
+
+  const openTickets = db.prepare(`
+    SELECT (SELECT COUNT(*) FROM b_tickets WHERE status = 'open') + (SELECT COUNT(*) FROM v_tickets WHERE status = 'open') AS n
+  `).get().n;
+
+  const withdrawalQueue = db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(amount),0) AS amt FROM withdrawals WHERE status IN ('queued','processing','pending')`).get();
+
+  const suspended = db.prepare(`
+    SELECT (SELECT COUNT(*) FROM builders WHERE status = 'suspended') + (SELECT COUNT(*) FROM validators WHERE status = 'suspended') AS n
+  `).get().n;
+
+  res.json({
+    builders, validators, totalUsers: builders + validators,
+    activeMissions, totalMissions, gmv, spend,
+    openTickets, suspended,
+    withdrawalQueue: withdrawalQueue.n, withdrawalQueueAmount: withdrawalQueue.amt,
+  });
+});
+
+/* ============ Members ============ */
+
+router.get("/members", (req, res) => {
+  const q = String(req.query.q || "").toLowerCase().trim();
+  const type = req.query.type; // 'builder' | 'validator' | undefined
+
+  const builders = type === "validator" ? [] : db.prepare(`SELECT * FROM builders ORDER BY id`).all().map(b => ({
+    id: b.id, type: "builder", name: b.name, email: b.email, org: b.org, status: b.status || "active",
+    balance: b.balance, phoneVerified: !!b.phone_verified, createdAt: b.created_at,
+  }));
+  const validators = type === "builder" ? [] : db.prepare(`SELECT * FROM validators ORDER BY id`).all().map(v => ({
+    id: v.id, type: "validator", name: v.name, email: v.email, org: v.handle || "—", status: v.status || "active",
+    balance: v.available, level: v.level, lifetime: v.lifetime, rating: v.rating, phoneVerified: !!v.phone_verified, createdAt: v.created_at,
+  }));
+
+  let members = [...builders, ...validators];
+  if (q) members = members.filter(m => (m.name + m.email + m.org).toLowerCase().includes(q));
+
+  res.json({ members });
+});
+
+// PATCH /api/admin/members/:type/:id { status }
+router.patch("/members/:type/:id", (req, res) => {
+  const { type, id } = req.params;
+  const status = String(req.body?.status || "");
+  if (!["active", "suspended"].includes(status)) return res.status(400).json({ error: "status must be 'active' or 'suspended'" });
+  const table = type === "builder" ? "builders" : type === "validator" ? "validators" : null;
+  if (!table) return res.status(400).json({ error: "type must be 'builder' or 'validator'" });
+
+  const row = db.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  db.prepare(`UPDATE ${table} SET status = ? WHERE id = ?`).run(status, id);
+  res.json({ ok: true, status });
+});
+
+/* ============ Support tickets ============ */
+
+router.get("/tickets", (req, res) => {
+  const b = db.prepare(`SELECT t.*, b.name AS user_name, b.email AS user_email FROM b_tickets t JOIN builders b ON b.id = t.builder_id ORDER BY t.created_at DESC`).all()
+    .map(t => ({ ...t, userType: "builder" }));
+  const v = db.prepare(`SELECT t.*, v.name AS user_name, v.email AS user_email FROM v_tickets t JOIN validators v ON v.id = t.validator_id ORDER BY t.created_at DESC`).all()
+    .map(t => ({ ...t, userType: "validator" }));
+
+  const tickets = [...b, ...v]
+    .sort((a, c) => String(c.created_at).localeCompare(String(a.created_at)))
+    .map(t => ({
+      id: t.id, userType: t.userType, userName: t.user_name, userEmail: t.user_email,
+      subject: t.subject, category: t.category, details: t.details, status: t.status,
+      priority: t.priority, reply: t.reply, updated: t.updated_label, createdAt: t.created_at,
+    }));
+
+  res.json({ tickets });
+});
+
+// PATCH /api/admin/tickets/:type/:id { status?, reply? }
+router.patch("/tickets/:type/:id", (req, res) => {
+  const { type, id } = req.params;
+  const table = type === "builder" ? "b_tickets" : type === "validator" ? "v_tickets" : null;
+  if (!table) return res.status(400).json({ error: "type must be 'builder' or 'validator'" });
+
+  const row = db.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  const status = req.body?.status;
+  const reply = req.body?.reply;
+  if (status && !["open", "answered", "resolved"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+
+  if (status) db.prepare(`UPDATE ${table} SET status = ?, updated_label = 'Just now' WHERE id = ?`).run(status, id);
+  if (reply !== undefined) db.prepare(`UPDATE ${table} SET reply = ?, status = 'answered', updated_label = 'Just now' WHERE id = ?`).run(reply, id);
+
+  res.json({ ok: true });
+});
+
+/* ============ Withdrawals ============ */
+
+router.get("/withdrawals", (req, res) => {
+  const rows = db.prepare(`
+    SELECT w.*, v.name AS validator_name, v.email AS validator_email
+    FROM withdrawals w JOIN validators v ON v.id = w.validator_id
+    ORDER BY w.id DESC LIMIT 100
+  `).all();
+  res.json({ withdrawals: rows.map(w => ({
+    id: w.id, validatorName: w.validator_name, validatorEmail: w.validator_email,
+    amount: w.amount, vpa: w.vpa, razorpayPayoutId: w.razorpay_payout_id,
+    status: w.status, failureReason: w.failure_reason, createdAt: w.created_at,
+  })) });
+});
+
+// PATCH /api/admin/withdrawals/:id { status, failureReason? }
+router.patch("/withdrawals/:id", (req, res) => {
+  const status = String(req.body?.status || "");
+  if (!["queued", "processing", "processed", "failed", "rejected", "reversed"].includes(status)) {
+    return res.status(400).json({ error: "Invalid status" });
+  }
+  const row = db.prepare(`SELECT * FROM withdrawals WHERE id = ?`).get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  db.prepare(`UPDATE withdrawals SET status = ?, failure_reason = ? WHERE id = ?`).run(status, req.body?.failureReason || null, req.params.id);
+
+  // If marking as failed/rejected/reversed, return funds to the validator's available balance.
+  if (["failed", "rejected", "reversed"].includes(status) && !["failed", "rejected", "reversed"].includes(row.status)) {
+    db.prepare(`UPDATE validators SET available = available + ? WHERE id = ?`).run(row.amount, row.validator_id);
+  }
+
+  res.json({ ok: true });
+});

@@ -50,6 +50,7 @@ html[data-direction="mono"] .kpi-ic { background: var(--panel-inset); color: var
 .kpi-ic svg { width: 16px; height: 16px; }
 .kpi-ic.green { background: var(--success-weak); color: var(--success); }
 .kpi-ic.amber { background: var(--warning-weak); color: var(--warning); }
+.kpi-ic.danger { background: var(--danger-weak); color: var(--danger); }
 .kpi-val { font-family: var(--mono); font-weight: 600; font-size: 28px; letter-spacing: -.03em; line-height: 1; }
 .kpi-val .u { font-size: 14px; color: var(--text-faint); margin-left: 3px; }
 .kpi-foot { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-faint); }

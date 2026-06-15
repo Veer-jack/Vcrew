@@ -129,7 +129,7 @@ export function Empty({ icon = "inbox", title, children, action }) {
   );
 }
 
-export function KpiCard({ label, value, unit, icon, tone, delta, spark, onClick }) {
+export function KpiCard({ label, value, unit, icon, tone, delta, spark, footer, onClick }) {
   return (
     <div className={`kpi ${onClick ? "click" : ""}`} onClick={onClick}>
       <div className="kpi-top">
@@ -145,7 +145,7 @@ export function KpiCard({ label, value, unit, icon, tone, delta, spark, onClick 
         )}
         {spark
           ? <span className="spark">{spark.map((v, i) => <i key={i} className={i === spark.length - 1 ? "hot" : ""} style={{ height: `${(v / Math.max(...spark)) * 100}%` }} />)}</span>
-          : <span>vs last month</span>}
+          : footer !== undefined ? <span>{footer}</span> : <span>vs last month</span>}
       </div>
     </div>
   );

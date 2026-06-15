@@ -30,6 +30,14 @@ import Profile from "./vpages/Profile";
 import VMessages from "./vpages/Messages";
 import VSupport from "./vpages/Support";
 
+import { AAuthProvider, useAAuth } from "./acontext/AAuthContext";
+import ALayout from "./acomponents/ALayout";
+import ALogin from "./apages/ALogin";
+import ADashboard from "./apages/ADashboard";
+import AMembers from "./apages/AMembers";
+import ASupport from "./apages/ASupport";
+import AWithdrawals from "./apages/AWithdrawals";
+
 /* ---------------- Builder (existing) ---------------- */
 
 function RequireAuth({ children }) {
@@ -99,12 +107,41 @@ function ValidatorRoutes() {
   );
 }
 
+function RequireAAuth({ children }) {
+  const { admin, loading } = useAAuth();
+  const location = useLocation();
+  if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
+  if (!admin) return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
+  return children;
+}
+
+function AdminRoutes() {
+  const { admin, loading } = useAAuth();
+  if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
+
+  return (
+    <Routes>
+      <Route path="login" element={admin ? <Navigate to="/admin" replace /> : <ALogin />} />
+      <Route element={<RequireAAuth><ALayout /></RequireAAuth>}>
+        <Route index element={<ADashboard />} />
+        <Route path="members" element={<AMembers />} />
+        <Route path="support" element={<ASupport />} />
+        <Route path="withdrawals" element={<AWithdrawals />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/admin" replace />} />
+    </Routes>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/validator/*" element={
           <VAuthProvider><VMetaProvider><ValidatorRoutes /></VMetaProvider></VAuthProvider>
+        } />
+        <Route path="/admin/*" element={
+          <AAuthProvider><AdminRoutes /></AAuthProvider>
         } />
         <Route path="/*" element={
           <AuthProvider><MetaProvider><BuilderRoutes /></MetaProvider></AuthProvider>

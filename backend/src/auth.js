@@ -56,3 +56,38 @@ export function validatorAuthMiddleware(req, res, next) {
   req.token = token;
   next();
 }
+
+/* ============ Admin (single account via env vars) ============ */
+
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@validationcrew.app").toLowerCase().trim();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+
+export function checkAdminCredentials(email, password) {
+  return String(email).toLowerCase().trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+}
+
+export function isAdminUsingDefaultPassword() {
+  return !process.env.ADMIN_PASSWORD;
+}
+
+export function createAdminSession() {
+  const token = crypto.randomBytes(24).toString("hex");
+  db.prepare(`INSERT INTO admin_sessions (token) VALUES (?)`).run(token);
+  return token;
+}
+
+export function destroyAdminSession(token) {
+  db.prepare(`DELETE FROM admin_sessions WHERE token = ?`).run(token);
+}
+
+export function adminAuthMiddleware(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  if (!token) return res.status(401).json({ error: "Not authenticated" });
+
+  const session = db.prepare(`SELECT * FROM admin_sessions WHERE token = ?`).get(token);
+  if (!session) return res.status(401).json({ error: "Invalid or expired session" });
+
+  req.token = token;
+  next();
+}

@@ -11,7 +11,7 @@ router.get("/", (req, res) => {
   const tickets = db.prepare(`SELECT * FROM b_tickets WHERE builder_id = ? ORDER BY created_at DESC`).all(req.builder.id);
   res.json({
     helpArticles: HELP_ARTICLES,
-    tickets: tickets.map(t => ({ id: t.id, subject: t.subject, cat: t.category, status: t.status, priority: t.priority, updated: t.updated_label })),
+    tickets: tickets.map(t => ({ id: t.id, subject: t.subject, cat: t.category, status: t.status, priority: t.priority, updated: t.updated_label, reply: t.reply })),
   });
 });
 

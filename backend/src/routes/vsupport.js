@@ -11,7 +11,7 @@ router.get("/", (req, res) => {
   const tickets = db.prepare(`SELECT * FROM v_tickets WHERE validator_id = ? ORDER BY created_at DESC`).all(req.validator.id);
   res.json({
     helpArticles: HELP_ARTICLES,
-    tickets: tickets.map(t => ({ id: t.id, subject: t.subject, cat: t.category, status: t.status, priority: t.priority, updated: t.updated_label })),
+    tickets: tickets.map(t => ({ id: t.id, subject: t.subject, cat: t.category, status: t.status, priority: t.priority, updated: t.updated_label, reply: t.reply })),
   });
 });
 

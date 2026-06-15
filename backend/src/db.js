@@ -39,6 +39,11 @@ export function migrate() {
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS admin_sessions (
+    token TEXT PRIMARY KEY,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS missions (
     id TEXT PRIMARY KEY,
     builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,
@@ -396,6 +401,18 @@ export function migrate() {
     db.exec(`ALTER TABLE transactions ADD COLUMN payment_ref TEXT`);
   }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_payment_ref ON transactions(payment_ref) WHERE payment_ref IS NOT NULL`);
+
+  // ---- Admin console support ----
+  if (!builderCols.includes("status")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN status TEXT DEFAULT 'active'`);
+  }
+  if (!validatorCols.includes("status")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN status TEXT DEFAULT 'active'`);
+  }
+  for (const table of ["b_tickets", "v_tickets"]) {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+    if (!cols.includes("reply")) db.exec(`ALTER TABLE ${table} ADD COLUMN reply TEXT`);
+  }
 }
 
 migrate();

@@ -138,6 +138,7 @@ export default function Support() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="row gap-2 wrap"><b style={{ fontSize: 14.5 }}>{t.subject}</b>{t.priority === "high" && <span className="tag" style={{ background: "var(--danger-weak)", color: "var(--danger)" }}>High</span>}</div>
                     <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{t.id} · {t.cat} · updated {t.updated}</div>
+                    {t.reply && <p className="muted" style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, padding: "10px 12px", background: "var(--panel-inset)", borderRadius: "var(--radius-sm, 8px)" }}><b style={{ color: "var(--text)" }}>Support reply:</b> {t.reply}</p>}
                   </div>
                   <span className="tag" style={{ background: st.bg, color: st.c, flex: "none" }}>{st.l}</span>
                   <Icon name="chevronRight" size={18} style={{ color: "var(--text-faint)", flex: "none" }} />
