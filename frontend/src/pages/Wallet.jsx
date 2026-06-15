@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
 import { Btn, KpiCard, inr, inrK } from "../components/ui";
@@ -14,6 +14,7 @@ const TABS = [
 
 export default function Wallet() {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { builder, refreshBuilder } = useAuth();
   const [tab, setTab] = useState("transactions");
   const [data, setData] = useState(null);
@@ -22,11 +23,51 @@ export default function Wallet() {
   const [busy, setBusy] = useState(false);
   const [stepUp, setStepUp] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+  const [cardsReady, setCardsReady] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
 
   const load = () => api.wallet().then(setData);
   useEffect(() => { load(); }, []);
+  useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
+
+  // Returning from Stripe Checkout
+  useEffect(() => {
+    const checkout = params.get("checkout");
+    if (!checkout) return;
+    if (checkout === "success") {
+      const sessionId = params.get("session_id");
+      if (sessionId) {
+        api.confirmCheckout(sessionId)
+          .then(async (res) => {
+            if (res.credited) {
+              setInfo("Payment received — your wallet has been topped up.");
+              await Promise.all([load(), refreshBuilder()]);
+            } else {
+              setError("Payment wasn't completed.");
+            }
+          })
+          .catch(err => setError(err.message || "Couldn't confirm payment"));
+      }
+    } else if (checkout === "cancelled") {
+      setInfo("Checkout was cancelled — no charge was made.");
+    }
+    setParams(p => { p.delete("checkout"); p.delete("session_id"); return p; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+
+  const payWithCard = async () => {
+    setBusy(true); setError("");
+    try {
+      const res = await api.checkout(Number(amount));
+      window.location.href = res.url;
+    } catch (err) {
+      setError(err.message || "Couldn't start checkout");
+      setBusy(false);
+    }
+  };
 
   const addFunds = async (stepUpToken) => {
     setBusy(true); setError("");
@@ -50,6 +91,16 @@ export default function Wallet() {
         <div className="ph-actions"><Btn variant="ghost" icon="download">Statement</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>Add funds</Btn></div>
       </div>
 
+      {error && !adding && (
+        <div className="err-banner rise" style={{ marginBottom: 18 }}>{error}</div>
+      )}
+
+      {info && !adding && (
+        <div className="card rise" style={{ padding: "12px 16px", marginBottom: 18, color: "var(--success)", background: "var(--success-weak)", border: "none" }}>
+          {info}
+        </div>
+      )}
+
       {adding && (
         <div className="card rise" style={{ padding: 18, marginBottom: 18 }}>
           {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}
@@ -58,9 +109,14 @@ export default function Wallet() {
               <label>Amount to add</label>
               <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             </div>
-            <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? "Adding…" : "Add to wallet"}</Btn>
+            {cardsReady ? (
+              <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? "Redirecting…" : "Pay with card"}</Btn>
+            ) : (
+              <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? "Adding…" : "Add to wallet"}</Btn>
+            )}
             <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>Cancel</Btn>
           </div>
+          {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>Card payments aren't set up yet — this adds funds directly for testing.</p>}
         </div>
       )}
       {stepUp && (

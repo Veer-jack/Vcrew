@@ -70,6 +70,9 @@ export const api = {
 
   wallet: () => request("/wallet"),
   topup: (amount, stepUpToken) => request("/wallet/topup", { method: "POST", body: { amount, stepUpToken } }),
+  paymentsConfig: () => fetch("/api/payments/config").then(r => r.json()),
+  checkout: (amount) => request("/payments/checkout", { method: "POST", body: { amount } }),
+  confirmCheckout: (sessionId) => request(`/payments/checkout/${sessionId}`),
 
   notifications: () => request("/notifications"),
   markAllRead: () => request("/notifications/read-all", { method: "POST" }),

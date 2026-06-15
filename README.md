@@ -191,6 +191,44 @@ month (no manual "verified numbers" restriction like Twilio's trial) — suffici
 for testing and early usage. Check the current Firebase pricing page for limits
 beyond that.
 
+## Card payments for wallet top-up (Stripe)
+
+Builders can add funds to their wallet by card via Stripe Checkout. Like the other
+integrations, it's **hidden until configured** — until then, "Add funds" uses a
+simulated top-up (adds the amount directly, for demo purposes) so the app still
+works without Stripe.
+
+**What it adds, once configured:**
+- The "Add funds" form shows a **"Pay with card"** button instead of the simulated
+  "Add to wallet" button.
+- Clicking it redirects to a Stripe-hosted Checkout page. After a successful
+  payment, the builder is returned to the Wallet page and the balance updates
+  automatically.
+
+### Setting up Stripe
+
+1. Sign up at https://dashboard.stripe.com/register (no business verification
+   needed to use test mode).
+2. In the [Stripe Dashboard](https://dashboard.stripe.com/), make sure you're in
+   **Test mode** (toggle in the top-right), then go to **Developers → API keys**.
+3. Copy the **Secret key** (starts with `sk_test_...`).
+4. In Railway → your service → **Variables**, add:
+   - `STRIPE_SECRET_KEY` = the secret key from step 3
+5. Railway redeploys automatically. "Pay with card" now appears on the Wallet page.
+
+### Testing payments
+
+Stripe's test mode never charges real money. Use these card numbers on the
+Checkout page:
+- **Success**: `4242 4242 4242 4242`, any future expiry date, any CVC, any ZIP/postal code
+- **Declined**: `4000 0000 0000 0002`
+
+### Going live
+
+When ready for real payments, switch the Dashboard out of Test mode, generate a
+**live** secret key (`sk_live_...`), and replace `STRIPE_SECRET_KEY` in Railway —
+this requires completing Stripe's standard business verification (KYC).
+
 ## Deploying to Railway
 
 This repo is set up to deploy as a **single Railway service** — the Express backend

@@ -122,6 +122,7 @@ export function migrate() {
     type TEXT CHECK(type IN ('credit','debit')) NOT NULL,
     amount INTEGER NOT NULL,
     mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL,
+    stripe_session_id TEXT,
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -353,6 +354,12 @@ export function migrate() {
   }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_oauth ON validators(oauth_provider, oauth_id) WHERE oauth_provider IS NOT NULL`);
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_phone ON validators(phone) WHERE phone_verified = 1`);
+
+  const txnCols = db.prepare(`PRAGMA table_info(transactions)`).all().map(c => c.name);
+  if (!txnCols.includes("stripe_session_id")) {
+    db.exec(`ALTER TABLE transactions ADD COLUMN stripe_session_id TEXT`);
+  }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_stripe_session ON transactions(stripe_session_id) WHERE stripe_session_id IS NOT NULL`);
 }
 
 migrate();
