@@ -299,6 +299,18 @@ export function migrate() {
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS b_tickets (
+    id TEXT PRIMARY KEY,
+    builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,
+    subject TEXT,
+    category TEXT,
+    details TEXT,
+    status TEXT CHECK(status IN ('open','answered','resolved')) DEFAULT 'open',
+    priority TEXT DEFAULT 'normal',
+    updated_label TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS v_tickets (
     id TEXT PRIMARY KEY,
     validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,

@@ -59,6 +59,7 @@ const NAV_GROUPS = [
   { label: "Insights", items: [
     { to: "/analytics", label: "Analytics", icon: "chart" },
     { to: "/wallet", label: "Wallet", icon: "wallet" },
+    { to: "/support", label: "Support", icon: "life" },
     { to: "/settings", label: "Settings", icon: "settings" },
   ] },
 ];

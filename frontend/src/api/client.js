@@ -40,6 +40,8 @@ export const api = {
   me: () => request("/auth/me"),
   oauthProviders: () => request("/auth/oauth/providers"),
   updateProfile: (body) => request("/auth/profile", { method: "PATCH", body }),
+  support: () => request("/support"),
+  raiseTicket: (payload) => request("/support/tickets", { method: "POST", body: payload }),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
   phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
   phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),

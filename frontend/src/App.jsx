@@ -11,6 +11,7 @@ import CreateMissionWizard from "./pages/CreateMissionWizard";
 import Audience from "./pages/Audience";
 import Analytics from "./pages/Analytics";
 import Wallet from "./pages/Wallet";
+import Support from "./pages/Support";
 import Settings from "./pages/Settings";
 import Messages from "./pages/Messages";
 
@@ -27,7 +28,7 @@ import MyMissions from "./vpages/MyMissions";
 import Earnings from "./vpages/Earnings";
 import Profile from "./vpages/Profile";
 import VMessages from "./vpages/Messages";
-import Support from "./vpages/Support";
+import VSupport from "./vpages/Support";
 
 /* ---------------- Builder (existing) ---------------- */
 
@@ -55,6 +56,7 @@ function BuilderRoutes() {
         <Route path="/audience" element={<Audience />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/wallet" element={<Wallet />} />
+        <Route path="/support" element={<Support />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/messages" element={<Messages />} />
       </Route>
@@ -90,7 +92,7 @@ function ValidatorRoutes() {
         <Route path="earnings" element={<Earnings />} />
         <Route path="profile" element={<Profile />} />
         <Route path="messages" element={<VMessages />} />
-        <Route path="support" element={<Support />} />
+        <Route path="support" element={<VSupport />} />
       </Route>
       <Route path="*" element={<Navigate to="/validator" replace />} />
     </Routes>
