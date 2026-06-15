@@ -197,6 +197,9 @@ export function migrate() {
     oauth_id TEXT,
     phone TEXT,
     phone_verified INTEGER DEFAULT 0,
+    payout_vpa TEXT,
+    razorpay_contact_id TEXT,
+    razorpay_fund_account_id TEXT,
     level INTEGER DEFAULT 1,
     rating REAL DEFAULT 0,
     rating_count INTEGER DEFAULT 0,
@@ -319,9 +322,21 @@ export function migrate() {
     expires_at INTEGER NOT NULL,
     created_at INTEGER NOT NULL
   );
+
+  /* ============ PAYOUTS ============ */
+
+  CREATE TABLE IF NOT EXISTS withdrawals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
+    amount INTEGER NOT NULL,
+    vpa TEXT,
+    razorpay_payout_id TEXT,
+    status TEXT DEFAULT 'queued',
+    failure_reason TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
   `);
 
-  // Migrations for databases created before OAuth support was added.
   // Migrations for databases created before OAuth support was added.
   const builderCols = db.prepare(`PRAGMA table_info(builders)`).all().map(c => c.name);
   if (!builderCols.includes("oauth_provider")) {
@@ -351,6 +366,15 @@ export function migrate() {
   }
   if (!validatorCols.includes("phone_verified")) {
     db.exec(`ALTER TABLE validators ADD COLUMN phone_verified INTEGER DEFAULT 0`);
+  }
+  if (!validatorCols.includes("payout_vpa")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN payout_vpa TEXT`);
+  }
+  if (!validatorCols.includes("razorpay_contact_id")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN razorpay_contact_id TEXT`);
+  }
+  if (!validatorCols.includes("razorpay_fund_account_id")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN razorpay_fund_account_id TEXT`);
   }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_oauth ON validators(oauth_provider, oauth_id) WHERE oauth_provider IS NOT NULL`);
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_validators_phone ON validators(phone) WHERE phone_verified = 1`);

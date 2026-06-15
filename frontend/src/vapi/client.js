@@ -61,6 +61,10 @@ export const vapi = {
 
   earnings: () => request("/earnings"),
   withdraw: (amount, stepUpToken) => request("/earnings/withdraw", { method: "POST", body: { amount, stepUpToken } }),
+  payoutsConfig: () => fetch("/api/v/payouts/config").then(r => r.json()),
+  setPayoutVpa: (vpa) => request("/payouts/vpa", { method: "POST", body: { vpa } }),
+  removePayoutVpa: () => request("/payouts/remove", { method: "POST" }),
+  payoutHistory: () => request("/payouts/history"),
 
   profile: () => request("/profile"),
 

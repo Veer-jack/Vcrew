@@ -232,6 +232,49 @@ When ready for real payments, complete Razorpay's KYC/business verification from
 the Dashboard, switch out of Test Mode, generate **live** API keys, and replace
 `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in Railway with the live values.
 
+## Validator withdrawals (RazorpayX Payouts)
+
+Validators can withdraw their earnings to a UPI ID via RazorpayX Payouts. Like the
+other integrations, it's **hidden/simulated until configured** — until then,
+"Withdraw" just decrements the balance directly (demo behavior) so the app still
+works.
+
+**What it adds, once configured:**
+- **Profile → Payout UPI ID** — validators add the UPI ID withdrawals are sent to.
+- **Withdraw** creates a real RazorpayX payout to that UPI ID (in test mode, no real
+  money moves).
+- **Earnings → Recent withdrawals** — shows status (`queued`, `processing`,
+  `processed`, `failed`, etc.) for each withdrawal.
+
+RazorpayX is a **separate product** from the Payments gateway used for wallet
+top-ups, with its own dashboard, API keys, and (for going live) its own KYC tied to
+a registered Indian business with a current account.
+
+### Setting up RazorpayX (test mode)
+
+1. From your existing Razorpay account, go to https://x.razorpay.com/ — if you're
+   an existing Razorpay user you can sign in with the same credentials.
+2. Make sure you're in **Test Mode**.
+3. Go to the user icon (top-right) → **My Account & Settings → Developer Controls**
+   → **API Keys** → **Generate Key**. Copy the **Key ID** and **Key Secret**
+   (existing Razorpay Payments keys also work here, per Razorpay's docs).
+4. RazorpayX payouts require a **business account number** to pay out from. In
+   test mode, the Dashboard provides a dummy account number under
+   **Accounts → Business Account** — copy it.
+5. In Railway → your service → **Variables**, add:
+   - `RAZORPAYX_KEY_ID`
+   - `RAZORPAYX_KEY_SECRET`
+   - `RAZORPAYX_ACCOUNT_NUMBER` (the test account number from step 4)
+6. Railway redeploys automatically. Validators can now add a UPI ID in their
+   profile and withdrawals will create real (test-mode) RazorpayX payouts.
+
+### Going live
+
+Real payouts require RazorpayX account activation: KYC for a registered Indian
+business with a current account, and funding that business account (this can't be
+done via API — it's a manual bank transfer). Once activated, switch to live API
+keys and the live account number.
+
 ## Deploying to Railway
 
 This repo is set up to deploy as a **single Railway service** — the Express backend

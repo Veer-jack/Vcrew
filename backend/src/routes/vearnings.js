@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { consumeStepUpToken } from "../firebaseRoutes.js";
+import { isRazorpayXConfigured, createContact, createFundAccount, createPayout } from "../razorpayClient.js";
 import { LEVELS } from "../vmeta.js";
 
 export const router = Router();
@@ -32,7 +33,7 @@ router.get("/", (req, res) => {
 });
 
 // POST /api/v/earnings/withdraw { amount, stepUpToken? }
-router.post("/withdraw", (req, res) => {
+router.post("/withdraw", async (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
   if (amount > req.validator.available) return res.status(400).json({ error: "Amount exceeds available balance" });
@@ -42,6 +43,45 @@ router.post("/withdraw", (req, res) => {
     if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
   }
 
+  if (isRazorpayXConfigured()) {
+    if (!req.validator.payout_vpa) {
+      return res.status(400).json({ error: "Add a UPI ID for payouts in your profile first", code: "PAYOUT_DETAILS_REQUIRED" });
+    }
+
+    try {
+      let { razorpay_contact_id: contactId, razorpay_fund_account_id: fundAccountId } = req.validator;
+
+      if (!contactId) {
+        const contact = await createContact({ name: req.validator.name, email: req.validator.email, reference_id: `validator_${req.validator.id}` });
+        contactId = contact.id;
+        db.prepare(`UPDATE validators SET razorpay_contact_id = ? WHERE id = ?`).run(contactId, req.validator.id);
+      }
+      if (!fundAccountId) {
+        const fundAccount = await createFundAccount({ contactId, vpa: req.validator.payout_vpa });
+        fundAccountId = fundAccount.id;
+        db.prepare(`UPDATE validators SET razorpay_fund_account_id = ? WHERE id = ?`).run(fundAccountId, req.validator.id);
+      }
+
+      const payout = await createPayout({
+        fundAccountId, amountRupees: amount,
+        referenceId: `withdraw_${req.validator.id}_${Date.now()}`,
+      });
+
+      db.prepare(`INSERT INTO withdrawals (validator_id, amount, vpa, razorpay_payout_id, status) VALUES (?,?,?,?,?)`)
+        .run(req.validator.id, amount, req.validator.payout_vpa, payout.id, payout.status || "queued");
+
+      db.prepare(`UPDATE validators SET available = available - ? WHERE id = ?`).run(amount, req.validator.id);
+      db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)
+        .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} to ${req.validator.payout_vpa} is ${payout.status || "queued"} and should land within 24h.`);
+
+      const available = db.prepare(`SELECT available FROM validators WHERE id = ?`).get(req.validator.id).available;
+      return res.json({ available, payoutStatus: payout.status });
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+  }
+
+  // Simulated fallback when RazorpayX isn't configured.
   db.prepare(`UPDATE validators SET available = available - ? WHERE id = ?`).run(amount, req.validator.id);
   db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)
     .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} is being processed and should land within 24h.`);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
 import { VAvatar, VStars, VTypeTag } from "../vcomponents/vui";
@@ -8,27 +9,31 @@ import { vapi } from "../vapi/client";
 export default function Earnings() {
   const { vtypes } = useVMeta();
   const [data, setData] = useState(null);
+  const [withdrawals, setWithdrawals] = useState([]);
   const [withdrawing, setWithdrawing] = useState(false);
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
   const [stepUp, setStepUp] = useState(false);
 
   const load = () => vapi.earnings().then(setData);
-  useEffect(() => { load(); }, []);
+  const loadWithdrawals = () => vapi.payoutHistory().then(d => setWithdrawals(d.withdrawals)).catch(() => {});
+  useEffect(() => { load(); loadWithdrawals(); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const weekPct = Math.round((data.weekEarnings / data.weekTarget) * 100);
 
   const doWithdraw = async (stepUpToken) => {
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setErrorCode("");
     try {
       await vapi.withdraw(Number(amount), stepUpToken);
-      await load();
+      await Promise.all([load(), loadWithdrawals()]);
       setWithdrawing(false); setAmount(""); setStepUp(false);
     } catch (err) {
       if (err.code === "STEP_UP_REQUIRED") { setStepUp(true); return; }
       setError(err.message || "Couldn't withdraw");
+      setErrorCode(err.code || "");
       setStepUp(false);
     } finally { setBusy(false); }
   };
@@ -58,7 +63,12 @@ export default function Earnings() {
           </div>
           {withdrawing && (
             <div className="rise" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              {error && <div className="err-banner" style={{ marginBottom: 10 }}>{error}</div>}
+              {error && (
+                <div className="err-banner" style={{ marginBottom: 10 }}>
+                  {error}
+                  {errorCode === "PAYOUT_DETAILS_REQUIRED" && <> — <Link to="/validator/profile" style={{ textDecoration: "underline" }}>add one in your profile</Link>.</>}
+                </div>
+              )}
               <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
                 <div className="fld" style={{ flex: 1, minWidth: 160 }}>
                   <label>Amount to withdraw</label>
@@ -97,6 +107,27 @@ export default function Earnings() {
           </div>
         </div>
       </div>
+
+      {withdrawals.length > 0 && (
+        <div className="rise-3" style={{ marginBottom: 26 }}>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>Recent withdrawals</div>
+          <div className="card" style={{ overflow: "hidden" }}>
+            {withdrawals.map((w, i) => (
+              <div key={w.id} className="row between" style={{ padding: "14px 18px", borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
+                <div className="row gap-3" style={{ minWidth: 0 }}>
+                  <span style={{ fontWeight: 700 }}>₹{w.amount.toLocaleString("en-IN")}</span>
+                  {w.vpa && <span className="faint" style={{ fontSize: 13 }}>to {w.vpa}</span>}
+                  <span className="faint" style={{ fontSize: 12 }}>{new Date(w.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+                </div>
+                <span className="tag" style={{
+                  background: w.status === "processed" ? "var(--success-weak)" : w.status === "failed" || w.status === "rejected" || w.status === "reversed" ? "var(--danger-weak)" : "var(--warning-weak)",
+                  color: w.status === "processed" ? "var(--success)" : w.status === "failed" || w.status === "rejected" || w.status === "reversed" ? "var(--danger)" : "var(--warning)",
+                }}>{w.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="rise-3">
         <div className="eyebrow" style={{ marginBottom: 12 }}>Recent validations</div>
