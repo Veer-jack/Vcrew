@@ -39,6 +39,7 @@ export const api = {
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
   oauthProviders: () => request("/auth/oauth/providers"),
+  updateProfile: (body) => request("/auth/profile", { method: "PATCH", body }),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
   phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
   phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),

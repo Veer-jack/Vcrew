@@ -67,6 +67,7 @@ export const vapi = {
   payoutHistory: () => request("/payouts/history"),
 
   profile: () => request("/profile"),
+  updateProfile: (body) => request("/profile", { method: "PATCH", body }),
 
   notifications: () => request("/notifications"),
   markAllRead: () => request("/notifications/read-all", { method: "POST" }),

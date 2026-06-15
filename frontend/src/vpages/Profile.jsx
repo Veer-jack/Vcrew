@@ -7,27 +7,101 @@ import { vapi } from "../vapi/client";
 
 export default function Profile() {
   const [data, setData] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [handle, setHandle] = useState("");
+  const [specialties, setSpecialties] = useState([]);
+  const [tagInput, setTagInput] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
   useEffect(() => { vapi.profile().then(setData); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+
+  const startEdit = () => {
+    setName(data.name); setHandle((data.handle || "").replace(/^@/, "")); setSpecialties([...data.specialties]);
+    setTagInput(""); setError(""); setEditing(true);
+  };
+
+  const addTag = (e) => {
+    e.preventDefault();
+    const tag = tagInput.trim();
+    if (tag && !specialties.includes(tag) && specialties.length < 6) setSpecialties(s => [...s, tag]);
+    setTagInput("");
+  };
+
+  const removeTag = (tag) => setSpecialties(s => s.filter(t => t !== tag));
+
+  const save = async (e) => {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try {
+      const res = await vapi.updateProfile({ name, handle, specialties });
+      setData(d => ({ ...d, name: res.name, handle: res.handle, specialties: res.specialties }));
+      setEditing(false);
+    } catch (err) {
+      setError(err.message || "Couldn't save changes");
+    } finally { setBusy(false); }
+  };
 
   return (
     <div className="page">
       <div className="rise" style={{ marginBottom: 22 }}>
-        <div className="card" style={{ padding: "var(--pad-card)", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "center" }}>
-          <VAvatar name={data.name} size={84} ring />
-          <div style={{ minWidth: 0 }}>
-            <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
-              <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
-              <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />Lvl {data.level} · {data.levelName}</span>
+        <div className="card" style={{ padding: "var(--pad-card)" }}>
+          {!editing ? (
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "center" }}>
+              <VAvatar name={data.name} size={84} ring />
+              <div style={{ minWidth: 0 }}>
+                <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+                  <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
+                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />Lvl {data.level} · {data.levelName}</span>
+                </div>
+                <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.specialties.join(" · ")}</p>
+                <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
+                  <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating} · {data.ratingCount} reviews</span>
+                  <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy}% accuracy</span>
+                  <span className="pill"><Icon name="flame" size={14} style={{ color: "var(--vt-proto)" }} />{data.streak}-day streak</span>
+                </div>
+              </div>
+              <button className="btn btn-ghost" onClick={startEdit}><Icon name="edit" />Edit profile</button>
             </div>
-            <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.specialties.join(" · ")}</p>
-            <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
-              <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating} · {data.ratingCount} reviews</span>
-              <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy}% accuracy</span>
-              <span className="pill"><Icon name="flame" size={14} style={{ color: "var(--vt-proto)" }} />{data.streak}-day streak</span>
-            </div>
-          </div>
-          <button className="btn btn-ghost"><Icon name="edit" />Edit profile</button>
+          ) : (
+            <form onSubmit={save} className="col gap-4">
+              {error && <div className="err-banner">{error}</div>}
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Name</label>
+                  <input className="fin" value={name} onChange={e => setName(e.target.value)} required />
+                </div>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Handle</label>
+                  <div className="inw has-pre"><span className="pre">@</span><input className="fin" value={handle} onChange={e => setHandle(e.target.value.replace(/^@/, ""))} placeholder="yourhandle" /></div>
+                </div>
+              </div>
+              <div className="fld">
+                <label>Specialties (up to 6)</label>
+                <div className="row gap-2 wrap" style={{ marginBottom: specialties.length ? 8 : 0 }}>
+                  {specialties.map(tag => (
+                    <span key={tag} className="pill" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {tag}
+                      <button type="button" onClick={() => removeTag(tag)} style={{ display: "flex", border: "none", background: "none", cursor: "pointer", padding: 0, color: "var(--text-muted)" }}><Icon name="x" size={12} /></button>
+                    </span>
+                  ))}
+                </div>
+                {specialties.length < 6 && (
+                  <div className="row gap-2">
+                    <input className="fin" value={tagInput} onChange={e => setTagInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") addTag(e); }} placeholder="Add a specialty and press Enter" />
+                    <button type="button" className="btn btn-quiet" onClick={addTag}>Add</button>
+                  </div>
+                )}
+              </div>
+              <div className="row gap-2">
+                <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "Saving…" : "Save changes"}</button>
+                <button type="button" className="btn btn-quiet" onClick={() => { setEditing(false); setError(""); }}>Cancel</button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
 

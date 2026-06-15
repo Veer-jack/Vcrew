@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { LEVELS, BADGES, EXPERTISE } from "../vmeta.js";
 
@@ -21,4 +22,22 @@ router.get("/", (req, res) => {
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     payoutVpa: v.payout_vpa || null,
   });
+});
+
+// PATCH / { name, handle, specialties }
+router.patch("/", (req, res) => {
+  const v = req.validator;
+  const name = String(req.body?.name ?? v.name).trim();
+  let handle = req.body?.handle === undefined ? v.handle : String(req.body.handle).trim();
+  let specialties = req.body?.specialties === undefined ? JSON.parse(v.specialties_json || "[]") : req.body.specialties;
+
+  if (!name) return res.status(400).json({ error: "Name is required" });
+  if (handle && !handle.startsWith("@")) handle = `@${handle}`;
+  if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
+  specialties = specialties.map(s => String(s).trim()).filter(Boolean).slice(0, 6);
+
+  db.prepare(`UPDATE validators SET name = ?, handle = ?, specialties_json = ? WHERE id = ?`)
+    .run(name, handle || null, JSON.stringify(specialties), v.id);
+
+  res.json({ name, handle: handle || null, specialties });
 });
