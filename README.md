@@ -191,43 +191,46 @@ month (no manual "verified numbers" restriction like Twilio's trial) — suffici
 for testing and early usage. Check the current Firebase pricing page for limits
 beyond that.
 
-## Card payments for wallet top-up (Stripe)
+## Card / UPI payments for wallet top-up (Razorpay)
 
-Builders can add funds to their wallet by card via Stripe Checkout. Like the other
-integrations, it's **hidden until configured** — until then, "Add funds" uses a
-simulated top-up (adds the amount directly, for demo purposes) so the app still
-works without Stripe.
+Builders can add funds to their wallet by card, UPI, netbanking, or wallet via
+Razorpay Checkout. Like the other integrations, it's **hidden until configured** —
+until then, "Add funds" uses a simulated top-up (adds the amount directly, for
+demo purposes) so the app still works without Razorpay.
 
 **What it adds, once configured:**
-- The "Add funds" form shows a **"Pay with card"** button instead of the simulated
-  "Add to wallet" button.
-- Clicking it redirects to a Stripe-hosted Checkout page. After a successful
-  payment, the builder is returned to the Wallet page and the balance updates
-  automatically.
+- The "Add funds" form shows a **"Pay with card / UPI"** button instead of the
+  simulated "Add to wallet" button.
+- Clicking it opens Razorpay's checkout widget (a popup, not a redirect — stays on
+  the Wallet page). After a successful payment, the balance updates automatically.
 
-### Setting up Stripe
+### Setting up Razorpay
 
-1. Sign up at https://dashboard.stripe.com/register (no business verification
-   needed to use test mode).
-2. In the [Stripe Dashboard](https://dashboard.stripe.com/), make sure you're in
-   **Test mode** (toggle in the top-right), then go to **Developers → API keys**.
-3. Copy the **Secret key** (starts with `sk_test_...`).
+1. Sign up at https://dashboard.razorpay.com/signup. Test mode keys are available
+   immediately after signup — no business documents needed yet.
+2. In the [Razorpay Dashboard](https://dashboard.razorpay.com/), make sure you're
+   in **Test Mode** (toggle in the top bar), then go to **Settings → API Keys**.
+3. Click **Generate Test Key** (or **Regenerate** if one already exists). You'll
+   get a **Key ID** (starts with `rzp_test_...`) and a **Key Secret** — copy both
+   (the secret is shown only once).
 4. In Railway → your service → **Variables**, add:
-   - `STRIPE_SECRET_KEY` = the secret key from step 3
-5. Railway redeploys automatically. "Pay with card" now appears on the Wallet page.
+   - `RAZORPAY_KEY_ID` = the Key ID from step 3
+   - `RAZORPAY_KEY_SECRET` = the Key Secret from step 3
+5. Railway redeploys automatically. "Pay with card / UPI" now appears on the
+   Wallet page.
 
 ### Testing payments
 
-Stripe's test mode never charges real money. Use these card numbers on the
-Checkout page:
-- **Success**: `4242 4242 4242 4242`, any future expiry date, any CVC, any ZIP/postal code
-- **Declined**: `4000 0000 0000 0002`
+Razorpay's test mode never charges real money. On the checkout popup:
+- **Card**: `4111 1111 1111 1111`, any future expiry date, any CVC
+- **UPI**: use the UPI option and enter `success@razorpay` as the UPI ID to
+  simulate a successful payment (`failure@razorpay` to simulate a failure)
 
 ### Going live
 
-When ready for real payments, switch the Dashboard out of Test mode, generate a
-**live** secret key (`sk_live_...`), and replace `STRIPE_SECRET_KEY` in Railway —
-this requires completing Stripe's standard business verification (KYC).
+When ready for real payments, complete Razorpay's KYC/business verification from
+the Dashboard, switch out of Test Mode, generate **live** API keys, and replace
+`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` in Railway with the live values.
 
 ## Deploying to Railway
 

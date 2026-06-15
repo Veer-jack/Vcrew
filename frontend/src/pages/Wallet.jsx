@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
 import { Btn, KpiCard, inr, inrK } from "../components/ui";
@@ -12,9 +12,27 @@ const TABS = [
   { k: "methods", l: "Payment methods", ic: "creditCard" },
 ];
 
+const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
+
+function loadRazorpayScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) return resolve();
+    const existing = document.querySelector(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Couldn't load payment widget")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = RAZORPAY_SCRIPT_URL;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Couldn't load payment widget"));
+    document.body.appendChild(script);
+  });
+}
+
 export default function Wallet() {
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
   const { builder, refreshBuilder } = useAuth();
   const [tab, setTab] = useState("transactions");
   const [data, setData] = useState(null);
@@ -25,44 +43,50 @@ export default function Wallet() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [cardsReady, setCardsReady] = useState(false);
-  const [checkingOut, setCheckingOut] = useState(false);
 
   const load = () => api.wallet().then(setData);
   useEffect(() => { load(); }, []);
   useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
 
-  // Returning from Stripe Checkout
-  useEffect(() => {
-    const checkout = params.get("checkout");
-    if (!checkout) return;
-    if (checkout === "success") {
-      const sessionId = params.get("session_id");
-      if (sessionId) {
-        api.confirmCheckout(sessionId)
-          .then(async (res) => {
-            if (res.credited) {
-              setInfo("Payment received — your wallet has been topped up.");
-              await Promise.all([load(), refreshBuilder()]);
-            } else {
-              setError("Payment wasn't completed.");
-            }
-          })
-          .catch(err => setError(err.message || "Couldn't confirm payment"));
-      }
-    } else if (checkout === "cancelled") {
-      setInfo("Checkout was cancelled — no charge was made.");
-    }
-    setParams(p => { p.delete("checkout"); p.delete("session_id"); return p; }, { replace: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const payWithCard = async () => {
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setInfo("");
     try {
-      const res = await api.checkout(Number(amount));
-      window.location.href = res.url;
+      const order = await api.createOrder(Number(amount));
+      await loadRazorpayScript();
+
+      const rzp = new window.Razorpay({
+        key: order.keyId,
+        order_id: order.orderId,
+        amount: order.amount * 100,
+        currency: order.currency,
+        name: "ValidationCrew",
+        description: "Wallet top-up",
+        prefill: { name: builder?.name, email: builder?.email },
+        theme: { color: "#4f46e5" },
+        handler: async (response) => {
+          try {
+            await api.verifyPayment({
+              orderId: response.razorpay_order_id,
+              paymentId: response.razorpay_payment_id,
+              signature: response.razorpay_signature,
+              amount: order.amount,
+            });
+            setInfo("Payment received — your wallet has been topped up.");
+            setAdding(false);
+            await Promise.all([load(), refreshBuilder()]);
+          } catch (err) {
+            setError(err.message || "Couldn't verify payment");
+          } finally {
+            setBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setBusy(false),
+        },
+      });
+      rzp.open();
     } catch (err) {
       setError(err.message || "Couldn't start checkout");
       setBusy(false);
@@ -110,13 +134,13 @@ export default function Wallet() {
               <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             </div>
             {cardsReady ? (
-              <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? "Redirecting…" : "Pay with card"}</Btn>
+              <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? "Opening…" : "Pay with card / UPI"}</Btn>
             ) : (
               <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? "Adding…" : "Add to wallet"}</Btn>
             )}
             <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>Cancel</Btn>
           </div>
-          {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>Card payments aren't set up yet — this adds funds directly for testing.</p>}
+          {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>Online payments aren't set up yet — this adds funds directly for testing.</p>}
         </div>
       )}
       {stepUp && (
