@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { trackPageview } from "./analytics";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { MetaProvider } from "./context/MetaContext";
 import AppLayout from "./components/AppLayout";
@@ -133,9 +135,20 @@ function AdminRoutes() {
   );
 }
 
+/* ---------------- Analytics ---------------- */
+
+function RouteTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageview(location.pathname + location.search);
+  }, [location.pathname, location.search]);
+  return null;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <RouteTracker />
       <Routes>
         <Route path="/validator/*" element={
           <VAuthProvider><VMetaProvider><ValidatorRoutes /></VMetaProvider></VAuthProvider>
