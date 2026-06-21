@@ -5,17 +5,24 @@ import { hashPassword, createSession, destroySession, authMiddleware } from "../
 export const router = Router();
 
 export function publicBuilder(b) {
+  let profile = null;
+  if (b.profile_json) {
+    try { profile = JSON.parse(b.profile_json); } catch { profile = null; }
+  }
   return {
     id: b.id, name: b.name, org: b.org, email: b.email, role: b.role, plan: b.plan,
     color: b.color, balance: b.balance, pending: b.pending, monthSpend: b.month_spend,
     phone: b.phone_verified ? b.phone : null, phoneVerified: !!b.phone_verified,
     designation: b.designation || null, website: b.website || null,
+    persona: b.persona || "founder", profile,
   };
 }
 
 // POST /api/auth/signup — Founder onboarding (self-serve account creation)
+const PERSONA_LABELS = { founder: "Founder", company: "Company", researcher: "Researcher", organization: "Organization" };
+
 router.post("/signup", (req, res) => {
-  const { name, email, password, designation, org, website } = req.body || {};
+  const { name, email, password, designation, org, website, persona, profile } = req.body || {};
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
@@ -25,9 +32,17 @@ router.post("/signup", (req, res) => {
   const existing = db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
   if (existing) return res.status(400).json({ error: "An account with that email already exists" });
 
+  const personaKey = PERSONA_LABELS[persona] ? persona : "founder";
+  let profileJson = null;
+  if (profile && typeof profile === "object") {
+    const serialized = JSON.stringify(profile);
+    if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
+    profileJson = serialized;
+  }
+
   const result = db.prepare(`
-    INSERT INTO builders (name, org, email, password_hash, designation, website, role)
-    VALUES (?, ?, ?, ?, ?, ?, 'Founder')
+    INSERT INTO builders (name, org, email, password_hash, designation, website, role, persona, profile_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     String(name).trim(),
     String(org || "").trim() || String(name).trim(),
@@ -35,6 +50,9 @@ router.post("/signup", (req, res) => {
     hashPassword(password),
     designation ? String(designation).trim() : null,
     website ? String(website).trim() : null,
+    PERSONA_LABELS[personaKey],
+    personaKey,
+    profileJson,
   );
 
   const builder = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(result.lastInsertRowid);

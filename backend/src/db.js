@@ -421,6 +421,12 @@ export function migrate() {
   if (!builderCols.includes("website")) {
     db.exec(`ALTER TABLE builders ADD COLUMN website TEXT`);
   }
+  if (!builderCols.includes("persona")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN persona TEXT DEFAULT 'founder'`);
+  }
+  if (!builderCols.includes("profile_json")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN profile_json TEXT`);
+  }
 }
 
 migrate();

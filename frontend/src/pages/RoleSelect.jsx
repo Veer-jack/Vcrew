@@ -8,17 +8,17 @@ const ROLES = [
     accent: "#4f46e5",
   },
   {
-    key: "company", icon: "building", name: "Company", live: false,
+    key: "company", icon: "building", name: "Company", live: true,
     desc: "Evaluate products, packaging, pricing, brand perception and customer experience.",
     accent: "#0891b2",
   },
   {
-    key: "researcher", icon: "flask", name: "Researcher", live: false,
+    key: "researcher", icon: "flask", name: "Researcher", live: true,
     desc: "Recruit participants for academic, social, healthcare, or scientific research.",
     accent: "#0d9488",
   },
   {
-    key: "organization", icon: "building", name: "Organization", live: false,
+    key: "organization", icon: "building", name: "Organization", live: true,
     desc: "Gather community, policy and programme feedback — impact assessment and awareness studies.",
     accent: "#c2710c",
   },
@@ -32,9 +32,9 @@ export default function RoleSelect() {
       <div className="rise" style={{ width: "100%", maxWidth: 860, textAlign: "center" }}>
         <div className="brand-mark" style={{ margin: "0 auto 18px" }}><Icon name="shield" size={18} /></div>
         <div className="eyebrow" style={{ marginBottom: 10 }}>I need feedback</div>
-        <h1 style={{ fontSize: 26, marginBottom: 8 }}>Which best describes you?</h1>
+        <h1 style={{ fontSize: 26, marginBottom: 8 }}>Pick your role</h1>
         <p className="muted" style={{ marginBottom: 30, fontSize: 14.5 }}>
-          We'll tailor onboarding to how you'll use ValidationCrew.
+          Choose the description that fits you best — we'll tailor every step that follows.
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="role-grid">
