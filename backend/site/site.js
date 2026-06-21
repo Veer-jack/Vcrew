@@ -14,6 +14,24 @@
     onScroll(); window.addEventListener("scroll", onScroll, { passive: true });
   }
 
+  /* nav role dropdowns */
+  const drops = $$("[data-drop]");
+  const closeDrops = (except) => drops.forEach(d => { if (d !== except) { d.classList.remove("open"); const t = $(".nav-dt", d); if (t) t.setAttribute("aria-expanded", "false"); } });
+  drops.forEach(d => {
+    const t = $(".nav-dt", d);
+    let leaveTimer = null;
+    t.addEventListener("click", (e) => {
+      e.preventDefault();
+      const open = d.classList.toggle("open");
+      t.setAttribute("aria-expanded", open ? "true" : "false");
+      closeDrops(d);
+    });
+    d.addEventListener("mouseenter", () => { clearTimeout(leaveTimer); closeDrops(d); d.classList.add("open"); t.setAttribute("aria-expanded", "true"); });
+    d.addEventListener("mouseleave", () => { leaveTimer = setTimeout(() => { d.classList.remove("open"); t.setAttribute("aria-expanded", "false"); }, 120); });
+  });
+  document.addEventListener("click", (e) => { if (!e.target.closest("[data-drop]")) closeDrops(null); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrops(null); });
+
   /* mobile menu */
   const burger = $(".nav-burger"), menu = $(".mobile-menu");
   if (burger && menu) {
@@ -78,9 +96,53 @@
     });
   }
 
-  /* audience count tick in feature section */
-  const audN = $("[data-aud-count]");
-  if (audN) {
+  /* how-it-works: animated process sequence */
+  const stepsEl = $("[data-steps]");
+  if (stepsEl) {
+    const steps = $$(".step", stepsEl);
+    const prog = $(".steps-prog", stepsEl);
+    const dot = $(".steps-dot", stepsEl);
+    const n = steps.length;
+    let idx = 0, timer = null;
+    const paint = () => {
+      steps.forEach((s, i) => { s.classList.toggle("active", i === idx); s.classList.toggle("done", i < idx); });
+      const pct = n > 1 ? (idx / (n - 1)) * 100 : 0;
+      if (prog) prog.style.width = pct + "%";
+      if (dot) dot.style.left = pct + "%";
+    };
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+    const run = () => {
+      if (timer) return;
+      stepsEl.classList.add("run");
+      paint();
+      timer = setInterval(() => { idx = idx >= n - 1 ? 0 : idx + 1; paint(); }, 1300);
+    };
+    if (reduce) { idx = n - 1; stepsEl.classList.add("run"); paint(); }
+    else {
+      const sio = new IntersectionObserver((es) => {
+        es.forEach(e => e.isIntersecting ? run() : stop());
+      }, { threshold: 0.45 });
+      sio.observe(stepsEl);
+    }
+  }
+
+  /* testimonials: auto-cycling spotlight */
+  const tgrid = $(".tgrid");
+  if (tgrid && !reduce) {
+    const cards = $$(".tcard", tgrid);
+    let s = 0, ttimer = null;
+    const spot = () => cards.forEach((c, i) => c.classList.toggle("spot", i === s));
+    const tio = new IntersectionObserver((es) => {
+      es.forEach(e => {
+        if (e.isIntersecting) { spot(); if (!ttimer) ttimer = setInterval(() => { s = (s + 1) % cards.length; spot(); }, 3400); }
+        else if (ttimer) { clearInterval(ttimer); ttimer = null; }
+      });
+    }, { threshold: 0.3 });
+    tio.observe(tgrid);
+  }
+
+  /* audience count tick */
+  $$("[data-aud-count]").forEach(audN => {
     const target = parseInt(audN.dataset.audCount, 10);
     const aio = new IntersectionObserver((es) => {
       es.forEach(e => {
@@ -93,7 +155,7 @@
       });
     }, { threshold: 0.6 });
     aio.observe(audN);
-  }
+  });
 
   /* current year */
   $$("[data-year]").forEach(el => el.textContent = new Date().getFullYear());

@@ -37,31 +37,39 @@
         <div class="avatars">
           <span style="background:#4f46e5">A</span><span style="background:#0f9d6b">M</span><span style="background:#e0890b">R</span><span style="background:#e11d6b">S</span><span style="background:#2563eb">K</span>
         </div>
-        <div class="txt"><b>120,000+ verified humans</b><br>across 40+ countries, ready to validate</div>
+        <div class="txt"><b>12,000+ verified humans</b><br>across 18+ countries, ready to validate</div>
       </div>
     </div>
 
     <div class="hero-media">
-      <div class="map-panel">
-        <canvas data-worldmap="light"></canvas>
-        <div class="map-chip" style="top:14%;left:8%">
-          <span class="av" style="background:#4f46e5">A</span>
-          <span>Aisha · Bengaluru<small>Beauty · matched</small></span>
+      <div class="feed-panel">
+        <div class="feed-head">
+          <span class="feed-title">Validation feed</span>
+          <span class="feed-meta">last 24h</span>
         </div>
-        <div class="map-chip" style="top:30%;right:6%">
-          <span class="av" style="background:#0f9d6b">M</span>
-          <span>Marco · Berlin<small>Dev tools · validating</small></span>
-        </div>
-        <div class="map-chip" style="bottom:24%;left:6%">
-          <span class="av" style="background:#e0890b">L</span>
-          <span>Lin · Singapore<small>AI · 5★ feedback</small></span>
-        </div>
-        <div class="map-count">
-          <div>
-            <div class="n" data-aud-count="2347">2,347</div>
-            <div class="l">humans matched to live requests</div>
+        <div class="feed-view">
+          <div class="feed-fade top"></div>
+          <div class="feed-track">
+            <div class="fcard"><span class="fav" style="background:#4f46e5">A</span><div class="ftx"><b>Aisha · Bengaluru</b><span>Rated your onboarding flow</span></div><span class="frate">★ 5.0</span></div>
+            <div class="fcard"><span class="fav" style="background:#0f9d6b">M</span><div class="ftx"><b>Marco · Berlin</b><span>Notes on your pricing page</span></div><span class="frate">★ 4.5</span></div>
+            <div class="fcard"><span class="fav" style="background:#e0890b">L</span><div class="ftx"><b>Lin · Singapore</b><span>Validated your AI demo</span></div><span class="frate">★ 5.0</span></div>
+            <div class="fcard"><span class="fav" style="background:#e11d6b">D</span><div class="ftx"><b>Diego · Madrid</b><span>Flagged a confusing step</span></div><span class="frate">★ 4.0</span></div>
+            <div class="fcard"><span class="fav" style="background:#2563eb">P</span><div class="ftx"><b>Priya · Mumbai</b><span>Completed a concept test</span></div><span class="frate">★ 5.0</span></div>
+            <div class="fcard"><span class="fav" style="background:#7c3aed">S</span><div class="ftx"><b>Sara · Toronto</b><span>Ranked your packaging</span></div><span class="frate">★ 4.5</span></div>
+            <div class="fcard" aria-hidden="true"><span class="fav" style="background:#4f46e5">A</span><div class="ftx"><b>Aisha · Bengaluru</b><span>Rated your onboarding flow</span></div><span class="frate">★ 5.0</span></div>
+            <div class="fcard" aria-hidden="true"><span class="fav" style="background:#0f9d6b">M</span><div class="ftx"><b>Marco · Berlin</b><span>Notes on your pricing page</span></div><span class="frate">★ 4.5</span></div>
+            <div class="fcard" aria-hidden="true"><span class="fav" style="background:#e0890b">L</span><div class="ftx"><b>Lin · Singapore</b><span>Validated your AI demo</span></div><span class="frate">★ 5.0</span></div>
+            <div class="fcard" aria-hidden="true"><span class="fav" style="background:#e11d6b">D</span><div class="ftx"><b>Diego · Madrid</b><span>Flagged a confusing step</span></div><span class="frate">★ 4.0</span></div>
+            <div class="fcard" aria-hidden="true"><span class="fav" style="background:#2563eb">P</span><div class="ftx"><b>Priya · Mumbai</b><span>Completed a concept test</span></div><span class="frate">★ 5.0</span></div>
+            <div class="fcard" aria-hidden="true"><span class="fav" style="background:#7c3aed">S</span><div class="ftx"><b>Sara · Toronto</b><span>Ranked your packaging</span></div><span class="frate">★ 4.5</span></div>
           </div>
-          <span class="live"><span class="d"></span>LIVE</span>
+          <div class="feed-fade bot"></div>
+        </div>
+        <div class="feed-count">
+          <div>
+            <div class="n" data-aud-count="640">640</div>
+            <div class="l">humans matched to open requests</div>
+          </div>
         </div>
       </div>
     </div>
@@ -169,7 +177,8 @@
       <span class="eyebrow">How ValidationCrew works</span>
       <h2 class="h2">From question to confident decision<br>in five steps.</h2>
     </div>
-    <div class="steps">
+    <div class="steps" data-steps>
+      <div class="steps-track"><span class="steps-prog"></span><span class="steps-dot"></span></div>
       <div class="step reveal"><div class="num">1</div><b>Create a request</b><p>Describe what you're validating and what a great answer looks like.</p></div>
       <div class="step reveal d1"><div class="num">2</div><b>Define your audience</b><p>Layer filters to reach exactly the right humans.</p></div>
       <div class="step reveal d2"><div class="num">3</div><b>Get real feedback</b><p>Matched humans complete your mission, fast.</p></div>
@@ -197,7 +206,7 @@
         </div>
         <div class="aud-result">
           <span class="ri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.9"/></svg></span>
-          <div><div class="n"><span data-aud-count="2347">2,347</span></div><div class="l">matching humans found · ready now</div></div>
+          <div><div class="n"><span data-aud-count="340">340</span></div><div class="l">matching humans found · ready now</div></div>
         </div>
       </div>
     </div>
@@ -253,7 +262,7 @@
           </tr>
           <tr>
             <td>Global reach</td>
-            <td class="us"><span class="yes">40+ countries</span></td>
+            <td class="us"><span class="yes">18+ countries</span></td>
             <td><span class="partial">Regional</span></td>
             <td><span class="partial">Panel-limited</span></td>
             <td><span class="partial">Ad-hoc</span></td>
@@ -384,10 +393,10 @@
       <canvas data-worldmap="dark" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
     </div>
     <div class="stat-row">
-      <div class="stat reveal"><div class="n"><span data-count="120000" data-suffix="+">0</span></div><div class="l">Verified humans</div></div>
-      <div class="stat reveal d1"><div class="n"><span data-count="40" data-suffix="+">0</span></div><div class="l">Countries</div></div>
-      <div class="stat reveal d2"><div class="n"><span data-count="1200" data-suffix="+">0</span></div><div class="l">Cities</div></div>
-      <div class="stat reveal d3"><div class="n"><span data-count="60" data-suffix="+">0</span></div><div class="l">Industries & domains</div></div>
+      <div class="stat reveal"><div class="n"><span data-count="12000" data-suffix="+">0</span></div><div class="l">Verified humans</div></div>
+      <div class="stat reveal d1"><div class="n"><span data-count="18" data-suffix="+">0</span></div><div class="l">Countries</div></div>
+      <div class="stat reveal d2"><div class="n"><span data-count="300" data-suffix="+">0</span></div><div class="l">Cities</div></div>
+      <div class="stat reveal d3"><div class="n"><span data-count="35" data-suffix="+">0</span></div><div class="l">Industries & domains</div></div>
     </div>
   </div>
 </section>
