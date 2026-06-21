@@ -314,3 +314,77 @@ textarea.field::placeholder { color: var(--text-faint); }
   .wiz-content { padding: 20px 16px; max-width: 100%; }
 }
 
+/* ===== Redesigned split-screen login / signup ===== */
+.asplit { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+.asplit-brand {
+  background: linear-gradient(155deg, var(--panel) 0%, var(--bg) 100%);
+  border-right: var(--hairline) solid var(--border);
+  padding: 56px 56px 40px; display: flex; flex-direction: column; justify-content: center;
+}
+.asplit-brand-logo { margin-bottom: 36px; }
+.asplit-headline { font-size: 34px; font-weight: 800; letter-spacing: -.025em; line-height: 1.12; margin: 0 0 14px; }
+.asplit-sub { font-size: 14.5px; color: var(--text-muted); line-height: 1.6; max-width: 440px; margin: 0 0 32px; }
+.asplit-values { display: flex; flex-direction: column; gap: 18px; margin-bottom: 32px; }
+.asplit-value { display: flex; gap: 13px; align-items: flex-start; }
+.asplit-value-ic {
+  width: 36px; height: 36px; border-radius: 10px; flex: none; display: grid; place-items: center;
+  background: var(--accent-weak); color: var(--accent);
+}
+.asplit-value b { display: block; font-size: 13.5px; margin-bottom: 2px; }
+.asplit-value p { font-size: 12.5px; color: var(--text-faint); margin: 0; line-height: 1.5; }
+.asplit-stats { display: flex; gap: 26px; padding-top: 24px; border-top: var(--hairline) solid var(--border); }
+.asplit-stat b { display: block; font-family: var(--mono); font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+.asplit-stat span { font-size: 11px; color: var(--text-faint); }
+.asplit-proof { margin-top: 18px; font-size: 11.5px; color: var(--text-faint); }
+
+.asplit-form-col { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+.asplit-form { width: 100%; max-width: 420px; }
+.asplit-tabs { display: flex; border: var(--hairline) solid var(--border); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 24px; }
+.asplit-tabs button {
+  flex: 1; padding: 9px 0; border: none; background: none; border-radius: 7px; font-family: inherit;
+  font-weight: 700; font-size: 13.5px; color: var(--text-faint); cursor: pointer; transition: background .14s, color .14s;
+}
+.asplit-tabs button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow-sm); }
+
+.sso-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sso-grid .btn { width: 100%; justify-content: center; }
+.sso-grid .full { grid-column: 1 / -1; }
+
+.method-tabs { display: flex; gap: 18px; margin: 18px 0 16px; border-bottom: var(--hairline) solid var(--border); }
+.method-tab {
+  position: relative; padding: 0 0 11px; background: none; border: none; font-family: inherit;
+  font-weight: 700; font-size: 13.5px; color: var(--text-faint); display: flex; align-items: center; gap: 7px; cursor: pointer;
+}
+.method-tab svg { width: 15px; height: 15px; }
+.method-tab.on { color: var(--text); }
+.method-tab.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); }
+
+.phone-row { display: flex; gap: 8px; }
+.cc-select {
+  flex: none; max-width: 140px; padding: 12px 26px 12px 13px; font-family: inherit; font-size: 14px; font-weight: 600;
+  color: var(--text); background: var(--panel-inset); border: var(--hairline) solid var(--border); border-radius: var(--radius-sm);
+  outline: none; appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+.phone-row .fin { flex: 1; }
+
+.otp-row { display: flex; gap: 9px; margin-bottom: 10px; }
+.otp-box {
+  flex: 1; min-width: 0; text-align: center; padding: 13px 0; font-family: var(--mono); font-size: 21px; font-weight: 600;
+  color: var(--text); background: var(--panel-inset); border: var(--hairline) solid var(--border); border-radius: var(--radius-sm);
+  outline: none; transition: border-color .12s, box-shadow .12s;
+}
+.otp-box:focus { border-color: var(--accent); box-shadow: var(--ring); }
+.otp-box.filled { border-color: var(--border-strong); }
+.resend-row { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--text-faint); margin: 6px 0 4px; }
+.resend-row button { background: none; border: none; font-family: inherit; color: var(--accent); font-weight: 600; cursor: pointer; }
+.resend-row button:disabled { color: var(--text-faint); cursor: default; }
+
+.asplit-cross { text-align: center; margin-top: 22px; font-size: 12.5px; color: var(--text-faint); }
+.asplit-cross a { color: var(--accent); font-weight: 600; }
+.asplit-foot { text-align: center; margin-top: 16px; font-size: 11px; color: var(--text-faint); line-height: 1.5; }
+
+@media (max-width: 900px) {
+  .asplit { grid-template-columns: 1fr; }
+  .asplit-brand { display: none; }
+}
+

@@ -56,6 +56,32 @@ router.post("/signup", (req, res) => {
   );
 
   const builder = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(result.lastInsertRowid);
+
+  // Surface the onboarding wizard's "Verify" step submissions as real,
+  // admin-reviewable queue items. The wizard only records a claim (it doesn't
+  // fake instant verification) -- this is what turns that claim into
+  // something an operator can actually act on.
+  if (profile && typeof profile === "object") {
+    const claims = [
+      { field: "vWebsiteInput", kind: "website" },
+      { field: "vCompanyInput", kind: "linkedin" },
+      { field: "gst", kind: "registry" },
+      { field: "taxId", kind: "registry" },
+      { field: "regNo", kind: "registry" },
+      { field: "researchProfile", kind: "academic" },
+      { field: "govAffiliation", kind: "registry" },
+    ];
+    const insertVerif = db.prepare(`
+      INSERT INTO verifications (builder_id, kind, subject, note) VALUES (?, ?, ?, ?)
+    `);
+    for (const { field, kind } of claims) {
+      const value = profile[field];
+      if (value && String(value).trim()) {
+        insertVerif.run(builder.id, kind, String(value).trim(), `Submitted at signup (${personaKey})`);
+      }
+    }
+  }
+
   const token = createSession(builder.id);
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });

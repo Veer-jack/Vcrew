@@ -19,6 +19,30 @@ function publicValidator(v) {
   };
 }
 
+router.post("/signup", (req, res) => {
+  const { name, email, password, expertise } = req.body || {};
+
+  if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
+  if (!password || String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const existing = db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
+  if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+
+  const specialties = expertise && String(expertise).trim() ? [String(expertise).trim()] : [];
+  const handle = "@" + String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+  const result = db.prepare(`
+    INSERT INTO validators (name, handle, email, password_hash, specialties_json)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(String(name).trim(), handle, normalizedEmail, hashPassword(password), JSON.stringify(specialties));
+
+  const v = db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
+  const token = createValidatorSession(v.id);
+  res.status(201).json({ token, validator: publicValidator(v) });
+});
+
 router.post("/login", (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
+import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAAuth } from "../acontext/AAuthContext";
 
@@ -71,7 +72,7 @@ export default function ALogin() {
   return (
     <div className="auth-shell">
       <div className="card auth-card rise">
-        <div className="brand-mark" style={{ marginBottom: 14 }}><Icon name="shield" size={18} /></div>
+        <div style={{ marginBottom: 14 }}><BrandMark size={40} /></div>
 
         {stage === "credentials" && (
           <>

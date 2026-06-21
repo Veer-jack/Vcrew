@@ -59,4 +59,12 @@ export const aapi = {
 
   withdrawals: () => request("/withdrawals"),
   updateWithdrawal: (id, body) => request(`/withdrawals/${id}`, { method: "PATCH", body }),
+
+  verifications: (status) => request("/verifications", { query: { status } }),
+  updateVerification: (id, status) => request(`/verifications/${id}`, { method: "PATCH", body: { status } }),
+
+  moderationMissions: (filter) => request("/missions", { query: { filter } }),
+  updateMissionModeration: (id, body) => request(`/missions/${id}`, { method: "PATCH", body }),
+
+  analytics: () => request("/analytics"),
 };

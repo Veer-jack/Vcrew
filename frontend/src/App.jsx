@@ -40,8 +40,11 @@ import ALayout from "./acomponents/ALayout";
 import ALogin from "./apages/ALogin";
 import ADashboard from "./apages/ADashboard";
 import AMembers from "./apages/AMembers";
+import AVerification from "./apages/AVerification";
+import AMissionReview from "./apages/AMissionReview";
 import ASupport from "./apages/ASupport";
 import AWithdrawals from "./apages/AWithdrawals";
+import AAnalytics from "./apages/AAnalytics";
 
 /* ---------------- Builder (existing) ---------------- */
 
@@ -133,8 +136,11 @@ function AdminRoutes() {
       <Route element={<RequireAAuth><ALayout /></RequireAAuth>}>
         <Route index element={<ADashboard />} />
         <Route path="members" element={<AMembers />} />
+        <Route path="verification" element={<AVerification />} />
+        <Route path="mission-review" element={<AMissionReview />} />
         <Route path="support" element={<ASupport />} />
         <Route path="withdrawals" element={<AWithdrawals />} />
+        <Route path="analytics" element={<AAnalytics />} />
       </Route>
       <Route path="*" element={<Navigate to="/admin" replace />} />
     </Routes>

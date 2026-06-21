@@ -1,38 +1,55 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
+import { BrandMark } from "../components/BrandMark";
 import { Avatar } from "../components/ui";
 import { useAAuth } from "../acontext/AAuthContext";
-
-const NAV = [
-  { to: "/admin", label: "Control center", icon: "home", end: true },
-  { to: "/admin/members", label: "Members", icon: "users" },
-  { to: "/admin/support", label: "Support", icon: "life" },
-  { to: "/admin/withdrawals", label: "Withdrawals", icon: "wallet" },
-];
-
-const TITLES = {
-  "/admin": "Control center", "/admin/members": "Members", "/admin/support": "Support tickets", "/admin/withdrawals": "Withdrawals",
-};
+import { aapi } from "../aapi/client";
 
 export default function ALayout() {
   const { logout } = useAAuth();
   const [mobOpen, setMobOpen] = useState(false);
+  const [counts, setCounts] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    aapi.dashboard().then(d => setCounts({
+      pendingVerifications: d.pendingVerifications,
+      flaggedMissions: d.flaggedMissions,
+      withdrawalQueue: d.withdrawalQueue,
+      openTickets: d.openTickets,
+    })).catch(() => {});
+  }, [location.pathname]);
+
+  const NAV = [
+    { to: "/admin", label: "Control center", icon: "home", end: true },
+    { to: "/admin/members", label: "Members", icon: "users" },
+    { to: "/admin/verification", label: "Verification", icon: "shield", count: counts.pendingVerifications },
+    { to: "/admin/mission-review", label: "Mission review", icon: "layers", count: counts.flaggedMissions },
+    { to: "/admin/withdrawals", label: "Revenue & payouts", icon: "wallet", count: counts.withdrawalQueue },
+    { to: "/admin/analytics", label: "Analytics", icon: "chart" },
+    { to: "/admin/support", label: "Support", icon: "life", count: counts.openTickets },
+  ];
+  const TITLES = {
+    "/admin": "Control center", "/admin/members": "Members", "/admin/verification": "Verification queue",
+    "/admin/mission-review": "Mission review", "/admin/withdrawals": "Revenue & payouts",
+    "/admin/analytics": "Analytics", "/admin/support": "Support tickets",
+  };
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
       <div className="mob-scrim" onClick={() => setMobOpen(false)} />
       <aside className="side">
         <div className="brand">
-          <div className="brand-mark"><Icon name="shield" size={18} /></div>
+          <BrandMark size={32} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">Admin console</div></div>
         </div>
         {NAV.map(it => (
           <NavLink key={it.to} to={it.to} end={it.end} onClick={() => setMobOpen(false)}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
             <Icon name={it.icon} />{it.label}
+            {!!it.count && <span className="nav-count">{it.count}</span>}
           </NavLink>
         ))}
         <div className="side-foot">

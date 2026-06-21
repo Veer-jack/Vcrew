@@ -69,7 +69,7 @@ function Sidebar({ mobOpen, closeMobile, builder }) {
   return (
     <aside className="side">
       <div className="brand">
-        <div className="brand-mark"><Icon name="shield" size={18} /></div>
+        <BrandMark size={32} />
         <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{builder?.org}</div></div>
       </div>
       <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>Create Mission</Btn>

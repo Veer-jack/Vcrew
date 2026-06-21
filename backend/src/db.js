@@ -438,6 +438,32 @@ export function migrate() {
   if (!builderCols.includes("profile_json")) {
     db.exec(`ALTER TABLE builders ADD COLUMN profile_json TEXT`);
   }
+
+  // ---- Admin: verification queue ----
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS verifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      subject TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      note TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      reviewed_at TEXT
+    );
+  `);
+
+  // ---- Admin: mission flagging (post-publish moderation, not a pre-publish gate) ----
+  const missionCols = db.prepare(`PRAGMA table_info(missions)`).all().map(c => c.name);
+  if (!missionCols.includes("flagged")) {
+    db.exec(`ALTER TABLE missions ADD COLUMN flagged INTEGER DEFAULT 0`);
+  }
+  if (!missionCols.includes("flag_reason")) {
+    db.exec(`ALTER TABLE missions ADD COLUMN flag_reason TEXT`);
+  }
+  if (!missionCols.includes("flagged_at")) {
+    db.exec(`ALTER TABLE missions ADD COLUMN flagged_at TEXT`);
+  }
 }
 
 migrate();

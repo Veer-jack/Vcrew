@@ -1,107 +1,46 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import Icon from "../components/Icon";
-import { Btn } from "../components/ui";
-import { PROVIDER_META, PROVIDER_ICONS } from "../components/SocialIcons";
-import PhoneLoginForm from "../components/PhoneLoginForm";
+import AuthSplitScreen from "../components/auth/AuthSplitScreen";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi, setVToken } from "../vapi/client";
 
+const COPY = {
+  headline: "Get paid for sharp product feedback.",
+  sub: "Founders need real signal before they ship. Bring your taste and expertise, run structured validations, and earn for every high-signal review — on your own schedule.",
+  values: [
+    { icon: "coin", title: "Earn ₹70–₹220 per task", desc: "Clear payouts per validation. The sharper your feedback, the higher-paying the tasks you unlock." },
+    { icon: "clock", title: "Work whenever you want", desc: "No quotas, no meetings. Pick tasks that match your expertise and finish them in minutes." },
+    { icon: "target", title: "Build a reputation that pays", desc: "Accuracy is scored. Climb from Verified to Elite and get matched to premium campaigns." },
+  ],
+  stats: [["₹41k", "top monthly earner"], ["2,400", "active validators"], ["4.9★", "avg validator rating"]],
+  proof: "Validators from Google, Stripe, indie studios & 40+ countries",
+  signupTitle: "Start earning", signupSub: "Create your validator profile in minutes.",
+  signinSub: "Sign in to pick up validation tasks.",
+  field2Label: "Primary expertise", field2Placeholder: "AI products, B2B SaaS", field2Error: "Add at least one area of expertise",
+  emailHint: undefined,
+  crossText: "Here to build, not earn?", crossLabel: "Founder sign in",
+  foot: "Your identity stays private to founders. We only share your expertise tags and feedback quality.",
+};
+
 export default function VLogin() {
-  const { login, refresh } = useVAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [email, setEmail] = useState("riya@validationcrew.app");
-  const [password, setPassword] = useState("password123");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [providers, setProviders] = useState({});
-  const [smsReady, setSmsReady] = useState(false);
-  const [mode, setMode] = useState("password"); // 'password' | 'phone'
+  const { setValidator } = useVAuth();
 
-  useEffect(() => {
-    vapi.oauthProviders().then(d => setProviders(d.providers)).catch(() => {});
-    vapi.firebaseConfig().then(d => setSmsReady(!!d.configured)).catch(() => {});
-    const params = new URLSearchParams(location.search);
-    const oauthError = params.get("error");
-    if (oauthError) setError(oauthError);
-  }, [location.search]);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError(""); setBusy(true);
-    try {
-      await login(email, password);
-      navigate(location.state?.from || "/validator", { replace: true });
-    } catch (err) {
-      setError(err.message || "Couldn't sign in");
-    } finally {
-      setBusy(false);
-    }
+  const adapter = {
+    oauthProviders: () => vapi.oauthProviders(),
+    oauthBasePath: "/api/v/auth/oauth",
+    firebaseConfig: () => vapi.firebaseConfig(),
+    phoneLoginVerify: (idToken) => vapi.phoneLoginVerify(idToken),
+    login: (email, password) => vapi.login(email, password).then(({ token, validator }) => { setVToken(token); setValidator(validator); }),
+    signup: ({ name, org, email, password }) => vapi.signup({ name, expertise: org, email, password }).then(({ token, validator }) => { setVToken(token); setValidator(validator); }),
+    userKey: "validator",
+    onAuthed: (token, validator) => { setVToken(token); setValidator(validator); },
   };
-
-  const onOtpSuccess = async (token) => {
-    setVToken(token);
-    await refresh();
-    navigate(location.state?.from || "/validator", { replace: true });
-  };
-
-  const activeProviders = Object.entries(providers).filter(([, on]) => on);
 
   return (
-    <div className="auth-shell">
-      <div className="card auth-card rise">
-        <div className="brand-mark" style={{ marginBottom: 14 }}><Icon name="shield" size={18} /></div>
-        <h1>Welcome back</h1>
-        <p className="muted" style={{ margin: "0 0 22px", fontSize: 14 }}>Sign in to your ValidationCrew validator account.</p>
-        {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-
-        {activeProviders.length > 0 && (
-          <div className="col gap-3" style={{ marginBottom: 18 }}>
-            {activeProviders.map(([key]) => {
-              const meta = PROVIDER_META[key];
-              const Mark = PROVIDER_ICONS[key];
-              return (
-                <a key={key} href={`/api/v/auth/oauth/${key}`} className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", gap: 10 }}>
-                  {Mark ? <Mark size={18} /> : null}
-                  Continue with {meta?.label || key}
-                </a>
-              );
-            })}
-            <div className="row gap-3" style={{ alignItems: "center", margin: "6px 0" }}>
-              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              <span className="faint" style={{ fontSize: 12 }}>or</span>
-              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            </div>
-          </div>
-        )}
-
-        {mode === "password" ? (
-          <form onSubmit={submit} className="col gap-4">
-            <div className="fld">
-              <label>Email</label>
-              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com" required />
-            </div>
-            <div className="fld">
-              <label>Password</label>
-              <input className="fin" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
-            </div>
-            <Btn type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Btn>
-          </form>
-        ) : (
-          <PhoneLoginForm client={vapi} userKey="validator" onSuccess={onOtpSuccess} />
-        )}
-
-        {smsReady && (
-          <button className="backlink" style={{ margin: "16px auto 0" }} onClick={() => { setMode(m => m === "password" ? "phone" : "password"); setError(""); }}>
-            {mode === "password" ? "Sign in with phone instead" : "Sign in with email and password"}
-          </button>
-        )}
-
-        <p className="faint" style={{ marginTop: 18, fontSize: 12.5 }}>
-          Demo account — riya@validationcrew.app / password123
-        </p>
-      </div>
-    </div>
+    <AuthSplitScreen
+      role="validator"
+      copy={COPY}
+      adapter={adapter}
+      homePath="/validator"
+      otherRole={{ href: "/login", label: "Founder sign in →" }}
+    />
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
+import { BrandMark } from "../components/BrandMark";
 import { VAvatar } from "./vui";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
@@ -86,7 +87,7 @@ export default function VLayout() {
       <div className="mob-scrim" onClick={() => setMobOpen(false)} />
       <aside className="side">
         <div className="brand">
-          <div className="brand-mark"><Icon name="shield" size={18} /></div>
+          <BrandMark size={32} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">Validator</div></div>
         </div>
         {NAV.map(it => (

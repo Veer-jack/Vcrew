@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
+import { BrandMark } from "../components/BrandMark";
 import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
@@ -281,7 +282,7 @@ export default function CreateMissionWizard() {
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
         <div className="wz-brand">
-          <div className="brand-mark"><Icon name="shield" size={18} /></div>
+          <BrandMark size={32} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">New mission</div></div>
         </div>
         <div className="wz-steps">

@@ -91,11 +91,15 @@ router.get("/dashboard", (req, res) => {
     SELECT (SELECT COUNT(*) FROM builders WHERE status = 'suspended') + (SELECT COUNT(*) FROM validators WHERE status = 'suspended') AS n
   `).get().n;
 
+  const pendingVerifications = db.prepare(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`).get().n;
+  const flaggedMissions = db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get().n;
+
   res.json({
     builders, validators, totalUsers: builders + validators,
     activeMissions, totalMissions, gmv, spend,
     openTickets, suspended,
     withdrawalQueue: withdrawalQueue.n, withdrawalQueueAmount: withdrawalQueue.amt,
+    pendingVerifications, flaggedMissions,
   });
 });
 
@@ -205,4 +209,92 @@ router.patch("/withdrawals/:id", (req, res) => {
   }
 
   res.json({ ok: true });
+});
+
+/* ============ Verification queue ============ */
+
+router.get("/verifications", (req, res) => {
+  const status = req.query.status || "pending";
+  const rows = db.prepare(`
+    SELECT v.*, b.name AS builder_name, b.org, b.email, b.persona
+    FROM verifications v JOIN builders b ON b.id = v.builder_id
+    WHERE v.status = ? ORDER BY v.created_at ASC
+  `).all(status);
+  res.json({ verifications: rows.map(v => ({
+    id: v.id, builderId: v.builder_id, builderName: v.builder_name, org: v.org, email: v.email,
+    persona: v.persona, kind: v.kind, subject: v.subject, status: v.status, note: v.note,
+    createdAt: v.created_at, reviewedAt: v.reviewed_at,
+  })) });
+});
+
+router.patch("/verifications/:id", (req, res) => {
+  const status = String(req.body?.status || "");
+  if (!["approved", "rejected"].includes(status)) return res.status(400).json({ error: "status must be 'approved' or 'rejected'" });
+
+  const row = db.prepare(`SELECT * FROM verifications WHERE id = ?`).get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  db.prepare(`UPDATE verifications SET status = ?, reviewed_at = datetime('now') WHERE id = ?`).run(status, req.params.id);
+  res.json({ ok: true, status });
+});
+
+/* ============ Mission moderation (post-publish flagging, not a pre-publish gate) ============ */
+
+router.get("/missions", (req, res) => {
+  const filter = req.query.filter || "flagged"; // 'flagged' | 'all'
+  const where = filter === "flagged" ? "WHERE m.flagged = 1" : "";
+  const rows = db.prepare(`
+    SELECT m.*, b.name AS builder_name, b.org
+    FROM missions m JOIN builders b ON b.id = m.builder_id
+    ${where} ORDER BY m.flagged DESC, m.created_at DESC LIMIT 200
+  `).all();
+  res.json({ missions: rows.map(m => ({
+    id: m.id, name: m.name, builderName: m.builder_name, org: m.org, category: m.category,
+    status: m.status, flagged: !!m.flagged, flagReason: m.flag_reason, flaggedAt: m.flagged_at,
+    rewardAmount: m.reward_amount, joined: m.joined, target: m.target, createdAt: m.created_at,
+  })) });
+});
+
+// PATCH /api/admin/missions/:id { action: 'flag'|'unflag'|'remove', reason? }
+router.patch("/missions/:id", (req, res) => {
+  const { action, reason } = req.body || {};
+  const row = db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!row) return res.status(404).json({ error: "Not found" });
+
+  if (action === "flag") {
+    db.prepare(`UPDATE missions SET flagged = 1, flag_reason = ?, flagged_at = datetime('now') WHERE id = ?`)
+      .run(reason ? String(reason).trim() : null, req.params.id);
+  } else if (action === "unflag") {
+    db.prepare(`UPDATE missions SET flagged = 0, flag_reason = NULL, flagged_at = NULL WHERE id = ?`).run(req.params.id);
+  } else if (action === "remove") {
+    db.prepare(`UPDATE missions SET status = 'removed', flagged = 0 WHERE id = ?`).run(req.params.id);
+  } else {
+    return res.status(400).json({ error: "action must be 'flag', 'unflag', or 'remove'" });
+  }
+  res.json({ ok: true });
+});
+
+/* ============ Platform analytics ============ */
+
+router.get("/analytics", (req, res) => {
+  // Last 12 months of real signup/mission growth, grouped from actual timestamps.
+  const months = db.prepare(`
+    WITH RECURSIVE seq(n) AS (SELECT 0 UNION ALL SELECT n+1 FROM seq WHERE n < 11)
+    SELECT strftime('%Y-%m', date('now', '-' || n || ' months')) AS ym FROM seq ORDER BY ym ASC
+  `).all().map(r => r.ym);
+
+  const userGrowth = months.map((ym) => {
+    const b = db.prepare(`SELECT COUNT(*) AS n FROM builders WHERE strftime('%Y-%m', created_at) <= ?`).get(ym).n;
+    const v = db.prepare(`SELECT COUNT(*) AS n FROM validators WHERE strftime('%Y-%m', created_at) <= ?`).get(ym).n;
+    return b + v;
+  });
+  const missionGrowth = months.map(ym => db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE strftime('%Y-%m', created_at) <= ?`).get(ym).n);
+  const revenueByMonth = months.map(ym => db.prepare(`
+    SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit' AND strftime('%Y-%m', created_at) <= ?
+  `).get(ym).n);
+
+  const byCategory = db.prepare(`SELECT category, COUNT(*) AS n FROM missions GROUP BY category ORDER BY n DESC`).all();
+  const byPersona = db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
+
+  res.json({ months, userGrowth, missionGrowth, revenueByMonth, byCategory, byPersona });
 });

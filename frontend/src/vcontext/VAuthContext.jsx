@@ -22,6 +22,13 @@ export function VAuthProvider({ children }) {
     return validator;
   };
 
+  const signup = async (payload) => {
+    const { token, validator } = await vapi.signup(payload);
+    setVToken(token);
+    setValidator(validator);
+    return validator;
+  };
+
   const logout = async () => {
     try { await vapi.logout(); } catch { /* ignore */ }
     setVToken(null);
@@ -35,7 +42,7 @@ export function VAuthProvider({ children }) {
   };
 
   return (
-    <VAuthContext.Provider value={{ validator, setValidator, loading, login, logout, refresh }}>
+    <VAuthContext.Provider value={{ validator, setValidator, loading, login, signup, logout, refresh }}>
       {children}
     </VAuthContext.Provider>
   );

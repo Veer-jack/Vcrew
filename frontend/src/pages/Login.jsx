@@ -1,110 +1,47 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import Icon from "../components/Icon";
-import { Btn } from "../components/ui";
-import { PROVIDER_META, PROVIDER_ICONS } from "../components/SocialIcons";
-import PhoneLoginForm from "../components/PhoneLoginForm";
+import AuthSplitScreen from "../components/auth/AuthSplitScreen";
 import { useAuth } from "../context/AuthContext";
 import { api, setToken } from "../api/client";
 
+const COPY = {
+  headline: "Know it's good before you ship it.",
+  sub: "AI made building easy — validation is the new bottleneck. Put your idea, page, prototype, MVP or AI product in front of real, vetted people and get a clear answer in days.",
+  values: [
+    { icon: "bolt", title: "Real users in 24–72 hours", desc: "Skip the LinkedIn guesswork. Get structured feedback from people who match your audience." },
+    { icon: "users", title: "Vetted, niche validators", desc: "AI builders judge AI products. PMs judge PMs. Quality is scored, not random." },
+    { icon: "chart", title: "One clear readiness score", desc: "Every campaign returns a synthesized report with a launch-readiness score — not a pile of raw notes." },
+  ],
+  stats: [["12,400+", "validations run"], ["2,400", "vetted validators"], ["4.9★", "avg signal rating"]],
+  proof: "Founders from Ramp, Linear, Vercel & 600+ teams",
+  signupTitle: "Start validating", signupSub: "Launch your first campaign in minutes.",
+  signinSub: "Sign in to manage your validation campaigns.",
+  field2Label: "Company / product", field2Placeholder: "Helix Labs", field2Error: "Add your company or product",
+  emailHint: "use your company domain",
+  crossText: "Here to earn, not build?", crossLabel: "Validator sign in",
+  foot: "Protected by SOC 2-grade security. We never share your idea with anyone outside your matched validators.",
+};
+
 export default function Login() {
-  const { login, refreshBuilder } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [email, setEmail] = useState("aarav@kettleand.co");
-  const [password, setPassword] = useState("password123");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [providers, setProviders] = useState({});
-  const [smsReady, setSmsReady] = useState(false);
-  const [mode, setMode] = useState("password"); // 'password' | 'phone'
+  const { setBuilder } = useAuth();
 
-  useEffect(() => {
-    api.oauthProviders().then(d => setProviders(d.providers)).catch(() => {});
-    api.firebaseConfig().then(d => setSmsReady(!!d.configured)).catch(() => {});
-    const params = new URLSearchParams(location.search);
-    const oauthError = params.get("error");
-    if (oauthError) setError(oauthError);
-  }, [location.search]);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError(""); setBusy(true);
-    try {
-      await login(email, password);
-      navigate(location.state?.from || "/", { replace: true });
-    } catch (err) {
-      setError(err.message || "Couldn't sign in");
-    } finally {
-      setBusy(false);
-    }
+  const adapter = {
+    oauthProviders: () => api.oauthProviders(),
+    oauthBasePath: "/api/auth/oauth",
+    firebaseConfig: () => api.firebaseConfig(),
+    phoneLoginVerify: (idToken) => api.phoneLoginVerify(idToken),
+    login: (email, password) => api.login(email, password).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
+    signup: ({ name, org, email, password }) => api.signup({ name, org, email, password, persona: "founder" }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
+    userKey: "builder",
+    onAuthed: (token, builder) => { setToken(token); setBuilder(builder); },
   };
-
-  const onOtpSuccess = async (token) => {
-    setToken(token);
-    await refreshBuilder();
-    navigate(location.state?.from || "/", { replace: true });
-  };
-
-  const activeProviders = Object.entries(providers).filter(([, on]) => on);
 
   return (
-    <div className="auth-shell">
-      <div className="card auth-card rise">
-        <div className="brand-mark" style={{ marginBottom: 14 }}><Icon name="shield" size={18} /></div>
-        <h1>Welcome back</h1>
-        <p className="muted" style={{ margin: "0 0 22px", fontSize: 14 }}>Sign in to your ValidationCrew builder workspace.</p>
-        {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-
-        {activeProviders.length > 0 && (
-          <div className="col gap-3" style={{ marginBottom: 18 }}>
-            {activeProviders.map(([key]) => {
-              const meta = PROVIDER_META[key];
-              const Mark = PROVIDER_ICONS[key];
-              return (
-                <a key={key} href={`/api/auth/oauth/${key}`} className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", gap: 10 }}>
-                  {Mark ? <Mark size={18} /> : null}
-                  Continue with {meta?.label || key}
-                </a>
-              );
-            })}
-            <div className="row gap-3" style={{ alignItems: "center", margin: "6px 0" }}>
-              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              <span className="faint" style={{ fontSize: 12 }}>or</span>
-              <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            </div>
-          </div>
-        )}
-
-        {mode === "password" ? (
-          <form onSubmit={submit} className="col gap-4">
-            <div className="fld">
-              <label>Email</label>
-              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" required />
-            </div>
-            <div className="fld">
-              <label>Password</label>
-              <input className="fin" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
-            </div>
-            <Btn type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Btn>
-          </form>
-        ) : (
-          <PhoneLoginForm client={api} userKey="builder" onSuccess={onOtpSuccess} />
-        )}
-
-        {smsReady && (
-          <button className="backlink" style={{ margin: "16px auto 0" }} onClick={() => { setMode(m => m === "password" ? "phone" : "password"); setError(""); }}>
-            {mode === "password" ? "Sign in with phone instead" : "Sign in with email and password"}
-          </button>
-        )}
-
-        <p className="faint" style={{ marginTop: 18, fontSize: 12.5 }}>
-          Demo account — aarav@kettleand.co / password123
-        </p>
-        <p className="faint" style={{ marginTop: 8, fontSize: 12.5 }}>
-          New to ValidationCrew? <a href="/get-started">Create an account</a>
-        </p>
-      </div>
-    </div>
+    <AuthSplitScreen
+      role="founder"
+      copy={COPY}
+      adapter={adapter}
+      homePath="/"
+      otherRole={{ href: "/validator/login", label: "Validator sign in →" }}
+      signupHref="/get-started"
+    />
   );
 }

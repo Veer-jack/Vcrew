@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
+import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { PERSONA_CONFIG } from "../data/personaConfig";
@@ -139,7 +140,7 @@ export default function OnboardingWizard() {
   return (
     <div className="wiz-shell">
       <header className="wiz-top">
-        <div className="brand-mark" style={{ width: 32, height: 32 }}><Icon name="shield" size={16} /></div>
+        <BrandMark size={28} />
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
         <span className="pill" style={{ marginLeft: 10 }}>{persona.name}</span>
         <div style={{ flex: 1 }} />
