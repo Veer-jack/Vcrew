@@ -44,6 +44,17 @@ export function migrate() {
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS admin_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS admin_pending_2fa (
+    token TEXT PRIMARY KEY,
+    attempts INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS missions (
     id TEXT PRIMARY KEY,
     builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,

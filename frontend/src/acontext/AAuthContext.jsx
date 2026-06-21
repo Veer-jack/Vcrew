@@ -15,12 +15,18 @@ export function AAuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
-    const res = await aapi.login(email, password);
+  const login = async (email, password) => aapi.login(email, password);
+
+  const totpSetupStart = (email, password) => aapi.totpSetupStart(email, password);
+
+  const completeLogin = (res) => {
     setAToken(res.token);
     setAdmin(res);
     return res;
   };
+
+  const totpSetupConfirm = async (email, password, code) => completeLogin(await aapi.totpSetupConfirm(email, password, code));
+  const totpVerify = async (pendingToken, code) => completeLogin(await aapi.totpVerify(pendingToken, code));
 
   const logout = async () => {
     try { await aapi.logout(); } catch { /* ignore */ }
@@ -29,7 +35,7 @@ export function AAuthProvider({ children }) {
   };
 
   return (
-    <AAuthContext.Provider value={{ admin, loading, login, logout }}>
+    <AAuthContext.Provider value={{ admin, loading, login, totpSetupStart, totpSetupConfirm, totpVerify, logout }}>
       {children}
     </AAuthContext.Provider>
   );

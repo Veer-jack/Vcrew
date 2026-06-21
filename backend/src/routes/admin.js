@@ -1,6 +1,11 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { checkAdminCredentials, isAdminUsingDefaultPassword, createAdminSession, destroyAdminSession, adminAuthMiddleware } from "../auth.js";
+import {
+  checkAdminCredentials, isAdminUsingDefaultPassword, createAdminSession, destroyAdminSession,
+  adminAuthMiddleware, adminHasTotp, generateTotpSecret, confirmTotpSetup, verifyTotpCode,
+  createPending2fa, checkPending2fa, consumePending2fa,
+} from "../auth.js";
+import QRCode from "qrcode";
 
 export const router = Router();
 
@@ -11,6 +16,44 @@ router.post("/login", (req, res) => {
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
   if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
 
+  if (!adminHasTotp()) {
+    // First-ever login: no 2FA configured yet -- caller must complete setup before a session is issued.
+    return res.json({ needsTotpSetup: true, usingDefaultPassword: isAdminUsingDefaultPassword() });
+  }
+
+  const pendingToken = createPending2fa();
+  res.json({ needsTotpCode: true, pendingToken });
+});
+
+router.post("/totp/setup/start", (req, res) => {
+  const { email, password } = req.body || {};
+  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
+  if (adminHasTotp()) return res.status(400).json({ error: "Two-factor authentication is already configured" });
+
+  const { uri } = generateTotpSecret();
+  QRCode.toDataURL(uri, (err, dataUrl) => {
+    if (err) return res.status(500).json({ error: "Could not generate QR code" });
+    res.json({ uri, qrCode: dataUrl });
+  });
+});
+
+router.post("/totp/setup/confirm", async (req, res) => {
+  const { email, password, code } = req.body || {};
+  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
+  if (!(await confirmTotpSetup(code))) return res.status(400).json({ error: "Incorrect code, please try again" });
+
+  const token = createAdminSession();
+  res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword() });
+});
+
+router.post("/totp/verify", async (req, res) => {
+  const { pendingToken, code } = req.body || {};
+  if (!checkPending2fa(pendingToken)) {
+    return res.status(401).json({ error: "That code expired, please sign in again" });
+  }
+  if (!(await verifyTotpCode(code))) return res.status(401).json({ error: "Incorrect code" });
+
+  consumePending2fa(pendingToken);
   const token = createAdminSession();
   res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword() });
 });
@@ -27,6 +70,7 @@ router.get("/me", adminAuthMiddleware, (req, res) => {
 router.use(adminAuthMiddleware);
 
 /* ============ Dashboard ============ */
+
 
 router.get("/dashboard", (req, res) => {
   const builders = db.prepare(`SELECT COUNT(*) AS n FROM builders`).get().n;

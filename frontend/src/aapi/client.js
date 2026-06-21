@@ -43,6 +43,9 @@ async function request(path, { method = "GET", body, query } = {}) {
 
 export const aapi = {
   login: (email, password) => request("/login", { method: "POST", body: { email, password } }),
+  totpSetupStart: (email, password) => request("/totp/setup/start", { method: "POST", body: { email, password } }),
+  totpSetupConfirm: (email, password, code) => request("/totp/setup/confirm", { method: "POST", body: { email, password, code } }),
+  totpVerify: (pendingToken, code) => request("/totp/verify", { method: "POST", body: { pendingToken, code } }),
   logout: () => request("/logout", { method: "POST" }),
   me: () => request("/me"),
 
