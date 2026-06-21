@@ -261,3 +261,25 @@ textarea.field::placeholder { color: var(--text-faint); }
 .fin:focus { border-color: var(--accent); box-shadow: var(--ring); background: var(--panel); }
 .fin::placeholder { color: var(--text-faint); }
 .err-banner { background: var(--danger-weak); color: var(--danger); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; font-weight: 600; }
+
+/* intent-fork + role-select onboarding screens */
+.intent-card, .role-card {
+  padding: 20px; display: flex; flex-direction: column; transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+.intent-card:hover, .role-card:not(:disabled):hover {
+  border-color: var(--ic-accent, var(--rc-accent, var(--border-strong)));
+  transform: translateY(-1px); box-shadow: var(--shadow-sm);
+}
+.role-card-soon { opacity: .55; cursor: default; }
+.role-card-soon:hover { transform: none; box-shadow: none; border-color: var(--border); }
+.intent-ic {
+  width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none;
+}
+.intent-cta {
+  margin-top: 14px; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; color: var(--ic-accent, var(--rc-accent, var(--accent)));
+}
+@media (max-width: 640px) {
+  .intent-grid, .role-grid { grid-template-columns: 1fr !important; }
+}
+

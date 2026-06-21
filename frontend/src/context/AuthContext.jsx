@@ -22,6 +22,13 @@ export function AuthProvider({ children }) {
     return builder;
   };
 
+  const signup = async (payload) => {
+    const { token, builder } = await api.signup(payload);
+    setToken(token);
+    setBuilder(builder);
+    return builder;
+  };
+
   const logout = async () => {
     try { await api.logout(); } catch { /* ignore */ }
     setToken(null);
@@ -35,7 +42,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ builder, setBuilder, loading, login, logout, refreshBuilder }}>
+    <AuthContext.Provider value={{ builder, setBuilder, loading, login, signup, logout, refreshBuilder }}>
       {children}
     </AuthContext.Provider>
   );

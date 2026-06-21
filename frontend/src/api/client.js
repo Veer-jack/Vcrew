@@ -36,6 +36,7 @@ async function request(path, { method = "GET", body } = {}) {
 
 export const api = {
   login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
+  signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
   oauthProviders: () => request("/auth/oauth/providers"),

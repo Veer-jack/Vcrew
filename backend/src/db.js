@@ -413,6 +413,14 @@ export function migrate() {
     const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
     if (!cols.includes("reply")) db.exec(`ALTER TABLE ${table} ADD COLUMN reply TEXT`);
   }
+
+  // ---- Founder onboarding (self-serve signup) ----
+  if (!builderCols.includes("designation")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN designation TEXT`);
+  }
+  if (!builderCols.includes("website")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN website TEXT`);
+  }
 }
 
 migrate();

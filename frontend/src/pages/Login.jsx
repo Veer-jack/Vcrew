@@ -101,6 +101,9 @@ export default function Login() {
         <p className="faint" style={{ marginTop: 18, fontSize: 12.5 }}>
           Demo account — aarav@kettleand.co / password123
         </p>
+        <p className="faint" style={{ marginTop: 8, fontSize: 12.5 }}>
+          New to ValidationCrew? <a href="/get-started">Create an account</a>
+        </p>
       </div>
     </div>
   );

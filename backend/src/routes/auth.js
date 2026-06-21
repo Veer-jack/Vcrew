@@ -9,8 +9,38 @@ export function publicBuilder(b) {
     id: b.id, name: b.name, org: b.org, email: b.email, role: b.role, plan: b.plan,
     color: b.color, balance: b.balance, pending: b.pending, monthSpend: b.month_spend,
     phone: b.phone_verified ? b.phone : null, phoneVerified: !!b.phone_verified,
+    designation: b.designation || null, website: b.website || null,
   };
 }
+
+// POST /api/auth/signup — Founder onboarding (self-serve account creation)
+router.post("/signup", (req, res) => {
+  const { name, email, password, designation, org, website } = req.body || {};
+
+  if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
+  if (!password || String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+
+  const normalizedEmail = String(email).toLowerCase().trim();
+  const existing = db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
+  if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+
+  const result = db.prepare(`
+    INSERT INTO builders (name, org, email, password_hash, designation, website, role)
+    VALUES (?, ?, ?, ?, ?, ?, 'Founder')
+  `).run(
+    String(name).trim(),
+    String(org || "").trim() || String(name).trim(),
+    normalizedEmail,
+    hashPassword(password),
+    designation ? String(designation).trim() : null,
+    website ? String(website).trim() : null,
+  );
+
+  const builder = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(result.lastInsertRowid);
+  const token = createSession(builder.id);
+  res.status(201).json({ token, builder: publicBuilder(builder) });
+});
 
 router.post("/login", (req, res) => {
   const { email, password } = req.body || {};

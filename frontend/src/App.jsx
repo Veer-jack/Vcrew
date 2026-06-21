@@ -5,6 +5,9 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { MetaProvider } from "./context/MetaContext";
 import AppLayout from "./components/AppLayout";
 import Login from "./pages/Login";
+import IntentFork from "./pages/IntentFork";
+import RoleSelect from "./pages/RoleSelect";
+import FounderSignup from "./pages/FounderSignup";
 import BuilderOAuthCallback from "./pages/OAuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Missions from "./pages/Missions";
@@ -57,6 +60,9 @@ function BuilderRoutes() {
   return (
     <Routes>
       <Route path="/login" element={builder ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
+      <Route path="/get-started/feedback" element={builder ? <Navigate to="/" replace /> : <RoleSelect />} />
+      <Route path="/signup" element={builder ? <Navigate to="/" replace /> : <FounderSignup />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
