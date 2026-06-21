@@ -41,7 +41,7 @@ export default function Login() {
       adapter={adapter}
       homePath="/"
       otherRole={{ href: "/validator/login", label: "Validator sign in →" }}
-      signupHref="/get-started"
+      signupHref="/get-started/feedback"
     />
   );
 }

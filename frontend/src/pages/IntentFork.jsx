@@ -9,7 +9,8 @@ const SIDES = [
     title: "I need feedback",
     tagline: "Get opinions, insights & validation",
     blurb: "Put your idea, product, brand, or research in front of the exact people who should weigh in.",
-    href: "/get-started/feedback",
+    href: "/site/builders.html",
+    external: true,
     accent: "#4f46e5",
   },
   {
@@ -43,7 +44,7 @@ export default function IntentFork() {
               type="button"
               className="card intent-card"
               style={{ "--ic-accent": s.accent, textAlign: "left", cursor: "pointer" }}
-              onClick={() => navigate(s.href)}
+              onClick={() => { if (s.external) window.location.href = s.href; else navigate(s.href); }}
             >
               <span className="intent-ic" style={{ background: `${s.accent}1a`, color: s.accent }}>
                 <Icon name={s.icon} size={20} />

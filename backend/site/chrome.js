@@ -44,7 +44,7 @@
               <button class="btn btn-primary nav-dt" aria-haspopup="true" aria-expanded="false">Get started ${ic.caret}</button>
               <div class="nav-menu right">
                 <span class="nav-menu-lab">Create a free account</span>
-                <a href="/get-started"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I want to validate</b><small>Get feedback on an idea or product</small></span></a>
+                <a href="/login"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I want to validate</b><small>Get feedback on an idea or product</small></span></a>
                 <a href="validators.html"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>I want to give feedback</b><small>Join the crew &amp; earn rewards</small></span></a>
               </div>
             </div>
@@ -55,7 +55,7 @@
       <div class="mobile-menu">
         ${links.map(x => `<a href="${x.h}">${x.l}</a>`).join("")}
         <div class="mm-lab">For Builders</div>
-        <a class="btn btn-primary" href="/get-started">Start validating</a>
+        <a class="btn btn-primary" href="/login">Start validating</a>
         <a class="mm-link" href="/login">Builder login</a>
         <div class="mm-lab">For Validators</div>
         <a class="btn btn-ghost" href="validators.html">Become a Validator</a>
