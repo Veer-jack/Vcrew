@@ -76,7 +76,7 @@ router.get("/:provider/callback", async (req, res) => {
       sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
     }
 
-    const token = createSession(builder.id);
+    const token = createSession(builder.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
     res.redirect(`${FRONTEND}/oauth-callback?token=${token}`);
   } catch (err) {
     console.error(`${provider.name} OAuth error:`, err);

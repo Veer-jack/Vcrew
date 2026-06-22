@@ -373,3 +373,20 @@ router.post("/backup", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+/* ============ Fraud signals ============ */
+
+router.get("/fraud-signals", (req, res) => {
+  const reviewed = req.query.reviewed === "true" ? 1 : 0;
+  const rows = db.prepare(
+    `SELECT * FROM fraud_signals WHERE reviewed = ? ORDER BY created_at DESC LIMIT 200`
+  ).all(reviewed);
+  res.json({ signals: rows });
+});
+
+router.patch("/fraud-signals/:id", (req, res) => {
+  const { reviewed } = req.body || {};
+  db.prepare(`UPDATE fraud_signals SET reviewed = ? WHERE id = ?`).run(reviewed ? 1 : 0, req.params.id);
+  audit("fraud_signal.reviewed", "fraud_signal", req.params.id, null);
+  res.json({ ok: true });
+});

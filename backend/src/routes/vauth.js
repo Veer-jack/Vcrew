@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware } from "../auth.js";
+import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { sendValidatorWelcome } from "../email.js";
 import { LEVELS } from "../vmeta.js";
 
@@ -40,7 +40,24 @@ router.post("/signup", async (req, res) => {
   `).run(String(name).trim(), handle, normalizedEmail, await hashPassword(password), JSON.stringify(specialties));
 
   const v = db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
-  const token = createValidatorSession(v.id);
+  const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
+  const ua = req.headers["user-agent"] || null;
+  const token = createValidatorSession(v.id, ip, ua);
+
+  // Fraud signal: check if a builder was recently created from this IP
+  if (ip) {
+    const sameIpBuilder = db.prepare(
+      `SELECT b.id, b.email FROM sessions s
+       JOIN builders b ON b.id = s.builder_id
+       WHERE s.ip = ? AND s.created_at > datetime('now', '-7 days')
+       LIMIT 1`
+    ).get(ip);
+    if (sameIpBuilder) {
+      flagFraud("same_ip_builder_validator", "validator", v.id,
+        `New validator ${v.email} shares IP ${ip} with builder ${sameIpBuilder.email}`, "medium");
+    }
+  }
+
   sendValidatorWelcome({ name: v.name, email: v.email }).catch(() => {});
   res.status(201).json({ token, validator: publicValidator(v) });
 });
@@ -59,7 +76,7 @@ router.post("/login", async (req, res) => {
     db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), v.id);
   }
 
-  const token = createValidatorSession(v.id);
+  const token = createValidatorSession(v.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
   res.json({ token, validator: publicValidator(v) });
 });
 

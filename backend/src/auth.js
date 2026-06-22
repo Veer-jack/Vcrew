@@ -24,9 +24,10 @@ export async function comparePassword(plaintext, storedHash) {
   return { valid, needsRehash: false };
 }
 
-export function createSession(builderId) {
+export function createSession(builderId, ip, ua) {
   const token = crypto.randomBytes(24).toString("hex");
-  db.prepare(`INSERT INTO sessions (token, builder_id) VALUES (?, ?)`).run(token, builderId);
+  db.prepare(`INSERT INTO sessions (token, builder_id, ip, user_agent) VALUES (?, ?, ?, ?)`)
+    .run(token, builderId, ip || null, ua || null);
   return token;
 }
 
@@ -52,14 +53,24 @@ export function authMiddleware(req, res, next) {
 
 /* ---- validator-side session helpers ---- */
 
-export function createValidatorSession(validatorId) {
+export function createValidatorSession(validatorId, ip, ua) {
   const token = crypto.randomBytes(24).toString("hex");
-  db.prepare(`INSERT INTO validator_sessions (token, validator_id) VALUES (?, ?)`).run(token, validatorId);
+  db.prepare(`INSERT INTO validator_sessions (token, validator_id, ip, user_agent) VALUES (?, ?, ?, ?)`)
+    .run(token, validatorId, ip || null, ua || null);
   return token;
 }
 
 export function destroyValidatorSession(token) {
   db.prepare(`DELETE FROM validator_sessions WHERE token = ?`).run(token);
+}
+
+// Flag a potential fraud signal for admin review — never blocks the user,
+// just creates a reviewable record so patterns can be spotted over time.
+export function flagFraud(signal, role, userId, detail, severity = "low") {
+  try {
+    db.prepare(`INSERT INTO fraud_signals (signal, role, user_id, detail, severity) VALUES (?, ?, ?, ?, ?)`)
+      .run(signal, role, userId, detail || null, severity);
+  } catch { /* never let fraud logging break a response */ }
 }
 
 export function validatorAuthMiddleware(req, res, next) {

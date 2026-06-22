@@ -36,7 +36,9 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS sessions (
     token TEXT PRIMARY KEY,
     builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT (datetime('now')),
+    ip TEXT,
+    user_agent TEXT
   );
 
   CREATE TABLE IF NOT EXISTS admin_sessions (
@@ -254,6 +256,19 @@ export function migrate() {
   CREATE TABLE IF NOT EXISTS validator_sessions (
     token TEXT PRIMARY KEY,
     validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
+    created_at TEXT DEFAULT (datetime('now')),
+    ip TEXT,
+    user_agent TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS fraud_signals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    signal TEXT NOT NULL,
+    role TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    detail TEXT,
+    severity TEXT DEFAULT 'low',
+    reviewed INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   );
 

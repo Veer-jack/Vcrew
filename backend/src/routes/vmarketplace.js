@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { validatorAuthMiddleware } from "../auth.js";
+import { validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { VTYPES, TYPE_ORDER, deadlineHours } from "../vmeta.js";
 
 export const router = Router();
@@ -96,6 +96,16 @@ router.post("/:id/apply", (req, res) => {
 
   db.prepare(`INSERT INTO v_my_missions (validator_id, task_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
     .run(req.validator.id, t.id);
+
+  // Velocity check: flag if this validator has applied to an unusually high number of missions today
+  const dailyCount = db.prepare(
+    `SELECT COUNT(*) AS n FROM v_my_missions WHERE validator_id = ? AND created_at > datetime('now', '-24 hours')`
+  ).get(req.validator.id)?.n || 0;
+  if (dailyCount > 15) {
+    flagFraud("high_velocity_applications", "validator", req.validator.id,
+      `${dailyCount} mission applications in the last 24 hours`, "medium");
+  }
+
   const myMission = db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
   res.status(201).json({ myMission });
 });

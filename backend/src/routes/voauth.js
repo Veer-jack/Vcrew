@@ -74,7 +74,7 @@ router.get("/:provider/callback", async (req, res) => {
       sendValidatorWelcome({ name: validator.name, email: validator.email }).catch(() => {});
     }
 
-    const token = createValidatorSession(validator.id);
+    const token = createValidatorSession(validator.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
     res.redirect(`${FRONTEND}/validator/oauth-callback?token=${token}`);
   } catch (err) {
     console.error(`${provider.name} OAuth error:`, err);

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { hashPassword, comparePassword, createSession, destroySession, authMiddleware } from "../auth.js";
+import { hashPassword, comparePassword, createSession, destroySession, authMiddleware, flagFraud } from "../auth.js";
 import { sendBuilderWelcome } from "../email.js";
 
 export const router = Router();
@@ -84,8 +84,25 @@ router.post("/signup", async (req, res) => {
     }
   }
 
-  const token = createSession(builder.id);
-  // Fire-and-forget — don't let email failure block the response
+  const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
+  const ua = req.headers["user-agent"] || null;
+
+  const token = createSession(builder.id, ip, ua);
+
+  // Fraud signal: check if another builder or validator was recently created from this IP
+  if (ip) {
+    const sameIpValidator = db.prepare(
+      `SELECT v.id, v.email FROM validator_sessions vs
+       JOIN validators v ON v.id = vs.validator_id
+       WHERE vs.ip = ? AND vs.created_at > datetime('now', '-7 days')
+       LIMIT 1`
+    ).get(ip);
+    if (sameIpValidator) {
+      flagFraud("same_ip_builder_validator", "builder", builder.id,
+        `New builder ${builder.email} shares IP ${ip} with validator ${sameIpValidator.email}`, "medium");
+    }
+  }
+
   sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });
@@ -105,7 +122,7 @@ router.post("/login", async (req, res) => {
     db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), builder.id);
   }
 
-  const token = createSession(builder.id);
+  const token = createSession(builder.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
   res.json({ token, builder: publicBuilder(builder) });
 });
 
