@@ -451,6 +451,9 @@ export function migrate() {
   if (!builderCols.includes("website")) {
     db.exec(`ALTER TABLE builders ADD COLUMN website TEXT`);
   }
+  if (!builderCols.includes("verified_at")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN verified_at TEXT`);
+  }
   if (!builderCols.includes("persona")) {
     db.exec(`ALTER TABLE builders ADD COLUMN persona TEXT DEFAULT 'founder'`);
   }

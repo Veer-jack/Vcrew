@@ -160,6 +160,36 @@ router.post("/", (req, res) => {
   if (!b.name || !b.category || !b.ptype) {
     return res.status(400).json({ error: "name, category and ptype are required" });
   }
+
+  // Verification gating — unverified builders are limited in how many
+  // missions they can run and how many participants they can target.
+  const builder = db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
+  const isVerified = !!(builder && builder.verified_at);
+  const UNVERIFIED_MISSION_LIMIT = 3;
+  const UNVERIFIED_PARTICIPANT_LIMIT = 25;
+
+  if (!isVerified) {
+    const activeMissions = db.prepare(
+      `SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`
+    ).get(req.builder.id).n;
+
+    if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
+      return res.status(403).json({
+        error: `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`,
+        code: "VERIFICATION_REQUIRED",
+        limit: "missions",
+      });
+    }
+
+    const requestedTarget = Number(b.target) || 0;
+    if (requestedTarget > UNVERIFIED_PARTICIPANT_LIMIT) {
+      return res.status(403).json({
+        error: `Unverified accounts can target a maximum of ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock larger campaigns.`,
+        code: "VERIFICATION_REQUIRED",
+        limit: "participants",
+      });
+    }
+  }
   const reward = b.reward || {};
   const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
   const id = "m_" + randomUUID().slice(0, 8);
@@ -192,6 +222,29 @@ router.post("/", (req, res) => {
 router.patch("/:id", (req, res) => {
   const m = db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  // Gate publishing (draft → active) the same way as creating an active mission
+  if (req.body.status === "active" && m.status !== "active") {
+    const builder = db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
+    const isVerified = !!(builder && builder.verified_at);
+    if (!isVerified) {
+      const activeMissions = db.prepare(
+        `SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`
+      ).get(req.builder.id).n;
+      if (activeMissions >= 3) {
+        return res.status(403).json({
+          error: "Unverified accounts can run a maximum of 3 active missions. Verify your website to unlock unlimited campaigns.",
+          code: "VERIFICATION_REQUIRED", limit: "missions",
+        });
+      }
+      if (m.target > 25) {
+        return res.status(403).json({
+          error: "Unverified accounts can target a maximum of 25 participants per mission. Reduce the target or verify your website.",
+          code: "VERIFICATION_REQUIRED", limit: "participants",
+        });
+      }
+    }
+  }
 
   const allowed = ["name", "status", "target", "deadline", "region", "description"];
   const updates = [];

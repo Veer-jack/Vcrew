@@ -89,7 +89,16 @@ function Sidebar({ mobOpen, closeMobile, builder }) {
         </div>
         <NavLink to="/wallet" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}>
           <Avatar name={builder?.name || ""} size={30} color={builder?.color} />
-          <div style={{ textAlign: "left", lineHeight: 1.2 }}><div style={{ fontWeight: 700, fontSize: 13 }}>{builder?.name}</div><div className="faint" style={{ fontSize: 11 }}>{builder?.role} · {builder?.plan}</div></div>
+          <div style={{ textAlign: "left", lineHeight: 1.2 }}>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{builder?.name}</div>
+            <div className="faint" style={{ fontSize: 11 }}>
+              {builder?.role} · {builder?.plan}
+              {builder?.verified
+                ? <span style={{ color: "var(--success)", marginLeft: 6 }}>✓ Verified</span>
+                : <span style={{ color: "var(--warning, #c2710c)", marginLeft: 6 }}>· Unverified</span>
+              }
+            </div>
+          </div>
         </NavLink>
       </div>
     </aside>

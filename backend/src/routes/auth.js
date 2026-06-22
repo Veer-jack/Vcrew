@@ -16,6 +16,7 @@ export function publicBuilder(b) {
     phone: b.phone_verified ? b.phone : null, phoneVerified: !!b.phone_verified,
     designation: b.designation || null, website: b.website || null,
     persona: b.persona || "founder", profile,
+    verified: !!b.verified_at, verifiedAt: b.verified_at || null,
   };
 }
 

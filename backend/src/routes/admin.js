@@ -270,6 +270,12 @@ router.patch("/verifications/:id", (req, res) => {
   if (!row) return res.status(404).json({ error: "Not found" });
 
   db.prepare(`UPDATE verifications SET status = ?, reviewed_at = datetime('now') WHERE id = ?`).run(status, req.params.id);
+
+  // If a website verification is approved, mark the builder as verified
+  if (status === "approved" && row.kind === "website") {
+    db.prepare(`UPDATE builders SET verified_at = datetime('now') WHERE id = ? AND verified_at IS NULL`).run(row.builder_id);
+  }
+
   audit(`verification.${status}`, "verification", req.params.id, `${row.kind} claim for builder #${row.builder_id} ${status}`);
   res.json({ ok: true, status });
 });

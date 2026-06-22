@@ -92,6 +92,22 @@ export default function Dashboard() {
 
   return (
     <div className="page rise">
+      {!builder?.verified && (
+        <div style={{
+          background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)",
+          border: "1px solid #f59e0b", borderRadius: "var(--radius)", padding: "14px 18px",
+          marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12
+        }}>
+          <Icon name="shield" size={18} style={{ color: "#c2710c", flex: "none", marginTop: 2 }} />
+          <div>
+            <b style={{ fontSize: 13.5, color: "#92400e" }}>Your account is unverified</b>
+            <p style={{ fontSize: 13, color: "#92400e", margin: "3px 0 0", lineHeight: 1.5 }}>
+              You can run up to 3 active missions with a maximum of 25 participants each.
+              To unlock unlimited campaigns, verify your website through your profile settings — an admin will review it within 24 hours.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="ph">
         <div>
           <span className="eyebrow">Builder workspace</span>
