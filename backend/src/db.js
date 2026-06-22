@@ -64,6 +64,14 @@ export function migrate() {
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token TEXT PRIMARY KEY,
+    role TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    expires_at TEXT NOT NULL,
+    used INTEGER DEFAULT 0
+  );
+
   CREATE TABLE IF NOT EXISTS missions (
     id TEXT PRIMARY KEY,
     builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,

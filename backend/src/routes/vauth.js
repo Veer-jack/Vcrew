@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware } from "../auth.js";
+import { sendValidatorWelcome } from "../email.js";
 import { LEVELS } from "../vmeta.js";
 
 export const router = Router();
@@ -40,6 +41,7 @@ router.post("/signup", async (req, res) => {
 
   const v = db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
   const token = createValidatorSession(v.id);
+  sendValidatorWelcome({ name: v.name, email: v.email }).catch(() => {});
   res.status(201).json({ token, validator: publicValidator(v) });
 });
 
@@ -71,3 +73,44 @@ router.get("/me", validatorAuthMiddleware, (req, res) => {
 });
 
 export { publicValidator };
+
+import crypto from "node:crypto";
+import { sendPasswordReset } from "../email.js";
+
+// POST /api/v/auth/forgot-password { email }
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  const v = db.prepare(`SELECT * FROM validators WHERE email = ?`).get(String(email).toLowerCase().trim());
+  if (!v || !v.password_hash) return res.json({ ok: true });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  db.prepare(`DELETE FROM password_reset_tokens WHERE role = 'validator' AND user_id = ?`).run(v.id);
+  db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'validator', ?, ?)`)
+    .run(token, v.id, expiresAt);
+
+  await sendPasswordReset({ name: v.name, email: v.email, token, role: "validator" });
+  res.json({ ok: true });
+});
+
+// POST /api/v/auth/reset-password { token, password }
+router.post("/reset-password", async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password || String(password).length < 8) {
+    return res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
+  }
+
+  const row = db.prepare(`SELECT * FROM password_reset_tokens WHERE token = ? AND role = 'validator' AND used = 0`).get(token);
+  if (!row || new Date(row.expires_at) < new Date()) {
+    return res.status(400).json({ error: "This reset link has expired or already been used" });
+  }
+
+  db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), row.user_id);
+  db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
+  db.prepare(`DELETE FROM validator_sessions WHERE validator_id = ?`).run(row.user_id);
+
+  res.json({ ok: true });
+});

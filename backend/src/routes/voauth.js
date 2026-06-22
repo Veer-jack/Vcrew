@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { db } from "../db.js";
 import { hashPassword, createValidatorSession } from "../auth.js";
+import { sendValidatorWelcome } from "../email.js";
 import { PROVIDERS, isConfigured, frontendUrl } from "../oauth.js";
 
 export const router = Router();
@@ -70,6 +71,7 @@ router.get("/:provider/callback", async (req, res) => {
 
       db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'system','shield','green',?,?, 'Just now', 1)`)
         .run(validator.id, "Welcome to ValidationCrew", `Your account was created via ${provider.name}. Complete your profile to start getting matched to missions.`);
+      sendValidatorWelcome({ name: validator.name, email: validator.email }).catch(() => {});
     }
 
     const token = createValidatorSession(validator.id);

@@ -3,8 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { trackPageview } from "./analytics";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { MetaProvider } from "./context/MetaContext";
+import { api } from "./api/client";
+import { vapi } from "./vapi/client";
 import AppLayout from "./components/AppLayout";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import IntentFork from "./pages/IntentFork";
 import RoleSelect from "./pages/RoleSelect";
 import OnboardingWizard from "./pages/OnboardingWizard";
@@ -63,6 +66,7 @@ function BuilderRoutes() {
   return (
     <Routes>
       <Route path="/login" element={builder ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/reset-password" element={<ResetPassword apiClient={api} loginPath="/login" />} />
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
       <Route path="/get-started/feedback" element={builder ? <Navigate to="/" replace /> : <RoleSelect />} />
       <Route path="/signup" element={builder ? <Navigate to="/" replace /> : <OnboardingWizard />} />
@@ -101,6 +105,7 @@ function ValidatorRoutes() {
   return (
     <Routes>
       <Route path="login" element={validator ? <Navigate to="/validator" replace /> : <VLogin />} />
+      <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
       <Route element={<RequireVAuth><VLayout /></RequireVAuth>}>

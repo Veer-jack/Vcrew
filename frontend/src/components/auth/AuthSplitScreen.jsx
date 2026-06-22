@@ -28,6 +28,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   const location = useLocation();
 
   const [mode, setMode] = useState("signin"); // signin | signup
+  const [stage, setStage] = useState("main"); // main | forgot | forgot-sent
   const [method, setMethod] = useState("email"); // email | phone
   const [providers, setProviders] = useState({});
   const [smsReady, setSmsReady] = useState(false);
@@ -126,6 +127,54 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
       setError(err.message || "Incorrect code");
     } finally { setBusy(false); }
   };
+
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const submitForgot = async (e) => {
+    e.preventDefault();
+    setForgotBusy(true);
+    try { await adapter.forgotPassword(email); } catch { /* always show success */ }
+    finally { setForgotBusy(false); setStage("forgot-sent"); }
+  };
+
+  if (stage === "forgot") return (
+    <div className="asplit">
+      <div className="asplit-brand">
+        <div className="asplit-brand-logo"><BrandMark size={40} /></div>
+        <h1 className="asplit-headline">{copy.headline}</h1>
+        <p className="asplit-sub">{copy.sub}</p>
+      </div>
+      <div className="asplit-form-col">
+        <div className="asplit-form rise">
+          <h1 style={{ fontSize: 23, margin: "0 0 8px" }}>Reset your password</h1>
+          <p className="muted" style={{ fontSize: 13.5, margin: "0 0 20px" }}>Enter your email and we'll send you a reset link if an account exists.</p>
+          {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
+          <form onSubmit={submitForgot} className="col gap-4">
+            <div className="fld"><label>Email</label>
+              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus required />
+            </div>
+            <Btn type="submit" variant="primary" size="lg" block disabled={forgotBusy}>{forgotBusy ? "Sending…" : "Send reset link"}</Btn>
+          </form>
+          <p className="asplit-cross" style={{ marginTop: 16 }}><button type="button" className="backlink" onClick={() => setStage("main")}>← Back to sign in</button></p>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (stage === "forgot-sent") return (
+    <div className="asplit">
+      <div className="asplit-brand">
+        <div className="asplit-brand-logo"><BrandMark size={40} /></div>
+        <h1 className="asplit-headline">{copy.headline}</h1>
+      </div>
+      <div className="asplit-form-col">
+        <div className="asplit-form rise" style={{ textAlign: "center" }}>
+          <h1 style={{ fontSize: 23, margin: "0 0 10px" }}>Check your inbox</h1>
+          <p className="muted" style={{ fontSize: 14 }}>If <b>{email}</b> is registered, you'll receive a reset link within a minute. Check your spam folder if it doesn't arrive.</p>
+          <Btn variant="ghost" onClick={() => setStage("main")}>← Back to sign in</Btn>
+        </div>
+      </div>
+    </div>
+  );
 
   const activeProviders = Object.entries(providers).filter(([, on]) => on);
   const googleProv = activeProviders.find(([k]) => k === "google");
@@ -237,7 +286,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                 {errs.password && <p className="ferr">{errs.password}</p>}
                 {mode === "signin" && (
                   <button type="button" className="backlink" style={{ float: "right", marginTop: 6 }}
-                    onClick={() => setError("Password reset isn't available yet — please contact support to regain access.")}>
+                    onClick={() => setStage("forgot")}>
                     Forgot password?
                   </button>
                 )}

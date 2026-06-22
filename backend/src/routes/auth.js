@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword, comparePassword, createSession, destroySession, authMiddleware } from "../auth.js";
+import { sendBuilderWelcome } from "../email.js";
 
 export const router = Router();
 
@@ -83,6 +84,8 @@ router.post("/signup", async (req, res) => {
   }
 
   const token = createSession(builder.id);
+  // Fire-and-forget — don't let email failure block the response
+  sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });
 
@@ -130,4 +133,46 @@ router.patch("/profile", authMiddleware, (req, res) => {
   db.prepare(`UPDATE builders SET name = ?, org = ?, email = ? WHERE id = ?`).run(name, org, email, req.builder.id);
   const updated = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });
+});
+
+import crypto from "node:crypto";
+import { sendPasswordReset } from "../email.js";
+
+// POST /api/auth/forgot-password { email }
+router.post("/forgot-password", async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: "Email is required" });
+
+  const builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
+  // Always return success to avoid leaking whether an email is registered
+  if (!builder || !builder.password_hash) return res.json({ ok: true });
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
+
+  db.prepare(`DELETE FROM password_reset_tokens WHERE role = 'builder' AND user_id = ?`).run(builder.id);
+  db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'builder', ?, ?)`)
+    .run(token, builder.id, expiresAt);
+
+  await sendPasswordReset({ name: builder.name, email: builder.email, token, role: "builder" });
+  res.json({ ok: true });
+});
+
+// POST /api/auth/reset-password { token, password }
+router.post("/reset-password", async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password || String(password).length < 8) {
+    return res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
+  }
+
+  const row = db.prepare(`SELECT * FROM password_reset_tokens WHERE token = ? AND role = 'builder' AND used = 0`).get(token);
+  if (!row || new Date(row.expires_at) < new Date()) {
+    return res.status(400).json({ error: "This reset link has expired or already been used" });
+  }
+
+  db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), row.user_id);
+  db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
+  db.prepare(`DELETE FROM sessions WHERE builder_id = ?`).run(row.user_id); // invalidate all existing sessions
+
+  res.json({ ok: true });
 });

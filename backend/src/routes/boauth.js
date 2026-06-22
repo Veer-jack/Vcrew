@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { db } from "../db.js";
 import { hashPassword, createSession } from "../auth.js";
+import { sendBuilderWelcome } from "../email.js";
 import { PROVIDERS, isConfigured, frontendUrl } from "../oauth.js";
 
 export const router = Router();
@@ -72,6 +73,7 @@ router.get("/:provider/callback", async (req, res) => {
 
       db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
         .run(builder.id, "Welcome to ValidationCrew", `Your account was created via ${provider.name}. Update your workspace name in Settings any time.`);
+      sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
     }
 
     const token = createSession(builder.id);

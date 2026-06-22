@@ -2,6 +2,7 @@ import { Router } from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../db.js";
+import { sendWithdrawalUpdate } from "../email.js";
 import {
   checkAdminCredentials, isAdminUsingDefaultPassword, createAdminSession, destroyAdminSession,
   adminAuthMiddleware, adminHasTotp, generateTotpSecret, confirmTotpSetup, verifyTotpCode,
@@ -230,6 +231,15 @@ router.patch("/withdrawals/:id", (req, res) => {
 
   if (["failed", "rejected", "reversed"].includes(status) && !["failed", "rejected", "reversed"].includes(row.status)) {
     db.prepare(`UPDATE validators SET available = available + ? WHERE id = ?`).run(row.amount, row.validator_id);
+  }
+
+  // Email the validator about their withdrawal status
+  const v = db.prepare(`SELECT name, email FROM validators WHERE id = ?`).get(row.validator_id);
+  if (v && ["processed", "failed", "rejected"].includes(status)) {
+    sendWithdrawalUpdate({
+      validatorName: v.name, validatorEmail: v.email,
+      amount: row.amount, status, failureReason: req.body?.failureReason || null,
+    }).catch(() => {});
   }
 
   audit(`withdrawal.${status}`, "withdrawal", req.params.id, `₹${row.amount / 100} withdrawal marked ${status}`);

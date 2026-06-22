@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { catOf, ptypeOf, REWARDS, matchCount } from "../meta.js";
+import { sendMissionPublished } from "../email.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -129,6 +130,10 @@ router.post("/", (req, res) => {
   if (status === "active") {
     db.prepare(`INSERT INTO activity (builder_id, who, text, mission_id, mission_name, icon, tone, time_label) VALUES (?,?,?,?,?,?,?,?)`)
       .run(req.builder.id, "You", "published a new mission", id, b.name, "rocket", "accent", "Just now");
+    sendMissionPublished({
+      builderName: req.builder.name, builderEmail: req.builder.email,
+      missionName: b.name, missionId: id,
+    }).catch(() => {});
   }
 
   const m = db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
