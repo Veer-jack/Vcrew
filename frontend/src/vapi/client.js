@@ -55,6 +55,7 @@ export const vapi = {
   task: (id) => request(`/marketplace/${id}`),
   saveTask: (id, saved) => request(`/marketplace/${id}/save`, { method: "POST", body: { saved } }),
   applyTask: (id) => request(`/marketplace/${id}/apply`, { method: "POST" }),
+  reportMission: (id, reason) => request(`/marketplace/${id}/report`, { method: "POST", body: { reason } }),
 
   myMissions: (status) => request(`/missions${status ? `?status=${status}` : ""}`),
   workspace: (taskId) => request(`/missions/${taskId}`),

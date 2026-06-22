@@ -34,6 +34,20 @@ export default function MissionDetails() {
     try { await vapi.saveTask(task.id, next); } catch { /* best effort */ }
   };
 
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
+  const submitReport = async () => {
+    if (!reportReason.trim()) return;
+    setReportBusy(true);
+    try {
+      await vapi.reportMission(task.id, reportReason.trim());
+      setReportDone(true);
+      setReportOpen(false);
+    } catch { /* best effort */ } finally { setReportBusy(false); }
+  };
+
   return (
     <div className="page" style={{ maxWidth: 920, margin: "0 auto" }}>
       <button className="btn btn-quiet rise" onClick={() => navigate("/validator")} style={{ marginBottom: 16, marginLeft: -8 }}><Icon name="arrowLeft" />All missions</button>
@@ -123,12 +137,34 @@ export default function MissionDetails() {
           <Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? "Saved" : "Save"}
         </button>
         <button className="btn btn-quiet" onClick={() => navigate("/validator")}>Decline</button>
+        {!reportDone
+          ? <button className="btn btn-quiet" style={{ color: "var(--text-faint)", fontSize: 12.5 }} onClick={() => setReportOpen(o => !o)}>
+              <Icon name="flag" size={14} />Report
+            </button>
+          : <span className="faint" style={{ fontSize: 12.5 }}><Icon name="checkCircle" size={13} /> Reported — admin will review</span>
+        }
         <span className="grow" />
         <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>Earn <b style={{ color: "var(--success)" }}>₹{task.reward}</b> on approval</span>
         {accepted
           ? <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${task.id}/workspace`)} style={{ background: "var(--success)", borderColor: "var(--success)" }}><Icon name="check" />{task.myStatus === "active" ? "Accepted · Start now" : "View submission"}</button>
           : <button className="btn btn-primary btn-lg" disabled={busy} onClick={apply}>{busy ? "Applying…" : "Apply to this mission"} <Icon name="arrowRight" /></button>}
       </div>
+
+      {reportOpen && (
+        <div className="card rise" style={{ padding: 16, marginTop: 12, border: "1px solid var(--border-strong)" }}>
+          <b style={{ fontSize: 13.5 }}>Report this mission</b>
+          <p className="faint" style={{ fontSize: 12.5, margin: "4px 0 10px" }}>Tell us what's wrong — our admin team will review it promptly.</p>
+          <textarea className="fin" rows={3} placeholder="e.g. Misleading description, inappropriate content, suspicious payout…"
+            value={reportReason} onChange={e => setReportReason(e.target.value)}
+            style={{ width: "100%", resize: "vertical", fontSize: 13 }} />
+          <div className="row gap-2" style={{ marginTop: 10 }}>
+            <button className="btn btn-ghost" onClick={() => setReportOpen(false)}>Cancel</button>
+            <button className="btn btn-primary" disabled={reportBusy || !reportReason.trim()} onClick={submitReport}>
+              {reportBusy ? "Submitting…" : "Submit report"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

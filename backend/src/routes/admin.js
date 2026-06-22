@@ -1,4 +1,6 @@
 import { Router } from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { db } from "../db.js";
 import {
   checkAdminCredentials, isAdminUsingDefaultPassword, createAdminSession, destroyAdminSession,
@@ -83,6 +85,14 @@ router.get("/me", adminAuthMiddleware, (req, res) => {
 
 router.use(adminAuthMiddleware);
 
+// ---- Audit logging helper ----
+function audit(action, targetType, targetId, detail) {
+  try {
+    db.prepare(`INSERT INTO admin_audit_log (action, target_type, target_id, detail) VALUES (?, ?, ?, ?)`)
+      .run(action, targetType || null, targetId ? String(targetId) : null, detail || null);
+  } catch { /* never let audit failure break a response */ }
+}
+
 /* ============ Dashboard ============ */
 
 
@@ -150,6 +160,7 @@ router.patch("/members/:type/:id", (req, res) => {
   if (!row) return res.status(404).json({ error: "Not found" });
 
   db.prepare(`UPDATE ${table} SET status = ? WHERE id = ?`).run(status, id);
+  audit(`member.${status}`, type, id, `Set ${type} #${id} to ${status}`);
   res.json({ ok: true, status });
 });
 
@@ -217,11 +228,11 @@ router.patch("/withdrawals/:id", (req, res) => {
 
   db.prepare(`UPDATE withdrawals SET status = ?, failure_reason = ? WHERE id = ?`).run(status, req.body?.failureReason || null, req.params.id);
 
-  // If marking as failed/rejected/reversed, return funds to the validator's available balance.
   if (["failed", "rejected", "reversed"].includes(status) && !["failed", "rejected", "reversed"].includes(row.status)) {
     db.prepare(`UPDATE validators SET available = available + ? WHERE id = ?`).run(row.amount, row.validator_id);
   }
 
+  audit(`withdrawal.${status}`, "withdrawal", req.params.id, `₹${row.amount / 100} withdrawal marked ${status}`);
   res.json({ ok: true });
 });
 
@@ -249,6 +260,7 @@ router.patch("/verifications/:id", (req, res) => {
   if (!row) return res.status(404).json({ error: "Not found" });
 
   db.prepare(`UPDATE verifications SET status = ?, reviewed_at = datetime('now') WHERE id = ?`).run(status, req.params.id);
+  audit(`verification.${status}`, "verification", req.params.id, `${row.kind} claim for builder #${row.builder_id} ${status}`);
   res.json({ ok: true, status });
 });
 
@@ -278,10 +290,13 @@ router.patch("/missions/:id", (req, res) => {
   if (action === "flag") {
     db.prepare(`UPDATE missions SET flagged = 1, flag_reason = ?, flagged_at = datetime('now') WHERE id = ?`)
       .run(reason ? String(reason).trim() : null, req.params.id);
+    audit("mission.flagged", "mission", req.params.id, reason || "No reason given");
   } else if (action === "unflag") {
     db.prepare(`UPDATE missions SET flagged = 0, flag_reason = NULL, flagged_at = NULL WHERE id = ?`).run(req.params.id);
+    audit("mission.unflagged", "mission", req.params.id, null);
   } else if (action === "remove") {
     db.prepare(`UPDATE missions SET status = 'removed', flagged = 0 WHERE id = ?`).run(req.params.id);
+    audit("mission.removed", "mission", req.params.id, `Mission: ${row.name}`);
   } else {
     return res.status(400).json({ error: "action must be 'flag', 'unflag', or 'remove'" });
   }
@@ -311,4 +326,34 @@ router.get("/analytics", (req, res) => {
   const byPersona = db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
 
   res.json({ months, userGrowth, missionGrowth, revenueByMonth, byCategory, byPersona });
+});
+
+/* ============ Audit log ============ */
+
+router.get("/audit-log", (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 100, 500);
+  const rows = db.prepare(
+    `SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT ?`
+  ).all(limit);
+  res.json({ log: rows });
+});
+
+/* ============ On-demand backup ============ */
+
+router.post("/backup", async (req, res) => {
+  try {
+    const dataDir = process.env.DB_DIR || path.join(process.cwd(), "backend", "data");
+    const dbPath = process.env.DB_PATH || path.join(dataDir, "vcrew.db");
+    const backupDir = path.join(dataDir, "backups");
+    if (!fs.existsSync(dbPath)) return res.status(503).json({ error: "Database file not found" });
+    fs.mkdirSync(backupDir, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const destPath = path.join(backupDir, `vcrew-manual-${stamp}.db`);
+    db.exec(`VACUUM INTO '${destPath}'`);
+    const stats = fs.statSync(destPath);
+    audit("backup.created", "system", null, `Manual backup: vcrew-manual-${stamp}.db (${(stats.size / 1024).toFixed(0)} KB)`);
+    res.json({ ok: true, file: `vcrew-manual-${stamp}.db`, sizeKb: Math.round(stats.size / 1024) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });

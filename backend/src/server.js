@@ -105,7 +105,21 @@ if (builderCount === 0) {
 }
 
 const app = express();
-app.use(cors());
+// #9 — Tighten CORS: allow only the production domain and localhost in dev
+const ALLOWED_ORIGINS = [
+  "https://vcrew-production.up.railway.app",
+  ...(process.env.NODE_ENV !== "production" ? ["http://localhost:5173", "http://localhost:4000"] : []),
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map(s => s.trim()) : []),
+];
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    const err = new Error(`CORS: origin ${origin} not allowed`);
+    err.status = 403;
+    cb(err);
+  },
+  credentials: true,
+}));
 app.use(cookieParser());
 app.use(express.json());
 app.use("/api", globalLimiter);

@@ -99,3 +99,23 @@ router.post("/:id/apply", (req, res) => {
   const myMission = db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
   res.status(201).json({ myMission });
 });
+
+// POST /api/v/marketplace/:id/report — validator reports a mission for review
+// This feeds the admin's Mission Review queue without pre-blocking the mission.
+router.post("/:id/report", (req, res) => {
+  const { reason } = req.body || {};
+  if (!reason || !String(reason).trim()) return res.status(400).json({ error: "A reason is required to report a mission" });
+
+  const mission = db.prepare(`SELECT id, name, flagged FROM missions WHERE id = ?`).get(req.params.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  // Flag the mission for admin review; if already flagged, append the new reason
+  const existingReason = mission.flagged
+    ? `${mission.flag_reason || ""}\nValidator report: ${String(reason).trim()}`
+    : `Validator report: ${String(reason).trim()}`;
+
+  db.prepare(`UPDATE missions SET flagged = 1, flag_reason = ?, flagged_at = datetime('now') WHERE id = ?`)
+    .run(existingReason.trim(), mission.id);
+
+  res.json({ ok: true });
+});

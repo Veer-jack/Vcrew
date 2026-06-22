@@ -55,6 +55,15 @@ export function migrate() {
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS admin_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    target_type TEXT,
+    target_id TEXT,
+    detail TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS missions (
     id TEXT PRIMARY KEY,
     builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,
