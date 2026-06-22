@@ -8,6 +8,15 @@ import { authMiddleware } from "../auth.js";
 import { catOf, ptypeOf, REWARDS, matchCount } from "../meta.js";
 import { sendMissionPublished } from "../email.js";
 
+// Lazy import to avoid circular dependency — admin.js imports db.js,
+// missions.js imports admin.js only for the automod helper.
+async function automodMission(id) {
+  try {
+    const { runAutomod } = await import("./admin.js");
+    runAutomod(id);
+  } catch { /* best effort — never block mission creation */ }
+}
+
 const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
@@ -212,6 +221,7 @@ router.post("/", (req, res) => {
       builderName: req.builder.name, builderEmail: req.builder.email,
       missionName: b.name, missionId: id,
     }).catch(() => {});
+    automodMission(id); // fire-and-forget, never blocks
   }
 
   const m = db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);

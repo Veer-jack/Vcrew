@@ -38,7 +38,7 @@ function TicketDrawer({ ticket, onClose, onSave }) {
             <b style={{ fontSize: 16 }}>{ticket.subject}</b>
             <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{ticket.id} · {ticket.userType === "builder" ? "Builder" : "Validator"} · {ticket.userName} ({ticket.userEmail})</div>
           </div>
-          <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
+          <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
         <div style={{ padding: 22, display: "grid", gap: 16 }}>
           {error && <div className="err-banner">{error}</div>}

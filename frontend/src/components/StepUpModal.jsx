@@ -48,7 +48,7 @@ export default function StepUpModal({ client, phone, title = "Confirm it's you",
         background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
           <b style={{ fontSize: 15 }}>{title}</b>
-          <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
+          <button className="icon-btn" aria-label="Close" style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
         </div>
         <div style={{ padding: 20 }}>
           {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}

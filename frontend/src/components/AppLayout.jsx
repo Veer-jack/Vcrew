@@ -28,7 +28,7 @@ function NotifPanel({ onClose }) {
           <b>Notifications</b>
           <div className="row gap-2">
             <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>Mark all read</button>
-            <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
+            <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
         </div>
         <div className="notif-list">
@@ -127,7 +127,7 @@ export default function AppLayout() {
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
       <div className="mob-scrim" onClick={() => setMobOpen(false)} />
       <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} />
-      <div className="main">
+      <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{pageTitle(location.pathname)}</h1>

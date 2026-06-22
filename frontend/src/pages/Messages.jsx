@@ -77,7 +77,7 @@ export default function Messages() {
             ))}
           </div>
           <div className="row gap-2" style={{ padding: "14px 24px", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
-            <button className="icon-btn"><Icon name="paperclip" size={18} /></button>
+            <button className="icon-btn" aria-label="Attach file"><Icon name="paperclip" size={18} /></button>
             <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder={`Message ${active.name}…`}
               style={{ flex: 1, padding: "11px 14px", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel-inset)", fontFamily: "inherit", fontSize: 14, color: "var(--text)", outline: "none" }} />
             <Btn variant="primary" icon="send" onClick={send} disabled={!draft.trim()}>Send</Btn>

@@ -390,3 +390,80 @@ router.patch("/fraud-signals/:id", (req, res) => {
   audit("fraud_signal.reviewed", "fraud_signal", req.params.id, null);
   res.json({ ok: true });
 });
+
+/* ============ Auto-moderation rule engine ============ */
+// Runs on demand (POST /api/admin/automod/run) or can be called
+// after mission creation. Flags missions matching suspicious patterns.
+
+const AUTOMOD_RULES = [
+  {
+    id: "excessive_reward",
+    desc: "Unusually high reward per participant (>₹500)",
+    check: (m) => m.reward_amount > 50000, // stored in paise
+    reason: "Reward amount is unusually high (>₹500 per participant) — possible payout farming",
+    severity: "high",
+  },
+  {
+    id: "zero_reward_high_target",
+    desc: "High participant count with zero reward",
+    check: (m) => m.reward_type === "free" && m.target > 50,
+    reason: "Zero-reward mission with >50 participants — possible data harvesting",
+    severity: "medium",
+  },
+  {
+    id: "very_short_deadline",
+    desc: "Deadline set in the past or very near future",
+    check: (m) => {
+      if (!m.deadline || m.deadline === "—") return false;
+      const d = new Date(m.deadline);
+      if (isNaN(d)) return false;
+      const hoursUntil = (d - Date.now()) / 3600000;
+      return hoursUntil < 2 && hoursUntil > -24; // already passed or <2h away
+    },
+    reason: "Mission deadline is set in the past or less than 2 hours away",
+    severity: "low",
+  },
+  {
+    id: "new_builder_large_mission",
+    desc: "Brand-new builder running a large mission",
+    check: (m, builderCreatedAt) => {
+      const ageHours = (Date.now() - new Date(builderCreatedAt + "Z").getTime()) / 3600000;
+      return ageHours < 24 && m.target > 20;
+    },
+    reason: "Builder account is less than 24 hours old and targeting >20 participants",
+    severity: "medium",
+  },
+];
+
+function runAutomod(missionId) {
+  const m = db.prepare(`
+    SELECT mi.*, b.created_at AS builder_created_at
+    FROM missions mi JOIN builders b ON b.id = mi.builder_id
+    WHERE mi.id = ? AND mi.status = 'active' AND mi.flagged = 0
+  `).get(missionId);
+  if (!m) return 0;
+
+  let flagged = 0;
+  for (const rule of AUTOMOD_RULES) {
+    const triggered = rule.check(m, m.builder_created_at);
+    if (triggered) {
+      db.prepare(`UPDATE missions SET flagged = 1, flag_reason = ?, flagged_at = datetime('now') WHERE id = ?`)
+        .run(`[automod:${rule.id}] ${rule.reason}`, m.id);
+      audit("mission.automod_flagged", "mission", m.id, `Rule: ${rule.id}`);
+      flagged++;
+      break; // one flag reason at a time — avoid overwriting
+    }
+  }
+  return flagged;
+}
+
+export { runAutomod };
+
+// Run automod across all active unflagged missions
+router.post("/automod/run", (req, res) => {
+  const missions = db.prepare(`SELECT id FROM missions WHERE status = 'active' AND flagged = 0`).all();
+  let flagged = 0;
+  for (const { id } of missions) flagged += runAutomod(id);
+  audit("automod.run", "system", null, `Scanned ${missions.length} missions, flagged ${flagged}`);
+  res.json({ ok: true, scanned: missions.length, flagged });
+});

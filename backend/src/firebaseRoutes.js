@@ -2,6 +2,7 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { db } from "./db.js";
 import { verifyPhoneToken, publicFirebaseConfig } from "./firebaseAdmin.js";
+import { handleFirebaseError } from "./outage.js";
 
 const STEP_UP_TTL_MS = 10 * 60 * 1000;
 
@@ -28,7 +29,7 @@ export function buildFirebaseLoginRouter({ table, createSession, publicUser, use
       const token = createSession(user.id);
       res.json({ token, [userKey]: publicUser(user) });
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return handleFirebaseError(err, res);
     }
   });
 
@@ -50,7 +51,7 @@ export function buildPhoneLinkRouter({ table, authMiddleware, userKey }) {
       db.prepare(`UPDATE ${table} SET phone = ?, phone_verified = 1 WHERE id = ?`).run(phone, req[userKey].id);
       res.json({ ok: true, phone });
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      return handleFirebaseError(err, res);
     }
   });
 

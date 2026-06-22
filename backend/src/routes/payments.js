@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { isRazorpayConfigured, razorpayKeyId, createOrder, verifySignature } from "../razorpayClient.js";
+import { handleRazorpayError } from "../outage.js";
 
 export const router = Router();
 
@@ -20,7 +21,7 @@ router.post("/order", async (req, res) => {
     const order = await createOrder(amount, `topup_${req.builder.id}_${Date.now()}`);
     res.json({ orderId: order.id, amount, currency: "INR", keyId: razorpayKeyId() });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    return handleRazorpayError(err, res);
   }
 });
 

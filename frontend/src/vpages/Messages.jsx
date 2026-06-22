@@ -51,7 +51,7 @@ export default function Messages() {
           <div className="row gap-3" style={{ padding: "13px var(--pad-page)", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <VAvatar name={active.name} size={40} />
             <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{active.role} · {active.mission}</div></div>
-            <button className="icon-btn"><Icon name="external" size={17} /></button>
+            <button className="icon-btn" aria-label="Open in new tab"><Icon name="external" size={17} /></button>
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "var(--pad-page)", display: "flex", flexDirection: "column", gap: 12, background: "var(--bg)" }}>
             <div style={{ textAlign: "center", margin: "4px 0 8px" }}><span className="pill" style={{ fontSize: 11.5 }}>{active.mission}</span></div>
@@ -68,7 +68,7 @@ export default function Messages() {
             ))}
           </div>
           <div className="row gap-2" style={{ padding: "14px var(--pad-page)", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
-            <button className="icon-btn"><Icon name="paperclip" size={18} /></button>
+            <button className="icon-btn" aria-label="Attach file"><Icon name="paperclip" size={18} /></button>
             <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder={`Message ${active.name}…`}
               style={{ flex: 1, padding: "11px 14px", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel-inset)", fontFamily: "inherit", fontSize: 14, color: "var(--text)", outline: "none" }} />
             <button className="btn btn-primary" onClick={send} disabled={!draft.trim()}><Icon name="send" size={17} />Send</button>

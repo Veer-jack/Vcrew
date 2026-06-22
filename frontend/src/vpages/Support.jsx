@@ -38,7 +38,7 @@ function RaiseTicket({ onClose, onCreated }) {
           <>
             <div className="row between" style={{ padding: "18px 22px", borderBottom: "var(--hairline) solid var(--border)" }}>
               <b style={{ fontSize: 16 }}>Raise a ticket</b>
-              <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
+              <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
             </div>
             <div style={{ padding: 22, display: "grid", gap: 16 }}>
               {error && <div className="err-banner">{error}</div>}

@@ -162,9 +162,14 @@ function RouteTracker() {
   return null;
 }
 
+function SkipLink() {
+  return <a href="#main-content" className="skip-link">Skip to main content</a>;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <SkipLink />
       <RouteTracker />
       <Routes>
         <Route path="/validator/*" element={

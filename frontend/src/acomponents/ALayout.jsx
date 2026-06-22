@@ -64,7 +64,7 @@ export default function ALayout() {
         </div>
       </aside>
 
-      <main className="main">
+      <main className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{TITLES[location.pathname] || "Admin"}</h1>

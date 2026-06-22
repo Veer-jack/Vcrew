@@ -6,7 +6,7 @@
     "node": "22.x"
   },
   "scripts": {
-    "build": "npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend",
+    "build": "npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend && npm audit --prefix backend --audit-level=high || echo '[audit] High/critical vulnerabilities found — review with: npm audit --prefix backend' && npm audit --prefix frontend --audit-level=high || echo '[audit] High/critical vulnerabilities found — review with: npm audit --prefix frontend'",
     "start": "node --experimental-sqlite backend/src/server.js",
     "seed": "node --experimental-sqlite backend/src/seed.js"
   }

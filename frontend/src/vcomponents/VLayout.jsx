@@ -30,7 +30,7 @@ function VNotifPanel({ onClose }) {
           <b>Notifications</b>
           <div className="row gap-2">
             <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>Mark all read</button>
-            <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
+            <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, padding: "12px 16px", borderBottom: "var(--hairline) solid var(--border)", overflowX: "auto" }}>
@@ -118,7 +118,7 @@ export default function VLayout() {
         </div>
       </aside>
 
-      <main className="main">
+      <main className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{pageTitle(location.pathname)}</h1>
