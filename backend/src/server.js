@@ -1,3 +1,16 @@
+import * as Sentry from "@sentry/node";
+
+// Sentry must be initialized before any other imports that might throw.
+// SENTRY_DSN is set as an env var on Railway -- if not set, error tracking
+// is silently disabled (no crash, just no reporting).
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "production",
+    tracesSampleRate: 0.2, // capture 20% of transactions for performance monitoring
+  });
+}
+
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -179,6 +192,11 @@ app.use((req, res, next) => {
   if (fs.existsSync(indexHtml)) return res.sendFile(indexHtml);
   res.status(404).json({ error: "Not found" });
 });
+
+// Sentry error handler must come before the generic error handler
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app);
+}
 
 app.use((err, req, res, next) => {
   console.error(err);

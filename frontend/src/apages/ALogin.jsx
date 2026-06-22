@@ -18,6 +18,7 @@ export default function ALogin() {
   const [pendingToken, setPendingToken] = useState(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
+  const [backupCodes, setBackupCodes] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const goToApp = () => navigate(location.state?.from || "/admin", { replace: true });
@@ -47,8 +48,12 @@ export default function ALogin() {
     e.preventDefault();
     setError(""); setBusy(true);
     try {
-      await totpSetupConfirm(email, password, code);
-      goToApp();
+      const res = await totpSetupConfirm(email, password, code);
+      if (res.backupCodes) {
+        setBackupCodes(res.backupCodes); // show backup codes before entering the app
+      } else {
+        goToApp();
+      }
     } catch (err) {
       setError(err.message || "Incorrect code");
     } finally {
@@ -93,7 +98,23 @@ export default function ALogin() {
           </>
         )}
 
-        {stage === "setup" && (
+        {stage === "setup" && backupCodes && (
+          <>
+            <h1>Save your backup codes</h1>
+            <p className="muted" style={{ margin: "0 0 16px", fontSize: 14 }}>
+              These 8 codes let you regain access if you ever lose your authenticator app.
+              Each can only be used once. <b>Save them somewhere safe — they won't be shown again.</b>
+            </p>
+            <div style={{ background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: 8, padding: "14px 16px", marginBottom: 18 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 24px", fontFamily: "var(--mono)", fontSize: 14, fontWeight: 600 }}>
+                {backupCodes.map((c, i) => <span key={i}>{c}</span>)}
+              </div>
+            </div>
+            <Btn variant="primary" size="lg" block onClick={goToApp}>I've saved these — continue to admin</Btn>
+          </>
+        )}
+
+        {stage === "setup" && !backupCodes && (
           <>
             <h1>Set up two-factor authentication</h1>
             <p className="muted" style={{ margin: "0 0 18px", fontSize: 14 }}>

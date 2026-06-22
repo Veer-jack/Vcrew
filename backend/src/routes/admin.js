@@ -3,7 +3,7 @@ import { db } from "../db.js";
 import {
   checkAdminCredentials, isAdminUsingDefaultPassword, createAdminSession, destroyAdminSession,
   adminAuthMiddleware, adminHasTotp, generateTotpSecret, confirmTotpSetup, verifyTotpCode,
-  createPending2fa, checkPending2fa, consumePending2fa,
+  createPending2fa, checkPending2fa, consumePending2fa, consumeBackupCode, getBackupCodeCount,
 } from "../auth.js";
 import QRCode from "qrcode";
 
@@ -40,10 +40,24 @@ router.post("/totp/setup/start", (req, res) => {
 router.post("/totp/setup/confirm", async (req, res) => {
   const { email, password, code } = req.body || {};
   if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
-  if (!(await confirmTotpSetup(code))) return res.status(400).json({ error: "Incorrect code, please try again" });
+  const backupCodes = await confirmTotpSetup(code);
+  if (!backupCodes) return res.status(400).json({ error: "Incorrect code, please try again" });
 
   const token = createAdminSession();
-  res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword() });
+  // Backup codes returned in plaintext once only — admin must save them now
+  res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword(), backupCodes });
+});
+
+// Reset TOTP using a backup code — allows admin to re-scan a fresh QR if
+// they've lost access to their authenticator app.
+router.post("/totp/reset", (req, res) => {
+  const { email, password, backupCode } = req.body || {};
+  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
+  if (!consumeBackupCode(backupCode)) return res.status(401).json({ error: "Invalid or already-used backup code" });
+
+  // Wipe the existing TOTP secret — next login will trigger setup flow again
+  db.prepare(`DELETE FROM admin_settings WHERE key IN ('totp_secret', 'totp_secret_pending')`).run();
+  res.json({ ok: true, message: "Authenticator reset. Sign in again to set up a new authenticator." });
 });
 
 router.post("/totp/verify", async (req, res) => {

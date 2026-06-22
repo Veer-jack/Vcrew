@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { hashPassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware } from "../auth.js";
+import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware } from "../auth.js";
 import { LEVELS } from "../vmeta.js";
 
 export const router = Router();
@@ -19,7 +19,7 @@ function publicValidator(v) {
   };
 }
 
-router.post("/signup", (req, res) => {
+router.post("/signup", async (req, res) => {
   const { name, email, password, expertise } = req.body || {};
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
@@ -36,21 +36,27 @@ router.post("/signup", (req, res) => {
   const result = db.prepare(`
     INSERT INTO validators (name, handle, email, password_hash, specialties_json)
     VALUES (?, ?, ?, ?, ?)
-  `).run(String(name).trim(), handle, normalizedEmail, hashPassword(password), JSON.stringify(specialties));
+  `).run(String(name).trim(), handle, normalizedEmail, await hashPassword(password), JSON.stringify(specialties));
 
   const v = db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
   const token = createValidatorSession(v.id);
   res.status(201).json({ token, validator: publicValidator(v) });
 });
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
   const v = db.prepare(`SELECT * FROM validators WHERE email = ?`).get(String(email).toLowerCase().trim());
-  if (!v || v.password_hash !== hashPassword(password)) {
-    return res.status(401).json({ error: "Invalid email or password" });
+  if (!v || !v.password_hash) return res.status(401).json({ error: "Invalid email or password" });
+
+  const { valid, needsRehash } = await comparePassword(password, v.password_hash);
+  if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+  if (needsRehash) {
+    db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), v.id);
   }
+
   const token = createValidatorSession(v.id);
   res.json({ token, validator: publicValidator(v) });
 });

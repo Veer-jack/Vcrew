@@ -62,7 +62,7 @@ router.get("/:provider/callback", async (req, res) => {
 
     // 3) otherwise create a brand new builder account
     if (!builder) {
-      const randomPassword = hashPassword(crypto.randomBytes(24).toString("hex"));
+      const randomPassword = await hashPassword(crypto.randomBytes(24).toString("hex"));
       const name = profile.name || profile.email.split("@")[0];
       db.prepare(`
         INSERT INTO builders (name, org, email, password_hash, oauth_provider, oauth_id)

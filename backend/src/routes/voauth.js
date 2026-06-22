@@ -61,7 +61,7 @@ router.get("/:provider/callback", async (req, res) => {
 
     // 3) otherwise create a brand new validator account
     if (!validator) {
-      const randomPassword = hashPassword(crypto.randomBytes(24).toString("hex"));
+      const randomPassword = await hashPassword(crypto.randomBytes(24).toString("hex"));
       db.prepare(`
         INSERT INTO validators (name, handle, email, password_hash, oauth_provider, oauth_id, specialties_json)
         VALUES (?, ?, ?, ?, ?, ?, '[]')

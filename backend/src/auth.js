@@ -1,7 +1,28 @@
 import crypto from "node:crypto";
 import { db } from "./db.js";
 
-export const hashPassword = (pw) => crypto.createHash("sha256").update(pw).digest("hex");
+import bcrypt from "bcrypt";
+
+const BCRYPT_ROUNDS = 12;
+const SHA256_RE = /^[a-f0-9]{64}$/; // identifies old SHA-256 hashes
+
+// New accounts use bcrypt. Returns a promise.
+export const hashPassword = (pw) => bcrypt.hash(pw, BCRYPT_ROUNDS);
+
+// Legacy SHA-256 check (used only during migration on login)
+const sha256Hash = (pw) => crypto.createHash("sha256").update(pw).digest("hex");
+
+// Compares a plaintext password against a stored hash.
+// If the stored hash is a legacy SHA-256 hex string, verifies it that way and
+// returns { valid: true, needsRehash: true } so callers can upgrade it to bcrypt.
+export async function comparePassword(plaintext, storedHash) {
+  if (SHA256_RE.test(storedHash)) {
+    const valid = sha256Hash(plaintext) === storedHash;
+    return { valid, needsRehash: valid };
+  }
+  const valid = await bcrypt.compare(plaintext, storedHash);
+  return { valid, needsRehash: false };
+}
 
 export function createSession(builderId) {
   const token = crypto.randomBytes(24).toString("hex");
@@ -87,6 +108,37 @@ export function adminHasTotp() {
   return !!getAdminSetting("totp_secret");
 }
 
+// Generates 8 one-time backup codes. Called once during initial TOTP confirmation.
+// Codes are stored as SHA-256 hashes (not bcrypt -- they're long random strings, not user passwords).
+function generateBackupCodes() {
+  const codes = Array.from({ length: 8 }, () =>
+    crypto.randomBytes(5).toString("hex").toUpperCase().replace(/(.{4})/g, "$1-").slice(0, 9)
+  );
+  const hashed = codes.map(c => crypto.createHash("sha256").update(c).digest("hex"));
+  setAdminSetting("backup_codes_json", JSON.stringify(hashed));
+  return codes; // returned in plaintext once, never stored in plaintext
+}
+
+export function getBackupCodeCount() {
+  const stored = getAdminSetting("backup_codes_json");
+  if (!stored) return 0;
+  try { return JSON.parse(stored).filter(Boolean).length; } catch { return 0; }
+}
+
+// Verifies a backup code and burns it (one-time use)
+export function consumeBackupCode(code) {
+  const stored = getAdminSetting("backup_codes_json");
+  if (!stored) return false;
+  let codes;
+  try { codes = JSON.parse(stored); } catch { return false; }
+  const hashed = crypto.createHash("sha256").update(String(code || "").toUpperCase().trim()).digest("hex");
+  const idx = codes.indexOf(hashed);
+  if (idx === -1) return false;
+  codes[idx] = null; // burn it
+  setAdminSetting("backup_codes_json", JSON.stringify(codes));
+  return true;
+}
+
 // Called after a fresh, unconfirmed setup -- not active until confirmTotp() succeeds.
 export function generateTotpSecret() {
   const secret = generateSecret();
@@ -107,11 +159,12 @@ async function checkTotp(secret, code) {
 
 export async function confirmTotpSetup(code) {
   const pending = getAdminSetting("totp_secret_pending");
-  if (!pending) return false;
-  if (!(await checkTotp(pending, code))) return false;
+  if (!pending) return null;
+  if (!(await checkTotp(pending, code))) return null;
   setAdminSetting("totp_secret", pending);
   db.prepare(`DELETE FROM admin_settings WHERE key = 'totp_secret_pending'`).run();
-  return true;
+  const backupCodes = generateBackupCodes();
+  return backupCodes; // plaintext codes returned once to caller, never stored
 }
 
 export async function verifyTotpCode(code) {

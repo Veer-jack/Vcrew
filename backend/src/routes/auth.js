@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "../db.js";
-import { hashPassword, createSession, destroySession, authMiddleware } from "../auth.js";
+import { hashPassword, comparePassword, createSession, destroySession, authMiddleware } from "../auth.js";
 
 export const router = Router();
 
@@ -21,7 +21,7 @@ export function publicBuilder(b) {
 // POST /api/auth/signup — Founder onboarding (self-serve account creation)
 const PERSONA_LABELS = { founder: "Founder", company: "Company", researcher: "Researcher", organization: "Organization" };
 
-router.post("/signup", (req, res) => {
+router.post("/signup", async (req, res) => {
   const { name, email, password, designation, org, website, persona, profile } = req.body || {};
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
@@ -47,7 +47,7 @@ router.post("/signup", (req, res) => {
     String(name).trim(),
     String(org || "").trim() || String(name).trim(),
     normalizedEmail,
-    hashPassword(password),
+    await hashPassword(password),
     designation ? String(designation).trim() : null,
     website ? String(website).trim() : null,
     PERSONA_LABELS[personaKey],
@@ -86,14 +86,21 @@ router.post("/signup", (req, res) => {
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
   const builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
-  if (!builder || builder.password_hash !== hashPassword(password)) {
-    return res.status(401).json({ error: "Invalid email or password" });
+  if (!builder || !builder.password_hash) return res.status(401).json({ error: "Invalid email or password" });
+
+  const { valid, needsRehash } = await comparePassword(password, builder.password_hash);
+  if (!valid) return res.status(401).json({ error: "Invalid email or password" });
+
+  // Silently upgrade legacy SHA-256 hashes to bcrypt on next login
+  if (needsRehash) {
+    db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), builder.id);
   }
+
   const token = createSession(builder.id);
   res.json({ token, builder: publicBuilder(builder) });
 });
