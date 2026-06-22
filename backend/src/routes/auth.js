@@ -17,6 +17,7 @@ export function publicBuilder(b) {
     designation: b.designation || null, website: b.website || null,
     persona: b.persona || "founder", profile,
     verified: !!b.verified_at, verifiedAt: b.verified_at || null,
+    preferredLanguage: b.preferred_language || "en",
   };
 }
 
@@ -193,4 +194,13 @@ router.post("/reset-password", async (req, res) => {
   db.prepare(`DELETE FROM sessions WHERE builder_id = ?`).run(row.user_id); // invalidate all existing sessions
 
   res.json({ ok: true });
+});
+
+// PATCH /api/auth/language { lang } — save preferred language for builder
+router.patch("/language", authMiddleware, (req, res) => {
+  const { lang } = req.body || {};
+  const VALID = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
+  if (!VALID.includes(lang)) return res.status(400).json({ error: "Unsupported language code" });
+  db.prepare(`UPDATE builders SET preferred_language = ? WHERE id = ?`).run(lang, req.builder.id);
+  res.json({ ok: true, lang });
 });

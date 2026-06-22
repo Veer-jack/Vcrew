@@ -7,6 +7,8 @@ import { GoogleMark, GithubMark, LinkedInMark } from "../SocialIcons";
 import OtpBoxes from "./OtpBoxes";
 import { COUNTRIES } from "./countries";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../../firebaseClient";
+import { detectLangFromCountryCode } from "../../i18n/languages.js";
+import { useTranslation } from "../../i18n/index.jsx";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
@@ -45,6 +47,17 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   const [ccIdx, setCcIdx] = useState(() => COUNTRIES.findIndex((c) => c[1] === "+91"));
   const cc = COUNTRIES[ccIdx] ? COUNTRIES[ccIdx][1] : "+91";
+  const { setLang } = useTranslation();
+
+  const handleCcChange = (e) => {
+    const idx = Number(e.target.value);
+    setCcIdx(idx);
+    const selectedCc = COUNTRIES[idx]?.[1];
+    if (selectedCc) {
+      const detectedLang = detectLangFromCountryCode(selectedCc);
+      if (detectedLang) setLang(detectedLang);
+    }
+  };
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -326,7 +339,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                   <div className="fld">
                     <label>Mobile number</label>
                     <div className="phone-row">
-                      <select className="cc-select" value={ccIdx} onChange={(e) => setCcIdx(Number(e.target.value))}>
+                      <select className="cc-select" value={ccIdx} onChange={handleCcChange}>
                         {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}
                       </select>
                       <input className="fin" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" />

@@ -4,6 +4,8 @@ import Icon from "./Icon";
 import { Avatar, Btn, inrK } from "./ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from "../i18n/index.jsx";
 
 function NotifPanel({ onClose }) {
   const [items, setItems] = useState([]);
@@ -100,6 +102,10 @@ function Sidebar({ mobOpen, closeMobile, builder }) {
             </div>
           </div>
         </NavLink>
+        <LanguageSwitcher
+          onSave={(lang) => api.setLanguage(lang).catch(() => {})}
+          style={{ marginTop: 8, width: "100%" }}
+        />
       </div>
     </aside>
   );

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { trackPageview } from "./analytics";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { I18nProvider } from "./i18n/index.jsx";
 import { MetaProvider } from "./context/MetaContext";
 import { api } from "./api/client";
 import { vapi } from "./vapi/client";
@@ -168,20 +169,22 @@ function SkipLink() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <SkipLink />
-      <RouteTracker />
-      <Routes>
-        <Route path="/validator/*" element={
-          <VAuthProvider><VMetaProvider><ValidatorRoutes /></VMetaProvider></VAuthProvider>
-        } />
-        <Route path="/admin/*" element={
-          <AAuthProvider><AdminRoutes /></AAuthProvider>
-        } />
-        <Route path="/*" element={
-          <AuthProvider><MetaProvider><BuilderRoutes /></MetaProvider></AuthProvider>
-        } />
-      </Routes>
-    </BrowserRouter>
+    <I18nProvider>
+      <BrowserRouter>
+        <SkipLink />
+        <RouteTracker />
+        <Routes>
+          <Route path="/validator/*" element={
+            <VAuthProvider><VMetaProvider><ValidatorRoutes /></VMetaProvider></VAuthProvider>
+          } />
+          <Route path="/admin/*" element={
+            <AAuthProvider><AdminRoutes /></AAuthProvider>
+          } />
+          <Route path="/*" element={
+            <AuthProvider><MetaProvider><BuilderRoutes /></MetaProvider></AuthProvider>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </I18nProvider>
   );
 }

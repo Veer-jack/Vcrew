@@ -13,10 +13,12 @@ function publicValidator(v) {
     level: v.level, levelName: lvl.name,
     rating: v.rating, ratingCount: v.rating_count, accuracy: v.accuracy, streak: v.streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
+    languages: JSON.parse(v.languages_json || "[]"),
     weekEarnings: v.week_earnings, weekTarget: v.week_target,
     pending: v.pending, available: v.available, lifetime: v.lifetime,
     completed: v.completed, acceptRate: v.accept_rate,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
+    preferredLanguage: v.preferred_language || "en",
   };
 }
 
@@ -130,4 +132,13 @@ router.post("/reset-password", async (req, res) => {
   db.prepare(`DELETE FROM validator_sessions WHERE validator_id = ?`).run(row.user_id);
 
   res.json({ ok: true });
+});
+
+// PATCH /api/v/auth/language { lang } — save preferred language for validator
+router.patch("/language", validatorAuthMiddleware, (req, res) => {
+  const { lang } = req.body || {};
+  const VALID = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
+  if (!VALID.includes(lang)) return res.status(400).json({ error: "Unsupported language code" });
+  db.prepare(`UPDATE validators SET preferred_language = ? WHERE id = ?`).run(lang, req.validator.id);
+  res.json({ ok: true, lang });
 });

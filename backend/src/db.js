@@ -469,6 +469,16 @@ export function migrate() {
   if (!builderCols.includes("verified_at")) {
     db.exec(`ALTER TABLE builders ADD COLUMN verified_at TEXT`);
   }
+  if (!builderCols.includes("preferred_language")) {
+    db.exec(`ALTER TABLE builders ADD COLUMN preferred_language TEXT DEFAULT 'en'`);
+  }
+
+  if (!validatorCols.includes("preferred_language")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN preferred_language TEXT DEFAULT 'en'`);
+  }
+  if (!validatorCols.includes("languages_json")) {
+    db.exec(`ALTER TABLE validators ADD COLUMN languages_json TEXT DEFAULT '[]'`);
+  }
   if (!builderCols.includes("persona")) {
     db.exec(`ALTER TABLE builders ADD COLUMN persona TEXT DEFAULT 'founder'`);
   }
