@@ -215,7 +215,9 @@ export function migrate() {
     kind TEXT NOT NULL,
     size TEXT,
     by TEXT,
-    when_label TEXT
+    when_label TEXT,
+    file_path TEXT,
+    mime_type TEXT
   );
 
   /* ============ VALIDATOR SIDE ============ */

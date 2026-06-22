@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, inr, inrK } from "../components/ui";
@@ -178,7 +178,7 @@ function MissionAudienceTab({ audience }) {
   );
 }
 
-function FileCard({ f }) {
+function FileCard({ f, onDelete }) {
   const k = FILE_KIND[f.kind] || FILE_KIND.pdf;
   return (
     <div className="card" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -186,27 +186,82 @@ function FileCard({ f }) {
         background: f.kind === "image" ? "repeating-linear-gradient(45deg, var(--panel-inset), var(--panel-inset) 8px, var(--panel-2) 8px, var(--panel-2) 16px)" : "var(--panel-inset)", color: k.tc }}>
         <Icon name={k.icon} size={30} />
       </div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, flex: 1 }}>
         <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}</div>
         <div className="faint" style={{ fontSize: 11.5 }}>{f.by} · {f.when}{f.size !== "—" ? " · " + f.size : ""}</div>
+      </div>
+      <div className="row gap-2">
+        {f.filename && (
+          <a href={`/api/uploads/${f.filename}`} download={f.name}
+            className="btn btn-ghost" style={{ fontSize: 12, flex: 1, justifyContent: "center" }}>
+            <Icon name="download" size={13} /> Download
+          </a>
+        )}
+        {onDelete && (
+          <button className="btn btn-ghost" style={{ fontSize: 12, color: "var(--danger)" }}
+            onClick={() => onDelete(f.filename)}>
+            <Icon name="x" size={13} />
+          </button>
+        )}
       </div>
     </div>
   );
 }
-function MissionFilesTab({ files }) {
+
+function MissionFilesTab({ missionId, files: initialFiles }) {
+  const [files, setFiles] = useState(initialFiles);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef(null);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setError("");
+    try {
+      const res = await api.uploadMissionFile(missionId, file, "brief");
+      setFiles(f => ({ ...f, brief: [...f.brief, { ...res.file, filename: res.file.filename }] }));
+    } catch (err) {
+      setError(err.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleDelete = async (filename) => {
+    if (!filename) return;
+    try {
+      await api.deleteMissionFile(missionId, filename);
+      setFiles(f => ({ ...f, brief: f.brief.filter(x => x.filename !== filename) }));
+    } catch { /* best effort */ }
+  };
+
   return (
     <div className="rise col gap-5">
+      {error && <div className="err-banner">{error}</div>}
       <div>
-        <div className="sec-head"><h3 className="h-md">Brief &amp; assets</h3><Btn variant="ghost" size="sm" icon="upload">Upload</Btn></div>
+        <div className="sec-head">
+          <h3 className="h-md">Brief &amp; assets</h3>
+          <input ref={inputRef} type="file" style={{ display: "none" }} onChange={handleUpload}
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.jpg,.jpeg,.png,.gif,.webp" />
+          <Btn variant="ghost" size="sm" icon="upload" disabled={uploading} onClick={() => inputRef.current?.click()}>
+            {uploading ? "Uploading…" : "Upload"}
+          </Btn>
+        </div>
         {files.brief.length === 0
           ? <div className="muted" style={{ padding: "12px 0" }}>No brief files uploaded yet.</div>
-          : <div className="files-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>{files.brief.map((f, i) => <FileCard key={i} f={f} />)}</div>}
+          : <div className="files-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+              {files.brief.map((f, i) => <FileCard key={i} f={f} onDelete={handleDelete} />)}
+            </div>}
       </div>
       <div>
         <div className="sec-head"><h3 className="h-md">Participant submissions</h3><span className="muted" style={{ fontSize: 12.5 }}>{files.submissions.length} files</span></div>
         {files.submissions.length === 0
           ? <div className="muted" style={{ padding: "12px 0" }}>No submissions yet.</div>
-          : <div className="files-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>{files.submissions.map((f, i) => <FileCard key={i} f={f} />)}</div>}
+          : <div className="files-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+              {files.submissions.map((f, i) => <FileCard key={i} f={f} />)}
+            </div>}
       </div>
     </div>
   );
@@ -305,7 +360,7 @@ export default function MissionDetail() {
       {tab === "audience" && <MissionAudienceTab audience={data.audience} />}
       {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} />}
       {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} />}
-      {tab === "files" && <MissionFilesTab files={data.files} />}
+      {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} />}
     </div>
   );

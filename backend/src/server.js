@@ -126,6 +126,20 @@ app.use("/api", globalLimiter);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
+// File downloads — UUID-named files on the persistent volume.
+// The UUID in the filename acts as an unguessable token (same approach
+// used by Notion, Linear, etc. for simple file hosting).
+app.get("/api/uploads/:filename", (req, res) => {
+  const uploadsDir = path.join(process.env.DB_DIR || path.join(__dirname, "..", "data"), "uploads");
+  const filePath = path.join(uploadsDir, path.basename(req.params.filename)); // basename prevents path traversal
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+  const row = db.prepare(`SELECT * FROM mission_files WHERE file_path = ?`).get(req.params.filename);
+  if (!row) return res.status(404).json({ error: "File not found" });
+  res.setHeader("Content-Disposition", `attachment; filename="${row.name}"`);
+  if (row.mime_type) res.setHeader("Content-Type", row.mime_type);
+  res.sendFile(filePath);
+});
+
 app.post("/api/auth/login", loginLimiter);
 app.post("/api/auth/signup", signupLimiter);
 app.use("/api/auth", authRouter);

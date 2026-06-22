@@ -1,9 +1,57 @@
 import { Router } from "express";
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import multer from "multer";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { catOf, ptypeOf, REWARDS, matchCount } from "../meta.js";
 import { sendMissionPublished } from "../email.js";
+
+const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || "";
+    cb(null, `${randomUUID()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = [
+      "application/pdf", "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "image/jpeg", "image/png", "image/gif", "image/webp",
+      "text/plain", "text/csv", "application/zip",
+    ];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error("File type not allowed"));
+  },
+});
+
+function kindFromMime(mime) {
+  if (mime.startsWith("image/")) return "image";
+  if (mime === "application/pdf") return "pdf";
+  if (mime.includes("word") || mime.includes("document")) return "doc";
+  if (mime.includes("excel") || mime.includes("sheet") || mime === "text/csv") return "sheet";
+  if (mime.includes("powerpoint") || mime.includes("presentation")) return "slides";
+  return "doc";
+}
+
+function humanSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
 
 export const router = Router();
 router.use(authMiddleware);
@@ -92,8 +140,8 @@ router.get("/:id", (req, res) => {
   // ---- Files ----
   const fileRows = db.prepare(`SELECT * FROM mission_files WHERE mission_id = ?`).all(m.id);
   const files = {
-    brief: fileRows.filter(f => f.section === "brief").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label })),
-    submissions: fileRows.filter(f => f.section === "submissions").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label })),
+    brief: fileRows.filter(f => f.section === "brief").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label, filename: f.file_path })),
+    submissions: fileRows.filter(f => f.section === "submissions").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label, filename: f.file_path })),
   };
 
   res.json({
@@ -187,4 +235,44 @@ router.patch("/:id/responses/:rid", (req, res) => {
   const flagged = req.body.flagged ? 1 : 0;
   db.prepare(`UPDATE responses SET flagged = ? WHERE id = ?`).run(flagged, r.id);
   res.json({ ok: true, flagged: !!flagged });
+});
+
+// POST /api/missions/:id/files?section=brief — upload a file to a mission
+router.post("/:id/files", upload.single("file"), (req, res) => {
+  const m = db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!m) {
+    if (req.file) fs.unlinkSync(req.file.path);
+    return res.status(404).json({ error: "Mission not found" });
+  }
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  const section = ["brief", "submissions"].includes(req.query.section) ? req.query.section : "brief";
+  const kind = kindFromMime(req.file.mimetype);
+  const size = humanSize(req.file.size);
+  const now = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+
+  db.prepare(`
+    INSERT INTO mission_files (mission_id, section, name, kind, size, by, when_label, file_path, mime_type)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(m.id, section, req.file.originalname, kind, size, req.builder.name, now, req.file.filename, req.file.mimetype);
+
+  res.status(201).json({
+    ok: true,
+    file: { name: req.file.originalname, kind, size, by: req.builder.name, when: now, filename: req.file.filename },
+  });
+});
+
+// DELETE /api/missions/:id/files/:filename — delete a brief file
+router.delete("/:id/files/:filename", (req, res) => {
+  const m = db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  const row = db.prepare(`SELECT * FROM mission_files WHERE mission_id = ? AND file_path = ?`).get(m.id, req.params.filename);
+  if (!row) return res.status(404).json({ error: "File not found" });
+
+  db.prepare(`DELETE FROM mission_files WHERE id = ?`).run(row.id);
+  const filePath = path.join(UPLOADS_DIR, req.params.filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  res.json({ ok: true });
 });

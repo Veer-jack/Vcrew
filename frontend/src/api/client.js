@@ -87,4 +87,20 @@ export const api = {
   threads: () => request("/messages/threads"),
   thread: (id) => request(`/messages/threads/${id}`),
   sendMessage: (threadId, text) => request(`/messages/threads/${threadId}/messages`, { method: "POST", body: { text } }),
+
+  uploadMissionFile: (missionId, file, section = "brief") => {
+    const form = new FormData();
+    form.append("file", file);
+    const t = token;
+    return fetch(`/api/missions/${missionId}/files?section=${section}`, {
+      method: "POST",
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: form,
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `Upload failed (${r.status})`);
+      return data;
+    });
+  },
+  deleteMissionFile: (missionId, filename) => request(`/missions/${missionId}/files/${filename}`, { method: "DELETE" }),
 };
