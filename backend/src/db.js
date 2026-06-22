@@ -513,4 +513,12 @@ export function migrate() {
   }
 }
 
+
+  // Migration: ip/user_agent columns on session tables (added after initial deploy)
+  const vsCols = db.prepare(`PRAGMA table_info(validator_sessions)`).all().map(c => c.name);
+  if (!vsCols.includes('ip')) db.exec(`ALTER TABLE validator_sessions ADD COLUMN ip TEXT`);
+  if (!vsCols.includes('user_agent')) db.exec(`ALTER TABLE validator_sessions ADD COLUMN user_agent TEXT`);
+  const sCols = db.prepare(`PRAGMA table_info(sessions)`).all().map(c => c.name);
+  if (!sCols.includes('ip')) db.exec(`ALTER TABLE sessions ADD COLUMN ip TEXT`);
+  if (!sCols.includes('user_agent')) db.exec(`ALTER TABLE sessions ADD COLUMN user_agent TEXT`);
 migrate();
