@@ -36,7 +36,52 @@ import { router as vSupportRouter } from "./routes/vsupport.js";
 import { authMiddleware, validatorAuthMiddleware, createSession, createValidatorSession, hashPassword } from "./auth.js";
 import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
 
+import { rateLimit } from "express-rate-limit";
+
 migrate();
+
+// ---- Rate limiters ----
+// Global API limiter — catches anything not covered by a specific limiter below
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,       // 1 minute
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please slow down" },
+});
+
+// Auth-specific limiters — tighter windows on endpoints that accept credentials
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many sign-in attempts, please try again in 15 minutes" },
+});
+
+const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,  // 1 hour
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many accounts created from this IP, please try again later" },
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many admin sign-in attempts, please try again in 15 minutes" },
+});
+
+const phoneLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,  // 10 minutes
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many OTP requests, please try again in 10 minutes" },
+});
 
 // On a fresh database (e.g. a brand new Railway volume), seed the demo data
 // automatically so the deployed app isn't empty on first load.
@@ -50,12 +95,15 @@ const app = express();
 app.use(cors());
 app.use(cookieParser());
 app.use(express.json());
+app.use("/api", globalLimiter);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
+app.post("/api/auth/login", loginLimiter);
+app.post("/api/auth/signup", signupLimiter);
 app.use("/api/auth", authRouter);
 app.use("/api/auth/oauth", bOAuthRouter);
-app.use("/api/auth/phone-login", buildFirebaseLoginRouter({
+app.use("/api/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
   table: "builders", createSession, publicUser: publicBuilder, userKey: "builder",
   createUser: (phone) => {
     const email = `${phone.replace(/[^0-9]/g, "")}@phone.validationcrew.app`;
@@ -78,14 +126,16 @@ app.use("/api/analytics", analyticsRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/support", supportRouter);
-app.use("/api/admin", adminRouter);
+app.use("/api/admin", adminLimiter, adminRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/messages", messagesRouter);
 app.use("/api/meta", metaRouter);
 
+app.post("/api/v/auth/login", loginLimiter);
+app.post("/api/v/auth/signup", signupLimiter);
 app.use("/api/v/auth", vAuthRouter);
 app.use("/api/v/auth/oauth", vOAuthRouter);
-app.use("/api/v/auth/phone-login", buildFirebaseLoginRouter({
+app.use("/api/v/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
   table: "validators", createSession: createValidatorSession, publicUser: publicValidator, userKey: "validator",
   createUser: (phone) => {
     const email = `${phone.replace(/[^0-9]/g, "")}@phone.validationcrew.app`;
