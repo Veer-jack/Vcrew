@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "../i18n/index.jsx";
+import { BrandMark } from "./BrandMark";
 
 function NotifPanel({ onClose }) {
   const [items, setItems] = useState([]);
