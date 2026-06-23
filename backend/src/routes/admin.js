@@ -199,8 +199,11 @@ router.patch("/tickets/:type/:id", async (req, res) => {
   const reply = req.body?.reply;
   if (status && !["open", "answered", "resolved"].includes(status)) return res.status(400).json({ error: "Invalid status" });
 
-  if (status) await db.prepare(`UPDATE ${table} SET status = ?, updated_label = 'Just now' WHERE id = ?`).run(status, id);
-  if (reply !== undefined) await db.prepare(`UPDATE ${table} SET reply = ?, status = 'answered', updated_label = 'Just now' WHERE id = ?`).run(reply, id);
+  if (status) await db.prepare(`UPDATE ${table} SET status = ?, updated_at = NOW() WHERE id = ?`).run(status, id);
+  if (reply !== undefined) await db.prepare(`UPDATE ${table} SET body = CONCAT(body, '
+
+---
+Admin reply: ', ?), status = 'answered', updated_at = NOW() WHERE id = ?`).run(reply, id);
 
   res.json({ ok: true });
 });
