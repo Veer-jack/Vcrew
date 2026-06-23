@@ -24,7 +24,7 @@ router.get("/:provider", async (req, res) => {
     return res.status(404).send(`${req.params.provider} login is not configured on this server yet.`);
   }
   const state = crypto.randomBytes(16).toString("hex");
-  res.cookie(STATE_COOKIE, state, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: "lax", secure: req.protocol === "https" });
+  res.cookie(STATE_COOKIE, state, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: "none", secure: true });
   res.redirect(provider.authorizeUrl(state, BASE_PATH));
 });
 
