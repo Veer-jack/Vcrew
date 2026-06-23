@@ -31,8 +31,8 @@ router.get("/", async (req, res) => {
 
   const activity = await db.prepare(`SELECT * FROM activity WHERE builder_id = ? ORDER BY id DESC LIMIT 12`).all(bId);
 
-  const recent = await db.prepare(`SELECT * FROM missions WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6`).all(bId)
-    .map(m => ({
+  const recentRaw = await db.prepare(`SELECT * FROM missions WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6`).all(bId);
+  const recent = recentRaw.map(m => ({
       id: m.id, name: m.name, category: m.category, categoryLabel: catOf(m.category).label,
       status: m.status, region: m.region, completion: m.completion,
       participants: { target: m.target, joined: m.joined, submitted: m.submitted },
