@@ -26,7 +26,7 @@ export function buildFirebaseLoginRouter({ table, createSession, publicUser, use
       let user = db.prepare(`SELECT * FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
       if (!user && createUser) user = createUser(phone);
       if (!user) return res.status(404).json({ error: "No account found for that phone number" });
-      const token = createSession(user.id);
+      const token = await createSession(user.id);
       res.json({ token, [userKey]: publicUser(user) });
     } catch (err) {
       return handleFirebaseError(err, res);
@@ -55,7 +55,7 @@ export function buildPhoneLinkRouter({ table, authMiddleware, userKey }) {
     }
   });
 
-  router.post("/remove", (req, res) => {
+  router.post("/remove", async (req, res) => {
     db.prepare(`UPDATE ${table} SET phone = NULL, phone_verified = 0 WHERE id = ?`).run(req[userKey].id);
     res.json({ ok: true });
   });
@@ -79,7 +79,7 @@ export function buildStepUpRouter({ table, purpose, authMiddleware, userKey }) {
       if (phone !== user.phone) return res.status(400).json({ error: "That phone number doesn't match your account" });
 
       const token = crypto.randomBytes(24).toString("hex");
-      db.prepare(`INSERT INTO step_up_tokens (token, table_name, user_id, purpose, expires_at, created_at) VALUES (?,?,?,?,?,?)`)
+      await db.prepare(`INSERT INTO step_up_tokens (token, table_name, user_id, purpose, expires_at, created_at) VALUES (?,?,?,?,?,?)`)
         .run(token, table, user.id, purpose, Date.now() + STEP_UP_TTL_MS, Date.now());
       res.json({ ok: true, stepUpToken: token });
     } catch (err) {
@@ -91,11 +91,11 @@ export function buildStepUpRouter({ table, purpose, authMiddleware, userKey }) {
 }
 
 // Used by sensitive endpoints (withdraw, top-up) to check + consume a step-up token.
-export function consumeStepUpToken({ table, userId, purpose, token }) {
+export async function consumeStepUpToken({ table, userId, purpose, token }) {
   if (!token) return false;
-  const row = db.prepare(`SELECT * FROM step_up_tokens WHERE token = ? AND table_name = ? AND user_id = ? AND purpose = ? AND used = 0`)
+  const row = await db.prepare(`SELECT * FROM step_up_tokens WHERE token = ? AND table_name = ? AND user_id = ? AND purpose = ? AND used = 0`)
     .get(token, table, userId, purpose);
   if (!row || row.expires_at < Date.now()) return false;
-  db.prepare(`UPDATE step_up_tokens SET used = 1 WHERE token = ?`).run(token);
+  await db.prepare(`UPDATE step_up_tokens SET used = 1 WHERE token = ?`).run(token);
   return true;
 }

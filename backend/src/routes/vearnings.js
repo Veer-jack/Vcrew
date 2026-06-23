@@ -39,7 +39,7 @@ router.post("/withdraw", async (req, res) => {
   if (amount > req.validator.available) return res.status(400).json({ error: "Amount exceeds available balance" });
 
   if (req.validator.phone_verified) {
-    const ok = consumeStepUpToken({ table: "validators", userId: req.validator.id, purpose: "withdraw", token: req.body?.stepUpToken });
+    const ok = await consumeStepUpToken({ table: "validators", userId: req.validator.id, purpose: "withdraw", token: req.body?.stepUpToken });
     if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
   }
 

@@ -30,7 +30,7 @@ router.post("/topup", async (req, res) => {
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
 
   if (req.builder.phone_verified) {
-    const ok = consumeStepUpToken({ table: "builders", userId: req.builder.id, purpose: "topup", token: req.body?.stepUpToken });
+    const ok = await consumeStepUpToken({ table: "builders", userId: req.builder.id, purpose: "topup", token: req.body?.stepUpToken });
     if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
   }
 
