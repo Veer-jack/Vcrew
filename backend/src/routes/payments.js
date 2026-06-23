@@ -43,8 +43,8 @@ router.post("/verify", async (req, res) => {
   if (!credit || credit <= 0) return res.status(400).json({ error: "Invalid amount" });
 
   await db.prepare(`UPDATE builders SET balance = balance + ? WHERE id = ?`).run(credit, req.builder.id);
-  await db.prepare(`INSERT INTO transactions (builder_id, date_label, description, type, amount, mission_id, payment_ref) VALUES (?,?,?,?,?,?,?)`)
-    .run(req.builder.id, "Today", "Wallet top-up (card)", "credit", credit, null, orderId);
+  await db.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?,?,?,?,?,?,?)`)
+    .run(req.builder.id, "credit", credit, "completed", orderId, "Wallet top-up via card");
 
   res.json({ balance: balanceRow().balance, credited: true });
 });

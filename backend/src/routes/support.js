@@ -21,8 +21,8 @@ router.post("/tickets", async (req, res) => {
   if (!subject || !subject.trim()) return res.status(400).json({ error: "subject is required" });
 
   const id = "TKT-" + randomUUID().slice(0, 4).toUpperCase();
-  await db.prepare(`INSERT INTO b_tickets (id, builder_id, subject, category, details, status, priority, updated_label) VALUES (?,?,?,?,?, 'open', 'normal', 'Just now')`)
-    .run(id, req.builder.id, subject.trim(), category || "Other", details || "");
+  await db.prepare(`INSERT INTO b_tickets (builder_id, subject, body, status, priority) VALUES (?,?,?, 'open', 'normal')`)
+    .run(req.builder.id, subject.trim(), details || "");
 
   res.status(201).json({ ticket: { id, subject: subject.trim(), cat: category || "Other", status: "open", priority: "normal", updated: "Just now" } });
 });

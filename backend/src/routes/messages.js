@@ -37,7 +37,7 @@ router.post("/threads/:id/messages", async (req, res) => {
   const text = (req.body?.text || "").trim();
   if (!text) return res.status(400).json({ error: "text is required" });
 
-  await db.prepare(`INSERT INTO thread_messages (thread_id, sender, text, time_label) VALUES (?, 'me', ?, 'Now')`).run(t.id, text);
+  await db.prepare(`INSERT INTO thread_messages (thread_id, sender_role, sender_id, body) VALUES (?, 'builder', ?, ?)`).run(t.id, req.builder.id, text);
   await db.prepare(`UPDATE threads SET time_label = 'Now' WHERE id = ?`).run(t.id);
 
   res.status(201).json({ message: { from: "me", text, time: "Now" } });

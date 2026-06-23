@@ -67,14 +67,15 @@ router.post("/withdraw", async (req, res) => {
         referenceId: `withdraw_${req.validator.id}_${Date.now()}`,
       });
 
-      await db.prepare(`INSERT INTO withdrawals (validator_id, amount, vpa, razorpay_payout_id, status) VALUES (?,?,?,?,?)`)
-        .run(req.validator.id, amount, req.validator.payout_vpa, payout.id, payout.status || "queued");
+      await db.prepare(`INSERT INTO withdrawals (validator_id, amount, method, account_json, status) VALUES (?,?,?,?,?)`)
+        .run(req.validator.id, amount, 'razorpay', JSON.stringify({ vpa: req.validator.payout_vpa, payout_id: payout.id }), payout.status || 'queued');
 
-      await db.prepare(`UPDATE validators SET available = available - ? WHERE id = ?`).run(amount, req.validator.id);
+      await db.prepare(`UPDATE validators SET balance = balance - ? WHERE id = ?`).run(amount, req.validator.id);
       await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)
         .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} to ${req.validator.payout_vpa} is ${payout.status || "queued"} and should land within 24h.`);
 
-      const available = await db.prepare(`SELECT available FROM validators WHERE id = ?`).get(req.validator.id).available;
+      const availRow = await db.prepare(`SELECT balance FROM validators WHERE id = ?`).get(req.validator.id);
+  const available = availRow.balance;
       return res.json({ available, payoutStatus: payout.status });
     } catch (err) {
       return res.status(400).json({ error: err.message });
@@ -82,10 +83,11 @@ router.post("/withdraw", async (req, res) => {
   }
 
   // Simulated fallback when RazorpayX isn't configured.
-  await db.prepare(`UPDATE validators SET available = available - ? WHERE id = ?`).run(amount, req.validator.id);
+  await db.prepare(`UPDATE validators SET balance = balance - ? WHERE id = ?`).run(amount, req.validator.id);
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)
     .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} is being processed and should land within 24h.`);
 
-  const available = await db.prepare(`SELECT available FROM validators WHERE id = ?`).get(req.validator.id).available;
+  const availRow = await db.prepare(`SELECT balance FROM validators WHERE id = ?`).get(req.validator.id);
+  const available = availRow.balance;
   res.json({ available });
 });

@@ -35,9 +35,10 @@ router.post("/topup", async (req, res) => {
   }
 
   await db.prepare(`UPDATE builders SET balance = balance + ? WHERE id = ?`).run(amount, req.builder.id);
-  await db.prepare(`INSERT INTO transactions (builder_id, date_label, description, type, amount, mission_id) VALUES (?,?,?,?,?,?)`)
-    .run(req.builder.id, "Today", "Wallet top-up", "credit", amount, null);
+  await db.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?,?,?,?,?,?)`)
+    .run(req.builder.id, "credit", amount, "completed", null, "Wallet top-up");
 
-  const balance = await db.prepare(`SELECT balance FROM builders WHERE id = ?`).get(req.builder.id).balance;
+  const balRow = await db.prepare(`SELECT balance FROM builders WHERE id = ?`).get(req.builder.id);
+  const balance = balRow.balance;
   res.status(201).json({ balance });
 });
