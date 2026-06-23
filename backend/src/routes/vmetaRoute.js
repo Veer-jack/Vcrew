@@ -3,6 +3,6 @@ import { VTYPES, TYPE_ORDER, LEVELS, BADGES, EXPERTISE, NOTIF_CATS, HELP_ARTICLE
 
 export const router = Router();
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   res.json({ vtypes: VTYPES, typeOrder: TYPE_ORDER, levels: LEVELS, badges: BADGES, expertise: EXPERTISE, notifCats: NOTIF_CATS, helpArticles: HELP_ARTICLES, rewardBands: REWARD_BANDS, timeBands: TIME_BANDS, sorts: SORTS });
 });

@@ -24,15 +24,15 @@ export async function comparePassword(plaintext, storedHash) {
   return { valid, needsRehash: false };
 }
 
-export function createSession(builderId, ip, ua) {
+export async function createSession(builderId, ip, ua) {
   const token = crypto.randomBytes(24).toString("hex");
-  db.prepare(`INSERT INTO sessions (token, builder_id, ip, user_agent) VALUES (?, ?, ?, ?)`)
+  await db.prepare(`INSERT INTO sessions (token, builder_id, ip, user_agent) VALUES (?, ?, ?, ?)`)
     .run(token, builderId, ip || null, ua || null);
   return token;
 }
 
-export function destroySession(token) {
-  db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
+export async function destroySession(token) {
+  await db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
 }
 
 export function authMiddleware(req, res, next) {
@@ -40,48 +40,50 @@ export function authMiddleware(req, res, next) {
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
-  const session = db.prepare(`SELECT * FROM sessions WHERE token = ?`).get(token);
-  if (!session) return res.status(401).json({ error: "Invalid or expired session" });
+  (async () => {
+    const session = await db.prepare(`SELECT * FROM sessions WHERE token = ?`).get(token);
+    if (!session) return res.status(401).json({ error: "Invalid or expired session" });
 
-  const builder = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(session.builder_id);
-  if (!builder) return res.status(401).json({ error: "Account not found" });
+    const builder = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(session.builder_id);
+    if (!builder) return res.status(401).json({ error: "Account not found" });
 
-  req.builder = builder;
-  req.token = token;
-  next();
+    req.builder = builder;
+    req.token = token;
+    next();
+  })().catch(next);
 }
 
 /* ---- validator-side session helpers ---- */
 
-export function createValidatorSession(validatorId, ip, ua) {
+export async function createValidatorSession(validatorId, ip, ua) {
   const token = crypto.randomBytes(24).toString("hex");
-  db.prepare(`INSERT INTO validator_sessions (token, validator_id, ip, user_agent) VALUES (?, ?, ?, ?)`)
+  await db.prepare(`INSERT INTO validator_sessions (token, validator_id, ip, user_agent) VALUES (?, ?, ?, ?)`)
     .run(token, validatorId, ip || null, ua || null);
   return token;
 }
 
-export function destroyValidatorSession(token) {
-  db.prepare(`DELETE FROM validator_sessions WHERE token = ?`).run(token);
+export async function destroyValidatorSession(token) {
+  await db.prepare(`DELETE FROM validator_sessions WHERE token = ?`).run(token);
 }
 
 // Flag a potential fraud signal for admin review — never blocks the user,
 // just creates a reviewable record so patterns can be spotted over time.
-export function flagFraud(signal, role, userId, detail, severity = "low") {
+export async function flagFraud(signal, role, userId, detail, severity = "low") {
   try {
-    db.prepare(`INSERT INTO fraud_signals (signal, role, user_id, detail, severity) VALUES (?, ?, ?, ?, ?)`)
+    await db.prepare(`INSERT INTO fraud_signals (signal, role, user_id, detail, severity) VALUES (?, ?, ?, ?, ?)`)
       .run(signal, role, userId, detail || null, severity);
   } catch { /* never let fraud logging break a response */ }
 }
 
-export function validatorAuthMiddleware(req, res, next) {
+export async function validatorAuthMiddleware(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
-  const session = db.prepare(`SELECT * FROM validator_sessions WHERE token = ?`).get(token);
+  const session = await db.prepare(`SELECT * FROM validator_sessions WHERE token = ?`).get(token);
   if (!session) return res.status(401).json({ error: "Invalid or expired session" });
 
-  const validator = db.prepare(`SELECT * FROM validators WHERE id = ?`).get(session.validator_id);
+  const validator = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(session.validator_id);
   if (!validator) return res.status(401).json({ error: "Account not found" });
 
   req.validator = validator;
@@ -98,30 +100,30 @@ const ADMIN_SESSION_HOURS = 12;
 const PENDING_2FA_MINUTES = 5;
 const PENDING_2FA_MAX_ATTEMPTS = 6;
 
-export function checkAdminCredentials(email, password) {
+export async function checkAdminCredentials(email, password) {
   return String(email).toLowerCase().trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD;
 }
 
-export function isAdminUsingDefaultPassword() {
+export async function isAdminUsingDefaultPassword() {
   return !process.env.ADMIN_PASSWORD;
 }
 
-function getAdminSetting(key) {
-  const row = db.prepare(`SELECT value FROM admin_settings WHERE key = ?`).get(key);
+async function getAdminSetting(key) {
+  const row = await db.prepare(`SELECT value FROM admin_settings WHERE key = ?`).get(key);
   return row ? row.value : null;
 }
-function setAdminSetting(key, value) {
-  db.prepare(`INSERT INTO admin_settings (key, value) VALUES (?, ?)
+async function setAdminSetting(key, value) {
+  await db.prepare(`INSERT INTO admin_settings (key, value) VALUES (?, ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, value);
 }
 
-export function adminHasTotp() {
+export async function adminHasTotp() {
   return !!getAdminSetting("totp_secret");
 }
 
 // Generates 8 one-time backup codes. Called once during initial TOTP confirmation.
 // Codes are stored as SHA-256 hashes (not bcrypt -- they're long random strings, not user passwords).
-function generateBackupCodes() {
+async function generateBackupCodes() {
   const codes = Array.from({ length: 8 }, () =>
     crypto.randomBytes(5).toString("hex").toUpperCase().replace(/(.{4})/g, "$1-").slice(0, 9)
   );
@@ -130,14 +132,14 @@ function generateBackupCodes() {
   return codes; // returned in plaintext once, never stored in plaintext
 }
 
-export function getBackupCodeCount() {
+export async function getBackupCodeCount() {
   const stored = getAdminSetting("backup_codes_json");
   if (!stored) return 0;
   try { return JSON.parse(stored).filter(Boolean).length; } catch { return 0; }
 }
 
 // Verifies a backup code and burns it (one-time use)
-export function consumeBackupCode(code) {
+export async function consumeBackupCode(code) {
   const stored = getAdminSetting("backup_codes_json");
   if (!stored) return false;
   let codes;
@@ -151,7 +153,7 @@ export function consumeBackupCode(code) {
 }
 
 // Called after a fresh, unconfirmed setup -- not active until confirmTotp() succeeds.
-export function generateTotpSecret() {
+export async function generateTotpSecret() {
   const secret = generateSecret();
   setAdminSetting("totp_secret_pending", secret);
   const uri = generateURI({ issuer: "ValidationCrew Admin", label: ADMIN_EMAIL, secret, type: "totp" });
@@ -173,7 +175,7 @@ export async function confirmTotpSetup(code) {
   if (!pending) return null;
   if (!(await checkTotp(pending, code))) return null;
   setAdminSetting("totp_secret", pending);
-  db.prepare(`DELETE FROM admin_settings WHERE key = 'totp_secret_pending'`).run();
+  await db.prepare(`DELETE FROM admin_settings WHERE key = 'totp_secret_pending'`).run();
   const backupCodes = generateBackupCodes();
   return backupCodes; // plaintext codes returned once to caller, never stored
 }
@@ -186,52 +188,52 @@ export async function verifyTotpCode(code) {
 
 // Step 1 of login (email+password correct, TOTP enabled): issue a short-lived
 // pending token that only unlocks a real session via verifyTotpCode + createAdminSession.
-export function createPending2fa() {
+export async function createPending2fa() {
   const token = crypto.randomBytes(24).toString("hex");
-  db.prepare(`INSERT INTO admin_pending_2fa (token) VALUES (?)`).run(token);
+  await db.prepare(`INSERT INTO admin_pending_2fa (token) VALUES (?)`).run(token);
   return token;
 }
 
 // Validates the token exists, hasn't expired, and hasn't exceeded its attempt
 // cap -- without consuming it, so a mistyped code doesn't force the admin
 // back through the password step. Each call here counts as one attempt.
-export function checkPending2fa(token) {
-  const row = db.prepare(`SELECT * FROM admin_pending_2fa WHERE token = ?`).get(token);
+export async function checkPending2fa(token) {
+  const row = await db.prepare(`SELECT * FROM admin_pending_2fa WHERE token = ?`).get(token);
   if (!row) return false;
   const ageMin = (Date.now() - new Date(row.created_at + "Z").getTime()) / 60000;
   if (ageMin > PENDING_2FA_MINUTES || row.attempts >= PENDING_2FA_MAX_ATTEMPTS) {
-    db.prepare(`DELETE FROM admin_pending_2fa WHERE token = ?`).run(token);
+    await db.prepare(`DELETE FROM admin_pending_2fa WHERE token = ?`).run(token);
     return false;
   }
-  db.prepare(`UPDATE admin_pending_2fa SET attempts = attempts + 1 WHERE token = ?`).run(token);
+  await db.prepare(`UPDATE admin_pending_2fa SET attempts = attempts + 1 WHERE token = ?`).run(token);
   return true;
 }
 
-export function consumePending2fa(token) {
-  db.prepare(`DELETE FROM admin_pending_2fa WHERE token = ?`).run(token);
+export async function consumePending2fa(token) {
+  await db.prepare(`DELETE FROM admin_pending_2fa WHERE token = ?`).run(token);
 }
 
-export function createAdminSession() {
+export async function createAdminSession() {
   const token = crypto.randomBytes(24).toString("hex");
-  db.prepare(`INSERT INTO admin_sessions (token) VALUES (?)`).run(token);
+  await db.prepare(`INSERT INTO admin_sessions (token) VALUES (?)`).run(token);
   return token;
 }
 
-export function destroyAdminSession(token) {
-  db.prepare(`DELETE FROM admin_sessions WHERE token = ?`).run(token);
+export async function destroyAdminSession(token) {
+  await db.prepare(`DELETE FROM admin_sessions WHERE token = ?`).run(token);
 }
 
-export function adminAuthMiddleware(req, res, next) {
+export async function adminAuthMiddleware(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
-  const session = db.prepare(`SELECT * FROM admin_sessions WHERE token = ?`).get(token);
+  const session = await db.prepare(`SELECT * FROM admin_sessions WHERE token = ?`).get(token);
   if (!session) return res.status(401).json({ error: "Invalid or expired session" });
 
   const ageHours = (Date.now() - new Date(session.created_at + "Z").getTime()) / 3600000;
   if (ageHours > ADMIN_SESSION_HOURS) {
-    db.prepare(`DELETE FROM admin_sessions WHERE token = ?`).run(token);
+    await db.prepare(`DELETE FROM admin_sessions WHERE token = ?`).run(token);
     return res.status(401).json({ error: "Session expired, please sign in again" });
   }
 

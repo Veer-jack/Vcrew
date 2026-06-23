@@ -20,7 +20,7 @@ function serializeRow(row) {
 }
 
 // GET /api/v/missions?status=active
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { status } = req.query;
   let sql = `
     SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, mm.created_at, mm.updated_at,
@@ -33,17 +33,17 @@ router.get("/", (req, res) => {
 
   const counts = {};
   for (const s of ["applied", "active", "submitted", "completed", "rejected"]) {
-    counts[s] = db.prepare(`SELECT COUNT(*) c FROM v_my_missions WHERE validator_id = ? AND status = ?`).get(req.validator.id, s).c;
+    counts[s] = await db.prepare(`SELECT COUNT(*) c FROM v_my_missions WHERE validator_id = ? AND status = ?`).get(req.validator.id, s).c;
   }
 
   res.json({ missions: rows.map(serializeRow), counts });
 });
 
 // GET /api/v/missions/:taskId — workspace context (task + rubric + my mission state)
-router.get("/:taskId", (req, res) => {
-  const t = db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.taskId);
+router.get("/:taskId", async (req, res) => {
+  const t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.taskId);
   if (!t) return res.status(404).json({ error: "Mission not found" });
-  const mm = db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
+  const mm = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
 
   res.json({
     task: { id: t.id, type: t.type, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]") },
@@ -58,27 +58,27 @@ router.get("/:taskId", (req, res) => {
 });
 
 // POST /api/v/missions/:taskId/submit  { ratings, flags, notes, minutes, score }
-router.post("/:taskId/submit", (req, res) => {
-  const t = db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.taskId);
+router.post("/:taskId/submit", async (req, res) => {
+  const t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.taskId);
   if (!t) return res.status(404).json({ error: "Mission not found" });
-  const mm = db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
+  const mm = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
   if (!mm) return res.status(404).json({ error: "You haven't accepted this mission yet" });
 
   const { ratings = {}, flags = [], notes = "", minutes = 1, score = 0 } = req.body || {};
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE v_my_missions SET status = 'submitted', progress = 100, ratings_json = ?, flags_json = ?, notes = ?,
-      minutes_spent = ?, score = ?, status_label = 'Submitted just now', updated_at = datetime('now')
+      minutes_spent = ?, score = ?, status_label = 'Submitted just now', updated_at = NOW()
     WHERE id = ?
   `).run(JSON.stringify(ratings), JSON.stringify(flags), notes, minutes, score, mm.id);
 
   // reward becomes a pending payout while the builder reviews it
-  db.prepare(`UPDATE validators SET pending = pending + ? WHERE id = ?`).run(t.reward, req.validator.id);
+  await db.prepare(`UPDATE validators SET pending = pending + ? WHERE id = ?`).run(t.reward, req.validator.id);
 
-  db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
     .run(req.validator.id, "application", "clock", "accent", "Submission received", `Your validation for ${t.product} is now in review. \u20b9${t.reward} will clear once approved.`, "Just now");
 
-  const updated = db.prepare(`
+  const updated = await db.prepare(`
     SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, t.*
     FROM v_my_missions mm JOIN vtasks t ON t.id = mm.task_id WHERE mm.id = ?
   `).get(mm.id);

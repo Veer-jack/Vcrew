@@ -1,13 +1,17 @@
 import * as Sentry from "@sentry/node";
 
-// Sentry must be initialized before any other imports that might throw.
-// SENTRY_DSN is set as an env var on Railway -- if not set, error tracking
-// is silently disabled (no crash, just no reporting).
+process.on('unhandledRejection', (reason) => {
+  console.error('=== UNHANDLED REJECTION ===', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('=== UNCAUGHT EXCEPTION ===', err);
+});
+
 if (process.env.SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || "production",
-    tracesSampleRate: 0.2, // capture 20% of transactions for performance monitoring
+    tracesSampleRate: 0.2,
   });
 }
 
@@ -18,7 +22,7 @@ import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { db, migrate } from "./db.js";
+import { db, initDb } from "./db.js";
 
 import { router as authRouter, publicBuilder } from "./routes/auth.js";
 import { router as bOAuthRouter } from "./routes/boauth.js";
@@ -51,7 +55,6 @@ import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRout
 
 import { rateLimit } from "express-rate-limit";
 
-migrate();
 
 // ---- Rate limiters ----
 // Global API limiter — catches anything not covered by a specific limiter below
@@ -96,9 +99,11 @@ const phoneLimiter = rateLimit({
   message: { error: "Too many OTP requests, please try again in 10 minutes" },
 });
 
+await initDb();
+
 // On a fresh database (e.g. a brand new Railway volume), seed the demo data
 // automatically so the deployed app isn't empty on first load.
-const builderCount = db.prepare(`SELECT COUNT(*) c FROM builders`).get().c;
+const builderCount = (await db.prepare(`SELECT COUNT(*) c FROM builders`).get()).c;
 if (builderCount === 0) {
   console.log("Empty database detected — running seed...");
   await import("./seed.js");
@@ -129,11 +134,11 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 // File downloads — UUID-named files on the persistent volume.
 // The UUID in the filename acts as an unguessable token (same approach
 // used by Notion, Linear, etc. for simple file hosting).
-app.get("/api/uploads/:filename", (req, res) => {
+app.get("/api/uploads/:filename", async (req, res) => {
   const uploadsDir = path.join(process.env.DB_DIR || path.join(__dirname, "..", "data"), "uploads");
   const filePath = path.join(uploadsDir, path.basename(req.params.filename)); // basename prevents path traversal
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
-  const row = db.prepare(`SELECT * FROM mission_files WHERE file_path = ?`).get(req.params.filename);
+  const row = await db.prepare(`SELECT * FROM mission_files WHERE file_path = ?`).get(req.params.filename);
   if (!row) return res.status(404).json({ error: "File not found" });
   res.setHeader("Content-Disposition", `attachment; filename="${row.name}"`);
   if (row.mime_type) res.setHeader("Content-Type", row.mime_type);
@@ -146,13 +151,13 @@ app.use("/api/auth", authRouter);
 app.use("/api/auth/oauth", bOAuthRouter);
 app.use("/api/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
   table: "builders", createSession, publicUser: publicBuilder, userKey: "builder",
-  createUser: (phone) => {
+  createUser: async (phone) => {
     const email = `${phone.replace(/[^0-9]/g, "")}@phone.validationcrew.app`;
     const randomPassword = hashPassword(crypto.randomBytes(24).toString("hex"));
-    db.prepare(`INSERT INTO builders (name, org, email, password_hash, phone, phone_verified) VALUES (?,?,?,?,?,1)`)
+    await db.prepare(`INSERT INTO builders (name, org, email, password_hash, phone, phone_verified) VALUES (?,?,?,?,?,1)`)
       .run("New Builder", "My workspace", email, randomPassword, phone);
-    const builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(email);
-    db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
+    const builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(email);
+    await db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
       .run(builder.id, "Welcome to ValidationCrew", "Your account was created via phone sign-in. Update your workspace name and email in Settings any time.");
     return builder;
   },
@@ -178,13 +183,13 @@ app.use("/api/v/auth", vAuthRouter);
 app.use("/api/v/auth/oauth", vOAuthRouter);
 app.use("/api/v/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
   table: "validators", createSession: createValidatorSession, publicUser: publicValidator, userKey: "validator",
-  createUser: (phone) => {
+  createUser: async (phone) => {
     const email = `${phone.replace(/[^0-9]/g, "")}@phone.validationcrew.app`;
     const randomPassword = hashPassword(crypto.randomBytes(24).toString("hex"));
-    db.prepare(`INSERT INTO validators (name, handle, email, password_hash, phone, phone_verified, specialties_json) VALUES (?,?,?,?,?,1,'[]')`)
+    await db.prepare(`INSERT INTO validators (name, handle, email, password_hash, phone, phone_verified, specialties_json) VALUES (?,?,?,?,?,1,'[]')`)
       .run("New Validator", null, email, randomPassword, phone);
-    const validator = db.prepare(`SELECT * FROM validators WHERE email = ?`).get(email);
-    db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'system','shield','green',?,?, 'Just now', 1)`)
+    const validator = await db.prepare(`SELECT * FROM validators WHERE email = ?`).get(email);
+    await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'system','shield','green',?,?, 'Just now', 1)`)
       .run(validator.id, "Welcome to ValidationCrew", "Your account was created via phone sign-in. Complete your profile to start getting matched to missions.");
     return validator;
   },
@@ -227,8 +232,8 @@ if (process.env.SENTRY_DSN) {
 }
 
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: "Internal server error" });
+  console.error("EXPRESS ERROR:", err?.stack || err?.message || err);
+  res.status(500).json({ error: "Internal server error", detail: err?.message });
 });
 
 const PORT = process.env.PORT || 4000;

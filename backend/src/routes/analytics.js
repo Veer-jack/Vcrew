@@ -6,15 +6,15 @@ import { catOf } from "../meta.js";
 export const router = Router();
 router.use(authMiddleware);
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const bId = req.builder.id;
-  const missions = db.prepare(`SELECT * FROM missions WHERE builder_id = ?`).all(bId);
+  const missions = await db.prepare(`SELECT * FROM missions WHERE builder_id = ?`).all(bId);
   const missionIds = missions.map(m => m.id);
 
   let responses = [];
   if (missionIds.length) {
     const placeholders = missionIds.map(() => "?").join(",");
-    responses = db.prepare(`SELECT * FROM responses WHERE mission_id IN (${placeholders})`).all(...missionIds);
+    responses = await db.prepare(`SELECT * FROM responses WHERE mission_id IN (${placeholders})`).all(...missionIds);
   }
 
   const totalResponses = missions.reduce((s, m) => s + m.submitted, 0);
@@ -40,7 +40,7 @@ router.get("/", (req, res) => {
     .map(([cat, v]) => ({ category: cat, label: catOf(cat).label, spend: v }));
 
   // Geo distribution from the audience pool (real, shared table)
-  const geoRows = db.prepare(`
+  const geoRows = await db.prepare(`
     SELECT city, COUNT(*) as cnt FROM audience_members GROUP BY city ORDER BY cnt DESC LIMIT 6
   `).all();
   const geo = geoRows.map(r => ({ l: r.city, v: r.cnt }));

@@ -32,7 +32,7 @@ router.post("/signup", async (req, res) => {
   if (!password || String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   const normalizedEmail = String(email).toLowerCase().trim();
-  const existing = db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
+  const existing = await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
   if (existing) return res.status(400).json({ error: "An account with that email already exists" });
 
   const personaKey = PERSONA_LABELS[persona] ? persona : "founder";
@@ -43,7 +43,7 @@ router.post("/signup", async (req, res) => {
     profileJson = serialized;
   }
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO builders (name, org, email, password_hash, designation, website, role, persona, profile_json)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
@@ -58,7 +58,7 @@ router.post("/signup", async (req, res) => {
     profileJson,
   );
 
-  const builder = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(result.lastInsertRowid);
+  const builder = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(result.lastInsertRowid);
 
   // Surface the onboarding wizard's "Verify" step submissions as real,
   // admin-reviewable queue items. The wizard only records a claim (it doesn't
@@ -88,14 +88,15 @@ router.post("/signup", async (req, res) => {
   const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
   const ua = req.headers["user-agent"] || null;
 
-  const token = createSession(builder.id, ip, ua);
+  console.error("LOGIN STEP 4");
+  const token = await createSession(builder.id, ip, ua);
 
   // Fraud signal: check if another builder or validator was recently created from this IP
   if (ip) {
     const sameIpValidator = db.prepare(
       `SELECT v.id, v.email FROM validator_sessions vs
        JOIN validators v ON v.id = vs.validator_id
-       WHERE vs.ip = ? AND vs.created_at > datetime('now', '-7 days')
+       WHERE vs.ip = ? AND vs.created_at > NOW() - INTERVAL '7 days'
        LIMIT 1`
     ).get(ip);
     if (sameIpValidator) {
@@ -108,36 +109,41 @@ router.post("/signup", async (req, res) => {
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });
 
-router.post("/login", async (req, res) => {
+router.post("/login", async (req, res, next) => { try {
+  console.error("LOGIN STEP 1");
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
-  const builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
+  console.error("LOGIN STEP 2");
+  const builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
   if (!builder || !builder.password_hash) return res.status(401).json({ error: "Invalid email or password" });
 
+  console.error("LOGIN STEP 3");
   const { valid, needsRehash } = await comparePassword(password, builder.password_hash);
   if (!valid) return res.status(401).json({ error: "Invalid email or password" });
 
   // Silently upgrade legacy SHA-256 hashes to bcrypt on next login
   if (needsRehash) {
-    db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), builder.id);
+    await db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), builder.id);
   }
 
-  const token = createSession(builder.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
-  res.json({ token, builder: publicBuilder(builder) });
+  console.error("LOGIN STEP 4");
+  const token = await createSession(builder.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
+  console.error("LOGIN STEP 5");
+  res.json({ token, builder: publicBuilder(builder) }); } catch(e) { console.error("LOGIN ERR:", e.message); next(e); }
 });
 
-router.post("/logout", authMiddleware, (req, res) => {
-  destroySession(req.token);
+router.post("/logout", authMiddleware, async (req, res) => {
+  await destroySession(req.token);
   res.json({ ok: true });
 });
 
-router.get("/me", authMiddleware, (req, res) => {
+router.get("/me", authMiddleware, async (req, res) => {
   res.json({ builder: publicBuilder(req.builder) });
 });
 
 // PATCH /api/auth/profile { name, org, email }
-router.patch("/profile", authMiddleware, (req, res) => {
+router.patch("/profile", authMiddleware, async (req, res) => {
   const name = String(req.body?.name ?? req.builder.name).trim();
   const org = String(req.body?.org ?? req.builder.org).trim();
   const email = String(req.body?.email ?? req.builder.email).toLowerCase().trim();
@@ -146,11 +152,11 @@ router.patch("/profile", authMiddleware, (req, res) => {
   if (!org) return res.status(400).json({ error: "Workspace name is required" });
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
 
-  const existing = db.prepare(`SELECT id FROM builders WHERE email = ? AND id != ?`).get(email, req.builder.id);
+  const existing = await db.prepare(`SELECT id FROM builders WHERE email = ? AND id != ?`).get(email, req.builder.id);
   if (existing) return res.status(400).json({ error: "That email is already in use" });
 
-  db.prepare(`UPDATE builders SET name = ?, org = ?, email = ? WHERE id = ?`).run(name, org, email, req.builder.id);
-  const updated = db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
+  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ? WHERE id = ?`).run(name, org, email, req.builder.id);
+  const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });
 });
 
@@ -162,15 +168,16 @@ router.post("/forgot-password", async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: "Email is required" });
 
-  const builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
+  console.error("LOGIN STEP 2");
+  const builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
   // Always return success to avoid leaking whether an email is registered
   if (!builder || !builder.password_hash) return res.json({ ok: true });
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
-  db.prepare(`DELETE FROM password_reset_tokens WHERE role = 'builder' AND user_id = ?`).run(builder.id);
-  db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'builder', ?, ?)`)
+  await db.prepare(`DELETE FROM password_reset_tokens WHERE role = 'builder' AND user_id = ?`).run(builder.id);
+  await db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'builder', ?, ?)`)
     .run(token, builder.id, expiresAt);
 
   await sendPasswordReset({ name: builder.name, email: builder.email, token, role: "builder" });
@@ -184,23 +191,23 @@ router.post("/reset-password", async (req, res) => {
     return res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
   }
 
-  const row = db.prepare(`SELECT * FROM password_reset_tokens WHERE token = ? AND role = 'builder' AND used = 0`).get(token);
+  const row = await db.prepare(`SELECT * FROM password_reset_tokens WHERE token = ? AND role = 'builder' AND used = 0`).get(token);
   if (!row || new Date(row.expires_at) < new Date()) {
     return res.status(400).json({ error: "This reset link has expired or already been used" });
   }
 
-  db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), row.user_id);
-  db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
-  db.prepare(`DELETE FROM sessions WHERE builder_id = ?`).run(row.user_id); // invalidate all existing sessions
+  await db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), row.user_id);
+  await db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
+  await db.prepare(`DELETE FROM sessions WHERE builder_id = ?`).run(row.user_id); // invalidate all existing sessions
 
   res.json({ ok: true });
 });
 
 // PATCH /api/auth/language { lang } — save preferred language for builder
-router.patch("/language", authMiddleware, (req, res) => {
+router.patch("/language", authMiddleware, async (req, res) => {
   const { lang } = req.body || {};
   const VALID = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
   if (!VALID.includes(lang)) return res.status(400).json({ error: "Unsupported language code" });
-  db.prepare(`UPDATE builders SET preferred_language = ? WHERE id = ?`).run(lang, req.builder.id);
+  await db.prepare(`UPDATE builders SET preferred_language = ? WHERE id = ?`).run(lang, req.builder.id);
   res.json({ ok: true, lang });
 });

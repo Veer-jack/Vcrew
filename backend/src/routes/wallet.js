@@ -6,11 +6,11 @@ import { consumeStepUpToken } from "../firebaseRoutes.js";
 export const router = Router();
 router.use(authMiddleware);
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const bId = req.builder.id;
-  const transactions = db.prepare(`SELECT * FROM transactions WHERE builder_id = ? ORDER BY id DESC`).all(bId);
-  const invoices = db.prepare(`SELECT * FROM invoices WHERE builder_id = ? ORDER BY id DESC`).all(bId);
-  const paymentMethods = db.prepare(`SELECT * FROM payment_methods WHERE builder_id = ? ORDER BY is_primary DESC, id ASC`).all(bId);
+  const transactions = await db.prepare(`SELECT * FROM transactions WHERE builder_id = ? ORDER BY id DESC`).all(bId);
+  const invoices = await db.prepare(`SELECT * FROM invoices WHERE builder_id = ? ORDER BY id DESC`).all(bId);
+  const paymentMethods = await db.prepare(`SELECT * FROM payment_methods WHERE builder_id = ? ORDER BY is_primary DESC, id ASC`).all(bId);
 
   res.json({
     balance: req.builder.balance,
@@ -25,7 +25,7 @@ router.get("/", (req, res) => {
 });
 
 // POST /api/wallet/topup { amount, stepUpToken? }
-router.post("/topup", (req, res) => {
+router.post("/topup", async (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
 
@@ -34,10 +34,10 @@ router.post("/topup", (req, res) => {
     if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
   }
 
-  db.prepare(`UPDATE builders SET balance = balance + ? WHERE id = ?`).run(amount, req.builder.id);
-  db.prepare(`INSERT INTO transactions (builder_id, date_label, description, type, amount, mission_id) VALUES (?,?,?,?,?,?)`)
+  await db.prepare(`UPDATE builders SET balance = balance + ? WHERE id = ?`).run(amount, req.builder.id);
+  await db.prepare(`INSERT INTO transactions (builder_id, date_label, description, type, amount, mission_id) VALUES (?,?,?,?,?,?)`)
     .run(req.builder.id, "Today", "Wallet top-up", "credit", amount, null);
 
-  const balance = db.prepare(`SELECT balance FROM builders WHERE id = ?`).get(req.builder.id).balance;
+  const balance = await db.prepare(`SELECT balance FROM builders WHERE id = ?`).get(req.builder.id).balance;
   res.status(201).json({ balance });
 });

@@ -6,7 +6,7 @@ import { FILTERS } from "../meta.js";
 export const router = Router();
 router.use(authMiddleware);
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { q, city, role, industry, verified } = req.query;
   let sql = `SELECT * FROM audience_members WHERE 1=1`;
   const params = [];

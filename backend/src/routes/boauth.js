@@ -11,14 +11,14 @@ const STATE_COOKIE = "vc_oauth_state_b";
 const BASE_PATH = "/api/auth";
 
 // GET /api/auth/oauth/providers — which providers are usable (have credentials configured)
-router.get("/providers", (req, res) => {
+router.get("/providers", async (req, res) => {
   const providers = {};
   for (const key of Object.keys(PROVIDERS)) providers[key] = isConfigured(key);
   res.json({ providers });
 });
 
 // GET /api/auth/oauth/:provider — kick off the redirect to the provider
-router.get("/:provider", (req, res) => {
+router.get("/:provider", async (req, res) => {
   const provider = PROVIDERS[req.params.provider];
   if (!provider || !isConfigured(req.params.provider)) {
     return res.status(404).send(`${req.params.provider} login is not configured on this server yet.`);
@@ -51,13 +51,13 @@ router.get("/:provider/callback", async (req, res) => {
     const profile = await provider.fetchProfile(accessToken);
 
     // 1) match an existing account already linked to this provider+id
-    let builder = db.prepare(`SELECT * FROM builders WHERE oauth_provider = ? AND oauth_id = ?`).get(key, profile.id);
+    let builder = await db.prepare(`SELECT * FROM builders WHERE oauth_provider = ? AND oauth_id = ?`).get(key, profile.id);
 
     // 2) otherwise match by email and link this provider to that account
     if (!builder) {
-      builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(profile.email.toLowerCase());
+      builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(profile.email.toLowerCase());
       if (builder) {
-        db.prepare(`UPDATE builders SET oauth_provider = ?, oauth_id = ? WHERE id = ?`).run(key, profile.id, builder.id);
+        await db.prepare(`UPDATE builders SET oauth_provider = ?, oauth_id = ? WHERE id = ?`).run(key, profile.id, builder.id);
       }
     }
 
@@ -65,13 +65,13 @@ router.get("/:provider/callback", async (req, res) => {
     if (!builder) {
       const randomPassword = await hashPassword(crypto.randomBytes(24).toString("hex"));
       const name = profile.name || profile.email.split("@")[0];
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO builders (name, org, email, password_hash, oauth_provider, oauth_id)
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(name, `${name}'s workspace`, profile.email.toLowerCase(), randomPassword, key, profile.id);
-      builder = db.prepare(`SELECT * FROM builders WHERE email = ?`).get(profile.email.toLowerCase());
+      builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(profile.email.toLowerCase());
 
-      db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
+      await db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
         .run(builder.id, "Welcome to ValidationCrew", `Your account was created via ${provider.name}. Update your workspace name in Settings any time.`);
       sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
     }

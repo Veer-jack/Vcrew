@@ -30,28 +30,31 @@ router.post("/signup", async (req, res) => {
   if (!password || String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   const normalizedEmail = String(email).toLowerCase().trim();
-  const existing = db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
+  const existing = await db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
   if (existing) return res.status(400).json({ error: "An account with that email already exists" });
 
   const specialties = expertise && String(expertise).trim() ? [String(expertise).trim()] : [];
-  const handle = "@" + String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const baseHandle = "@" + String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+  let handle = baseHandle;
+  let handleExists = await db.prepare(`SELECT id FROM validators WHERE handle = ?`).get(handle);
+  if (handleExists) handle = baseHandle + Math.floor(Math.random() * 9000 + 1000);
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     INSERT INTO validators (name, handle, email, password_hash, specialties_json)
     VALUES (?, ?, ?, ?, ?)
   `).run(String(name).trim(), handle, normalizedEmail, await hashPassword(password), JSON.stringify(specialties));
 
-  const v = db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
+  const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
   const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();
   const ua = req.headers["user-agent"] || null;
-  const token = createValidatorSession(v.id, ip, ua);
+  const token = await createValidatorSession(v.id, ip, ua);
 
   // Fraud signal: check if a builder was recently created from this IP
   if (ip) {
     const sameIpBuilder = db.prepare(
       `SELECT b.id, b.email FROM sessions s
        JOIN builders b ON b.id = s.builder_id
-       WHERE s.ip = ? AND s.created_at > datetime('now', '-7 days')
+       WHERE s.ip = ? AND s.created_at > NOW() - INTERVAL '7 days'
        LIMIT 1`
     ).get(ip);
     if (sameIpBuilder) {
@@ -68,26 +71,26 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
-  const v = db.prepare(`SELECT * FROM validators WHERE email = ?`).get(String(email).toLowerCase().trim());
+  const v = await db.prepare(`SELECT * FROM validators WHERE email = ?`).get(String(email).toLowerCase().trim());
   if (!v || !v.password_hash) return res.status(401).json({ error: "Invalid email or password" });
 
   const { valid, needsRehash } = await comparePassword(password, v.password_hash);
   if (!valid) return res.status(401).json({ error: "Invalid email or password" });
 
   if (needsRehash) {
-    db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), v.id);
+    await db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), v.id);
   }
 
-  const token = createValidatorSession(v.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
+  const token = await createValidatorSession(v.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
   res.json({ token, validator: publicValidator(v) });
 });
 
-router.post("/logout", validatorAuthMiddleware, (req, res) => {
-  destroyValidatorSession(req.token);
+router.post("/logout", validatorAuthMiddleware, async (req, res) => {
+  await destroyValidatorSession(req.token);
   res.json({ ok: true });
 });
 
-router.get("/me", validatorAuthMiddleware, (req, res) => {
+router.get("/me", validatorAuthMiddleware, async (req, res) => {
   res.json({ validator: publicValidator(req.validator) });
 });
 
@@ -101,14 +104,14 @@ router.post("/forgot-password", async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: "Email is required" });
 
-  const v = db.prepare(`SELECT * FROM validators WHERE email = ?`).get(String(email).toLowerCase().trim());
+  const v = await db.prepare(`SELECT * FROM validators WHERE email = ?`).get(String(email).toLowerCase().trim());
   if (!v || !v.password_hash) return res.json({ ok: true });
 
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
-  db.prepare(`DELETE FROM password_reset_tokens WHERE role = 'validator' AND user_id = ?`).run(v.id);
-  db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'validator', ?, ?)`)
+  await db.prepare(`DELETE FROM password_reset_tokens WHERE role = 'validator' AND user_id = ?`).run(v.id);
+  await db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'validator', ?, ?)`)
     .run(token, v.id, expiresAt);
 
   await sendPasswordReset({ name: v.name, email: v.email, token, role: "validator" });
@@ -122,23 +125,23 @@ router.post("/reset-password", async (req, res) => {
     return res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
   }
 
-  const row = db.prepare(`SELECT * FROM password_reset_tokens WHERE token = ? AND role = 'validator' AND used = 0`).get(token);
+  const row = await db.prepare(`SELECT * FROM password_reset_tokens WHERE token = ? AND role = 'validator' AND used = 0`).get(token);
   if (!row || new Date(row.expires_at) < new Date()) {
     return res.status(400).json({ error: "This reset link has expired or already been used" });
   }
 
-  db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), row.user_id);
-  db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
-  db.prepare(`DELETE FROM validator_sessions WHERE validator_id = ?`).run(row.user_id);
+  await db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), row.user_id);
+  await db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
+  await db.prepare(`DELETE FROM validator_sessions WHERE validator_id = ?`).run(row.user_id);
 
   res.json({ ok: true });
 });
 
 // PATCH /api/v/auth/language { lang } — save preferred language for validator
-router.patch("/language", validatorAuthMiddleware, (req, res) => {
+router.patch("/language", validatorAuthMiddleware, async (req, res) => {
   const { lang } = req.body || {};
   const VALID = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
   if (!VALID.includes(lang)) return res.status(400).json({ error: "Unsupported language code" });
-  db.prepare(`UPDATE validators SET preferred_language = ? WHERE id = ?`).run(lang, req.validator.id);
+  await db.prepare(`UPDATE validators SET preferred_language = ? WHERE id = ?`).run(lang, req.validator.id);
   res.json({ ok: true, lang });
 });

@@ -89,7 +89,7 @@ function serializeMission(m) {
 }
 
 // GET /api/missions?status=&category=&q=
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { status, category, q } = req.query;
   let sql = `SELECT * FROM missions WHERE builder_id = ?`;
   const params = [req.builder.id];
@@ -102,12 +102,12 @@ router.get("/", (req, res) => {
 });
 
 // GET /api/missions/:id
-router.get("/:id", (req, res) => {
-  const m = db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+router.get("/:id", async (req, res) => {
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
-  const participants = db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
-  const responses = db.prepare(`SELECT * FROM responses WHERE mission_id = ? ORDER BY id DESC`).all(m.id)
+  const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
+  const responses = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? ORDER BY id DESC`).all(m.id)
     .map(r => ({ ...r, tags: JSON.parse(r.tags_json || "[]"), attachments: JSON.parse(r.attachments_json || "[]"), flagged: !!r.flagged }));
 
   // ---- Audience snapshot ----
@@ -147,7 +147,7 @@ router.get("/:id", (req, res) => {
   const payments = { held, released, pending: queued + review, refundable, rows: paymentRows };
 
   // ---- Files ----
-  const fileRows = db.prepare(`SELECT * FROM mission_files WHERE mission_id = ?`).all(m.id);
+  const fileRows = await db.prepare(`SELECT * FROM mission_files WHERE mission_id = ?`).all(m.id);
   const files = {
     brief: fileRows.filter(f => f.section === "brief").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label, filename: f.file_path })),
     submissions: fileRows.filter(f => f.section === "submissions").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label, filename: f.file_path })),
@@ -164,7 +164,7 @@ router.get("/:id", (req, res) => {
 });
 
 // POST /api/missions  — create from the Create Mission wizard
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const b = req.body || {};
   if (!b.name || !b.category || !b.ptype) {
     return res.status(400).json({ error: "name, category and ptype are required" });
@@ -172,7 +172,7 @@ router.post("/", (req, res) => {
 
   // Verification gating — unverified builders are limited in how many
   // missions they can run and how many participants they can target.
-  const builder = db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
+  const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
   const isVerified = !!(builder && builder.verified_at);
   const UNVERIFIED_MISSION_LIMIT = 3;
   const UNVERIFIED_PARTICIPANT_LIMIT = 25;
@@ -204,7 +204,7 @@ router.post("/", (req, res) => {
   const id = "m_" + randomUUID().slice(0, 8);
   const status = b.status === "active" ? "active" : "draft";
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
       reward_type, reward_amount, completion, spend, region, rating, description, audience_json, deadline)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, 0, ?, ?, ?)
@@ -215,7 +215,7 @@ router.post("/", (req, res) => {
   );
 
   if (status === "active") {
-    db.prepare(`INSERT INTO activity (builder_id, who, text, mission_id, mission_name, icon, tone, time_label) VALUES (?,?,?,?,?,?,?,?)`)
+    await db.prepare(`INSERT INTO activity (builder_id, who, text, mission_id, mission_name, icon, tone, time_label) VALUES (?,?,?,?,?,?,?,?)`)
       .run(req.builder.id, "You", "published a new mission", id, b.name, "rocket", "accent", "Just now");
     sendMissionPublished({
       builderName: req.builder.name, builderEmail: req.builder.email,
@@ -224,18 +224,18 @@ router.post("/", (req, res) => {
     automodMission(id); // fire-and-forget, never blocks
   }
 
-  const m = db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
   res.status(201).json({ mission: serializeMission(m) });
 });
 
 // PATCH /api/missions/:id  — update status / fields
-router.patch("/:id", (req, res) => {
-  const m = db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+router.patch("/:id", async (req, res) => {
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
   // Gate publishing (draft → active) the same way as creating an active mission
   if (req.body.status === "active" && m.status !== "active") {
-    const builder = db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
+    const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
     const isVerified = !!(builder && builder.verified_at);
     if (!isVerified) {
       const activeMissions = db.prepare(
@@ -268,41 +268,41 @@ router.patch("/:id", (req, res) => {
   }
   if (!updates.length) return res.status(400).json({ error: "No valid fields to update" });
   params.push(m.id);
-  db.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  await db.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
 
-  const updated = db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
+  const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
   res.json({ mission: serializeMission(updated) });
 });
 
 // PATCH /api/missions/:id/participants/:pid — move kanban stage
-router.patch("/:id/participants/:pid", (req, res) => {
-  const m = db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+router.patch("/:id/participants/:pid", async (req, res) => {
+  const m = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   const { stage } = req.body || {};
   if (!stage) return res.status(400).json({ error: "stage is required" });
 
-  const p = db.prepare(`SELECT * FROM participants WHERE id = ? AND mission_id = ?`).get(req.params.pid, m.id);
+  const p = await db.prepare(`SELECT * FROM participants WHERE id = ? AND mission_id = ?`).get(req.params.pid, m.id);
   if (!p) return res.status(404).json({ error: "Participant not found" });
 
-  db.prepare(`UPDATE participants SET stage = ? WHERE id = ?`).run(stage, p.id);
+  await db.prepare(`UPDATE participants SET stage = ? WHERE id = ?`).run(stage, p.id);
   res.json({ participant: { ...p, stage } });
 });
 
 // PATCH /api/missions/:id/responses/:rid — toggle flag
-router.patch("/:id/responses/:rid", (req, res) => {
-  const m = db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+router.patch("/:id/responses/:rid", async (req, res) => {
+  const m = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
-  const r = db.prepare(`SELECT * FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.rid, m.id);
+  const r = await db.prepare(`SELECT * FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.rid, m.id);
   if (!r) return res.status(404).json({ error: "Response not found" });
 
   const flagged = req.body.flagged ? 1 : 0;
-  db.prepare(`UPDATE responses SET flagged = ? WHERE id = ?`).run(flagged, r.id);
+  await db.prepare(`UPDATE responses SET flagged = ? WHERE id = ?`).run(flagged, r.id);
   res.json({ ok: true, flagged: !!flagged });
 });
 
 // POST /api/missions/:id/files?section=brief — upload a file to a mission
-router.post("/:id/files", upload.single("file"), (req, res) => {
-  const m = db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+router.post("/:id/files", upload.single("file"), async (req, res) => {
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) {
     if (req.file) fs.unlinkSync(req.file.path);
     return res.status(404).json({ error: "Mission not found" });
@@ -314,7 +314,7 @@ router.post("/:id/files", upload.single("file"), (req, res) => {
   const size = humanSize(req.file.size);
   const now = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO mission_files (mission_id, section, name, kind, size, by, when_label, file_path, mime_type)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(m.id, section, req.file.originalname, kind, size, req.builder.name, now, req.file.filename, req.file.mimetype);
@@ -326,14 +326,14 @@ router.post("/:id/files", upload.single("file"), (req, res) => {
 });
 
 // DELETE /api/missions/:id/files/:filename — delete a brief file
-router.delete("/:id/files/:filename", (req, res) => {
-  const m = db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+router.delete("/:id/files/:filename", async (req, res) => {
+  const m = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
-  const row = db.prepare(`SELECT * FROM mission_files WHERE mission_id = ? AND file_path = ?`).get(m.id, req.params.filename);
+  const row = await db.prepare(`SELECT * FROM mission_files WHERE mission_id = ? AND file_path = ?`).get(m.id, req.params.filename);
   if (!row) return res.status(404).json({ error: "File not found" });
 
-  db.prepare(`DELETE FROM mission_files WHERE id = ?`).run(row.id);
+  await db.prepare(`DELETE FROM mission_files WHERE id = ?`).run(row.id);
   const filePath = path.join(UPLOADS_DIR, req.params.filename);
   if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 

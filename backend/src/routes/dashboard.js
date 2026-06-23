@@ -6,9 +6,9 @@ import { catOf } from "../meta.js";
 export const router = Router();
 router.use(authMiddleware);
 
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const bId = req.builder.id;
-  const missions = db.prepare(`SELECT * FROM missions WHERE builder_id = ?`).all(bId);
+  const missions = await db.prepare(`SELECT * FROM missions WHERE builder_id = ?`).all(bId);
 
   const activeMissions = missions.filter(m => m.status === "active");
   const completedMissions = missions.filter(m => m.status === "completed" || m.status === "closed");
@@ -29,9 +29,9 @@ router.get("/", (req, res) => {
     spark: { participants: [18, 24, 22, 30, 28, 41, 38, 52], spend: [12, 19, 16, 24, 30, 27, 38, 44] },
   };
 
-  const activity = db.prepare(`SELECT * FROM activity WHERE builder_id = ? ORDER BY id DESC LIMIT 12`).all(bId);
+  const activity = await db.prepare(`SELECT * FROM activity WHERE builder_id = ? ORDER BY id DESC LIMIT 12`).all(bId);
 
-  const recent = db.prepare(`SELECT * FROM missions WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6`).all(bId)
+  const recent = await db.prepare(`SELECT * FROM missions WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6`).all(bId)
     .map(m => ({
       id: m.id, name: m.name, category: m.category, categoryLabel: catOf(m.category).label,
       status: m.status, region: m.region, completion: m.completion,
