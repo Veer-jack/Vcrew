@@ -31,7 +31,7 @@ export default function RoleSelect() {
   return (
     <div className="auth-shell">
       <div className="rise" style={{ width: "100%", maxWidth: 860, textAlign: "center" }}>
-        <div style={{ margin: "0 auto 18px" }}><BrandMark size={40} /></div>
+        <div style={{ margin: "0 auto 18px" }}><BrandMark size={80} /></div>
         <div className="eyebrow" style={{ marginBottom: 10 }}>I need feedback</div>
         <h1 style={{ fontSize: 26, marginBottom: 8 }}>Pick your role</h1>
         <p className="muted" style={{ marginBottom: 30, fontSize: 14.5 }}>

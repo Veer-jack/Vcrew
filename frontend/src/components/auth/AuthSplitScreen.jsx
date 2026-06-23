@@ -152,7 +152,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   if (stage === "forgot") return (
     <div className="asplit">
       <div className="asplit-brand">
-        <div className="asplit-brand-logo"><BrandMark size={40} /></div>
+        <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
         <p className="asplit-sub">{copy.sub}</p>
       </div>
@@ -176,7 +176,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   if (stage === "forgot-sent") return (
     <div className="asplit">
       <div className="asplit-brand">
-        <div className="asplit-brand-logo"><BrandMark size={40} /></div>
+        <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
       </div>
       <div className="asplit-form-col">
@@ -196,7 +196,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   return (
     <div className="asplit">
       <div className="asplit-brand">
-        <div className="asplit-brand-logo"><BrandMark size={40} /></div>
+        <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
         <p className="asplit-sub">{copy.sub}</p>
         <div className="asplit-values">

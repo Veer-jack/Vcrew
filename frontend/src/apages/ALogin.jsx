@@ -77,7 +77,7 @@ export default function ALogin() {
   return (
     <div className="auth-shell">
       <div className="card auth-card rise">
-        <div style={{ marginBottom: 14 }}><BrandMark size={40} /></div>
+        <div style={{ marginBottom: 14 }}><BrandMark size={80} /></div>
 
         {stage === "credentials" && (
           <>

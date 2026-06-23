@@ -42,7 +42,7 @@ export default function ALayout() {
       <div className="mob-scrim" onClick={() => setMobOpen(false)} />
       <aside className="side">
         <div className="brand">
-          <BrandMark size={32} />
+          <BrandMark size={80} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">Admin console</div></div>
         </div>
         {NAV.map(it => (

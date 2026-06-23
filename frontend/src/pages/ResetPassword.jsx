@@ -23,7 +23,7 @@ export default function ResetPassword({ apiClient, loginPath }) {
     return (
       <div className="auth-shell">
         <div className="card auth-card rise">
-          <div style={{ marginBottom: 14 }}><BrandMark size={40} /></div>
+          <div style={{ marginBottom: 14 }}><BrandMark size={80} /></div>
           <h1>Invalid reset link</h1>
           <p className="muted">This link is missing a reset token. Please request a new one.</p>
           <Btn variant="primary" block onClick={() => navigate(loginPath)}>Back to sign in</Btn>
@@ -36,7 +36,7 @@ export default function ResetPassword({ apiClient, loginPath }) {
     return (
       <div className="auth-shell">
         <div className="card auth-card rise">
-          <div style={{ marginBottom: 14 }}><BrandMark size={40} /></div>
+          <div style={{ marginBottom: 14 }}><BrandMark size={80} /></div>
           <h1>Password updated ✅</h1>
           <p className="muted">Your password has been changed and all existing sessions signed out. You can now sign in with your new password.</p>
           <Btn variant="primary" block onClick={() => navigate(loginPath)}>Sign in</Btn>
@@ -61,7 +61,7 @@ export default function ResetPassword({ apiClient, loginPath }) {
   return (
     <div className="auth-shell">
       <div className="card auth-card rise">
-        <div style={{ marginBottom: 14 }}><BrandMark size={40} /></div>
+        <div style={{ marginBottom: 14 }}><BrandMark size={80} /></div>
         <h1>Set a new password</h1>
         <p className="muted" style={{ margin: "0 0 22px", fontSize: 14 }}>Choose a strong password for your account.</p>
         {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
