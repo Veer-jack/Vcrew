@@ -23,8 +23,8 @@ export function buildFirebaseLoginRouter({ table, createSession, publicUser, use
   router.post("/", async (req, res) => {
     try {
       const phone = await verifyPhoneToken(req.body?.idToken);
-      let user = db.prepare(`SELECT * FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
-      if (!user && createUser) user = createUser(phone);
+      let user = await db.prepare(`SELECT * FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
+      if (!user && createUser) user = await createUser(phone);
       if (!user) return res.status(404).json({ error: "No account found for that phone number" });
       const token = await createSession(user.id);
       res.json({ token, [userKey]: publicUser(user) });
@@ -45,10 +45,10 @@ export function buildPhoneLinkRouter({ table, authMiddleware, userKey }) {
   router.post("/link", async (req, res) => {
     try {
       const phone = await verifyPhoneToken(req.body?.idToken);
-      const existing = db.prepare(`SELECT id FROM ${table} WHERE phone = ? AND phone_verified = 1 AND id != ?`).get(phone, req[userKey].id);
+      const existing = await db.prepare(`SELECT id FROM ${table} WHERE phone = ? AND phone_verified = 1 AND id != ?`).get(phone, req[userKey].id);
       if (existing) return res.status(400).json({ error: "This phone number is already linked to another account" });
 
-      db.prepare(`UPDATE ${table} SET phone = ?, phone_verified = 1 WHERE id = ?`).run(phone, req[userKey].id);
+      await db.prepare(`UPDATE ${table} SET phone = ?, phone_verified = 1 WHERE id = ?`).run(phone, req[userKey].id);
       res.json({ ok: true, phone });
     } catch (err) {
       return handleFirebaseError(err, res);
@@ -56,7 +56,7 @@ export function buildPhoneLinkRouter({ table, authMiddleware, userKey }) {
   });
 
   router.post("/remove", async (req, res) => {
-    db.prepare(`UPDATE ${table} SET phone = NULL, phone_verified = 0 WHERE id = ?`).run(req[userKey].id);
+    await db.prepare(`UPDATE ${table} SET phone = NULL, phone_verified = 0 WHERE id = ?`).run(req[userKey].id);
     res.json({ ok: true });
   });
 
