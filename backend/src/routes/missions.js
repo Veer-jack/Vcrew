@@ -216,8 +216,8 @@ router.post("/", async (req, res) => {
   );
 
   if (status === "active") {
-    await db.prepare(`INSERT INTO activity (builder_id, who, text, mission_id, mission_name, icon, tone, time_label) VALUES (?,?,?,?,?,?,?,?)`)
-      .run(req.builder.id, "You", "published a new mission", id, b.name, "rocket", "accent", "Just now");
+    await db.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
+      .run(req.builder.id, "mission_published", b.name, "Mission published and live");
     sendMissionPublished({
       builderName: req.builder.name, builderEmail: req.builder.email,
       missionName: b.name, missionId: id,
