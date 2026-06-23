@@ -107,7 +107,8 @@ router.get("/:id", async (req, res) => {
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
   const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
-  const responses = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? ORDER BY id DESC`).all(m.id)
+  const responsesRaw = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? ORDER BY id DESC`).all(m.id);
+  const responses = responsesRaw
     .map(r => ({ ...r, tags: JSON.parse(r.tags_json || "[]"), attachments: JSON.parse(r.attachments_json || "[]"), flagged: !!r.flagged }));
 
   // ---- Audience snapshot ----

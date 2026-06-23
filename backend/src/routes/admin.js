@@ -168,9 +168,11 @@ router.patch("/members/:type/:id", async (req, res) => {
 /* ============ Support tickets ============ */
 
 router.get("/tickets", async (req, res) => {
-  const b = await db.prepare(`SELECT t.*, b.name AS user_name, b.email AS user_email FROM b_tickets t JOIN builders b ON b.id = t.builder_id ORDER BY t.created_at DESC`).all()
+  const bRaw = await db.prepare(`SELECT t.*, b.name AS user_name, b.email AS user_email FROM b_tickets t JOIN builders b ON b.id = t.builder_id ORDER BY t.created_at DESC`).all();
+  const b = bRaw
     .map(t => ({ ...t, userType: "builder" }));
-  const v = await db.prepare(`SELECT t.*, v.name AS user_name, v.email AS user_email FROM v_tickets t JOIN validators v ON v.id = t.validator_id ORDER BY t.created_at DESC`).all()
+  const vRaw = await db.prepare(`SELECT t.*, v.name AS user_name, v.email AS user_email FROM v_tickets t JOIN validators v ON v.id = t.validator_id ORDER BY t.created_at DESC`).all();
+  const v = vRaw
     .map(t => ({ ...t, userType: "validator" }));
 
   const tickets = [...b, ...v]

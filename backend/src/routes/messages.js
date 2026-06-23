@@ -10,7 +10,7 @@ async function serializeThread(t, withMessages) {
     id: t.id, name: t.name, role: t.role, mission: t.mission_name, missionId: t.mission_id, time: t.time_label,
   };
   if (withMessages) {
-    out.messages = await db.prepare(`SELECT * FROM thread_messages WHERE thread_id = ? ORDER BY id ASC`).all(t.id)
+    out.messages = (await db.prepare(`SELECT * FROM thread_messages WHERE thread_id = ? ORDER BY id ASC`).all(t.id))
       .map(m => ({ from: m.sender, text: m.text, time: m.time_label }));
   } else {
     const last = await db.prepare(`SELECT * FROM thread_messages WHERE thread_id = ? ORDER BY id DESC LIMIT 1`).get(t.id);
