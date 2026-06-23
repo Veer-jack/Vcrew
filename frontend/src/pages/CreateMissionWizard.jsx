@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
+import React from 'react';
 import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
@@ -59,18 +60,31 @@ function StepInfo({ d, set, categories }) {
 }
 
 function FilterGroup({ title, options, sel, toggle }) {
+  const [q, setQ] = React.useState("");
+  const showSearch = options.length > 8;
+  const filtered = q.trim() ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options;
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
       <div className="row between" style={{ marginBottom: 10 }}>
         <b style={{ fontSize: 12.5 }}>{title}</b>
         {sel.size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{sel.size} selected</span>}
       </div>
+      {showSearch && (
+        <input
+          className="fin"
+          style={{ marginBottom: 10, fontSize: 13 }}
+          placeholder={`Search ${title.toLowerCase()}…`}
+          value={q}
+          onChange={e => setQ(e.target.value)}
+        />
+      )}
       <div className="chips">
-        {options.map(o => (
+        {filtered.map(o => (
           <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`} onClick={() => toggle(title, o)}>
             <span className="ck"><Icon name="check" size={10} /></span>{o}
           </button>
         ))}
+        {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>No matches for "{q}"</span>}
       </div>
     </div>
   );
@@ -144,8 +158,8 @@ function StepReward({ d, set, rewards }) {
         )}
         <div className="fld">
           <label>Number of Participants</label>
-          <input className="fin" type="number" min="1" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: +e.target.value } })} />
-          <p className="fhint">We recommend 80–150 for statistically useful feedback.</p>
+          <input className="fin" type="number" min="1" max="500" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: Math.min(500, Math.max(1, +e.target.value)) } })} />
+          <p className="fhint">We recommend 80–150 for statistically useful feedback. Maximum 500 participants.</p>
         </div>
       </div>
     </div>
@@ -228,7 +242,7 @@ export default function CreateMissionWizard() {
   const [error, setError] = useState("");
   const [d, setD] = useState({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
-    filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]), Interests: new Set(["Consumer Goods"]) },
+    filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
     ptype: ptypes[0]?.id || "ptest",
     reward: { type: "fixed", amount: 250, participants: 120 },
   });
@@ -239,6 +253,8 @@ export default function CreateMissionWizard() {
     return { ...p, filters: { ...p.filters, [group]: s } };
   });
 
+  const MAX_PARTICIPANTS = 500;
+  const participantWarning = d.reward.participants > MAX_PARTICIPANTS;
   const canNext = step !== 0 || (d.title.trim() && d.cat);
   const last = step === WZ_STEPS.length - 1;
 
@@ -255,7 +271,7 @@ export default function CreateMissionWizard() {
         status: "active",
         target: d.reward.participants,
         reward: { type: d.reward.type, amount: d.reward.amount },
-        region: geo.length ? geo.join(", ") : "Pan-India",
+        region: geo.length ? geo.join(", ") : "Worldwide",
         audience,
       });
       await refreshBuilder();
@@ -282,7 +298,7 @@ export default function CreateMissionWizard() {
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
         <div className="wz-brand">
-          <BrandMark size={32} />
+          <BrandMark size={52} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">New mission</div></div>
         </div>
         <div className="wz-steps">

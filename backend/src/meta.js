@@ -32,11 +32,39 @@ export const REWARDS = [
 ];
 
 export const FILTERS = {
-  Geography: ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Kochi", "Ahmedabad", "Jaipur"],
-  Demographics: ["18–24", "25–34", "35–44", "45+", "Male", "Female", "₹5–10L income", "₹10L+ income"],
-  Professional: ["Product Manager", "Designer", "Engineer", "Marketer", "Founder", "Student", "Healthcare", "Finance"],
-  "ValidationCrew Role": ["User", "Validator", "Tester"],
-  Interests: ["Technology", "Finance", "Healthcare", "Education", "Consumer Goods", "AI"],
+  Geography: [
+    "Worldwide", "Remote / Online only",
+    "India", "Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur",
+    "Singapore", "Indonesia", "Malaysia", "Philippines", "Vietnam", "Thailand", "Japan", "South Korea", "Australia", "New Zealand",
+    "USA", "Canada", "Mexico",
+    "UK", "Germany", "France", "Netherlands", "Spain", "Italy", "Sweden", "Denmark", "Poland",
+    "UAE", "Saudi Arabia", "Israel", "Nigeria", "Kenya", "South Africa",
+    "Brazil", "Argentina", "Colombia",
+    "Other"
+  ],
+  Demographics: [
+    "18-24", "25-34", "35-44", "45-54", "55+",
+    "Male", "Female", "Non-binary", "Prefer not to say",
+    "Low income", "Middle income", "Upper-middle income", "High income",
+    "Student", "Early career", "Mid career", "Senior professional", "Retired",
+    "Single", "Married / partnered", "Parent", "Empty nester"
+  ],
+  Professional: [
+    "Software Engineer", "Data Scientist / Analyst", "Product Manager", "UX / UI Designer", "DevOps / Infrastructure",
+    "Founder / Entrepreneur", "CXO / C-suite", "Business Analyst", "Consultant", "Operations",
+    "Marketer", "Content Creator", "Designer", "Brand Manager", "PR / Comms",
+    "Sales", "Customer Success", "Account Manager",
+    "Doctor / Healthcare", "Lawyer / Legal", "Finance / Accounting", "HR / People", "Teacher / Educator",
+    "Freelancer", "Student", "Researcher", "Other"
+  ],
+  Interests: [
+    "Artificial Intelligence", "Technology", "Gaming", "Cybersecurity", "Blockchain / Web3",
+    "Finance & Investing", "Entrepreneurship", "E-commerce", "Real Estate",
+    "Healthcare", "Fitness & Sports", "Food & Beverage", "Travel", "Parenting",
+    "Media & Entertainment", "Music", "Books & Literature", "Fashion & Beauty",
+    "Education", "Environment & Sustainability", "Politics & Policy", "Social Impact",
+    "Consumer Goods", "Automotive", "Home & Living", "Other"
+  ],
 };
 
 export const catOf = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[0];
