@@ -212,7 +212,7 @@ router.post("/", async (req, res) => {
   `).run(
     id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
     Number(b.target) || 0, rewardType, Number(reward.amount) || 0,
-    b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), b.deadline || "—"
+    b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), b.deadline || null
   );
 
   if (status === "active") {
