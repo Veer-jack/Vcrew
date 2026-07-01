@@ -1,4 +1,5 @@
 import { Router } from "express";
+import Anthropic from "@anthropic-ai/sdk";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -340,3 +341,113 @@ router.delete("/:id/files/:filename", async (req, res) => {
 
   res.json({ ok: true });
 });
+
+// POST /api/missions/generate-tasks — AI test case generator
+router.post("/generate-tasks", authMiddleware, async (req, res) => {
+  const { description, url, platform, goals, targetUsers } = req.body || {};
+  if (!description && !url) return res.status(400).json({ error: "Description or URL required" });
+
+  try {
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const prompt = `You are a senior QA engineer and UX researcher. A founder has built the following product and wants structured test cases for validators to follow.
+
+Product description: ${description || "Not provided"}
+URL: ${url || "Not provided"}
+Platform: ${platform || "Web"}
+Validation goals: ${goals || "Core flow, UX"}
+Target users: ${targetUsers || "General users"}
+
+Generate 4-6 structured test cases. Return ONLY valid JSON with no markdown, no backticks, no preamble. Use this exact schema:
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Task title",
+      "severity": "crit",
+      "steps": ["Step 1", "Step 2"],
+      "questions": [
+        { "id": "q1", "text": "Question text", "type": "rating", "scale": 5 },
+        { "id": "q2", "text": "Question text", "type": "multiple_choice", "options": ["Option A", "Option B"] },
+        { "id": "q3", "text": "Question text", "type": "yes_no_detail" }
+      ],
+      "proof": "screenshot",
+      "min_time_seconds": 180
+    }
+  ]
+}
+
+severity must be one of: crit, imp, nice
+question types: rating (needs scale), multiple_choice (needs options), yes_no_detail, text
+proof: "screenshot" or null
+Include 3-5 questions per task mixing types. Make tasks specific to the product described.`;
+
+    const message = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const raw = message.content[0].text.trim();
+    const parsed = JSON.parse(raw);
+    res.json(parsed);
+  } catch (err) {
+    console.error("AI generate-tasks error:", err.message);
+    res.status(500).json({ error: "Failed to generate test cases", detail: err.message });
+  }
+});
+
+// GET /api/missions/:id/submissions — founder reviews submissions
+router.get("/:id/submissions", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const responses = await db.prepare(`
+    SELECT r.*, v.name, v.handle, v.rating as trust_score
+    FROM responses r
+    LEFT JOIN validators v ON v.id = r.validator_id
+    WHERE r.mission_id = ?
+    ORDER BY r.submitted_at DESC
+  `).all(req.params.id);
+
+  res.json({
+    mission: { id: mission.id, name: mission.name, target: mission.target },
+    submissions: responses.map(r => ({
+      id: r.id,
+      name: r.name || "Validator",
+      city: "Remote",
+      trust: Math.round((r.trust_score || 0) * 10),
+      status: r.status || "pending",
+      quality: r.flagged ? "flagged" : "medium",
+      date: new Date(r.submitted_at).toLocaleDateString(),
+      mins: 20,
+      tasks: "All",
+      breakdown: [],
+      data: r.data_json ? JSON.parse(r.data_json) : {},
+    })),
+  });
+});
+
+// POST /api/missions/:id/submissions/:responseId/approved
+router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  await db.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  res.json({ ok: true });
+});
+
+// POST /api/missions/:id/submissions/:responseId/rejected
+router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  await db.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  res.json({ ok: true });
+});
+
+// POST /api/missions/:id/submissions/:responseId/revision
+router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  res.json({ ok: true });
+});
+

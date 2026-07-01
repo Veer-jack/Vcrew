@@ -85,3 +85,109 @@ router.post("/:taskId/submit", async (req, res) => {
 
   res.json({ mission: serializeRow(updated), score, flags, minutes });
 });
+
+// GET /api/v/missions/:id/workspace — get mission with tasks for workspace
+router.get("/:id/workspace", async (req, res) => {
+  const m = await db.prepare(`
+    SELECT m.*, b.name as builder_name, b.org as brand
+    FROM missions m
+    JOIN builders b ON b.id = m.builder_id
+    WHERE m.id = ?
+  `).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  let tasks = [];
+  try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
+
+  res.json({
+    mission: { id: m.id, name: m.name, brand: m.brand || m.builder_name, ptype: m.ptype },
+    tasks,
+  });
+});
+
+// PATCH /api/v/missions/:id/workspace/submit — submit workspace responses
+router.patch("/:id/workspace/submit", async (req, res) => {
+  const { answers } = req.body || {};
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  const existing = await db.prepare(`SELECT id FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (existing) {
+    await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
+      .run(JSON.stringify(answers || {}), existing.id);
+  } else {
+    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'pending', NOW())`)
+      .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
+    await db.prepare(`UPDATE missions SET submitted = submitted + 1 WHERE id = ?`).run(req.params.id);
+  }
+
+  res.json({ ok: true });
+});
+
+// GET /api/v/missions/:id/brief — secure brief delivery
+router.get("/:id/brief", async (req, res) => {
+  const accepted = await db.prepare(`SELECT * FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!accepted) return res.status(403).json({ error: "Accept this mission first" });
+
+  const m = await db.prepare(`
+    SELECT m.*, b.name as builder_name, b.org as brand
+    FROM missions m
+    JOIN builders b ON b.id = m.builder_id
+    WHERE m.id = ?
+  `).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  let tasks = [];
+  try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
+
+  res.json({
+    mission: {
+      id: m.id, name: m.name, brand: m.brand || m.builder_name,
+      description: m.description, ptype: m.ptype,
+      brief_url: m.brief_url || null,
+      brief_credentials: m.brief_credentials || null,
+    },
+    tasks: tasks.map(t => ({ id: t.id, title: t.title, severity: t.severity, min_time_seconds: t.min_time_seconds })),
+  });
+});
+
+// GET /api/v/missions/:id/checkin-status
+router.get("/:id/checkin-status", async (req, res) => {
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
+  const last = checkins[checkins.length - 1];
+  const hoursSinceLast = last ? (Date.now() - new Date(last.submitted_at).getTime()) / 3600000 : 999;
+  const locked = hoursSinceLast < 20;
+
+  res.json({
+    mission: { name: m.name, brand: m.brand, total_days: m.duration_days || 7, reward_per_day: m.reward_amount || 150 },
+    checkins: Array.from({ length: m.duration_days || 7 }).map((_, i) => !!checkins[i]),
+    locked,
+    hoursUntilNext: locked ? Math.max(0, 20 - hoursSinceLast) : 0,
+  });
+});
+
+// POST /api/v/missions/:id/checkin
+router.post("/:id/checkin", async (req, res) => {
+  const { day, answers } = req.body || {};
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  // Time gate — must be 20h since last checkin
+  const last = await db.prepare(`SELECT submitted_at FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(req.params.id, req.validator.id).catch(() => null);
+  if (last) {
+    const hours = (Date.now() - new Date(last.submitted_at).getTime()) / 3600000;
+    if (hours < 20) return res.status(400).json({ error: "Too early — come back in " + Math.ceil(20 - hours) + " hours" });
+  }
+
+  await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, submitted_at) VALUES (?, ?, ?, ?, NOW())`)
+    .run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {})).catch(async () => {
+      // table might not exist yet — create it
+      await db.exec(`CREATE TABLE IF NOT EXISTS checkins (id SERIAL PRIMARY KEY, mission_id TEXT, validator_id INTEGER, day_number INTEGER, answers_json TEXT DEFAULT '{}', submitted_at TIMESTAMPTZ DEFAULT NOW())`);
+      await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, submitted_at) VALUES (?, ?, ?, ?, NOW())`).run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}));
+    });
+
+  res.json({ ok: true });
+});

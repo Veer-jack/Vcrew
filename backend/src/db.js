@@ -70,6 +70,13 @@ export async function initDb() {
   const client = await pool.connect();
   try {
     await client.query(schema);
+    // Column migrations
+    const cols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='missions'");
+    const mCols = cols.rows.map(r => r.column_name);
+    if (!mCols.includes('tasks_json')) await client.query('ALTER TABLE missions ADD COLUMN tasks_json TEXT');
+    if (!mCols.includes('brief_url')) await client.query('ALTER TABLE missions ADD COLUMN brief_url TEXT');
+    if (!mCols.includes('brief_credentials')) await client.query('ALTER TABLE missions ADD COLUMN brief_credentials TEXT');
+    if (!mCols.includes('duration_days')) await client.query('ALTER TABLE missions ADD COLUMN duration_days INTEGER DEFAULT 7');
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
     client.release();

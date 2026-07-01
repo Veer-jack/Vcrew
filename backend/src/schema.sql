@@ -383,3 +383,13 @@ CREATE TABLE IF NOT EXISTS verifications (
   reviewer_note TEXT,
   data_json TEXT DEFAULT '{}'
 );
+
+CREATE TABLE IF NOT EXISTS checkins (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  day_number INTEGER NOT NULL DEFAULT 1,
+  answers_json TEXT DEFAULT '{}',
+  screenshot_path TEXT,
+  submitted_at TIMESTAMPTZ DEFAULT NOW()
+);
