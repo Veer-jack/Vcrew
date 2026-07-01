@@ -1,181 +1,350 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
-import { ScoreRing, VTypeTag } from "../vcomponents/vui";
-import { vapi } from "../vapi/client";
-import { useVMeta } from "../vcontext/VMetaContext";
+import { Btn } from "../components/ui";
+import { api } from "../vapi/client";
+import { useVAuth } from "../vcontext/VAuthContext";
 
-function ProductPreview({ task }) {
-  const url = `${task.product.toLowerCase()}.app`;
+function Timer({ secs, onDone }) {
+  const [rem, setRem] = useState(secs);
+  const done = rem <= 0;
+  useEffect(() => {
+    if (done) { onDone?.(); return; }
+    const id = setInterval(() => setRem(r => r - 1), 1000);
+    return () => clearInterval(id);
+  }, [done]);
+  const m = Math.floor(Math.abs(rem) / 60), s = Math.abs(rem) % 60;
+  const cls = done ? "done" : rem < 30 ? "warn" : "";
   return (
-    <div className="browser">
-      <div className="browser-bar">
-        <div className="browser-dots"><i /><i /><i /></div>
-        <div className="browser-url">{url}/review-session</div>
-        <Icon name="external" size={15} style={{ color: "var(--text-faint)" }} />
-      </div>
-      <div style={{ minHeight: 240, padding: 22, display: "flex", flexDirection: "column", gap: 10 }}>
-        <div className="eyebrow">{task.company}</div>
-        <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{task.product}</h3>
-        <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>{task.tagline}. This is a simulated session — explore the product as described in the brief, then capture your impressions in the rubric on the right.</p>
-        <div className="row gap-2 wrap" style={{ marginTop: 8 }}>
-          <span className="pill"><Icon name="external" size={13} />Open {url}</span>
-          <span className="pill"><Icon name="clock" size={13} />~{task.minutes} min session</span>
-        </div>
-      </div>
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 14px",
+      borderRadius: 20, fontFamily: "var(--mono)", fontWeight: 600, fontSize: 14,
+      border: `1.5px solid ${done ? "color-mix(in srgb, var(--success) 35%, transparent)" : "var(--border)"}`,
+      background: done ? "var(--success-weak)" : "var(--panel)",
+      color: done ? "var(--success)" : rem < 30 ? "var(--warning)" : "var(--text)",
+      transition: "all .3s",
+    }}>
+      <Icon name="clock" size={14} />
+      {done ? "✓ Time met" : `${m}:${String(s).padStart(2, "0")} remaining`}
+    </span>
+  );
+}
+
+function RatingQ({ ans, setAns }) {
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      {[1, 2, 3, 4, 5].map(v => (
+        <button key={v} onClick={() => setAns(v)} style={{
+          width: 40, height: 40, borderRadius: "var(--radius-sm)",
+          border: `1px solid ${ans >= v ? "var(--warning)" : "var(--border)"}`,
+          background: ans >= v ? "var(--warning)" : "var(--panel)",
+          display: "grid", placeItems: "center", cursor: "pointer", transition: "all .12s",
+        }}>
+          <svg viewBox="0 0 24 24" width={18} height={18} fill={ans >= v ? "#fff" : "none"} stroke={ans >= v ? "#fff" : "var(--border-strong)"} strokeWidth="1.8" strokeLinejoin="round">
+            <path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2Z" />
+          </svg>
+        </button>
+      ))}
     </div>
   );
 }
 
-const SCORE_WORDS = ["", "Poor", "Weak", "OK", "Good", "Great"];
+function MCQ({ q, ans, setAns }) {
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      {q.options.map(o => (
+        <button key={o} onClick={() => setAns(o)} style={{
+          padding: "8px 16px", borderRadius: 30,
+          border: `1.5px solid ${ans === o ? "var(--accent)" : "var(--border)"}`,
+          background: ans === o ? "var(--accent-weak)" : "var(--panel)",
+          color: ans === o ? "var(--accent)" : "var(--text-muted)",
+          fontSize: 13.5, fontWeight: 600, cursor: "pointer", transition: "all .13s",
+        }}>{o}</button>
+      ))}
+    </div>
+  );
+}
+
+function YNQ({ ans, setAns }) {
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, marginBottom: ans === "yes" ? 12 : 0 }}>
+        {["yes", "no"].map(v => (
+          <button key={v} onClick={() => setAns(ans === v ? null : v)} style={{
+            flex: 1, padding: 11, borderRadius: "var(--radius-sm)",
+            border: `1.5px solid ${ans === v ? (v === "yes" ? "var(--success)" : "var(--danger)") : "var(--border)"}`,
+            background: ans === v ? (v === "yes" ? "var(--success-weak)" : "var(--danger-weak)") : "var(--panel)",
+            color: ans === v ? (v === "yes" ? "var(--success)" : "var(--danger)") : "var(--text-muted)",
+            fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all .13s",
+          }}>{v === "yes" ? "Yes" : "No"}</button>
+        ))}
+      </div>
+      {ans === "yes" && <textarea className="field" placeholder="Tell us more — what was confusing or broken?" rows={3} />}
+    </div>
+  );
+}
+
+const SEV = {
+  crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
+  imp: { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
+  nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
+};
 
 export default function Workspace() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vtypes } = useVMeta();
-  const [data, setData] = useState(null);
-  const [ratings, setRatings] = useState({});
-  const [flags, setFlags] = useState([]);
-  const [notes, setNotes] = useState("");
-  const [started] = useState(Date.now());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { validator } = useVAuth();
+  const [mission, setMission] = useState(null);
+  const [tasks, setTasks] = useState([]);
+  const [curIdx, setCurIdx] = useState(0);
+  const [stepsDone, setStepsDone] = useState([]);
+  const [answers, setAnswers] = useState([]);
+  const [timerDone, setTimerDone] = useState([]);
+  const [proofUploaded, setProofUploaded] = useState([]);
+  const [showSummary, setShowSummary] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { vapi.workspace(id).then(setData); }, [id]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await api.get(`/v/missions/${id}/workspace`);
+        const t = data.tasks || [];
+        setMission(data.mission);
+        setTasks(t);
+        setStepsDone(t.map(() => new Set()));
+        setAnswers(t.map(() => ({})));
+        setTimerDone(t.map(() => false));
+        setProofUploaded(t.map(() => false));
+      } catch {
+        // use mock for now
+        const mock = [
+          { id: 1, title: "Sign up & onboarding", severity: "crit", min_time_seconds: 10, steps: ["Open the app", "Create account", "Complete onboarding", "Reach dashboard"], questions: [{ id: "q1", text: "How many steps did signup take?", type: "multiple_choice", options: ["1–2", "3–4", "5+"] }, { id: "q2", text: "Was anything confusing?", type: "yes_no_detail" }, { id: "q3", text: "Rate the signup experience", type: "rating", scale: 5 }], proof: true },
+          { id: 2, title: "Core product flow", severity: "crit", min_time_seconds: 10, steps: ["Browse main content", "Try the core feature", "Complete one full action"], questions: [{ id: "q4", text: "How easy was the core flow?", type: "rating", scale: 5 }, { id: "q5", text: "Describe your experience", type: "text" }], proof: true },
+          { id: 3, title: "Overall feedback", severity: "imp", min_time_seconds: 10, steps: ["Reflect on full experience", "Answer final questions"], questions: [{ id: "q6", text: "Would you use this again?", type: "yes_no_detail" }, { id: "q7", text: "Overall rating", type: "rating", scale: 5 }], proof: false },
+        ];
+        setTasks(mock);
+        setStepsDone(mock.map(() => new Set()));
+        setAnswers(mock.map(() => ({})));
+        setTimerDone(mock.map(() => false));
+        setProofUploaded(mock.map(() => false));
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [id]);
 
-  if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  const { task, rubric, myMission } = data;
-  const t = vtypes[task.type] || rubric;
+  if (loading) return <div className="page rise"><div className="muted">Loading workspace…</div></div>;
 
-  if (!myMission) {
-    return (
-      <div className="page rise" style={{ maxWidth: 600, margin: "0 auto", textAlign: "center", paddingTop: 60 }}>
-        <h2>You haven't accepted this mission yet</h2>
-        <p className="muted">Apply from the mission details page to start a validation session.</p>
-        <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${id}`)}>View mission</button>
-      </div>
-    );
-  }
-  if (myMission.status !== "active") {
-    return (
-      <div className="page rise" style={{ maxWidth: 600, margin: "0 auto", textAlign: "center", paddingTop: 60 }}>
-        <h2>Already submitted</h2>
-        <p className="muted">This validation is {myMission.status === "completed" ? "complete and paid out" : "in review"}. You'll hear back soon.</p>
-        <button className="btn btn-primary" onClick={() => navigate("/validator/missions")}>Go to my missions</button>
-      </div>
-    );
-  }
+  const task = tasks[curIdx];
+  if (!task) return null;
 
-  const setR = (id, v) => setRatings(p => ({ ...p, [id]: v }));
-  const toggleFlag = (f) => setFlags(p => p.includes(f) ? p.filter(x => x !== f) : [...p, f]);
+  const sev = SEV[task.severity] || SEV.imp;
+  const stepsComplete = stepsDone[curIdx]?.size === task.steps.length;
+  const allAnswered = task.questions.every(q => answers[curIdx]?.[q.id] !== undefined);
+  const proofOk = !task.proof || proofUploaded[curIdx];
+  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk;
 
-  const total = rubric.rubric.length;
-  const rated = rubric.rubric.filter(d => ratings[d.id]).length;
-  const complete = rated === total && notes.trim().length >= 12;
-  const score = total ? Math.round((rubric.rubric.reduce((s, d) => s + (ratings[d.id] || 0), 0) / (total * 5)) * 100) : 0;
-
-  const submit = async () => {
-    setBusy(true); setError("");
-    try {
-      const minutes = Math.max(1, Math.round((Date.now() - started) / 60000));
-      await vapi.submit(task.id, { ratings, flags, notes, minutes, score });
-      navigate(`/validator/missions/${task.id}/submitted`, { state: { task, score, flags, minutes } });
-    } catch (err) {
-      setError(err.message || "Couldn't submit");
-    } finally {
-      setBusy(false);
+  const toggleStep = (si) => {
+    setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
+  };
+  const setAns = (qid, val) => {
+    setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
+  };
+  const goNext = async () => {
+    if (curIdx === tasks.length - 1) {
+      setSubmitting(true);
+      try {
+        await api.patch(`/v/missions/${id}/workspace/submit`, { answers });
+      } catch {}
+      setShowSummary(true);
+      setSubmitting(false);
+    } else {
+      setCurIdx(i => i + 1);
+      window.scrollTo(0, 0);
     }
   };
 
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 480px", height: "calc(100vh - 64px)" }} className="ws-grid">
-      <div style={{ overflow: "auto", padding: "var(--pad-page)", borderRight: "var(--hairline) solid var(--border)" }}>
-        <button className="btn btn-quiet" onClick={() => navigate("/validator")} style={{ marginBottom: 16, marginLeft: -8 }}><Icon name="arrowLeft" />All missions</button>
-        <div className="row gap-2 wrap" style={{ marginBottom: 12 }}>
-          <VTypeTag type={task.type} vtypes={vtypes} />
-          <span className="pill"><Icon name="clock" size={14} />~{task.minutes} min</span>
-          <span className="pill" style={{ color: "var(--success)" }}><Icon name="coin" size={14} />₹{task.reward} on approval</span>
+  if (showSummary) return (
+    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--bg)" }}>
+      <div className="rise" style={{ maxWidth: 480, textAlign: "center" }}>
+        <div style={{ width: 80, height: 80, borderRadius: 24, background: "var(--success-weak)", display: "grid", placeItems: "center", margin: "0 auto 22px" }}>
+          <Icon name="check" size={40} style={{ color: "var(--success)" }} />
         </div>
-        <h2 style={{ margin: "0 0 4px", fontSize: 24, fontWeight: 800, letterSpacing: "-.02em" }}>{task.product}</h2>
-        <p className="muted" style={{ margin: "0 0 20px", fontSize: 15 }}>{task.tagline} · {task.company}</p>
-        <ProductPreview task={task} />
-        <div className="card" style={{ padding: "var(--pad-card)", marginTop: 20 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Your task</div>
-          <p style={{ margin: "0 0 14px", fontSize: 14.5 }}>{task.brief}</p>
-          <div style={{ display: "grid", gap: 9 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 10px" }}>All tasks complete</h1>
+        <p style={{ color: "var(--text-muted)", margin: "0 0 26px", fontSize: 15 }}>Your responses have been submitted and are being reviewed.</p>
+        <div className="card" style={{ padding: "16px 20px", marginBottom: 22, textAlign: "left" }}>
+          {tasks.map((t, i) => (
+            <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
+              <span style={{ width: 22, height: 22, borderRadius: "50%", background: "var(--success)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                <Icon name="check" size={12} style={{ color: "#fff" }} />
+              </span>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{t.title}</span>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--mono)", fontSize: 12, color: "var(--text-faint)" }}>{Math.ceil(t.min_time_seconds / 60)} min</span>
+            </div>
+          ))}
+        </div>
+        <Btn variant="primary" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "240px 1fr", minHeight: "100vh" }}>
+      {/* Sidebar */}
+      <aside style={{ background: "var(--panel)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", overflowY: "auto" }}>
+        <div style={{ padding: "20px 18px 14px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2, marginBottom: 4 }}>{mission?.name || "Validation Mission"}</div>
+          <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{mission?.brand || "Mission brief"}</div>
+        </div>
+        <div style={{ padding: "12px 0", flex: 1 }}>
+          {tasks.map((t, i) => {
+            const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
+            return (
+              <div key={t.id} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", opacity: state === "locked" ? 0.45 : 1 }}>
+                <span style={{
+                  width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
+                  fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, flexShrink: 0, zIndex: 1,
+                  background: state === "done" ? "var(--success)" : state === "active" ? "var(--accent)" : "var(--panel)",
+                  border: `1.5px solid ${state === "done" ? "var(--success)" : state === "active" ? "var(--accent)" : "var(--border-strong)"}`,
+                  color: state === "done" || state === "active" ? "#fff" : "var(--text-faint)",
+                  boxShadow: state === "active" ? "0 0 0 4px var(--accent-weak)" : undefined,
+                }}>
+                  {state === "done" ? <Icon name="check" size={12} /> : state === "locked" ? <Icon name="lock" size={11} /> : i + 1}
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>{t.title}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{Math.ceil(t.min_time_seconds / 60)} min</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>
+            <span>Progress</span>
+            <span style={{ fontFamily: "var(--mono)", fontWeight: 600, color: "var(--text)" }}>{curIdx + 1}/{tasks.length}</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}>
+            <div style={{ width: `${(curIdx / tasks.length) * 100}%`, height: "100%", borderRadius: 20, background: "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s" }} />
+          </div>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div style={{ display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+        {/* Topbar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
+          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length}</span>
+          <span style={{ flex: 1 }} />
+          <Timer secs={task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
+          <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={() => navigate("/validator/missions")}>
+            <Icon name="x" size={14} /> Exit
+          </button>
+        </div>
+
+        {/* Content */}
+        <div style={{ padding: "28px 36px 140px", maxWidth: 780, margin: "0 auto", width: "100%" }} className="rise">
+          <div style={{ marginBottom: 22 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sev.bg, color: sev.color }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />{sev.l}
+              </span>
+            </div>
+            <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.025em" }}>{task.title}</h2>
+          </div>
+
+          {/* Steps */}
+          <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+              Steps <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            </div>
             {task.steps.map((s, i) => (
-              <div key={i} className="row gap-3" style={{ alignItems: "flex-start" }}>
-                <span className="mono" style={{ width: 22, height: 22, flex: "none", borderRadius: 6, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 600, background: "var(--accent-weak)", color: "var(--accent)" }}>{i + 1}</span>
-                <span style={{ fontSize: 14 }}>{s}</span>
+              <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
+                <div onClick={() => toggleStep(i)} style={{
+                  width: 22, height: 22, borderRadius: 7, flexShrink: 0, cursor: "pointer", display: "grid", placeItems: "center",
+                  background: stepsDone[curIdx]?.has(i) ? "var(--success)" : "var(--panel)",
+                  border: `1.5px solid ${stepsDone[curIdx]?.has(i) ? "var(--success)" : "var(--border-strong)"}`,
+                  transition: "all .15s",
+                }}>
+                  {stepsDone[curIdx]?.has(i) && <Icon name="check" size={13} style={{ color: "#fff" }} />}
+                </div>
+                <span style={{ fontSize: 14, lineHeight: 1.5, textDecoration: stepsDone[curIdx]?.has(i) ? "line-through" : "none", color: stepsDone[curIdx]?.has(i) ? "var(--text-faint)" : "var(--text)" }}>{s}</span>
               </div>
             ))}
           </div>
-        </div>
-      </div>
 
-      <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--panel)" }}>
-        <div style={{ padding: "18px var(--pad-page) 14px", borderBottom: "var(--hairline) solid var(--border)" }}>
-          <div className="row between">
-            <div>
-              <div className="eyebrow">Structured feedback</div>
-              <h3 style={{ margin: "4px 0 0", fontSize: 17, fontWeight: 800 }}>{t.label} rubric</h3>
+          {/* Questions */}
+          <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+              Questions <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
-            <div className="row gap-3">
-              <ScoreRing value={score} size={52} />
-              <div className="col" style={{ justifyContent: "center" }}>
-                <span className="faint" style={{ fontSize: 11 }}>Score</span>
-                <span className="mono" style={{ fontSize: 13, fontWeight: 600 }}>{rated}/{total} rated</span>
+            {task.questions.map((q, i) => (
+              <div key={q.id} style={{ paddingBottom: 20, marginBottom: 20, borderBottom: i < task.questions.length - 1 ? "1px solid var(--border)" : "none" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--text-faint)", paddingTop: 3, flexShrink: 0 }}>Q{i + 1}</span>
+                  <span style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.4 }}>{q.text}</span>
+                </div>
+                {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} />}
+                {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} />}
+                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} />}
+                {q.type === "text" && <textarea className="field" placeholder="Type your answer…" rows={3} onChange={e => setAns(q.id, e.target.value)} />}
               </div>
-            </div>
+            ))}
           </div>
-          <div className="lvl-meter" style={{ marginTop: 12 }}><i style={{ width: `${(rated / total) * 100}%`, transition: "width .3s" }} /></div>
-        </div>
 
-        <div style={{ flex: 1, overflow: "auto", padding: "var(--pad-page)", display: "grid", gap: 22 }}>
-          {rubric.rubric.map(d => (
-            <div key={d.id}>
-              <div className="row between" style={{ marginBottom: 4 }}>
-                <label style={{ fontWeight: 700, fontSize: 14.5 }}>{d.label}</label>
-                {ratings[d.id] && <span className="mono faint" style={{ fontSize: 12 }}>{SCORE_WORDS[ratings[d.id]]}</span>}
+          {/* Proof upload */}
+          {task.proof && (
+            <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
+                Proof required — screenshot <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
               </div>
-              <p className="faint" style={{ margin: "0 0 9px", fontSize: 12.5 }}>{d.help}</p>
-              <div className={`rate sc-${ratings[d.id] || 0}`}>
-                {[1, 2, 3, 4, 5].map(n => (
-                  <button key={n} className={ratings[d.id] === n ? "on" : ""} onClick={() => setR(d.id, n)}>{n}</button>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {rubric.askFlags && (
-            <div>
-              <label style={{ fontWeight: 700, fontSize: 14.5 }}>Flag any issues</label>
-              <p className="faint" style={{ margin: "0 0 10px", fontSize: 12.5 }}>Founders rely on these. Only flag what you actually saw.</p>
-              <div className="row gap-2 wrap">
-                {rubric.flags.map(f => (
-                  <button key={f} className={`flag ${flags.includes(f) ? "on" : ""}`} onClick={() => toggleFlag(f)}>
-                    <span className="x">{flags.includes(f) ? "✓" : "+"}</span>{f}
-                  </button>
-                ))}
-              </div>
+              {proofUploaded[curIdx] ? (
+                <div style={{ border: "2px solid var(--success)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: "var(--success-weak)" }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--success-weak)", display: "grid", placeItems: "center", marginBottom: 12 }}>
+                    <Icon name="check" size={26} style={{ color: "var(--success)" }} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>Screenshot uploaded</div>
+                  <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>Remove & re-upload</button>
+                </div>
+              ) : (
+                <div onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = true; return a; })} style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: "pointer", background: "var(--panel-2)", transition: "all .15s" }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--panel-inset)", display: "grid", placeItems: "center", marginBottom: 12 }}>
+                    <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Drop screenshot here</div>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG accepted</p>
+                </div>
+              )}
             </div>
           )}
 
-          <div>
-            <div className="row between" style={{ marginBottom: 9 }}>
-              <label style={{ fontWeight: 700, fontSize: 14.5 }}>What stood out? <span className="faint" style={{ fontWeight: 500 }}>(required)</span></label>
-              <span className="faint mono" style={{ fontSize: 11 }}>{notes.trim().length} chars</span>
+          {/* Readiness checklist */}
+          {!canNext && (
+            <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb,var(--warning) 30%,transparent)", borderRadius: "var(--radius)", padding: "12px 16px", fontSize: 13, color: "var(--warning)" }}>
+              <b>Before continuing:</b>
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                {!timerDone[curIdx] && <li>Wait for the timer to reach zero</li>}
+                {!stepsComplete && <li>Check off all steps above</li>}
+                {!allAnswered && <li>Answer all questions</li>}
+                {!proofOk && <li>Upload a screenshot as proof</li>}
+              </ul>
             </div>
-            <textarea className="field" value={notes} onChange={e => setNotes(e.target.value)} placeholder={rubric.key === "ai" ? "Be specific — which output, what was wrong or impressive, and why it matters to a launch decision…" : "Concrete, specific feedback beats vague praise. What would you change first?"} />
-          </div>
+          )}
         </div>
 
-        <div style={{ padding: "16px var(--pad-page)", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel-2)" }}>
-          {error && <div className="err-banner" style={{ marginBottom: 10 }}>{error}</div>}
-          {!complete && <p className="faint" style={{ margin: "0 0 10px", fontSize: 12.5 }}>{rated < total ? `Rate all ${total} dimensions` : "Add at least one sentence of written feedback"} to submit.</p>}
-          <button className="btn btn-primary btn-lg" disabled={!complete || busy} style={{ width: "100%" }} onClick={submit}>
-            {busy ? "Submitting…" : <>Submit validation · earn ₹{task.reward} <Icon name="arrowRight" /></>}
+        {/* Bottom nav */}
+        <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 36px", background: "color-mix(in srgb,var(--bg) 90%,transparent)", backdropFilter: "blur(12px)", borderTop: "1px solid var(--border)", zIndex: 30 }}>
+          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); } }} disabled={curIdx === 0}>
+            <Icon name="arrowLeft" size={16} /> Previous
           </button>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 13, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>{curIdx + 1} / {tasks.length}</span>
+          <span style={{ flex: 1 }} />
+          <Btn variant="primary" onClick={goNext} disabled={!canNext || submitting} style={{ opacity: canNext ? 1 : 0.55 }}>
+            {submitting ? "Submitting…" : curIdx === tasks.length - 1 ? "Submit all responses" : "Next task"}
+            {curIdx < tasks.length - 1 && <Icon name="arrowRight" size={16} />}
+          </Btn>
         </div>
       </div>
     </div>

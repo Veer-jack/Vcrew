@@ -29,6 +29,9 @@ import { VMetaProvider } from "./vcontext/VMetaContext";
 import VLayout from "./vcomponents/VLayout";
 import VLogin from "./vpages/VLogin";
 import VOAuthCallback from "./vpages/OAuthCallback";
+import MissionBrief from "./vpages/MissionBrief";
+import DailyCheckin from "./vpages/DailyCheckin";
+import MissionReview from "./pages/MissionReview";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
 import Workspace from "./vpages/Workspace";
@@ -109,10 +112,13 @@ function ValidatorRoutes() {
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
+      <Route path="missions/:id/brief" element={<RequireVAuth><MissionBrief /></RequireVAuth>} />
+      <Route path="missions/:id/checkin" element={<RequireVAuth><DailyCheckin /></RequireVAuth>} />
       <Route element={<RequireVAuth><VLayout /></RequireVAuth>}>
         <Route index element={<Discover />} />
         <Route path="missions" element={<MyMissions />} />
-        <Route path="missions/:id" element={<MissionDetails />} />
+        <Route path="missions/:id/review" element={<MissionReview />} />
+      <Route path="missions/:id" element={<MissionDetails />} />
         <Route path="missions/:id/submitted" element={<Submitted />} />
         <Route path="earnings" element={<Earnings />} />
         <Route path="profile" element={<Profile />} />

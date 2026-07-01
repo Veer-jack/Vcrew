@@ -7,9 +7,11 @@ import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
+import StepTestCases from "../components/StepTestCases";
 
 const WZ_STEPS = [
   { t: "Mission Information", s: "Name & category", hint: "Give your mission a clear name and pick the kind of validation you need." },
+  { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks." },
   { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Participation Type", s: "How they engage", hint: "Choose how participants will engage with your product." },
   { t: "Reward Setup", s: "What they earn", hint: "Set the incentive and size your panel — costs update as you type." },
@@ -288,6 +290,7 @@ export default function CreateMissionWizard() {
 
   const StepBody = [
     <StepInfo d={d} set={set} categories={categories} />,
+    <StepTestCases d={d} set={set} />,
     <StepAudience d={d} toggle={toggle} filters={filters} />,
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepReward d={d} set={set} rewards={rewards} />,
