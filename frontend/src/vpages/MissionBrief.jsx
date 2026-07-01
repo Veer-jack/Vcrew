@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
-import { api } from "../vapi/client";
+import { vapi } from "../vapi/client";
 
 export default function MissionBrief() {
   const { id } = useParams();
@@ -17,7 +17,7 @@ export default function MissionBrief() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await api.get(`/v/missions/${id}/brief`);
+        const data = await vapi.get(`/v/missions/${id}/brief`);
         setMission(data.mission);
         setTasks(data.tasks || []);
       } catch {

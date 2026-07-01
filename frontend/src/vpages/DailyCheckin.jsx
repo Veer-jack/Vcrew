@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
-import { api } from "../vapi/client";
+import { vapi } from "../vapi/client";
 
 export default function DailyCheckin() {
   const { id } = useParams();
@@ -20,7 +20,7 @@ export default function DailyCheckin() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await api.get(`/v/missions/${id}/checkin-status`);
+        const data = await vapi.get(`/v/missions/${id}/checkin-status`);
         setMission(data.mission);
         setCheckins(data.checkins || []);
         setLocked(data.locked || false);
@@ -49,7 +49,7 @@ export default function DailyCheckin() {
   const submit = async () => {
     setSubmitting(true);
     try {
-      await api.post(`/v/missions/${id}/checkin`, { day: currentDay, answers, proofUploaded });
+      await vapi.post(`/v/missions/${id}/checkin`, { day: currentDay, answers, proofUploaded });
       setSubmitted(true);
     } catch {
       setSubmitted(true); // optimistic

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
-import { api } from "../vapi/client";
+import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 
 function Timer({ secs, onDone }) {
@@ -108,7 +108,7 @@ export default function Workspace() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await api.get(`/v/missions/${id}/workspace`);
+        const data = await vapi.get(`/v/missions/${id}/workspace`);
         const t = data.tasks || [];
         setMission(data.mission);
         setTasks(t);
@@ -155,7 +155,7 @@ export default function Workspace() {
     if (curIdx === tasks.length - 1) {
       setSubmitting(true);
       try {
-        await api.patch(`/v/missions/${id}/workspace/submit`, { answers });
+        await vapi.patch(`/v/missions/${id}/workspace/submit`, { answers });
       } catch {}
       setShowSummary(true);
       setSubmitting(false);
