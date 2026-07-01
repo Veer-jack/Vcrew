@@ -61,7 +61,7 @@ export default function MyMissions() {
   const [tab, setTab] = useState("active");
   const [data, setData] = useState(null);
 
-  useEffect(() => { vapi.myMissions(tab).then(setData); }, [tab]);
+  useEffect(() => { setData(null); vapi.myMissions(tab).then(setData).catch(() => setData([])); }, [tab]);
 
   const tabs = TABS.map(t => ({ ...t, c: data?.counts?.[t.k] ?? "·" }));
 

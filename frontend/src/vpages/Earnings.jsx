@@ -17,7 +17,7 @@ export default function Earnings() {
   const [errorCode, setErrorCode] = useState("");
   const [stepUp, setStepUp] = useState(false);
 
-  const load = () => vapi.earnings().then(setData);
+  const load = () => vapi.earnings().then(setData).catch(() => setData({}));
   const loadWithdrawals = () => vapi.payoutHistory().then(d => setWithdrawals(d.withdrawals)).catch(() => {});
   useEffect(() => { load(); loadWithdrawals(); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;

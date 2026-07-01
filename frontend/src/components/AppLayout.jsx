@@ -126,13 +126,14 @@ function pageTitle(pathname) {
 export default function AppLayout() {
   const { builder, logout } = useAuth();
   const [bell, setBell] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
-      <div className="mob-scrim" onClick={() => setMobOpen(false)} />
+      <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
       <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} />
       <div className="main" id="main-content">
         <header className="topbar">
@@ -141,7 +142,33 @@ export default function AppLayout() {
           <div className="search" style={{ marginLeft: 18 }}><Icon name="search" size={16} /><input placeholder="Search missions, members, responses…" /></div>
           <span className="topbar-spacer" />
           <button className="icon-btn" onClick={() => setBell(true)} title="Notifications"><Icon name="bell" size={17} /></button>
-          <button className="icon-btn" onClick={async () => { await logout(); navigate("/login"); }} title="Log out"><Icon name="logout" size={17} /></button>
+          <div style={{ position: "relative" }}>
+            <button
+              className="icon-btn"
+              onClick={() => setShowProfile(p => !p)}
+              title="Profile"
+              style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}
+            >
+              {(builder?.name || "B")[0].toUpperCase()}
+            </button>
+            {showProfile && (
+              <div style={{ position: "absolute", top: 42, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden" }}>
+                <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{builder?.name}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>{builder?.email}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{builder?.org}</div>
+                </div>
+                <div style={{ padding: "6px 0" }}>
+                  <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0 }} onClick={() => { setShowProfile(false); navigate("/settings"); }}>
+                    <Icon name="settings" size={15} /> Settings
+                  </button>
+                  <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0, color: "var(--danger)" }} onClick={async () => { setShowProfile(false); await logout(); navigate("/login"); }}>
+                    <Icon name="logout" size={15} /> Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </header>
         <Outlet />
       </div>

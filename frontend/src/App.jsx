@@ -30,6 +30,7 @@ import VLayout from "./vcomponents/VLayout";
 import VLogin from "./vpages/VLogin";
 import VOAuthCallback from "./vpages/OAuthCallback";
 import VOnboarding from "./vpages/VOnboarding";
+import VSettings from "./vpages/VSettings";
 import MissionBrief from "./vpages/MissionBrief";
 import DailyCheckin from "./vpages/DailyCheckin";
 import MissionReview from "./pages/MissionReview";
@@ -111,6 +112,7 @@ function ValidatorRoutes() {
     <Routes>
       <Route path="login" element={validator ? <Navigate to="/validator" replace /> : <VLogin />} />
         <Route path="onboarding" element={<VOnboarding />} />
+        <Route path="settings" element={<RequireVAuth><VSettings /></RequireVAuth>} />
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />

@@ -84,7 +84,7 @@ export default function Support() {
   const [raising, setRaising] = useState(false);
   const [data, setData] = useState(null);
 
-  useEffect(() => { vapi.support().then(setData); }, []);
+  useEffect(() => { vapi.support().then(setData).catch(() => {}); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const help = data.helpArticles.filter(h => !q || (h.q + h.a + h.cat).toLowerCase().includes(q.toLowerCase()));

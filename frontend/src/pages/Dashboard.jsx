@@ -82,9 +82,21 @@ export default function Dashboard() {
   const { categories } = useMeta();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [loadErr, setLoadErr] = useState(false);
 
-  useEffect(() => { api.dashboard().then(setData); }, []);
+  useEffect(() => {
+    setLoadErr(false);
+    api.dashboard()
+      .then(setData)
+      .catch(() => setLoadErr(true));
+  }, []);
 
+  if (loadErr) return (
+    <div className="page rise" style={{ textAlign: "center", paddingTop: 60 }}>
+      <div style={{ fontSize: 15, color: "var(--text-muted)", marginBottom: 14 }}>Couldn't load dashboard data.</div>
+      <button className="btn btn-ghost" onClick={() => { setLoadErr(false); api.dashboard().then(setData).catch(() => setLoadErr(true)); }}>Retry</button>
+    </div>
+  );
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const { kpi, activity, recentMissions } = data;

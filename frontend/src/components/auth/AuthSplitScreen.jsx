@@ -101,7 +101,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
       if (mode === "signin") await adapter.login(email, password);
       else {
         await adapter.signup({ name: name.trim(), org: org.trim(), email: email.trim(), password });
-        if (signupHref) { navigate(signupHref); return; }
+        if (signupHref) { navigate(signupHref, { replace: true }); return; }
       }
       goAfterAuth();
     } catch (err) {

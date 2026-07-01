@@ -15,8 +15,9 @@ export default function Profile() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { vapi.profile().then(setData); }, []);
+  useEffect(() => { vapi.profile().then(setData).catch(() => setData({})); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+  if (!data.name && Object.keys(data).length === 0) return <div className="page rise"><div className="muted">Couldn't load profile. Please refresh.</div></div>;
 
   const startEdit = () => {
     setName(data.name); setHandle((data.handle || "").replace(/^@/, "")); setSpecialties([...data.specialties]);

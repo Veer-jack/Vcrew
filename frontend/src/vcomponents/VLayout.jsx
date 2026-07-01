@@ -63,11 +63,12 @@ const NAV = [
   { to: "/validator/messages", label: "Messages", icon: "inbox" },
   { to: "/validator/earnings", label: "Earnings", icon: "wallet" },
   { to: "/validator/profile", label: "Profile", icon: "userplus" },
+  { to: "/validator/settings", label: "Settings", icon: "settings" },
 ];
 
 const TITLES = {
   "/validator": "Discover", "/validator/missions": "My missions", "/validator/messages": "Messages",
-  "/validator/earnings": "Earnings & reputation", "/validator/profile": "Profile", "/validator/support": "Help center",
+  "/validator/earnings": "Earnings & reputation", "/validator/profile": "Profile", "/validator/support": "Help center", "/validator/settings": "Settings",
 };
 function pageTitle(pathname) {
   if (TITLES[pathname]) return TITLES[pathname];
