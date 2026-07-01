@@ -1,5 +1,5 @@
 import { Router } from "express";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -348,7 +348,7 @@ router.post("/generate-tasks", authMiddleware, async (req, res) => {
   if (!description && !url) return res.status(400).json({ error: "Description or URL required" });
 
   try {
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const prompt = `You are a senior QA engineer and UX researcher. A founder has built the following product and wants structured test cases for validators to follow.
 
 Product description: ${description || "Not provided"}
@@ -381,13 +381,14 @@ question types: rating (needs scale), multiple_choice (needs options), yes_no_de
 proof: "screenshot" or null
 Include 3-5 questions per task mixing types. Make tasks specific to the product described.`;
 
-    const message = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    const completion = await client.chat.completions.create({
+      model: "gpt-4o-mini",
       max_tokens: 2000,
       messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
     });
 
-    const raw = message.content[0].text.trim();
+    const raw = completion.choices[0].message.content.trim();
     const parsed = JSON.parse(raw);
     res.json(parsed);
   } catch (err) {
