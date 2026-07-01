@@ -16,7 +16,7 @@ export default function OAuthCallback() {
     }
     setToken(token);
     refreshBuilder()
-      .then(() => navigate("/", { replace: true }))
+      .then(() => { const isNew = params.get("new") === "1"; navigate(isNew ? "/signup" : "/", { replace: true }); })
       .catch(() => navigate("/login?error=" + encodeURIComponent("Login failed, please try again"), { replace: true }));
   }, [params, navigate, refreshBuilder]);
 

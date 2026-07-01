@@ -16,7 +16,7 @@ export default function OAuthCallback() {
     }
     setVToken(token);
     refresh()
-      .then(() => navigate("/validator", { replace: true }))
+      .then(() => { const isNew = params.get("new") === "1"; navigate(isNew ? "/validator/onboarding" : "/validator", { replace: true }); })
       .catch(() => navigate("/validator/login?error=" + encodeURIComponent("Login failed, please try again"), { replace: true }));
   }, [params, navigate, refresh]);
 

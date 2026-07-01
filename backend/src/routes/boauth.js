@@ -49,6 +49,7 @@ router.get("/:provider/callback", async (req, res) => {
   try {
     const accessToken = await provider.exchangeCode(code, BASE_PATH);
     const profile = await provider.fetchProfile(accessToken);
+    let isNewUser = false;
 
     // 1) match an existing account already linked to this provider+id
     let builder = await db.prepare(`SELECT * FROM builders WHERE oauth_provider = ? AND oauth_id = ?`).get(key, profile.id);
@@ -70,6 +71,7 @@ router.get("/:provider/callback", async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(name, `${name}'s workspace`, profile.email.toLowerCase(), randomPassword, key, profile.id);
       builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(profile.email.toLowerCase());
+      isNewUser = true;
 
       await db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
         .run(builder.id, "Welcome to ValidationCrew", `Your account was created via ${provider.name}. Update your workspace name in Settings any time.`);
@@ -77,7 +79,7 @@ router.get("/:provider/callback", async (req, res) => {
     }
 
     const token = await createSession(builder.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
-    res.redirect(`${FRONTEND}/oauth-callback?token=${token}`);
+    res.redirect(`${FRONTEND}/oauth-callback?token=${token}${isNewUser ? "&new=1" : ""}`);
   } catch (err) {
     console.error(`${provider.name} OAuth error:`, err);
     res.redirect(`${FRONTEND}/login?error=${encodeURIComponent("Login failed, please try again")}`);

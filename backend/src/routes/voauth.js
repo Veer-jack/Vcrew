@@ -48,6 +48,7 @@ router.get("/:provider/callback", async (req, res) => {
   try {
     const accessToken = await provider.exchangeCode(code, "/api/v/auth");
     const profile = await provider.fetchProfile(accessToken);
+    let isNewUser = false;
 
     // 1) match an existing account already linked to this provider+id
     let validator = await db.prepare(`SELECT * FROM validators WHERE oauth_provider = ? AND oauth_id = ?`).get(key, profile.id);
@@ -68,6 +69,7 @@ router.get("/:provider/callback", async (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, '[]')
       `).run(profile.name || profile.email.split("@")[0], profile.handle, profile.email.toLowerCase(), randomPassword, key, profile.id);
       validator = await db.prepare(`SELECT * FROM validators WHERE email = ?`).get(profile.email.toLowerCase());
+      isNewUser = true;
 
       await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'system','shield','green',?,?, 'Just now', 1)`)
         .run(validator.id, "Welcome to ValidationCrew", `Your account was created via ${provider.name}. Complete your profile to start getting matched to missions.`);
@@ -75,7 +77,7 @@ router.get("/:provider/callback", async (req, res) => {
     }
 
     const token = await createValidatorSession(validator.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
-    res.redirect(`${FRONTEND}/validator/oauth-callback?token=${token}`);
+    res.redirect(`${FRONTEND}/validator/oauth-callback?token=${token}${isNewUser ? "&new=1" : ""}`);
   } catch (err) {
     console.error(`${provider.name} OAuth error:`, err);
     res.redirect(`${FRONTEND}/validator/login?error=${encodeURIComponent("Login failed, please try again")}`);

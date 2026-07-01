@@ -145,3 +145,19 @@ router.patch("/language", validatorAuthMiddleware, async (req, res) => {
   await db.prepare(`UPDATE validators SET preferred_language = ? WHERE id = ?`).run(lang, req.validator.id);
   res.json({ ok: true, lang });
 });
+
+// PATCH /api/v/profile — update validator profile after onboarding
+router.patch("/profile", async (req, res) => {
+  const { handle, city, bio, languages, specialties_json, hours_per_week, devices } = req.body || {};
+  await db.prepare(`
+    UPDATE validators SET
+      handle = COALESCE(?, handle),
+      city = COALESCE(?, city),
+      bio = COALESCE(?, bio),
+      specialties_json = COALESCE(?, specialties_json),
+      updated_at = NOW()
+    WHERE id = ?
+  `).run(handle || null, city || null, bio || null, specialties_json || null, req.validator.id);
+  const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(req.validator.id);
+  res.json({ validator: v });
+});
