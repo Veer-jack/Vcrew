@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { setToken } from "../api/client";
+import { setToken, api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export default function OAuthCallback() {
@@ -15,10 +15,15 @@ export default function OAuthCallback() {
       return;
     }
     setToken(token);
-    refreshBuilder()
-      .then(() => { const isNew = params.get("new") === "1"; navigate(isNew ? "/signup" : "/", { replace: true }); })
+    api.me()
+      .then(({ builder }) => {
+        refreshBuilder();
+        // If org or designation missing = onboarding not done
+        const needsOnboarding = !builder.designation || !builder.org || builder.org === builder.name + "'s workspace";
+        navigate(needsOnboarding ? "/signup" : "/", { replace: true });
+      })
       .catch(() => navigate("/login?error=" + encodeURIComponent("Login failed, please try again"), { replace: true }));
-  }, [params, navigate, refreshBuilder]);
+  }, []);
 
   return (
     <div className="auth-shell">
