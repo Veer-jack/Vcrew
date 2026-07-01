@@ -4,7 +4,7 @@ import { BrandMark } from "../components/BrandMark";
 
 const ROLES = [
   {
-    key: "founder", icon: "rocket", name: "Founder", live: true,
+    key: "founder", icon: "rocket", name: "Founder / Startup", live: true,
     desc: "Validate your startup — product feedback, user opinions, beta testing, idea & pricing validation.",
     accent: "#4f46e5",
   },
@@ -33,7 +33,7 @@ export default function RoleSelect() {
       <div className="rise" style={{ width: "100%", maxWidth: 860, textAlign: "center" }}>
         <div style={{ margin: "0 auto 18px" }}><BrandMark size={80} /></div>
         <div className="eyebrow" style={{ marginBottom: 10 }}>I need feedback</div>
-        <h1 style={{ fontSize: 26, marginBottom: 8 }}>Pick your role</h1>
+        <h1 style={{ fontSize: 26, marginBottom: 8 }}>Create your builder account</h1>
         <p className="muted" style={{ marginBottom: 30, fontSize: 14.5 }}>
           Choose the description that fits you best — we'll tailor every step that follows.
         </p>
