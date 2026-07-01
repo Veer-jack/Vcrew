@@ -21,7 +21,7 @@
   ];
   const linkHtml = links.map(x => `<a href="${x.h}"${x.k === page ? ' style="color:var(--ink);background:var(--bg-soft)"' : ""}>${x.l}</a>`).join("");
 
-  const brand = `<a class="brand" href="index.html"><img src="/brand/vc-full-logo.png" alt="ValidationCrew" style="height:56px;width:auto;display:block"></a>`;
+  const brand = `<a class="brand" href="index.html"><img src="/brand/vc-full-logo.png" alt="ValidationCrew" style="height:80px;width:auto;display:block"></a>`;
 
   const navRoot = document.getElementById("vc-nav");
   if (navRoot) {

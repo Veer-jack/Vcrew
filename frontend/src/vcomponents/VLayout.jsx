@@ -87,7 +87,7 @@ export default function VLayout() {
       <div className="mob-scrim" onClick={() => setMobOpen(false)} />
       <aside className="side">
         <div className="brand">
-          <BrandMark size={80} />
+          <a href="/validator" style={{ display: "block" }}><BrandMark size={80} /></a>
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">Validator</div></div>
         </div>
         {NAV.map(it => (
