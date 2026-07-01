@@ -44,8 +44,8 @@
               <button class="btn btn-primary nav-dt" aria-haspopup="true" aria-expanded="false">Get started ${ic.caret}</button>
               <div class="nav-menu right">
                 <span class="nav-menu-lab">Create a free account</span>
-                <a href="/login"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I want to validate</b><small>Get feedback on an idea or product</small></span></a>
-                <a href="validators.html"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>I want to give feedback</b><small>Join the crew &amp; earn rewards</small></span></a>
+                <a href="/login"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I'm a Builder</b><small>Test my product with real users</small></span></a>
+                <a href="validators.html"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>I'm a Validator</b><small>Test products &amp; get paid</small></span></a>
               </div>
             </div>
             <button class="nav-burger" aria-label="Menu">${ic.menu}</button>
