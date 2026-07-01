@@ -25,7 +25,7 @@ function RaiseTicket({ onClose, onCreated }) {
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 520, maxWidth: "94vw", maxHeight: "90vh", overflow: "auto", zIndex: 61,
+      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", width: 520, maxWidth: "min(520px, calc(100vw - 280px - 32px))", maxHeight: "90vh", overflow: "auto", zIndex: 61,
         background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         {sent ? (
           <div style={{ padding: 40, textAlign: "center" }}>

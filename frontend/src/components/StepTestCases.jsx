@@ -12,7 +12,7 @@ const SEV = {
   nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
 };
 
-function TaskCard({ task, idx, total, onMove, expanded, onToggle }) {
+function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEdit }) {
   const sev = SEV[task.severity] || SEV.imp;
   return (
     <div className={`card rise`} style={{
@@ -50,12 +50,21 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle }) {
             style={{ width: 22, height: 20, borderRadius: 5, background: "var(--panel-inset)", border: "1px solid var(--border)", cursor: "pointer", display: "grid", placeItems: "center", opacity: idx === total - 1 ? 0.28 : 1 }}
           ><Icon name="chevDown" size={10} /></button>
         </div>
-        <Icon name={expanded ? "chevDown" : "chevRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+        <button
+            onClick={e => { e.stopPropagation(); onDelete(idx); }}
+            style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
+          ><Icon name="x" size={12} style={{ color: "var(--danger)" }} /></button>
+          <Icon name={expanded ? "chevDown" : "chevRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
       </div>
 
       {/* Body */}
       {expanded && (
         <div style={{ padding: 14, borderTop: "1px solid var(--border)", background: "var(--panel-2)" }}>
+          {/* Editable title */}
+          <div style={{ marginBottom: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 6 }}>Task title</div>
+            <input className="fin" value={task.title} onChange={e => onEdit(idx, { title: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 14, fontWeight: 600 }} />
+          </div>
           {/* Steps */}
           <div style={{ marginBottom: 14 }}>
             <div className="eyebrow" style={{ marginBottom: 9 }}>Steps</div>
@@ -67,6 +76,9 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle }) {
                 </div>
               ))}
             </div>
+            <button className="btn btn-quiet" style={{ fontSize: 12, marginTop: 8 }} onClick={e => { e.stopPropagation(); onEdit(idx, { steps: [...task.steps, "New step"] }); }}>
+              <Icon name="plus" size={12} /> Add step
+            </button>
           </div>
 
           {/* Questions */}
@@ -261,7 +273,7 @@ export default function StepTestCases({ d, set }) {
                   </button>
                 </div>
                 {tasks.map((t, i) => (
-                  <TaskCard key={t.id} task={t} idx={i} total={tasks.length} onMove={moveTask} expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} />
+                  <TaskCard key={t.id} task={t} idx={i} total={tasks.length} onMove={moveTask} expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} onDelete={(i) => { const a = [...tasks]; a.splice(i, 1); set({ tasks: a }); setExpanded(null); }} onEdit={(i, patch) => { const a = [...tasks]; a[i] = { ...a[i], ...patch }; set({ tasks: a }); }} />
                 ))}
                 <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--success-weak)", border: "1px solid color-mix(in srgb, var(--success) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
                   <Icon name="shield" size={15} style={{ color: "var(--success)", flexShrink: 0 }} />

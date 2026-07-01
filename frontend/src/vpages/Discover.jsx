@@ -113,7 +113,17 @@ export default function Discover() {
   const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setTime("any"); setVerifiedOnly(false); setMinMatch(0); };
 
   useEffect(() => {
-    vapi.marketplace({ q, types: [...types].join(","), reward, time, verified: verifiedOnly, minMatch, sort }).then(setData);
+    // Prevent back-button going to login
+    window.history.pushState(null, "", window.location.href);
+    const onPop = () => window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
+    vapi.marketplace({ q, types: [...types].join(","), reward, time, verified: verifiedOnly, minMatch, sort })
+      .then(setData)
+      .catch(() => {});
   }, [q, types, reward, time, verifiedOnly, minMatch, sort]);
 
   const onOpen = (task) => navigate(`/validator/missions/${task.id}`);

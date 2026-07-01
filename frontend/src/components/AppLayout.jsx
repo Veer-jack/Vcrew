@@ -72,8 +72,7 @@ function Sidebar({ mobOpen, closeMobile, builder }) {
   return (
     <aside className="side">
       <div className="brand">
-        <a href="/" style={{ display: "block" }}><BrandLogoFull height={56} /></a>
-        <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{builder?.org}</div></div>
+        <a href="/" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
       </div>
       <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>Create Mission</Btn>
       {NAV_GROUPS.flatMap(g => [

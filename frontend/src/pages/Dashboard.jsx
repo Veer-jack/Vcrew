@@ -85,6 +85,14 @@ export default function Dashboard() {
   const [loadErr, setLoadErr] = useState(false);
 
   useEffect(() => {
+    // Prevent back-button going to login page
+    window.history.pushState(null, "", window.location.href);
+    const onPop = () => window.history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  useEffect(() => {
     setLoadErr(false);
     api.dashboard()
       .then(setData)
