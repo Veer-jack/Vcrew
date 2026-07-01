@@ -87,7 +87,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
     email: touched.email && email && !emailOk ? "Enter a valid email" : "",
     password: touched.password && password.length > 0 && password.length < 8 ? "At least 8 characters" : "",
   };
-  const emailFormValid = emailOk && password.length >= 8 && (mode === "signin" || (name.trim() && org.trim() && agree));
+  const emailFormValid = emailOk && password.length >= 8 && (mode === "signin" || (name.trim() && agree));
 
   const goAfterAuth = () => navigate(location.state?.from || homePath, { replace: true });
 
@@ -99,7 +99,10 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
     setBusy(true);
     try {
       if (mode === "signin") await adapter.login(email, password);
-      else await adapter.signup({ name: name.trim(), org: org.trim(), email: email.trim(), password });
+      else {
+        await adapter.signup({ name: name.trim(), org: org.trim(), email: email.trim(), password });
+        if (signupHref) { navigate(signupHref); return; }
+      }
       goAfterAuth();
     } catch (err) {
       setError(err.message || "Something went wrong");
@@ -113,7 +116,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
     setTouched((t) => ({ ...t, name: true, org: true }));
     setError("");
     if (!phoneOk) return;
-    if (mode === "signup" && !(name.trim() && org.trim() && agree)) return;
+    if (mode === "signup" && !(name.trim() && agree)) return;
     setBusy(true);
     try {
       const auth = await getFirebaseAuth(adapter.firebaseConfig);
@@ -220,7 +223,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
           <div className="asplit-tabs">
             <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); }}>Sign in</button>
             <button type="button" className={mode === "signup" ? "on" : ""}
-              onClick={() => { if (signupHref) navigate(signupHref); else { setMode("signup"); setError(""); } }}>
+              onClick={() => { setMode("signup"); setError(""); }}>
               Create account
             </button>
           </div>
@@ -276,11 +279,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                     <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" autoFocus />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
-                  <div className="fld">
-                    <label>{copy.field2Label}</label>
-                    <input className="fin" value={org} onChange={(e) => setOrg(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, org: true }))} placeholder={copy.field2Placeholder} />
-                    {errs.org && <p className="ferr">{errs.org}</p>}
-                  </div>
+
                 </>
               )}
               <div className="fld">
@@ -323,11 +322,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                     <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
-                  <div className="fld">
-                    <label>{copy.field2Label}</label>
-                    <input className="fin" value={org} onChange={(e) => setOrg(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, org: true }))} placeholder={copy.field2Placeholder} />
-                    {errs.org && <p className="ferr">{errs.org}</p>}
-                  </div>
+
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
                     I agree to the Terms of Service and Privacy Policy
