@@ -407,7 +407,8 @@ types: rating(scale:5), multiple_choice(options array), yes_no_detail, text
 proof: screenshot for visual tasks, null for pure opinion
 min_time_seconds: minimum 300 - these are deep tests not quick clicks
 
-Every task, step and question must be written as if you have used this specific product for a week and want to stress-test its most critical parts.`;h from "node:path";
+Every task, step and question must be written as if you have used this specific product for a week and want to stress-test its most critical parts.\`;
+import path from "node:path";
 import multer from "multer";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
