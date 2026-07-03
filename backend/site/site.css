@@ -575,3 +575,51 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
   .footer .cols { grid-template-columns: 1fr 1fr; }
   .finalcta { padding: 52px 24px; }
 }
+
+/* VIDEO TESTIMONIALS */
+.vt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 28px;
+  margin-top: 48px;
+}
+@media (max-width: 900px) { .vt-grid { grid-template-columns: 1fr; } }
+.vt-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0,0,0,.06);
+  transition: transform .2s, box-shadow .2s;
+}
+.vt-card:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,.10); }
+.vt-video-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #0f0f1a;
+  overflow: hidden;
+}
+.vt-iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: none; }
+.vt-play-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(79,70,229,.18) 0%, rgba(0,0,0,.45) 100%);
+  cursor: pointer; transition: background .2s;
+}
+.vt-play-overlay:hover { background: linear-gradient(135deg, rgba(79,70,229,.28) 0%, rgba(0,0,0,.55) 100%); }
+.vt-play-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(255,255,255,.95);
+  display: flex; align-items: center; justify-content: center;
+  color: #4f46e5; box-shadow: 0 4px 24px rgba(0,0,0,.25);
+  transition: transform .15s;
+}
+.vt-play-overlay:hover .vt-play-btn { transform: scale(1.08); }
+.vt-meta { padding: 18px 20px 20px; }
+.vt-who { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.vt-who b { display: block; font-size: 14.5px; font-weight: 700; }
+.vt-who span { font-size: 12.5px; color: var(--ink-muted); }
+.vt-quote { font-size: 14px; color: var(--ink-2); line-height: 1.55; margin: 0; font-style: italic; }
+.vt-note { text-align: center; font-size: 12.5px; color: var(--ink-muted); margin-top: 28px; }
+.sec-sub { font-size: 17px; color: var(--ink-muted); margin-top: 10px; max-width: 480px; margin: 10px auto 0; text-align: center; line-height: 1.6; }
