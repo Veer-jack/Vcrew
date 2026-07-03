@@ -66,7 +66,7 @@
   const footRoot = document.getElementById("vc-footer");
   if (footRoot) {
     const col = (h, items) => `<div><h5>${h}</h5><ul>${items.map(i => `<li><a href="${i[1]}">${i[0]}</a></li>`).join("")}</ul></div>`;
-    const social = (p) => `<a href="#" aria-label="social"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg></a>`;
+    const social = (p, href = "#", label = "social") => `<a href="${href}" aria-label="${label}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg></a>`;
     footRoot.innerHTML = `
       <footer class="footer">
         <div class="wrap">
@@ -76,7 +76,7 @@
               <p class="blurb">The world's human validation network — connecting builders with the right humans to validate products, ideas and decisions before they ship.</p>
               <div class="socials">
                 ${social('<path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2Z"/>') /* x */}
-                ${social('<rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M10 9v12M10 14a4 4 0 0 1 8 0v7"/>') /* in */}
+                ${social('<rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M10 9v12M10 14a4 4 0 0 1 8 0v7"/>', "https://www.linkedin.com/company/validation-crew", "ValidationCrew on LinkedIn")} /* in */
                 ${social('<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>') /* ig */}
               </div>
             </div>
