@@ -65,6 +65,13 @@ function RequireAuth({ children }) {
   return children;
 }
 
+function ExternalRedirect({ to }) {
+  useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+  return <div className="page rise"><div className="muted">Redirecting…</div></div>;
+}
+
 function BuilderRoutes() {
   const { builder, loading } = useAuth();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
@@ -73,13 +80,15 @@ function BuilderRoutes() {
     <Routes>
       <Route path="/login" element={builder ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/reset-password" element={<ResetPassword apiClient={api} loginPath="/login" />} />
+      <Route path="/" element={builder ? <RequireAuth><AppLayout /></RequireAuth> : <ExternalRedirect to="/site/index.html" />}>
+        <Route index element={<Dashboard />} />
+      </Route>
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
       <Route path="/get-started/feedback" element={builder ? <Navigate to="/" replace /> : <RoleSelect />} />
       <Route path="/signup" element={builder ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-        <Route path="/" element={<Dashboard />} />
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
         <Route path="/audience" element={<Audience />} />
