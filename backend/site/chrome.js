@@ -38,8 +38,8 @@
       <button class="btn btn-primary nav-dt" aria-haspopup="true" aria-expanded="false">Get started ${ic.caret}</button>
       <div class="nav-menu right">
         <span class="nav-menu-lab">Create a free account</span>
-        <a href="/login"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I'm a Builder</b><small>Test my product with real users</small></span></a>
-        <a href="validators.html"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>I'm a Validator</b><small>Test products &amp; get paid</small></span></a>
+        <a href="/login?mode=signup"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I'm a Builder</b><small>Test my product with real users</small></span></a>
+        <a href="/validator/login?mode=signup"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>I'm a Validator</b><small>Test products &amp; get paid</small></span></a>
       </div>
     </div>
     <button class="nav-burger" aria-label="Menu">${ic.menu}</button>
@@ -56,11 +56,11 @@
   if (navRoot) {
     navRoot.innerHTML = `
       <header class="nav">
-        <div class="wrap nav-in">
-          ${brand}
-          <nav class="nav-links">${linkHtml}</nav>
+        <div class="wrap nav-in" id="nav-in-wrapper">
+          <div class="stagger-item" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">${brand}</div>
+          <nav class="nav-links stagger-item" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">${linkHtml}</nav>
           <span class="nav-spacer"></span>
-          <div class="nav-cta" id="nav-cta-container">
+          <div class="nav-cta stagger-item" id="nav-cta-container" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">
             ${initialCta}
           </div>
         </div>
@@ -75,7 +75,28 @@
         <a class="mm-link" href="/validator/login">Validator login</a>
       </div>`;
       
-      checkAuthState();
+    // Wait for the auth state to fetch and render, then stagger the fade in
+    checkAuthState().then(() => {
+      const items = navRoot.querySelectorAll('.stagger-item');
+      items.forEach((item, index) => {
+        setTimeout(() => {
+          item.style.opacity = '1';
+          item.style.transform = 'translateY(0)';
+          
+          // If this is the last item, trigger the rest of the page to fade in!
+          if (index === items.length - 1) {
+            setTimeout(() => {
+              document.body.classList.add('page-ready');
+            }, 300); // Brief pause after the last navbar element appears
+          }
+        }, index * 150); // 150ms stagger
+      });
+      
+      // Fallback in case items array is empty for some reason
+      if (items.length === 0) {
+        document.body.classList.add('page-ready');
+      }
+    });
   }
 
   const footRoot = document.getElementById("vc-footer");
@@ -223,6 +244,104 @@
       ctaContainer.innerHTML = defaultCta;
     }
   }
+
+  // Toast Notification Helper
+  function showAuthToast(currentRole, targetRole) {
+    let toast = document.getElementById("vc-auth-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "vc-auth-toast";
+      toast.style.cssText = `
+        position: fixed; top: 80px; right: 24px; z-index: 9999;
+        background: white; color: var(--ink, #0f172a);
+        padding: 16px 20px 16px 16px; border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.04);
+        border: 1px solid var(--border, #e2e8f0);
+        display: flex; flex-direction: column; gap: 12px;
+        width: 380px;
+        transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        font-family: inherit;
+      `;
+      
+      toast.innerHTML = `
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <div style="background: #e0e7ff; color: #4f46e5; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+          <div style="flex: 1;">
+            <div id="vc-auth-toast-title" style="font-weight: 600; font-size: 14px; margin-bottom: 4px;"></div>
+            <div id="vc-auth-toast-sub" style="font-size: 13px; color: #64748b;"></div>
+          </div>
+          <button id="vc-auth-toast-close" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 0; display: flex;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          </button>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button id="vc-auth-toast-signout" style="background: none; border: none; color: #4f46e5; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign Out
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      document.getElementById("vc-auth-toast-close").onclick = () => { toast.style.transform = "translateX(120%)"; };
+      document.getElementById("vc-auth-toast-signout").onclick = () => { 
+        localStorage.removeItem("vc_token");
+        localStorage.removeItem("vc_validator_token");
+        window.location.reload();
+      };
+      
+      document.addEventListener("click", (e) => {
+        const createdAt = parseInt(toast.dataset.createdAt || "0", 10);
+        if (createdAt > 0 && Date.now() - createdAt > 1000) {
+          if (!toast.contains(e.target)) {
+            toast.style.transform = "translateX(120%)";
+          }
+        }
+      });
+    }
+    
+    toast.dataset.createdAt = Date.now();
+    document.getElementById("vc-auth-toast-title").textContent = `You're currently signed in as a ${currentRole}.`;
+    document.getElementById("vc-auth-toast-sub").textContent = `Please sign out first to continue as a ${targetRole}.`;
+    
+    // Trigger animation
+    requestAnimationFrame(() => {
+      toast.style.transform = "translateX(0)";
+    });
+  }
+
+  // Intercept Auth Clicks
+  document.addEventListener("click", (e) => {
+    const target = e.target.closest("a");
+    if (!target) return;
+    
+    const href = target.getAttribute("href");
+    if (!href) return;
+
+    const currentBToken = localStorage.getItem("vc_token");
+    const currentVToken = localStorage.getItem("vc_validator_token");
+
+    if (currentBToken) {
+      if (href === "/validator/login" || href.startsWith("/validator/login?")) {
+        e.preventDefault();
+        showAuthToast("Builder", "Validator");
+      } else if (href === "/login" || href.startsWith("/login?")) {
+        e.preventDefault();
+        window.location.href = "/missions";
+      }
+    } else if (currentVToken) {
+      if (href === "/login" || href.startsWith("/login?")) {
+        e.preventDefault();
+        showAuthToast("Validator", "Builder");
+      } else if (href === "/validator/login" || href.startsWith("/validator/login?")) {
+        e.preventDefault();
+        window.location.href = "/validator/missions"; // Or wherever the validator dashboard goes
+      }
+    }
+  });
 
   // Handle bfcache (Back-Forward Cache) to instantly update nav state on back button navigation
   window.addEventListener("pageshow", (event) => {

@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
   const params = [req.validator.id];
   if (status) { sql += ` AND mm.status = ?`; params.push(status); }
   sql += ` ORDER BY mm.updated_at DESC`;
-  const rows = db.prepare(sql).all(...params);
+  const rows = await db.prepare(sql).all(...params);
 
   const counts = {};
   for (const s of ["applied", "active", "submitted", "completed", "rejected"]) {

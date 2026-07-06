@@ -98,7 +98,7 @@ router.get("/", async (req, res) => {
   if (category) { sql += ` AND category = ?`; params.push(category); }
   if (q) { sql += ` AND name LIKE ?`; params.push(`%${q}%`); }
   sql += ` ORDER BY created_at DESC`;
-  const rows = db.prepare(sql).all(...params);
+  const rows = await db.prepare(sql).all(...params);
   res.json({ missions: rows.map(serializeMission) });
 });
 

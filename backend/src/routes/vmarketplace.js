@@ -29,7 +29,7 @@ async function loadContext(validatorId) {
 router.get("/", async (req, res) => {
   const { q, types, reward, time, verified, minMatch, sort } = req.query;
   let rows = await db.prepare(`SELECT * FROM vtasks`).all();
-  const { savedIds, myStatus } = loadContext(req.validator.id);
+  const { savedIds, myStatus } = await loadContext(req.validator.id);
 
   if (q) {
     const needle = q.toLowerCase();
@@ -46,7 +46,7 @@ router.get("/", async (req, res) => {
   if (verified === "true") rows = rows.filter(t => t.verified);
   if (minMatch) rows = rows.filter(t => t.match_pct >= Number(minMatch));
 
-  const tasks = rows.map(t => serializeTask(t, savedIds, myStatus));
+  let tasks = await Promise.all(rows.map(t => serializeTask(t, savedIds, myStatus)));
   const cmp = {
     match: (a, b) => b.match - a.match,
     reward: (a, b) => b.reward - a.reward,
@@ -55,7 +55,8 @@ router.get("/", async (req, res) => {
   }[sort] || ((a, b) => b.match - a.match);
   tasks.sort(cmp);
 
-  const allTasks = await db.prepare(`SELECT * FROM vtasks`).all().map(t => serializeTask(t, savedIds, myStatus));
+  const allTasksRows = await db.prepare(`SELECT * FROM vtasks`).all();
+  const allTasks = await Promise.all(allTasksRows.map(t => serializeTask(t, savedIds, myStatus)));
   const categories = TYPE_ORDER.map(k => ({
     key: k, label: VTYPES[k].label, blurb: VTYPES[k].blurb,
     count: allTasks.filter(t => t.type === k).length,
@@ -69,8 +70,9 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.id);
   if (!t) return res.status(404).json({ error: "Mission not found" });
-  const { savedIds, myStatus } = loadContext(req.validator.id);
-  res.json({ task: serializeTask(t, savedIds, myStatus), rubric: VTYPES[t.type] });
+  const { savedIds, myStatus } = await loadContext(req.validator.id);
+  const serialized = await serializeTask(t, savedIds, myStatus);
+  res.json({ task: serialized, rubric: VTYPES[t.type] });
 });
 
 // POST /api/v/marketplace/:id/save  { saved: true|false }
