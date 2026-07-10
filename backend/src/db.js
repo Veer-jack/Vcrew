@@ -10,7 +10,7 @@ export const pool = new pg.Pool({
   ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 15000,
 });
 
 pool.on("error", (err) => console.error("PG pool error:", err));
@@ -77,6 +77,16 @@ export async function initDb() {
     if (!mCols.includes('brief_url')) await client.query('ALTER TABLE missions ADD COLUMN brief_url TEXT');
     if (!mCols.includes('brief_credentials')) await client.query('ALTER TABLE missions ADD COLUMN brief_credentials TEXT');
     if (!mCols.includes('duration_days')) await client.query('ALTER TABLE missions ADD COLUMN duration_days INTEGER DEFAULT 7');
+    
+    const valCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
+    const vCols = valCols.rows.map(r => r.column_name);
+    if (!vCols.includes('payout_vpa')) await client.query('ALTER TABLE validators ADD COLUMN payout_vpa TEXT');
+    if (!vCols.includes('razorpay_contact_id')) await client.query('ALTER TABLE validators ADD COLUMN razorpay_contact_id TEXT');
+    if (!vCols.includes('razorpay_fund_account_id')) await client.query('ALTER TABLE validators ADD COLUMN razorpay_fund_account_id TEXT');
+    if (!vCols.includes('languages_json')) await client.query("ALTER TABLE validators ADD COLUMN languages_json TEXT DEFAULT '[]'");
+    if (!vCols.includes('devices_json')) await client.query("ALTER TABLE validators ADD COLUMN devices_json TEXT DEFAULT '[]'");
+    if (!vCols.includes('hours_per_week')) await client.query('ALTER TABLE validators ADD COLUMN hours_per_week TEXT');
+
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
     client.release();

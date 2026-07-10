@@ -96,7 +96,7 @@ router.get("/", async (req, res) => {
   const params = [req.builder.id];
   if (status) { sql += ` AND status = ?`; params.push(status); }
   if (category) { sql += ` AND category = ?`; params.push(category); }
-  if (q) { sql += ` AND name LIKE ?`; params.push(`%${q}%`); }
+  if (q) { sql += ` AND name ILIKE ?`; params.push(`%${q}%`); }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
   res.json({ missions: rows.map(serializeMission) });
@@ -180,9 +180,7 @@ router.post("/", async (req, res) => {
   const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
   if (!isVerified) {
-    const activeMissions = db.prepare(
-      `SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`
-    ).get(req.builder.id).n;
+    const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
 
     if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
       return res.status(403).json({
@@ -208,12 +206,12 @@ router.post("/", async (req, res) => {
 
   await db.prepare(`
     INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
-      reward_type, reward_amount, completion, spend, region, rating, description, audience_json, deadline)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, 0, ?, ?, ?)
+      reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, deadline)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, 0, ?, ?, ?, ?)
   `).run(
     id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
     Number(b.target) || 0, rewardType, Number(reward.amount) || 0,
-    b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), b.deadline || null
+    b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []), b.deadline || null
   );
 
   if (status === "active") {
@@ -240,9 +238,7 @@ router.patch("/:id", async (req, res) => {
     const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
     const isVerified = !!(builder && builder.verified_at);
     if (!isVerified) {
-      const activeMissions = db.prepare(
-        `SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`
-      ).get(req.builder.id).n;
+      const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
       if (activeMissions >= 3) {
         return res.status(403).json({
           error: "Unverified accounts can run a maximum of 3 active missions. Verify your website to unlock unlimited campaigns.",

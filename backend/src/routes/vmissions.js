@@ -33,7 +33,7 @@ router.get("/", async (req, res) => {
 
   const counts = {};
   for (const s of ["applied", "active", "submitted", "completed", "rejected"]) {
-    counts[s] = await db.prepare(`SELECT COUNT(*) c FROM v_my_missions WHERE validator_id = ? AND status = ?`).get(req.validator.id, s).c;
+    counts[s] = Number((await db.prepare(`SELECT COUNT(*) c FROM v_my_missions WHERE validator_id = ? AND status = ?`).get(req.validator.id, s)).c);
   }
 
   res.json({ missions: rows.map(serializeRow), counts });

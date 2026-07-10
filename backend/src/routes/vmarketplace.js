@@ -100,10 +100,8 @@ router.post("/:id/apply", async (req, res) => {
     .run(req.validator.id, t.id);
 
   // Velocity check: flag if this validator has applied to an unusually high number of missions today
-  const dailyCount = db.prepare(
-    `SELECT COUNT(*) AS n FROM v_my_missions WHERE validator_id = ? AND created_at > NOW() - INTERVAL '24 hours'`
-  ).get(req.validator.id)?.n || 0;
-  if (dailyCount > 15) {
+  const dailyCount = Number((await db.prepare(`SELECT COUNT(*) AS n FROM v_my_missions WHERE validator_id = ? AND created_at > NOW() - INTERVAL '24 hours'`).get(req.validator.id)).n);
+  if (dailyCount >= 15) {
     flagFraud("high_velocity_applications", "validator", req.validator.id,
       `${dailyCount} mission applications in the last 24 hours`, "medium");
   }

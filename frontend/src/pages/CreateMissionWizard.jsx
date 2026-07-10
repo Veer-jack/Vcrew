@@ -275,6 +275,7 @@ export default function CreateMissionWizard() {
         reward: { type: d.reward.type, amount: d.reward.amount },
         region: geo.length ? geo.join(", ") : "Worldwide",
         audience,
+        tasks: d.tasks,
       });
       await refreshBuilder();
       navigate(`/missions/${mission.id}`);

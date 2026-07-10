@@ -234,6 +234,12 @@ CREATE TABLE IF NOT EXISTS validators (
   earnings_pending INTEGER DEFAULT 0,
   earnings_paid INTEGER DEFAULT 0,
   balance INTEGER DEFAULT 0,
+  payout_vpa TEXT,
+  razorpay_contact_id TEXT,
+  razorpay_fund_account_id TEXT,
+  languages_json TEXT DEFAULT '[]',
+  devices_json TEXT DEFAULT '[]',
+  hours_per_week TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

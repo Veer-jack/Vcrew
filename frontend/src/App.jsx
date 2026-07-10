@@ -78,14 +78,14 @@ function BuilderRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={builder ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword apiClient={api} loginPath="/login" />} />
       <Route path="/" element={builder ? <RequireAuth><AppLayout /></RequireAuth> : <ExternalRedirect to="/site/index.html" />}>
         <Route index element={<Dashboard />} />
       </Route>
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
       <Route path="/get-started/feedback" element={builder ? <Navigate to="/" replace /> : <RoleSelect />} />
-      <Route path="/signup" element={builder ? <Navigate to="/" replace /> : <OnboardingWizard />} />
+      <Route path="/signup" element={<OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
@@ -119,7 +119,7 @@ function ValidatorRoutes() {
 
   return (
     <Routes>
-      <Route path="login" element={validator ? <Navigate to="/validator" replace /> : <VLogin />} />
+      <Route path="login" element={<VLogin />} />
         <Route path="onboarding" element={<VOnboarding />} />
         <Route path="settings" element={<RequireVAuth><VSettings /></RequireVAuth>} />
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
@@ -157,7 +157,7 @@ function AdminRoutes() {
 
   return (
     <Routes>
-      <Route path="login" element={admin ? <Navigate to="/admin" replace /> : <ALogin />} />
+      <Route path="login" element={<ALogin />} />
       <Route element={<RequireAAuth><ALayout /></RequireAAuth>}>
         <Route index element={<ADashboard />} />
         <Route path="members" element={<AMembers />} />

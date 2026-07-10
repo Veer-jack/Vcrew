@@ -20,7 +20,7 @@ export default function Profile() {
   if (!data.name && Object.keys(data).length === 0) return <div className="page rise"><div className="muted">Couldn't load profile. Please refresh.</div></div>;
 
   const startEdit = () => {
-    setName(data.name); setHandle((data.handle || "").replace(/^@/, "")); setSpecialties([...data.specialties]);
+    setName(data.name); setHandle((data.handle || "").replace(/^@/, "")); setSpecialties([...(data.specialties || [])]);
     setTagInput(""); setError(""); setEditing(true);
   };
 
@@ -57,7 +57,7 @@ export default function Profile() {
                   <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
                   <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />Lvl {data.level} · {data.levelName}</span>
                 </div>
-                <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.specialties.join(" · ")}</p>
+                <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {(data.specialties || []).join(" · ")}</p>
                 <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
                   <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating} · {data.ratingCount} reviews</span>
                   <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy}% accuracy</span>

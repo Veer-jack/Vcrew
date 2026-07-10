@@ -15,7 +15,7 @@ export default function VSettings() {
   const save = async () => {
     setBusy(true); setError(""); setSaved(false);
     try {
-      await vapi.patch("/v/profile", { name, email });
+      await vapi.updateProfile({ name, email });
       await refresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

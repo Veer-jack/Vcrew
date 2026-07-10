@@ -147,17 +147,22 @@ router.patch("/language", validatorAuthMiddleware, async (req, res) => {
 });
 
 // PATCH /api/v/profile — update validator profile after onboarding
-router.patch("/profile", async (req, res) => {
-  const { handle, city, bio, languages, specialties_json, hours_per_week, devices } = req.body || {};
+router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
+  const { name, email, handle, city, bio, languages, specialties_json, hours_per_week, devices } = req.body || {};
   await db.prepare(`
     UPDATE validators SET
+      name = COALESCE(?, name),
+      email = COALESCE(?, email),
       handle = COALESCE(?, handle),
       city = COALESCE(?, city),
       bio = COALESCE(?, bio),
       specialties_json = COALESCE(?, specialties_json),
+      languages_json = COALESCE(?, languages_json),
+      devices_json = COALESCE(?, devices_json),
+      hours_per_week = COALESCE(?, hours_per_week),
       updated_at = NOW()
     WHERE id = ?
-  `).run(handle || null, city || null, bio || null, specialties_json || null, req.validator.id);
+  `).run(name || null, email ? String(email).toLowerCase().trim() : null, handle || null, city || null, bio || null, specialties_json || null, languages ? JSON.stringify(languages) : null, devices ? JSON.stringify(devices) : null, hours_per_week || null, req.validator.id);
   const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(req.validator.id);
   res.json({ validator: v });
 });
