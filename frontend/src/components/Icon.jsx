@@ -72,6 +72,7 @@ const PATHS = {
   coin: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0M15 9.5C15 8 13.7 7 12 7s-3 1-3 2.3c0 2.9 6 1.6 6 4.4 0 1.3-1.3 2.3-3 2.3s-3-1-3-2.5M12 5.5v1.5M12 17v1.5",
   bookmark: "M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z",
   external: "M14 4h6v6M20 4l-9 9M18 13v6H5V6h6",
+  trash: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6",
 };
 
 export default function Icon({ name, size = 18, style, className, strokeWidth = 1.9 }) {

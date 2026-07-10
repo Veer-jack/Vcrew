@@ -11,7 +11,7 @@ function serializeRow(row) {
   return {
     id: row.mm_id,
     taskId: row.id,
-    type: row.type, product: row.product, tagline: row.tagline, company: row.company,
+    type: VTYPES[row.type] ? row.type : "mvp", product: row.product, tagline: row.tagline, company: row.company,
     reward: row.reward, minutes: row.minutes, match: row.match_pct,
     deadline: row.deadline_label,
     status: row.status, progress: row.progress, quality: row.quality, reason: row.reason,
@@ -24,7 +24,12 @@ router.get("/", async (req, res) => {
   const { status } = req.query;
   let sql = `
     SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, mm.created_at, mm.updated_at,
-           t.* FROM v_my_missions mm JOIN vtasks t ON t.id = mm.task_id
+           t.* FROM v_my_missions mm 
+    JOIN (
+      SELECT id::text, type::text, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text FROM vtasks
+      UNION ALL
+      SELECT id::text, ptype::text as type, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief FROM missions
+    ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ?`;
   const params = [req.validator.id];
   if (status) { sql += ` AND mm.status = ?`; params.push(status); }
@@ -41,13 +46,27 @@ router.get("/", async (req, res) => {
 
 // GET /api/v/missions/:taskId — workspace context (task + rubric + my mission state)
 router.get("/:taskId", async (req, res) => {
-  const t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.taskId);
+  let t = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.taskId);
+  let isRealMission = !!t;
+  if (!t) {
+    t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.taskId);
+  }
   if (!t) return res.status(404).json({ error: "Mission not found" });
-  const mm = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
+
+  let mm;
+  if (isRealMission) {
+    mm = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id);
+  } else {
+    mm = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
+  }
+
+  const taskData = isRealMission 
+    ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
+    : { id: t.id, type: t.type, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
 
   res.json({
-    task: { id: t.id, type: t.type, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]") },
-    rubric: VTYPES[t.type],
+    task: taskData,
+    rubric: VTYPES[taskData.type],
     myMission: mm ? {
       status: mm.status, progress: mm.progress, score: mm.score,
       ratings: mm.ratings_json ? JSON.parse(mm.ratings_json) : {},
@@ -120,6 +139,12 @@ router.patch("/:id/workspace/submit", async (req, res) => {
       .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
     await db.prepare(`UPDATE missions SET submitted = submitted + 1 WHERE id = ?`).run(req.params.id);
   }
+
+  await db.prepare(`UPDATE v_my_missions SET status = 'submitted', progress = 100, status_label = 'Submitted for review', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
+    .run(req.params.id, req.validator.id);
+    
+  await db.prepare(`UPDATE participants SET stage = 'submitted' WHERE mission_id = ? AND validator_id = ?`)
+    .run(req.params.id, req.validator.id);
 
   res.json({ ok: true });
 });

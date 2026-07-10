@@ -14,6 +14,36 @@ const SEV = {
 
 function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEdit }) {
   const sev = SEV[task.severity] || SEV.imp;
+  
+  const updateStep = (stepIdx, val) => {
+    const s = [...task.steps];
+    s[stepIdx] = val;
+    onEdit(idx, { steps: s });
+  };
+  
+  const deleteStep = (stepIdx) => {
+    const s = [...task.steps];
+    s.splice(stepIdx, 1);
+    onEdit(idx, { steps: s });
+  };
+
+  const updateQuestion = (qIdx, val) => {
+    const qs = [...task.questions];
+    qs[qIdx] = { ...qs[qIdx], text: val };
+    onEdit(idx, { questions: qs });
+  };
+  
+  const deleteQuestion = (qIdx) => {
+    const qs = [...task.questions];
+    qs.splice(qIdx, 1);
+    onEdit(idx, { questions: qs });
+  };
+
+  const addQuestion = () => {
+    const qs = [...task.questions, { id: "q" + Date.now(), text: "", type: "text" }];
+    onEdit(idx, { questions: qs });
+  };
+
   return (
     <div className={`card rise`} style={{
       overflow: "hidden",
@@ -70,13 +100,14 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
             <div className="eyebrow" style={{ marginBottom: 9 }}>Steps</div>
             <div style={{ display: "grid", gap: 7 }}>
               {task.steps.map((s, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 13.5 }}>
-                  <span style={{ width: 20, height: 20, borderRadius: 6, display: "grid", placeItems: "center", background: "var(--accent-weak)", color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}</span>
-                  <span>{s}</span>
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5 }}>
+                  <span style={{ width: 20, height: 20, borderRadius: 6, display: "grid", placeItems: "center", background: "var(--accent-weak)", color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                  <input className="fin" value={s} onChange={e => updateStep(i, e.target.value)} onClick={e => e.stopPropagation()} style={{ padding: "4px 8px", fontSize: 13, flex: 1 }} />
+                  <button onClick={e => { e.stopPropagation(); deleteStep(i); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Icon name="trash" size={14} /></button>
                 </div>
               ))}
             </div>
-            <button className="btn btn-quiet" style={{ fontSize: 12, marginTop: 8 }} onClick={e => { e.stopPropagation(); onEdit(idx, { steps: [...task.steps, "New step"] }); }}>
+            <button className="btn btn-quiet" style={{ fontSize: 12, marginTop: 8 }} onClick={e => { e.stopPropagation(); onEdit(idx, { steps: [...task.steps, ""] }); }}>
               <Icon name="plus" size={12} /> Add step
             </button>
           </div>
@@ -87,16 +118,24 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
             <div style={{ display: "grid", gap: 7 }}>
               {task.questions.map((q, i) => (
                 <div key={q.id} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "8px 10px", background: "var(--panel)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13 }}>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 600, color: "var(--text-faint)", paddingTop: 2, flexShrink: 0 }}>Q{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 5, lineHeight: 1.4 }}>{q.text}</div>
-                    <span style={{ display: "inline-flex", fontFamily: "var(--mono)", fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4, background: "var(--panel-inset)", color: "var(--text-faint)" }}>
-                      {q.type === "multiple_choice" ? "multiple choice" : q.type === "yes_no_detail" ? "yes / no + detail" : q.type === "rating" ? `rating /${q.scale}` : "open text"}
-                    </span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 600, color: "var(--text-faint)", paddingTop: 8, flexShrink: 0 }}>Q{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input className="fin" value={q.text} onChange={e => updateQuestion(i, e.target.value)} onClick={e => e.stopPropagation()} style={{ padding: "4px 8px", fontSize: 13, flex: 1, fontWeight: 600 }} placeholder="Ask a question..." />
+                      <button onClick={e => { e.stopPropagation(); deleteQuestion(i); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Icon name="trash" size={14} /></button>
+                    </div>
+                    <div>
+                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); }} onClick={e => e.stopPropagation()} style={{ fontSize: 12, padding: "2px 8px", width: "auto", display: "inline-block" }}>
+                        <option value="multiple_choice">Multiple choice</option>
+                        <option value="yes_no_detail">Yes/No + detail</option>
+                        <option value="rating">Rating (1-5)</option>
+                        <option value="text">Open text</option>
+                      </select>
+                    </div>
                     {q.options && (
-                      <div style={{ display: "flex", gap: 6, marginTop: 7, flexWrap: "wrap" }}>
-                        {q.options.map(o => (
-                          <span key={o} style={{ padding: "2px 9px", borderRadius: 20, background: "var(--panel-inset)", border: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>{o}</span>
+                      <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                        {q.options.map((o, oi) => (
+                          <span key={oi} style={{ padding: "2px 9px", borderRadius: 20, background: "var(--panel-inset)", border: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>{o}</span>
                         ))}
                       </div>
                     )}
@@ -104,18 +143,32 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
                 </div>
               ))}
             </div>
+            <button className="btn btn-quiet" style={{ fontSize: 12, marginTop: 8 }} onClick={e => { e.stopPropagation(); addQuestion(); }}>
+              <Icon name="plus" size={12} /> Add question
+            </button>
           </div>
 
-          {/* Proof + Time */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {task.proof && (
-              <span className="pill" style={{ fontSize: 12 }}>
-                <Icon name="image" size={13} /> Proof: {task.proof}
-              </span>
-            )}
-            <span className="pill" style={{ fontSize: 12 }}>
-              <Icon name="clock" size={13} /> Min: {Math.ceil(task.min_time_seconds / 60)} min
-            </span>
+          {/* Settings */}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 14 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="eyebrow" style={{ letterSpacing: 0 }}>Severity</span>
+              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 8px", width: 130 }}>
+                <option value="crit">Critical</option>
+                <option value="imp">Important</option>
+                <option value="nice">Nice to have</option>
+              </select>
+            </div>
+            
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span className="eyebrow" style={{ letterSpacing: 0 }}>Min time (min)</span>
+              <input type="number" min="1" className="fin" value={Math.ceil((task.min_time_seconds || 120) / 60)} onChange={e => onEdit(idx, { min_time_seconds: Math.max(1, parseInt(e.target.value || 1)) * 60 })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 8px", width: 60, textAlign: "center" }} />
+            </div>
+
+            <div style={{ flex: 1 }} />
+            
+            <button className="btn" style={{ background: "var(--danger-weak)", color: "var(--danger)", border: "none", fontSize: 13 }} onClick={e => { e.stopPropagation(); onDelete(idx); }}>
+              <Icon name="trash" size={14} /> Delete Task
+            </button>
           </div>
         </div>
       )}

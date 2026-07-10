@@ -388,8 +388,7 @@ Include 3-5 questions per task mixing types. Make tasks specific to the product 
     const parsed = JSON.parse(raw);
     res.json(parsed);
   } catch (err) {
-    console.error("AI generate-tasks error:", err.message);
-    res.status(500).json({ error: "Failed to generate test cases", detail: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -428,7 +427,16 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
 router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  
+  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  if (!response) return res.status(404).json({ error: "Submission not found" });
+
   await db.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  
+  await db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(mission.reward_amount || 0, response.validator_id);
+  await db.prepare(`UPDATE v_my_missions SET status = 'completed', status_label = 'Approved & Paid', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+  await db.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+
   res.json({ ok: true });
 });
 
@@ -436,7 +444,15 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
 router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  
+  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  if (!response) return res.status(404).json({ error: "Submission not found" });
+
   await db.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+
+  await db.prepare(`UPDATE v_my_missions SET status = 'rejected', status_label = 'Not selected', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+  await db.prepare(`UPDATE participants SET stage = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+
   res.json({ ok: true });
 });
 
@@ -444,7 +460,23 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
 router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  
+  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  if (!response) return res.status(404).json({ error: "Submission not found" });
+
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  await db.prepare(`UPDATE v_my_missions SET status = 'active', status_label = 'Revision requested', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+  
   res.json({ ok: true });
 });
 
+// DELETE /api/missions/:id
+router.delete("/:id", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+  
+  await db.prepare(`DELETE FROM v_my_missions WHERE mission_id = ?`).run(req.params.id);
+  await db.prepare(`DELETE FROM participants WHERE mission_id = ?`).run(req.params.id);
+  await db.prepare(`DELETE FROM missions WHERE id = ?`).run(req.params.id);
+  res.json({ ok: true });
+});

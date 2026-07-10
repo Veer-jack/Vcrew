@@ -98,32 +98,32 @@ async function audit(action, targetType, targetId, detail) {
 
 
 router.get("/dashboard", async (req, res) => {
-  const builders = await db.prepare(`SELECT COUNT(*) AS n FROM builders`).get().n;
-  const validators = await db.prepare(`SELECT COUNT(*) AS n FROM validators`).get().n;
-  const activeMissions = await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE status IN ('live','active','published')`).get().n;
-  const totalMissions = await db.prepare(`SELECT COUNT(*) AS n FROM missions`).get().n;
+  const builders = Number((await db.prepare(`SELECT COUNT(*) AS n FROM builders`).get()).n);
+  const validators = Number((await db.prepare(`SELECT COUNT(*) AS n FROM validators`).get()).n);
+  const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE status IN ('live','active','published')`).get()).n);
+  const totalMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions`).get()).n);
 
-  const gmv = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit'`).get().n;
-  const spend = await db.prepare(`SELECT COALESCE(SUM(spend),0) AS n FROM missions`).get().n;
+  const gmv = Number((await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit'`).get()).n);
+  const spend = Number((await db.prepare(`SELECT COALESCE(SUM(spend),0) AS n FROM missions`).get()).n);
 
-  const openTickets = await db.prepare(`
+  const openTickets = Number((await db.prepare(`
     SELECT (SELECT COUNT(*) FROM b_tickets WHERE status = 'open') + (SELECT COUNT(*) FROM v_tickets WHERE status = 'open') AS n
-  `).get().n;
+  `).get()).n);
 
   const withdrawalQueue = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(amount),0) AS amt FROM withdrawals WHERE status IN ('queued','processing','pending')`).get();
 
-  const suspended = await db.prepare(`
+  const suspended = Number((await db.prepare(`
     SELECT (SELECT COUNT(*) FROM builders WHERE status = 'suspended') + (SELECT COUNT(*) FROM validators WHERE status = 'suspended') AS n
-  `).get().n;
+  `).get()).n);
 
-  const pendingVerifications = await db.prepare(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`).get().n;
-  const flaggedMissions = await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get().n;
+  const pendingVerifications = Number((await db.prepare(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`).get()).n);
+  const flaggedMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get()).n);
 
   res.json({
     builders, validators, totalUsers: builders + validators,
     activeMissions, totalMissions, gmv, spend,
     openTickets, suspended,
-    withdrawalQueue: withdrawalQueue.n, withdrawalQueueAmount: withdrawalQueue.amt,
+    withdrawalQueue: Number(withdrawalQueue.n), withdrawalQueueAmount: Number(withdrawalQueue.amt),
     pendingVerifications, flaggedMissions,
   });
 });
@@ -346,8 +346,10 @@ router.get("/analytics", async (req, res) => {
     Number((await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit' AND TO_CHAR(created_at, 'YYYY-MM') <= ?`).get(ym)).n)
   ));
 
-  const byCategory = await db.prepare(`SELECT category, COUNT(*) AS n FROM missions GROUP BY category ORDER BY n DESC`).all();
-  const byPersona = await db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
+  const byCategoryRaw = await db.prepare(`SELECT category, COUNT(*) AS n FROM missions GROUP BY category ORDER BY n DESC`).all();
+  const byCategory = byCategoryRaw.map(r => ({ ...r, n: Number(r.n) }));
+  const byPersonaRaw = await db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
+  const byPersona = byPersonaRaw.map(r => ({ ...r, n: Number(r.n) }));
 
   res.json({ months, userGrowth, missionGrowth, revenueByMonth, byCategory, byPersona });
 });

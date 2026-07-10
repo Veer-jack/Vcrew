@@ -99,6 +99,11 @@ CREATE TABLE IF NOT EXISTS participants (
   validator_id INTEGER,
   name TEXT,
   email TEXT,
+  role TEXT,
+  city TEXT,
+  stage TEXT DEFAULT 'accepted',
+  reward INTEGER DEFAULT 0,
+  trust INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active',
   joined_at TIMESTAMPTZ DEFAULT NOW()
 );

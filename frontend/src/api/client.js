@@ -63,6 +63,7 @@ export const api = {
   mission: (id) => request(`/missions/${id}`),
   createMission: (payload) => request("/missions", { method: "POST", body: payload }),
   updateMission: (id, payload) => request(`/missions/${id}`, { method: "PATCH", body: payload }),
+  deleteMission: (id) => request(`/missions/${id}`, { method: "DELETE" }),
   moveParticipant: (missionId, participantId, stage) =>
     request(`/missions/${missionId}/participants/${participantId}`, { method: "PATCH", body: { stage } }),
   flagResponse: (missionId, responseId, flagged) =>

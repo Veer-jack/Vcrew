@@ -13,6 +13,11 @@ export default function MissionDetails() {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportBusy, setReportBusy] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
+
   useEffect(() => { vapi.task(id).then(setData); }, [id]);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
@@ -34,10 +39,7 @@ export default function MissionDetails() {
     try { await vapi.saveTask(task.id, next); } catch { /* best effort */ }
   };
 
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
-  const [reportBusy, setReportBusy] = useState(false);
-  const [reportDone, setReportDone] = useState(false);
+
   const submitReport = async () => {
     if (!reportReason.trim()) return;
     setReportBusy(true);

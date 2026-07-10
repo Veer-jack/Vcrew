@@ -237,7 +237,7 @@ export default function Workspace() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length}</span>
           <span style={{ flex: 1 }} />
-          <Timer secs={task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
+          <Timer key={curIdx} secs={task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
           <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={() => navigate("/validator/missions")}>
             <Icon name="x" size={14} /> Exit
           </button>
