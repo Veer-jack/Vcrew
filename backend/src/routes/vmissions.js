@@ -2,8 +2,34 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { VTYPES } from "../vmeta.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { randomUUID } from "crypto";
 
 export const router = Router();
+router.use(validatorAuthMiddleware);
+
+const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
+fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || "";
+    cb(null, `${randomUUID()}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Invalid file type. Only JPG, PNG, and WebP are allowed."));
+  },
+});
 router.use(validatorAuthMiddleware);
 
 function serializeRow(row) {
@@ -82,6 +108,7 @@ router.post("/:taskId/submit", async (req, res) => {
   if (!t) return res.status(404).json({ error: "Mission not found" });
   const mm = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
   if (!mm) return res.status(404).json({ error: "You haven't accepted this mission yet" });
+  if (mm.status !== 'active') return res.status(400).json({ error: "Mission already submitted" });
 
   const { ratings = {}, flags = [], notes = "", minutes = 1, score = 0 } = req.body || {};
 
@@ -124,11 +151,70 @@ router.get("/:id/workspace", async (req, res) => {
   });
 });
 
+// POST /api/v/missions/:id/workspace/proof — upload a screenshot for a workspace task
+router.post("/:id/workspace/proof", (req, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!m) {
+    fs.unlinkSync(req.file.path);
+    return res.status(404).json({ error: "Mission not found" });
+  }
+
+  const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!mm || mm.status !== "active") {
+    fs.unlinkSync(req.file.path);
+    return res.status(400).json({ error: "Mission not active or not accepted" });
+  }
+
+  res.status(201).json({
+    ok: true,
+    file: { filename: req.file.filename, url: `/api/uploads/${req.file.filename}` },
+  });
+});
+
 // PATCH /api/v/missions/:id/workspace/submit — submit workspace responses
 router.patch("/:id/workspace/submit", async (req, res) => {
   const { answers } = req.body || {};
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!mm) return res.status(404).json({ error: "You haven't accepted this mission yet" });
+  if (mm.status !== 'active') return res.status(400).json({ error: "Mission already submitted" });
+
+  // --- Deep Schema Validation (TC 024) ---
+  let tasks = [];
+  try { tasks = JSON.parse(m.tasks_json || "[]"); } catch {}
+
+  if (!Array.isArray(answers) || answers.length !== tasks.length) {
+    return res.status(400).json({ error: "Invalid submission: incorrect number of task answers" });
+  }
+
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i];
+    const taskAnswers = answers[i] || {};
+    
+    for (const q of (task.questions || [])) {
+      const ans = taskAnswers[q.id];
+      if (ans === undefined || ans === null || String(ans).trim() === '') {
+        return res.status(400).json({ error: `Missing required answer in Task ${i + 1}: "${task.title || 'Untitled'}" (Question: "${q.text || q.id}")` });
+      }
+    }
+
+    if (task.proof) {
+      const proofFile = taskAnswers._proof;
+      if (!proofFile || String(proofFile).trim() === '') {
+        return res.status(400).json({ error: `Missing required screenshot proof in Task ${i + 1}: "${task.title || 'Untitled'}"` });
+      }
+    }
+  }
+  // ---------------------------------------
 
   const existing = await db.prepare(`SELECT id FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (existing) {

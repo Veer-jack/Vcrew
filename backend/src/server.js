@@ -138,11 +138,16 @@ app.get("/api/uploads/:filename", async (req, res) => {
   const uploadsDir = path.join(process.env.DB_DIR || path.join(__dirname, "..", "data"), "uploads");
   const filePath = path.join(uploadsDir, path.basename(req.params.filename)); // basename prevents path traversal
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: "File not found" });
+  
   const row = await db.prepare(`SELECT * FROM mission_files WHERE file_path = ?`).get(req.params.filename);
-  if (!row) return res.status(404).json({ error: "File not found" });
-  res.setHeader("Content-Disposition", `attachment; filename="${row.name}"`);
-  if (row.mime_type) res.setHeader("Content-Type", row.mime_type);
-  res.sendFile(filePath);
+  if (row) {
+    res.setHeader("Content-Disposition", `attachment; filename="${row.name}"`);
+    if (row.mime_type) res.setHeader("Content-Type", row.mime_type);
+  } else {
+    // If it's a Validator proof image (unguessable UUID), serve it inline for the React UI.
+    res.setHeader("Content-Disposition", "inline");
+  }
+  res.sendFile(path.resolve(filePath));
 });
 
 app.post("/api/auth/login", loginLimiter);

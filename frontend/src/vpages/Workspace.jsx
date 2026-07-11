@@ -104,11 +104,12 @@ export default function Workspace() {
   const [showSummary, setShowSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await vapi.get(`/v/missions/${id}/workspace`);
+        const data = await vapi.workspaceData(id);
         const t = data.tasks || [];
         setMission(data.mission);
         setTasks(t);
@@ -155,8 +156,15 @@ export default function Workspace() {
     if (curIdx === tasks.length - 1) {
       setSubmitting(true);
       try {
-        await vapi.patch(`/v/missions/${id}/workspace/submit`, { answers });
-      } catch {}
+        const finalAnswers = answers.map((ans, i) => {
+          const c = { ...ans };
+          if (proofUploaded[i]) c._proof = proofUploaded[i];
+          return c;
+        });
+        await vapi.submitWorkspaceData(id, { answers: finalAnswers });
+      } catch (err) {
+        console.error("Submission failed:", err);
+      }
       setShowSummary(true);
       setSubmitting(false);
     } else {
@@ -308,13 +316,26 @@ export default function Workspace() {
                   <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>Remove & re-upload</button>
                 </div>
               ) : (
-                <div onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = true; return a; })} style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: "pointer", background: "var(--panel-2)", transition: "all .15s" }}>
+                <label style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: uploadingProof ? "not-allowed" : "pointer", background: "var(--panel-2)", opacity: uploadingProof ? 0.7 : 1, transition: "all .15s" }}>
+                  <input type="file" accept="image/png, image/jpeg, image/webp" style={{ display: "none" }} disabled={uploadingProof} onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    setUploadingProof(true);
+                    try {
+                      const res = await vapi.uploadWorkspaceProof(id, file);
+                      setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.filename; return a; });
+                    } catch (err) {
+                      alert(err.message || "Failed to upload proof");
+                    } finally {
+                      setUploadingProof(false);
+                    }
+                  }} />
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--panel-inset)", display: "grid", placeItems: "center", marginBottom: 12 }}>
-                    <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />
+                    {uploadingProof ? <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Drop screenshot here</div>
-                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG accepted</p>
-                </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{uploadingProof ? "Uploading..." : "Drop screenshot here"}</div>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG, WebP accepted</p>
+                </label>
               )}
             </div>
           )}

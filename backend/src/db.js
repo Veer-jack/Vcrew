@@ -15,10 +15,21 @@ export const pool = new pg.Pool({
 
 pool.on("error", (err) => console.error("PG pool error:", err));
 
-// Convert SQLite ? placeholders → PostgreSQL $1, $2, ...
+// Convert SQLite ? placeholders → PostgreSQL $1, $2, ... safely
 function toPostgres(sql) {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
+  let inString = false;
+  let result = '';
+  let paramIndex = 0;
+  for (let i = 0; i < sql.length; i++) {
+    const c = sql[i];
+    if (c === "'") inString = !inString;
+    if (c === '?' && !inString) {
+      result += `$${++paramIndex}`;
+    } else {
+      result += c;
+    }
+  }
+  return result;
 }
 
 // Flatten params — some callers use .run(a, b), some use .run([a, b])

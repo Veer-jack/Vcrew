@@ -152,23 +152,45 @@ router.post("/:id/apply", async (req, res) => {
   if (existing) return res.json({ myMission: existing });
 
   if (isRealMission) {
-    await db.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
-      .run(req.validator.id, t.id);
-    await db.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(t.id);
-    
-    const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
-    await db.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
-      .run(t.id, req.validator.id, val ? val.name : "New Validator");
+    // Atomic check and increment for capacity. target = 0 means unlimited.
+    const updateRes = await db.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ? AND (target = 0 OR joined < target)`).run(t.id);
+    if (updateRes.rowCount === 0) {
+      return res.status(400).json({ error: "Mission has reached its maximum capacity and is no longer available" });
+    }
+
+    try {
+      // If two requests pass the 'existing' check, we rely on a manual check right before inserting
+      // to avoid constraint violations if DB doesn't have them. But to be safe we'll re-check existing inside
+      const doubleCheck = await db.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id);
+      if (doubleCheck) throw new Error("Duplicate");
+
+      await db.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
+        .run(req.validator.id, t.id);
+      
+      const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+      await db.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
+        .run(t.id, req.validator.id, val ? val.name : "New Validator");
+    } catch (err) {
+      // Revert the increment if the insertion failed for any reason (duplicate/race condition)
+      await db.prepare(`UPDATE missions SET joined = joined - 1 WHERE id = ?`).run(t.id);
+      return res.status(400).json({ error: "You have already accepted this mission" });
+    }
   } else {
-    await db.prepare(`INSERT INTO v_my_missions (validator_id, task_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
-      .run(req.validator.id, t.id);
+    const doubleCheck = await db.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
+    if (!doubleCheck) {
+      await db.prepare(`INSERT INTO v_my_missions (validator_id, task_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
+        .run(req.validator.id, t.id);
+    }
   }
 
   // Velocity check
   const dailyCount = Number((await db.prepare(`SELECT COUNT(*) AS n FROM v_my_missions WHERE validator_id = ? AND created_at > NOW() - INTERVAL '24 hours'`).get(req.validator.id)).n);
   if (dailyCount >= 15) {
-    flagFraud("high_velocity_applications", "validator", req.validator.id,
-      `${dailyCount} mission applications in the last 24 hours`, "medium");
+    const { flagFraud } = await import("../admin.js"); // Ensure this is imported properly if used
+    if (typeof flagFraud === 'function') {
+      flagFraud("high_velocity_applications", "validator", req.validator.id,
+        `${dailyCount} mission applications in the last 24 hours`, "medium");
+    }
   }
 
   let myMission;

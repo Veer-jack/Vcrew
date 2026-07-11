@@ -8,24 +8,25 @@ router.use(authMiddleware);
 
 router.get("/", async (req, res) => {
   const bId = req.builder.id;
-  const missions = await db.prepare(`SELECT * FROM missions WHERE builder_id = ?`).all(bId);
-
-  const activeMissions = missions.filter(m => m.status === "active");
-  const completedMissions = missions.filter(m => m.status === "completed" || m.status === "closed");
-  const totalParticipants = missions.reduce((s, m) => s + m.joined, 0);
-  const pendingParticipants = activeMissions.reduce((s, m) => s + Math.max(0, m.joined - m.submitted), 0);
-  const totalSpend = missions.reduce((s, m) => s + m.spend, 0);
-  const avgCompletion = activeMissions.length
-    ? Math.round(activeMissions.reduce((s, m) => s + m.completion, 0) / activeMissions.length)
-    : 0;
+  const kpiRow = await db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active_missions,
+      COALESCE(SUM(CASE WHEN status IN ('completed', 'closed') THEN 1 ELSE 0 END), 0) AS completed_missions,
+      COALESCE(SUM(joined), 0) AS total_participants,
+      COALESCE(SUM(CASE WHEN status = 'active' THEN GREATEST(0, joined - submitted) ELSE 0 END), 0) AS pending_participants,
+      COALESCE(SUM(spend), 0) AS total_spend,
+      COALESCE(AVG(CASE WHEN status = 'active' THEN completion ELSE NULL END), 0) AS avg_completion
+    FROM missions
+    WHERE builder_id = ?
+  `).get(bId);
 
   const kpi = {
-    activeMissions: activeMissions.length,
-    completedMissions: completedMissions.length,
-    totalParticipants,
-    pendingParticipants,
-    totalSpend,
-    avgCompletion,
+    activeMissions: Number(kpiRow?.active_missions || 0),
+    completedMissions: Number(kpiRow?.completed_missions || 0),
+    totalParticipants: Number(kpiRow?.total_participants || 0),
+    pendingParticipants: Number(kpiRow?.pending_participants || 0),
+    totalSpend: Number(kpiRow?.total_spend || 0),
+    avgCompletion: Math.round(Number(kpiRow?.avg_completion || 0)),
     spark: { participants: [18, 24, 22, 30, 28, 41, 38, 52], spend: [12, 19, 16, 24, 30, 27, 38, 44] },
   };
 

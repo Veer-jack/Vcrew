@@ -147,6 +147,8 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   const name = String(req.body?.name ?? req.builder.name).trim();
   const org = String(req.body?.org ?? req.builder.org).trim();
   const email = String(req.body?.email ?? req.builder.email).toLowerCase().trim();
+  const website = req.body?.website !== undefined ? String(req.body.website).trim() : req.builder.website;
+  const designation = req.body?.designation !== undefined ? String(req.body.designation).trim() : req.builder.designation;
 
   if (!name) return res.status(400).json({ error: "Name is required" });
   if (!org) return res.status(400).json({ error: "Workspace name is required" });
@@ -155,7 +157,8 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ? AND id != ?`).get(email, req.builder.id);
   if (existing) return res.status(400).json({ error: "That email is already in use" });
 
-  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ? WHERE id = ?`).run(name, org, email, req.builder.id);
+  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, req.builder.id);
+
   const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });
 });

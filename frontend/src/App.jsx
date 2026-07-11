@@ -91,6 +91,7 @@ function BuilderRoutes() {
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
+        <Route path="/missions/:id/submissions" element={<MissionReview />} />
         <Route path="/audience" element={<Audience />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/wallet" element={<Wallet />} />

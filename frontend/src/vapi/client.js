@@ -63,6 +63,22 @@ export const vapi = {
   myMissions: (status) => request(`/missions${status ? `?status=${status}` : ""}`),
   workspace: (taskId) => request(`/missions/${taskId}`),
   submit: (taskId, payload) => request(`/missions/${taskId}/submit`, { method: "POST", body: payload }),
+  workspaceData: (id) => request(`/missions/${id}/workspace`),
+  submitWorkspaceData: (id, payload) => request(`/missions/${id}/workspace/submit`, { method: "PATCH", body: payload }),
+  uploadWorkspaceProof: async (id, file) => {
+    const token = getVToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/v/missions/${id}/workspace/proof`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    let data;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error((data && data.error) || "Upload failed");
+    return data;
+  },
 
   earnings: () => request("/earnings"),
   withdraw: (amount, stepUpToken) => request("/earnings/withdraw", { method: "POST", body: { amount, stepUpToken } }),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
@@ -234,20 +234,85 @@ function emptyFilters(filters) {
   return Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 }
 
+const DRAFT_KEY = "vcrew_mission_draft";
+
+function serializeDraft(d) {
+  const data = { ...d, filters: {} };
+  for (const k in d.filters) {
+    data.filters[k] = Array.from(d.filters[k] || []);
+  }
+  return JSON.stringify(data);
+}
+
+function deserializeDraft(jsonStr, emptyF) {
+  try {
+    const data = JSON.parse(jsonStr);
+    for (const k in data.filters) {
+      data.filters[k] = new Set(data.filters[k] || []);
+    }
+    data.filters = { ...emptyF, ...data.filters };
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export default function CreateMissionWizard() {
   const navigate = useNavigate();
   const { builder, refreshBuilder } = useAuth();
   const { categories, ptypes, rewards, filters } = useMeta();
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [d, setD] = useState({
-    title: "", desc: "", cat: categories[0]?.id || "feedback",
-    filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
-    ptype: ptypes[0]?.id || "ptest",
-    reward: { type: "fixed", amount: 250, participants: 120 },
+  const [published, setPublished] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
+
+  const [d, setD] = useState(() => {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    const emptyF = emptyFilters(filters);
+    if (saved) {
+      const parsed = deserializeDraft(saved, emptyF);
+      if (parsed) return parsed;
+    }
+    return {
+      title: "", desc: "", cat: categories[0]?.id || "feedback",
+      filters: { ...emptyF, "ValidationCrew Role": new Set(["Validator"]) },
+      ptype: ptypes[0]?.id || "ptest",
+      reward: { type: "fixed", amount: 250, participants: 120 },
+    };
   });
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    if (!published) {
+      localStorage.setItem(DRAFT_KEY, serializeDraft(d));
+      localStorage.setItem(DRAFT_KEY + "_step", step);
+    }
+  }, [d, step, published]);
+
+  // Native browser prompt for tab close/refresh
+  useEffect(() => {
+    if (published) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [published]);
+
+  // Clear draft on hard reload or tab close
+  useEffect(() => {
+    const handleUnload = () => {
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY + "_step");
+    };
+    window.addEventListener("unload", handleUnload);
+    return () => window.removeEventListener("unload", handleUnload);
+  }, []);
+
+
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
   const toggle = (group, opt) => setD(p => {
@@ -277,6 +342,9 @@ export default function CreateMissionWizard() {
         audience,
         tasks: d.tasks,
       });
+      setPublished(true);
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY + "_step");
       await refreshBuilder();
       navigate(`/missions/${mission.id}`);
     } catch (err) {
@@ -287,7 +355,7 @@ export default function CreateMissionWizard() {
   };
 
   const goNext = () => last ? publish() : setStep(s => s + 1);
-  const goBack = () => step === 0 ? navigate("/") : setStep(s => s - 1);
+  const goBack = () => step === 0 ? setShowExitWarning(true) : setStep(s => s - 1);
 
   const StepBody = [
     <StepInfo d={d} set={set} categories={categories} />,
@@ -314,7 +382,7 @@ export default function CreateMissionWizard() {
           ))}
         </div>
         <div className="wz-rail-foot">
-          <button className="backlink" onClick={() => navigate("/")}><Icon name="arrowLeft" size={16} /> Exit to dashboard</button>
+          <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> Exit to dashboard</button>
         </div>
       </aside>
 
@@ -347,6 +415,25 @@ export default function CreateMissionWizard() {
           </Btn>
         </div>
       </div>
+      
+      {showExitWarning && (
+        <div style={{ display: "contents" }}>
+          <div className="notif-overlay" onClick={() => setShowExitWarning(false)} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 400, maxWidth: "92vw", zIndex: 61,
+            background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+            <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
+              <b style={{ fontSize: 15 }}>Unsaved Changes</b>
+            </div>
+            <div style={{ padding: 20 }}>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>Are you sure you want to leave? Your progress has been auto-saved as a draft, but the mission hasn't been created yet.</p>
+              <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+                <button className="btn outline" onClick={() => navigate("/")}>Leave Page</button>
+                <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>Stay on Page</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

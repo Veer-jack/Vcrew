@@ -8,13 +8,19 @@ export default function Settings() {
   const { builder, setBuilder } = useAuth();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(builder?.name || "");
+  const [designation, setDesignation] = useState(builder?.designation || "");
   const [org, setOrg] = useState(builder?.org || "");
+  const [website, setWebsite] = useState(builder?.website || "");
   const [email, setEmail] = useState(builder?.email || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const startEdit = () => {
-    setName(builder?.name || ""); setOrg(builder?.org || ""); setEmail(builder?.email || "");
+    setName(builder?.name || ""); 
+    setDesignation(builder?.designation || "");
+    setOrg(builder?.org || ""); 
+    setWebsite(builder?.website || "");
+    setEmail(builder?.email || "");
     setError(""); setEditing(true);
   };
 
@@ -22,7 +28,7 @@ export default function Settings() {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      const res = await api.updateProfile({ name, org, email });
+      const res = await api.updateProfile({ name, org, email, website, designation });
       setBuilder(res.builder);
       setEditing(false);
     } catch (err) {
@@ -58,8 +64,18 @@ export default function Settings() {
                   <input className="fin" value={name} onChange={e => setName(e.target.value)} required />
                 </div>
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Designation</label>
+                  <input className="fin" placeholder="e.g. Founder, Product Manager" value={designation} onChange={e => setDesignation(e.target.value)} />
+                </div>
+              </div>
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>Workspace name</label>
                   <input className="fin" value={org} onChange={e => setOrg(e.target.value)} required />
+                </div>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Company Website</label>
+                  <input className="fin" type="url" placeholder="https://..." value={website} onChange={e => setWebsite(e.target.value)} />
                 </div>
               </div>
               <div className="fld">

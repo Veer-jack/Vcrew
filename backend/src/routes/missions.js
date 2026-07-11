@@ -108,10 +108,53 @@ router.get("/:id", async (req, res) => {
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
   const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
-  const responsesRaw = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? ORDER BY id DESC`).all(m.id);
-  const responses = responsesRaw
-    .map(r => ({ ...r, tags: JSON.parse(r.tags_json || "[]"), attachments: JSON.parse(r.attachments_json || "[]"), flagged: !!r.flagged }));
+  const responsesRaw = await db.prepare(`
+    SELECT r.*, p.name, p.role, p.city, p.trust 
+    FROM responses r 
+    LEFT JOIN participants p ON p.validator_id = r.validator_id AND p.mission_id = r.mission_id
+    WHERE r.mission_id = ? ORDER BY r.id DESC
+  `).all(m.id);
+  
+  const responses = responsesRaw.map(r => {
+    let data = [];
+    try { data = JSON.parse(r.data_json || "[]"); } catch {}
+    
+    // Synthesize a generic rating and quote from the JSON answers
+    let synthRating = 0;
+    let synthQuote = "No feedback provided";
+    let attachments = [];
+    let tags = [];
 
+    for (const ans of data) {
+      if (!ans) continue;
+      // Search the answer keys for anything that looks like a rating (number) or text
+      for (const [key, val] of Object.entries(ans)) {
+        if (key === "_proof") {
+          attachments.push(val);
+        } else if (typeof val === "number" && val >= 1 && val <= 5) {
+          synthRating = val;
+        } else if (typeof val === "string" && val.length > 10) {
+          synthQuote = val;
+        } else if (typeof val === "string" && val.length > 2 && val.length <= 15) {
+          tags.push(val); // e.g. "Yes" or short tags
+        }
+      }
+    }
+
+    return {
+      ...r,
+      name: r.name || "Validator",
+      role: r.role || "User",
+      city: r.city || "Remote",
+      trust: r.trust || 50,
+      time_label: new Date(r.submitted_at).toLocaleDateString(),
+      rating: synthRating || 5, // Default to 5 if no explicit rating found
+      quote: synthQuote,
+      tags: tags.slice(0, 3), // max 3 tags
+      attachments,
+      flagged: !!r.flagged
+    };
+  });
   // ---- Audience snapshot ----
   const audienceFilters = JSON.parse(m.audience_json || "{}");
   const defn = Object.entries(audienceFilters)
@@ -428,12 +471,26 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
   
-  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  const response = await db.prepare(`SELECT validator_id, status FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
   if (!response) return res.status(404).json({ error: "Submission not found" });
+  if (response.status === 'approved') return res.status(400).json({ error: "Submission already approved" });
+
+  const reward = mission.reward_amount || 0;
+  
+  // Strict balance check and deduction for the Builder
+  if (reward > 0) {
+    const updateRes = await db.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
+    if (updateRes.rowCount === 0) {
+      return res.status(400).json({ error: "Insufficient wallet balance to approve this submission. Please top up your wallet." });
+    }
+  }
 
   await db.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   
-  await db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(mission.reward_amount || 0, response.validator_id);
+  if (reward > 0) {
+    await db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(reward, response.validator_id);
+  }
+  
   await db.prepare(`UPDATE v_my_missions SET status = 'completed', status_label = 'Approved & Paid', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
   await db.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
 

@@ -15,7 +15,7 @@ const TABS = [
   { k: "payments", l: "Payments", ic: "wallet" },
 ];
 
-function MissionOverview({ mission, participants, setTab }) {
+function MissionOverview({ mission, participants, setTab, navigate }) {
   const pipeline = STAGES.map(s => ({ ...s, n: participants.filter(p => p.stage === s.id).length }));
   const maxN = Math.max(...pipeline.map(p => p.n), 1);
   return (
@@ -43,7 +43,7 @@ function MissionOverview({ mission, participants, setTab }) {
           <div className="est-row"><span className="lab">Avg rating</span><span className="v">{mission.rating || "—"} ★</span></div>
           <div className="est-row"><span className="lab">Spend to date</span><span className="v">{inr(mission.spend)}</span></div>
         </div>
-        <Btn variant="primary" block icon="message" onClick={() => setTab("responses")}>Review responses</Btn>
+        <Btn variant="primary" block icon="message" onClick={() => navigate(`/missions/${mission.id}/submissions`)}>Review submissions</Btn>
       </div>
     </div>
   );
@@ -105,8 +105,8 @@ function ResponseCard({ r, missionId, onFlag }) {
       </div>
       <p className="resp-quote">"{r.quote}"</p>
       <div className="row between wrap gap-3">
-        <div className="row gap-2 wrap">{r.tags.map(t => <span key={t} className="mtag">{t}</span>)}</div>
-        {r.attachments.length > 0 && <div className="resp-attach">{r.attachments.map((a, j) => <div key={j} className="attach"><span className="lbl">{a}</span></div>)}</div>}
+        <div className="row gap-2 wrap">{r.tags.map((t, j) => <span key={j} className="mtag">{t}</span>)}</div>
+        {r.attachments.length > 0 && <div className="resp-attach">{r.attachments.map((a, j) => <div key={j} className="attach" style={{ padding: 0, overflow: "hidden", border: "1px solid var(--border)", borderRadius: 6, background: "var(--panel-inset)" }}><a href={`/api/uploads/${a}`} target="_blank" rel="noreferrer"><img src={`/api/uploads/${a}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt="Proof" /></a></div>)}</div>}
       </div>
       {r.flagged && <div className="row gap-2" style={{ marginTop: 12, color: "var(--danger)", fontSize: 12.5, fontWeight: 600 }}><Icon name="flag" size={14} /> Auto-flagged: possible low-effort or broken-link report</div>}
       <div className="row gap-2" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
@@ -267,7 +267,7 @@ function MissionFilesTab({ missionId, files: initialFiles }) {
   );
 }
 
-function MissionPaymentsTab({ payments }) {
+function MissionPaymentsTab({ payments, navigate, missionId }) {
   const STATUS = { paid: { l: "Paid", c: "st-active" }, queued: { l: "Queued", c: "st-completed" }, review: { l: "In review", c: "st-closed" } };
   return (
     <div className="split rise">
@@ -284,7 +284,7 @@ function MissionPaymentsTab({ payments }) {
                   <td><span className="mtag">{r.stage}</span></td>
                   <td><span className={`st ${st.c}`}><span className="d" />{st.l}</span></td>
                   <td className="num">{inr(r.amount)}</td>
-                  <td>{r.status === "queued" ? <Btn variant="primary" size="sm" icon="check">Release</Btn> : r.status === "review" ? <Btn variant="ghost" size="sm" icon="eye">Review</Btn> : <span className="verif"><Icon name="checkCircle" size={14} />Done</span>}</td>
+                  <td>{r.status === "queued" ? <Btn variant="primary" size="sm" icon="check">Release</Btn> : r.status === "review" ? <Btn variant="ghost" size="sm" icon="eye" onClick={() => navigate(`/missions/${missionId}/submissions`)}>Review</Btn> : <span className="verif"><Icon name="checkCircle" size={14} />Done</span>}</td>
                 </tr>
               );
             })}
@@ -356,12 +356,12 @@ export default function MissionDetail() {
 
       <div className="utabs sec">{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
-      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={setTab} />}
+      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={setTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} />}
       {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} />}
       {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} />}
       {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
-      {tab === "payments" && <MissionPaymentsTab payments={data.payments} />}
+      {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
     </div>
   );
 }

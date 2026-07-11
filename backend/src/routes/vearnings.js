@@ -34,8 +34,10 @@ router.get("/", async (req, res) => {
 
 // POST /api/v/earnings/withdraw { amount, stepUpToken? }
 router.post("/withdraw", async (req, res) => {
+  const MIN_WITHDRAWAL_AMOUNT = 500;
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
+  if (amount < MIN_WITHDRAWAL_AMOUNT) return res.status(400).json({ error: `Minimum withdrawal amount is \u20b9${MIN_WITHDRAWAL_AMOUNT}` });
   if (amount > req.validator.available) return res.status(400).json({ error: "Amount exceeds available balance" });
 
   if (req.validator.phone_verified) {
