@@ -109,9 +109,10 @@ router.get("/:id", async (req, res) => {
 
   const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
   const responsesRaw = await db.prepare(`
-    SELECT r.*, p.name, p.role, p.city, p.trust 
+    SELECT r.*, p.name, p.role, p.city, p.trust, v.rating as real_rating
     FROM responses r 
     LEFT JOIN participants p ON p.validator_id = r.validator_id AND p.mission_id = r.mission_id
+    LEFT JOIN validators v ON v.id = r.validator_id
     WHERE r.mission_id = ? ORDER BY r.id DESC
   `).all(m.id);
   
@@ -119,20 +120,17 @@ router.get("/:id", async (req, res) => {
     let data = [];
     try { data = JSON.parse(r.data_json || "[]"); } catch {}
     
-    // Synthesize a generic rating and quote from the JSON answers
-    let synthRating = 0;
+    // Synthesize a generic quote from the JSON answers
     let synthQuote = "No feedback provided";
     let attachments = [];
     let tags = [];
 
     for (const ans of data) {
       if (!ans) continue;
-      // Search the answer keys for anything that looks like a rating (number) or text
+      // Search the answer keys for anything that looks like text
       for (const [key, val] of Object.entries(ans)) {
         if (key === "_proof") {
           attachments.push(val);
-        } else if (typeof val === "number" && val >= 1 && val <= 5) {
-          synthRating = val;
         } else if (typeof val === "string" && val.length > 10) {
           synthQuote = val;
         } else if (typeof val === "string" && val.length > 2 && val.length <= 15) {
@@ -148,7 +146,7 @@ router.get("/:id", async (req, res) => {
       city: r.city || "Remote",
       trust: r.trust || 50,
       time_label: new Date(r.submitted_at).toLocaleDateString(),
-      rating: synthRating || 5, // Default to 5 if no explicit rating found
+      rating: r.real_rating || 5, // True lifetime rating from DB
       quote: synthQuote,
       tags: tags.slice(0, 3), // max 3 tags
       attachments,
@@ -166,8 +164,13 @@ router.get("/:id", async (req, res) => {
   const segments = Object.entries(roleCounts).map(([role, n]) => ({
     l: role + "s", v: Math.round((n / roleTotal) * 100), c: roleColors[role] || "var(--t-research)",
   }));
+  
+  // Real database count instead of dummy matchCount()
+  const realCountRaw = await db.prepare(`SELECT COUNT(*) as c FROM validators`).get();
+  const realCount = Number(realCountRaw.c) || 0;
+
   const audience = {
-    matched: matchCount(audienceFilters),
+    matched: realCount,
     invited: m.joined,
     defn,
     segments: segments.length ? segments : [{ l: "Members", v: 100, c: "var(--t-feedback)" }],
@@ -450,67 +453,133 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
 
   res.json({
     mission: { id: mission.id, name: mission.name, target: mission.target },
-    submissions: responses.map(r => ({
-      id: r.id,
-      name: r.name || "Validator",
-      city: "Remote",
-      trust: Math.round((r.trust_score || 0) * 10),
-      status: r.status || "pending",
-      quality: r.flagged ? "flagged" : "medium",
-      date: new Date(r.submitted_at).toLocaleDateString(),
-      mins: 20,
-      tasks: "All",
-      breakdown: [],
-      data: r.data_json ? JSON.parse(r.data_json) : {},
-    })),
+    submissions: responses.map(r => {
+      let data = [];
+      try { data = r.data_json ? JSON.parse(r.data_json) : []; } catch {}
+      
+      const breakdown = data.map((ans, i) => {
+        if (!ans) return null;
+        let answerText = "No answer provided";
+        let attachments = [];
+        for (const [key, val] of Object.entries(ans)) {
+          if (key === "_proof") {
+            const arr = Array.isArray(val) ? val : [val];
+            attachments = arr.map(v => v.startsWith("/api") ? v : `/api/uploads/${v}`);
+          } else if (typeof val === "string" && answerText === "No answer provided") {
+            answerText = val;
+          }
+        }
+        return {
+          t: `Task ${i + 1}`,
+          rating: 0, // builders will rate it overall
+          ans: answerText,
+          attachments: attachments.filter(Boolean),
+        };
+      }).filter(Boolean);
+
+      return {
+        id: r.id,
+        name: r.name || "Validator",
+        city: "Remote",
+        trust: Math.round((r.trust_score || 0) * 10),
+        status: r.status || "pending",
+        quality: r.flagged ? "flagged" : "medium",
+        date: new Date(r.submitted_at).toLocaleDateString(),
+        mins: 20,
+        tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
+        breakdown,
+        data,
+      };
+    }),
   });
 });
 
 // POST /api/missions/:id/submissions/:responseId/approved
 router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
-  if (!mission) return res.status(404).json({ error: "Mission not found" });
-  
-  const response = await db.prepare(`SELECT validator_id, status FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
-  if (!response) return res.status(404).json({ error: "Submission not found" });
-  if (response.status === 'approved') return res.status(400).json({ error: "Submission already approved" });
+  const rating = Number(req.body.rating) || 5;
+  if (rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be between 1 and 5" });
 
-  const reward = mission.reward_amount || 0;
-  
-  // Strict balance check and deduction for the Builder
-  if (reward > 0) {
-    const updateRes = await db.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
-    if (updateRes.rowCount === 0) {
-      return res.status(400).json({ error: "Insufficient wallet balance to approve this submission. Please top up your wallet." });
+  await db.transaction(async (tx) => {
+    const mission = await tx.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ? FOR UPDATE`).get(req.params.id, req.builder.id);
+    if (!mission) throw new Error("Mission not found");
+    
+    const response = await tx.prepare(`SELECT validator_id, status FROM responses WHERE id = ? AND mission_id = ? FOR UPDATE`).get(req.params.responseId, req.params.id);
+    if (!response) throw new Error("Submission not found");
+    if (response.status === 'approved') throw new Error("Submission already approved");
+
+    const reward = mission.reward_amount || 0;
+    if (reward > 0) {
+      const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
+      if (updateRes.changes === 0) throw new Error("Insufficient wallet balance");
     }
-  }
 
-  await db.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
-  
-  if (reward > 0) {
-    await db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(reward, response.validator_id);
-  }
-  
-  await db.prepare(`UPDATE v_my_missions SET status = 'completed', status_label = 'Approved & Paid', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
-  await db.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+    
+    if (reward > 0) {
+      await tx.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(reward, response.validator_id);
+    }
+    
+    await tx.prepare(`UPDATE v_my_missions SET status = 'completed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
 
-  res.json({ ok: true });
+    // Reputation Engine Update (O(1) Rolling Average)
+    const v = await tx.prepare(`SELECT rating, reviews_count, missions_done FROM validators WHERE id = ?`).get(response.validator_id);
+    if (v) {
+      const count = v.reviews_count || 0;
+      const oldRating = v.rating || 5;
+      const newRating = Math.round(((oldRating * count + rating) / (count + 1)) * 10) / 10;
+      const completed = (v.missions_done || 0) + 1;
+
+      await tx.prepare(`UPDATE validators SET rating = ?, reviews_count = ?, missions_done = ? WHERE id = ?`)
+        .run(newRating, count + 1, completed, response.validator_id);
+    }
+    
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+      .run(response.validator_id, "application", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! \u20b9${reward} has been added to your wallet.`, "Just now");
+
+  }).catch(err => {
+    return res.status(400).json({ error: err.message });
+  });
+  
+  if (!res.headersSent) res.json({ ok: true });
 });
 
 // POST /api/missions/:id/submissions/:responseId/rejected
 router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
-  if (!mission) return res.status(404).json({ error: "Mission not found" });
-  
-  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
-  if (!response) return res.status(404).json({ error: "Submission not found" });
+  const rating = Number(req.body.rating) || 1;
+  if (rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be between 1 and 5" });
 
-  await db.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  await db.transaction(async (tx) => {
+    const mission = await tx.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ? FOR UPDATE`).get(req.params.id, req.builder.id);
+    if (!mission) throw new Error("Mission not found");
+    
+    const response = await tx.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ? FOR UPDATE`).get(req.params.responseId, req.params.id);
+    if (!response) throw new Error("Submission not found");
 
-  await db.prepare(`UPDATE v_my_missions SET status = 'rejected', status_label = 'Not selected', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
-  await db.prepare(`UPDATE participants SET stage = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
 
-  res.json({ ok: true });
+    await tx.prepare(`UPDATE v_my_missions SET status = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+
+    // Reputation Engine Update
+    const v = await tx.prepare(`SELECT rating, reviews_count FROM validators WHERE id = ?`).get(response.validator_id);
+    if (v) {
+      const count = v.reviews_count || 0;
+      const oldRating = v.rating || 5;
+      const newRating = Math.round(((oldRating * count + rating) / (count + 1)) * 10) / 10;
+
+      await tx.prepare(`UPDATE validators SET rating = ?, reviews_count = ? WHERE id = ?`)
+        .run(newRating, count + 1, response.validator_id);
+    }
+    
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+      .run(response.validator_id, "alert", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
+
+  }).catch(err => {
+    return res.status(400).json({ error: err.message });
+  });
+
+  if (!res.headersSent) res.json({ ok: true });
 });
 
 // POST /api/missions/:id/submissions/:responseId/revision
@@ -522,8 +591,11 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   if (!response) return res.status(404).json({ error: "Submission not found" });
 
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
-  await db.prepare(`UPDATE v_my_missions SET status = 'active', status_label = 'Revision requested', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+  await db.prepare(`UPDATE v_my_missions SET status = 'active' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
   
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+    .run(response.validator_id, "alert", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
+
   res.json({ ok: true });
 });
 

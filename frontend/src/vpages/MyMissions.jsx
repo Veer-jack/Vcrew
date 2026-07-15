@@ -60,8 +60,18 @@ export default function MyMissions() {
   const { vtypes } = useVMeta();
   const [tab, setTab] = useState("active");
   const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => { setData(null); vapi.myMissions(tab).then(setData).catch(() => setData([])); }, [tab]);
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    vapi.myMissions(tab).then(d => {
+      if (active) { setData(d); setLoading(false); }
+    }).catch(() => {
+      if (active) { setLoading(false); setData({ missions: [], counts: data?.counts || {} }); }
+    });
+    return () => { active = false; };
+  }, [tab]);
 
   const tabs = TABS.map(t => ({ ...t, c: data?.counts?.[t.k] ?? "·" }));
 
@@ -84,7 +94,7 @@ export default function MyMissions() {
         ))}
       </div>
 
-      {!data ? <div className="muted">Loading…</div> : data.missions.length === 0
+      {loading ? <div className="muted">Loading…</div> : (!data || data.missions.length === 0)
         ? <div className="card" style={{ padding: 0 }}>
             <VEmpty icon="inbox" title={`Nothing ${tab} yet`}
               body={tab === "applied" ? "Missions you apply to will wait here for a decision." : tab === "completed" ? "Approved, paid missions will collect here." : "When you take on a mission it'll show up here."}

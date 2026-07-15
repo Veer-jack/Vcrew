@@ -45,6 +45,9 @@ export default function Profile() {
     } finally { setBusy(false); }
   };
 
+  const trustScore = data.completed > 0 ? Math.round(((data.rating || 5) / 5) * 50 + ((data.accuracy || 100) / 100) * 50) : 0;
+  const avgExpertise = data.expertise?.length ? Math.round(data.expertise.reduce((acc, curr) => acc + curr.v, 0) / data.expertise.length) : 0;
+
   return (
     <div className="page">
       <div className="rise" style={{ marginBottom: 22 }}>
@@ -55,13 +58,13 @@ export default function Profile() {
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
                   <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
-                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />Lvl {data.level} · {data.levelName}</span>
+                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />Lvl {data.level || 1} · {data.levelName || "Trial"}</span>
                 </div>
                 <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {(data.specialties || []).join(" · ")}</p>
                 <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
-                  <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating} · {data.ratingCount} reviews</span>
-                  <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy}% accuracy</span>
-                  <span className="pill"><Icon name="flame" size={14} style={{ color: "var(--vt-proto)" }} />{data.streak}-day streak</span>
+                  <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating || 0} · {data.ratingCount || 0} reviews</span>
+                  <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy || 0}% accuracy</span>
+                  <span className="pill"><Icon name="flame" size={14} style={{ color: "var(--vt-proto)" }} />{data.streak || 0}-day streak</span>
                 </div>
               </div>
               <button className="btn btn-ghost" onClick={startEdit}><Icon name="edit" />Edit profile</button>
@@ -108,15 +111,15 @@ export default function Profile() {
 
       <div className="rise-2" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
         <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 14 }}>
-          <ScoreRing value={94} size={56} />
+          <ScoreRing value={trustScore} size={56} />
           <div style={{ minWidth: 0 }}><span className="eyebrow">Trust Score</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>Top 5% on platform</div></div>
         </div>
         <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 14 }}>
-          <ScoreRing value={91} size={56} />
-          <div style={{ minWidth: 0 }}><span className="eyebrow">Expertise</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>Across {data.expertise.length} niches</div></div>
+          <ScoreRing value={avgExpertise} size={56} />
+          <div style={{ minWidth: 0 }}><span className="eyebrow">Expertise</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>Across {(data.expertise || []).length} niches</div></div>
         </div>
-        <StatTile label="Completion rate" value={`${data.acceptRate}%`} sub="Started → submitted" accent="var(--accent)" icon="check" />
-        <StatTile label="Missions completed" value={data.completed} sub={`₹${data.lifetime.toLocaleString("en-IN")} lifetime`} accent="var(--warning)" icon="bolt" />
+        <StatTile label="Completion rate" value={`${data.acceptRate || 0}%`} sub="Started → submitted" accent="var(--accent)" icon="check" />
+        <StatTile label="Missions completed" value={data.completed || 0} sub={`₹${(data.lifetime || 0).toLocaleString("en-IN")} lifetime`} accent="var(--warning)" icon="bolt" />
       </div>
 
       <div className="split" style={{ gridTemplateColumns: "minmax(0,1fr) 340px" }}>
@@ -124,12 +127,12 @@ export default function Profile() {
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <div className="row between" style={{ marginBottom: 4 }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>Reputation ladder</h3>
-              {data.nextLevel && <span className="faint" style={{ fontSize: 12.5 }}>{Math.max(0, data.nextLevel.min - data.completed)} validations to {data.nextLevel.name}</span>}
+              {data.nextLevel && <span className="faint" style={{ fontSize: 12.5 }}>{Math.max(0, data.nextLevel.min - (data.completed || 0))} validations to {data.nextLevel.name}</span>}
             </div>
-            <div className="lvl-meter" style={{ margin: "12px 0 18px" }}><i style={{ width: data.levelPct + "%" }} /></div>
+            <div className="lvl-meter" style={{ margin: "12px 0 18px" }}><i style={{ width: (data.levelPct || 0) + "%" }} /></div>
             <div style={{ display: "grid", gap: 4 }}>
-              {data.levels.map(l => {
-                const state = l.n < data.level ? "done" : l.n === data.level ? "cur" : "up";
+              {(data.levels || []).map(l => {
+                const state = l.n < (data.level || 1) ? "done" : l.n === (data.level || 1) ? "cur" : "up";
                 return (
                   <div key={l.n} className="row gap-3" style={{ padding: "10px 0", borderTop: l.n > 1 ? "var(--hairline) solid var(--border)" : "none", opacity: state === "up" ? .55 : 1 }}>
                     <span style={{ width: 30, height: 30, borderRadius: "50%", flex: "none", display: "grid", placeItems: "center", fontFamily: "var(--mono)", fontWeight: 600, fontSize: 12,
@@ -150,7 +153,7 @@ export default function Profile() {
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>Expertise scores</h3>
             <div style={{ display: "grid", gap: 12 }}>
-              {data.expertise.map((e, i) => (
+              {(data.expertise || []).map((e, i) => (
                 <div key={i} className="row gap-3" style={{ fontSize: 13.5 }}>
                   <span style={{ width: 130, flex: "none", fontWeight: 600 }}>{e.l}</span>
                   <span style={{ flex: 1, height: 9, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: e.v + "%", borderRadius: 20, background: "linear-gradient(90deg, var(--accent), var(--accent-2))" }} /></span>
@@ -169,7 +172,7 @@ export default function Profile() {
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>Verification badges</h3>
             <div style={{ display: "grid", gap: 10 }}>
-              {data.badges.map((b, i) => (
+              {(data.badges || []).map((b, i) => (
                 <div key={i} className="row gap-3" style={{ opacity: b.got ? 1 : .5 }}>
                   <span style={{ width: 38, height: 38, borderRadius: 11, flex: "none", display: "grid", placeItems: "center",
                     background: b.got ? "var(--success-weak)" : "var(--panel-inset)", color: b.got ? "var(--success)" : "var(--text-faint)" }}>

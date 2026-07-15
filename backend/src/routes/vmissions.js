@@ -62,9 +62,10 @@ router.get("/", async (req, res) => {
   sql += ` ORDER BY mm.updated_at DESC`;
   const rows = await db.prepare(sql).all(...params);
 
-  const counts = {};
-  for (const s of ["applied", "active", "submitted", "completed", "rejected"]) {
-    counts[s] = Number((await db.prepare(`SELECT COUNT(*) c FROM v_my_missions WHERE validator_id = ? AND status = ?`).get(req.validator.id, s)).c);
+  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0 };
+  const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
+  for (const r of countRows) {
+    if (counts[r.status] !== undefined) counts[r.status] = Number(r.c);
   }
 
   res.json({ missions: rows.map(serializeRow), counts });
@@ -121,6 +122,18 @@ router.post("/:taskId/submit", async (req, res) => {
   // reward becomes a pending payout while the builder reviews it
   await db.prepare(`UPDATE validators SET pending = pending + ? WHERE id = ?`).run(t.reward, req.validator.id);
 
+  // Evaluate day streak logic (Lazy Evaluation)
+  await db.prepare(`
+    UPDATE validators 
+    SET streak = CASE 
+          WHEN last_active_date = CURRENT_DATE - INTERVAL '1 day' THEN streak + 1 
+          WHEN last_active_date = CURRENT_DATE THEN streak 
+          ELSE 1 
+        END,
+        last_active_date = CURRENT_DATE
+    WHERE id = ?
+  `).run(req.validator.id);
+
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
     .run(req.validator.id, "application", "clock", "accent", "Submission received", `Your validation for ${t.product} is now in review. \u20b9${t.reward} will clear once approved.`, "Just now");
 
@@ -145,9 +158,16 @@ router.get("/:id/workspace", async (req, res) => {
   let tasks = [];
   try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
 
+  const response = await db.prepare(`SELECT data_json FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  let responses = null;
+  if (response && response.data_json) {
+    try { responses = JSON.parse(response.data_json); } catch {}
+  }
+
   res.json({
     mission: { id: m.id, name: m.name, brand: m.brand || m.builder_name, ptype: m.ptype },
     tasks,
+    responses,
   });
 });
 

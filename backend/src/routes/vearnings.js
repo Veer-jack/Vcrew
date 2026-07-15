@@ -15,7 +15,12 @@ router.get("/", async (req, res) => {
   const lvlPct = nextLvl ? Math.min(100, Math.round(((v.completed - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
   const history = await db.prepare(`
-    SELECT mm.*, t.product, t.type, t.reward FROM v_my_missions mm JOIN vtasks t ON t.id = mm.task_id
+    SELECT mm.*, t.product, t.type, t.reward FROM v_my_missions mm 
+    JOIN (
+      SELECT id::text, type::text, product::text, reward::int FROM vtasks
+      UNION ALL
+      SELECT id::text, ptype::text as type, name::text as product, reward_amount::int as reward FROM missions
+    ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ? AND mm.status IN ('submitted','completed') ORDER BY mm.updated_at DESC LIMIT 10
   `).all(v.id);
 

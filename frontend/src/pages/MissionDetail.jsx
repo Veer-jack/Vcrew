@@ -91,7 +91,7 @@ function ParticipantKanban({ missionId, participants, setParticipants }) {
   );
 }
 
-function ResponseCard({ r, missionId, onFlag }) {
+function ResponseCard({ r, missionId, onFlag, navigate }) {
   return (
     <div className="resp-card" style={r.flagged ? { borderColor: "color-mix(in srgb, var(--danger) 40%, var(--border))" } : null}>
       <div className="resp-head">
@@ -110,7 +110,7 @@ function ResponseCard({ r, missionId, onFlag }) {
       </div>
       {r.flagged && <div className="row gap-2" style={{ marginTop: 12, color: "var(--danger)", fontSize: 12.5, fontWeight: 600 }}><Icon name="flag" size={14} /> Auto-flagged: possible low-effort or broken-link report</div>}
       <div className="row gap-2" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-        <Btn variant="primary" size="sm" icon="check">Approve &amp; reward</Btn>
+        <Btn variant="primary" size="sm" icon="check" onClick={() => navigate(`/missions/${missionId}/submissions`)}>Review submission</Btn>
         <Btn variant="ghost" size="sm" icon="message">Reply</Btn>
         <Btn variant={r.flagged ? "primary" : "quiet"} size="sm" icon="flag" onClick={() => onFlag(r, !r.flagged)}>{r.flagged ? "Unflag" : "Flag"}</Btn>
       </div>
@@ -118,7 +118,7 @@ function ResponseCard({ r, missionId, onFlag }) {
   );
 }
 
-function ResponseReview({ missionId, responses, setResponses }) {
+function ResponseReview({ missionId, responses, setResponses, navigate }) {
   const [q, setQ] = useState("");
   const [minR, setMinR] = useState(0);
   const rows = responses.filter(r => (!q || (r.name + r.quote).toLowerCase().includes(q.toLowerCase())) && r.rating >= minR);
@@ -138,7 +138,7 @@ function ResponseReview({ missionId, responses, setResponses }) {
       </div>
       {rows.length === 0
         ? <div className="muted" style={{ padding: 24 }}>No responses yet for this mission.</div>
-        : <div className="col gap-4">{rows.map(r => <ResponseCard key={r.id} r={r} missionId={missionId} onFlag={onFlag} />)}</div>}
+        : <div className="col gap-4">{rows.map(r => <ResponseCard key={r.id} r={r} missionId={missionId} onFlag={onFlag} navigate={navigate} />)}</div>}
     </div>
   );
 }
@@ -359,7 +359,7 @@ export default function MissionDetail() {
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={setTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} />}
       {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} />}
-      {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} />}
+      {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} navigate={navigate} />}
       {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
     </div>

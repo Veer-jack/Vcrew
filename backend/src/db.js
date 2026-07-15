@@ -73,6 +73,35 @@ export const db = {
   exec: async (sql) => {
     await query(sql, []);
   },
+  transaction: async (cb) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tDb = {
+        prepare: (sql) => ({
+          get: async (...params) => { const r = await client.query(toPostgres(sql), flat(params)); return r.rows[0] ?? null; },
+          all: async (...params) => { const r = await client.query(toPostgres(sql), flat(params)); return r.rows; },
+          run: async (...params) => {
+            const pgSql = toPostgres(sql);
+            const isInsert = /^\s*INSERT/i.test(sql);
+            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens/i.test(sql);
+            const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(pgSql) ? `${pgSql} RETURNING id` : pgSql;
+            const r = await client.query(finalSql, flat(params));
+            return { changes: r.rowCount, lastInsertRowid: r.rows[0]?.id ?? null };
+          }
+        }),
+        exec: async (sql) => client.query(toPostgres(sql))
+      };
+      const result = await cb(tDb);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 };
 
 export async function initDb() {

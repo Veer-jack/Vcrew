@@ -6,65 +6,87 @@ import { VTYPES, TYPE_ORDER, deadlineHours } from "../vmeta.js";
 export const router = Router();
 router.use(validatorAuthMiddleware);
 
-async function serializeTask(t, savedIds, myStatus) {
-  // If it's a real mission (has 'builder_id'), map it to the expected vtasks format
-  if (t.builder_id) {
-    return {
-      id: t.id, 
-      type: VTYPES[t.ptype] ? t.ptype : "mvp", 
-      product: t.name, 
-      tagline: t.description ? t.description.slice(0, 100) : "", 
-      company: t.brand || "Independent",
-      reward: t.reward_amount || 0, 
-      minutes: 10, 
-      match: 90, 
-      spotsLeft: Math.max(0, (t.target || 0) - (t.joined || 0)), 
-      spotsTotal: t.target || 0,
-      deadline: t.deadline || "Soon", 
-      postedH: Math.floor((Date.now() - new Date(t.created_at).getTime()) / 3600000) || 24, 
-      brief: t.description || "", 
-      steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')),
-      hot: ((t.joined || 0) > ((t.target || 1) / 2)), 
-      verified: true, 
-      featured: false,
-      saved: savedIds.has(t.id),
-      myStatus: myStatus[t.id] || null,
-    };
-  }
+const resolveType = (typeStr) => {
+  if (!typeStr) return "mvp";
+  if (VTYPES[typeStr]) return typeStr;
+  const found = Object.values(VTYPES).find(v => (v.label || "").toLowerCase() === String(typeStr).toLowerCase() || (v.short || "").toLowerCase() === String(typeStr).toLowerCase());
+  return found ? found.key : "mvp";
+};
 
-  // Otherwise, it's a dummy vtasks row
+async function serializeTask(t, savedIds, myStatus) {
+  const normType = resolveType(t.ptype || t.type || t.raw_type);
+  const product = t.product || t.name || "";
+  const tagline = t.tagline || (t.description ? t.description.slice(0, 100) : "");
+  const company = t.company || t.brand || "Independent";
+  const reward = t.reward ?? t.reward_amount ?? 0;
+  const minutes = t.minutes ?? 10;
+  const spotsTotal = t.spots_total ?? t.spotsTotal ?? t.target ?? 0;
+  const spotsLeft = t.spots_left ?? t.spotsLeft ?? Math.max(0, spotsTotal - (t.joined || 0));
+  const deadline = t.deadline_label || t.deadline || "Soon";
+  
+  let postedH = t.posted_h ?? t.postedH;
+  if (postedH === undefined && t.created_at) {
+    postedH = Math.floor((Date.now() - new Date(t.created_at).getTime()) / 3600000);
+  }
+  postedH = postedH || 24;
+  
+  const brief = t.brief || t.description || "";
+  const stepsRaw = t.steps_json || t.tasks_json || "[]";
+  let steps = [];
+  try { steps = JSON.parse(stepsRaw).map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')); } catch {}
+  
+  const hot = t.hot !== undefined ? !!t.hot : ((t.joined || 0) > ((t.target || 1) / 2));
+  const verified = t.verified !== undefined ? !!t.verified : true;
+  const featured = !!t.featured;
+
   return {
-    id: t.id, type: t.type, product: t.product, tagline: t.tagline, company: t.company,
-    reward: t.reward, minutes: t.minutes, match: t.match_pct, spotsLeft: t.spots_left, spotsTotal: t.spots_total,
-    deadline: t.deadline_label, postedH: t.posted_h, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')),
-    hot: !!t.hot, verified: !!t.verified, featured: !!t.featured,
-    saved: savedIds.has(t.id),
-    myStatus: myStatus[t.id] || null,
+    id: t.id, type: normType, product, tagline, company,
+    reward, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
+    deadline, postedH, brief, steps,
+    hot, verified, featured,
+    saved: savedIds.has(t.id), myStatus: myStatus[t.id] || null,
   };
 }
 
 async function loadContext(validatorId) {
   const savedRows = await db.prepare(`SELECT task_id FROM v_saved WHERE validator_id = ?`).all(validatorId);
   const savedIds = new Set(savedRows.map(r => r.task_id));
-  
-  // Load my_missions (both task_id and mission_id mapping)
   const myRows = await db.prepare(`SELECT task_id, mission_id, status FROM v_my_missions WHERE validator_id = ?`).all(validatorId);
   const myStatus = Object.fromEntries(myRows.map(r => [r.mission_id || r.task_id, r.status]));
   return { savedIds, myStatus };
 }
 
-// GET /api/v/marketplace?q=&types=ai,mvp&reward=mid&time=lt10&verified=true&minMatch=80&sort=match
 router.get("/", async (req, res) => {
   const { q, types, reward, time, verified, minMatch, sort } = req.query;
-  
-  // Combine real missions and dummy vtasks
-  const realMissions = await db.prepare(`SELECT * FROM missions WHERE status = 'active' OR status = 'live' OR status = 'published'`).all();
-  const dummyTasks = await db.prepare(`SELECT * FROM vtasks`).all();
-  let rows = [...realMissions, ...dummyTasks];
-  
   const { savedIds, myStatus } = await loadContext(req.validator.id);
 
-  let tasks = await Promise.all(rows.map(t => serializeTask(t, savedIds, myStatus)));
+  // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
+  const baseCTE = `
+    WITH base_tasks AS (
+      SELECT id::text, COALESCE(ptype, 'mvp')::text as raw_type, name::text as product, description::text as tagline, COALESCE(brand, 'Independent')::text as company, 
+             COALESCE(reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(target, 0) - COALESCE(joined, 0))::int as spots_left, 
+             COALESCE(target, 0)::int as spots_total, COALESCE(deadline::text, 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - created_at))/3600)::int as posted_h, 
+             description::text as brief, tasks_json::text as steps_json, (COALESCE(joined,0) > COALESCE(target,1)/2)::boolean as hot, true::boolean as verified, 
+             false::boolean as featured, 'missions' as source
+      FROM missions WHERE status IN ('active','live','published')
+      UNION ALL
+      SELECT id::text, type::text as raw_type, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, spots_left::int, 
+             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source
+      FROM vtasks
+    )
+  `;
+
+  // Normalization logic in JS is safer for mapping the exact strings, but filtering is pushed down where possible.
+  const rawRows = await db.prepare(baseCTE + ` SELECT * FROM base_tasks`).all();
+  let tasks = await Promise.all(rawRows.map(t => serializeTask(t, savedIds, myStatus)));
+
+  // Calculate un-filtered totals for categories (normalized)
+  const categories = TYPE_ORDER.map(k => ({
+    key: k, label: VTYPES[k].label, blurb: VTYPES[k].blurb,
+    count: tasks.filter(t => t.type === k).length,
+  }));
+  const total = tasks.length;
+  const featured = tasks.find(t => t.featured) || null;
 
   if (q) {
     const needle = q.toLowerCase();
@@ -89,14 +111,7 @@ router.get("/", async (req, res) => {
   }[sort] || ((a, b) => b.match - a.match);
   tasks.sort(cmp);
 
-  const allTasks = await Promise.all([...realMissions, ...dummyTasks].map(t => serializeTask(t, savedIds, myStatus)));
-  const categories = TYPE_ORDER.map(k => ({
-    key: k, label: VTYPES[k].label, blurb: VTYPES[k].blurb,
-    count: allTasks.filter(t => t.type === k).length,
-  }));
-  const featured = allTasks.find(t => t.featured) || null;
-
-  res.json({ tasks, total: allTasks.length, categories, featured });
+  res.json({ tasks, total, categories, featured });
 });
 
 // GET /api/v/marketplace/:id

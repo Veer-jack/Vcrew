@@ -10,7 +10,30 @@ const TABS = [
   { k: "pending", l: "Pending" },
   { k: "approved", l: "Approved" },
   { k: "flagged", l: "Flagged" },
+  { k: "rejected", l: "Rejected" },
+  { k: "revision", l: "Revision" },
 ];
+
+function Toast({ message, type, onClose }) {
+  if (!message) return null;
+  const colors = { success: "var(--success)", error: "var(--danger)", warning: "var(--warning)" };
+  const icons = { success: "checkCircle", error: "alertTriangle", warning: "edit" };
+  
+  return (
+    <div style={{
+      position: "fixed", top: 80, right: 24, zIndex: 100,
+      background: "var(--bg)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", borderRadius: 8,
+      padding: "14px 18px", display: "flex", alignItems: "center", gap: 12,
+      borderLeft: `4px solid ${colors[type] || colors.success}`,
+      animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+      maxWidth: 350
+    }}>
+      <Icon name={icons[type] || "info"} size={20} style={{ color: colors[type] || colors.success }} />
+      <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{message}</div>
+      <button className="btn btn-ghost" style={{ padding: 4, margin: "-4px -4px -4px 4px" }} onClick={onClose}><Icon name="x" size={14} /></button>
+    </div>
+  );
+}
 
 function QualityBadge({ quality }) {
   const cfg = {
@@ -29,7 +52,8 @@ function QualityBadge({ quality }) {
 function SlideOver({ sub, onClose, onAction }) {
   const [rejectReason, setRejectReason] = useState("");
   const [reviseNote, setReviseNote] = useState("");
-  const [view, setView] = useState("review"); // review | reject | revise
+  const [rating, setRating] = useState(0); // Add rating state
+  const [view, setView] = useState("review"); // review | reject | revise | approve
   if (!sub) return null;
 
   return (
@@ -69,6 +93,13 @@ function SlideOver({ sub, onClose, onAction }) {
                 </div>
               </div>
               {b.ans && <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>{b.ans}</p>}
+              {b.attachments && b.attachments.length > 0 && (
+                <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+                  {b.attachments.map((src, idx) => (
+                    <img key={idx} src={src} alt="Proof attachment" style={{ width: 80, height: 60, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)" }} />
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -82,18 +113,68 @@ function SlideOver({ sub, onClose, onAction }) {
             <button className="btn btn-ghost" style={{ flex: 1, justifyContent: "center" }} onClick={() => setView("revise")}>
               <Icon name="edit" size={14} /> Request revision
             </button>
-            <Btn variant="primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => onAction(sub.id, "approved")}>
+            <Btn variant="primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => setView("approve")}>
               <Icon name="check" size={14} /> Approve
             </Btn>
           </div>
         )}
+        
+        {view === "approve" && (
+          <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Rate this submission</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
+              Your rating directly impacts the validator's Trust Score.
+            </div>
+            
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map(v => (
+                <div 
+                  key={v} 
+                  onClick={() => setRating(v)}
+                  style={{ 
+                    cursor: "pointer", padding: "10px", borderRadius: 8,
+                    background: rating >= v ? "var(--warning)" : "var(--panel-inset)",
+                    color: rating >= v ? "#fff" : "var(--text-faint)",
+                    display: "grid", placeItems: "center", transition: "all .15s"
+                  }}
+                >
+                  <Icon name="star" size={24} />
+                </div>
+              ))}
+            </div>
+
+            {rating > 0 && rating <= 2 && (
+              <textarea 
+                className="fin" 
+                placeholder="What went wrong? (Required for low ratings)" 
+                rows={2} 
+                value={rejectReason} 
+                onChange={e => setRejectReason(e.target.value)} 
+                style={{ marginBottom: 10 }} 
+              />
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
+              <Btn 
+                variant="primary" 
+                style={{ flex: 1, justifyContent: "center" }} 
+                onClick={() => onAction(sub.id, "approved", rejectReason, rating)} 
+                disabled={rating === 0 || (rating <= 2 && !rejectReason.trim())}
+              >
+                Approve & Rate {rating > 0 ? rating : ''} ★
+              </Btn>
+            </div>
+          </div>
+        )}
+
         {view === "reject" && (
           <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Reason for rejection</div>
             <textarea className="fin" placeholder="Explain why this submission doesn't meet the requirements…" rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
-              <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => onAction(sub.id, "rejected", rejectReason)} disabled={!rejectReason.trim()}>Reject submission</button>
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => onAction(sub.id, "rejected", rejectReason, 1)} disabled={!rejectReason.trim()}>Reject submission</button>
             </div>
           </div>
         )}
@@ -120,7 +201,13 @@ export default function MissionReview() {
   const [subs, setSubs] = useState([]);
   const [mission, setMission] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     (async () => {
@@ -145,12 +232,34 @@ export default function MissionReview() {
 
   if (loading) return <div className="page rise"><div className="muted">Loading submissions…</div></div>;
 
-  const counts = { all: subs.length, pending: subs.filter(s => s.status === "pending").length, approved: subs.filter(s => s.status === "approved").length, flagged: subs.filter(s => s.status === "flagged").length };
+  const counts = { 
+    all: subs.length, 
+    pending: subs.filter(s => s.status === "pending").length, 
+    approved: subs.filter(s => s.status === "approved").length, 
+    flagged: subs.filter(s => s.status === "flagged").length,
+    rejected: subs.filter(s => s.status === "rejected").length,
+    revision: subs.filter(s => s.status === "revision").length,
+  };
   const visible = tab === "all" ? subs : subs.filter(s => s.status === tab);
   const selectedSub = selected ? subs.find(s => s.id === selected) : null;
 
-  const handleAction = async (subId, action, note) => {
-    try { await api.post(`/missions/${id}/submissions/${subId}/${action}`, { note }); } catch {}
+  const handleAction = async (subId, action, reason, rating) => {
+    const subName = subs.find(s => s.id === subId)?.name || "Validator";
+    try {
+      if (action === "approved") {
+        await api.post(`/missions/${id}/submissions/${subId}/approved`, { rating });
+        showToast(`Approved submission from ${subName}`, "success");
+      } else if (action === "rejected") {
+        await api.post(`/missions/${id}/submissions/${subId}/rejected`, { note: reason, rating });
+        showToast(`Rejected submission from ${subName}`, "error");
+      } else if (action === "revision") {
+        await api.post(`/missions/${id}/submissions/${subId}/revision`, { note: reason });
+        showToast(`Revision request sent to ${subName}`, "warning");
+      }
+    } catch (err) {
+      alert(err.message || "An error occurred");
+      return; // Stop execution on error
+    }
     setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: action === "approved" ? "approved" : action === "rejected" ? "rejected" : "revision" } : s));
     setSelected(null);
   };
@@ -162,6 +271,7 @@ export default function MissionReview() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 24px" }}>
+      <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
         <button className="btn btn-ghost" style={{ padding: "8px 10px" }} onClick={() => navigate(`/missions/${id}`)}>
@@ -237,10 +347,12 @@ export default function MissionReview() {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ Approved</span>}
               {sub.status === "flagged" && <span style={{ color: "var(--danger)", fontWeight: 700, fontSize: 13 }}>⚑ Flagged</span>}
+              {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ Rejected</span>}
+              {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ Revision Req</span>}
               {sub.status === "pending" && (
                 <>
                   <button className="btn btn-ghost" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>Review</button>
-                  <button className="btn btn-success" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); handleAction(sub.id, "approved"); }}>✓ Approve</button>
+                  <button className="btn btn-success" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>✓ Approve</button>
                 </>
               )}
             </div>
