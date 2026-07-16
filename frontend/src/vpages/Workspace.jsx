@@ -67,7 +67,7 @@ function MCQ({ q, ans, setAns, readOnly }) {
   );
 }
 
-function YNQ({ ans, setAns, readOnly }) {
+function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: ans === "yes" ? 12 : 0 }}>
@@ -82,7 +82,7 @@ function YNQ({ ans, setAns, readOnly }) {
           }}>{v === "yes" ? "Yes" : "No"}</button>
         ))}
       </div>
-      {ans === "yes" && <textarea className="field" placeholder="Tell us more — what was confusing or broken?" rows={3} disabled={readOnly} value={ans._detail || ""} onChange={e => setAns({ ...ans, _detail: e.target.value })} />}
+      {ans === "yes" && <textarea className="field" placeholder="Tell us more — what was confusing or broken?" rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
     </div>
   );
 }
@@ -117,17 +117,27 @@ export default function Workspace() {
         const t = data.tasks || [];
         setMission(data.mission);
         setTasks(t);
-        if (data.responses) {
+        if (data.responses && !data.isDraft) {
           setIsReadOnly(true);
           setAnswers(data.responses);
           setStepsDone(t.map(tk => new Set(tk.steps.map((_, j) => j))));
           setTimerDone(t.map(() => true));
           setProofUploaded(t.map((_, i) => !!data.responses[i]?._proof));
         } else {
-          setStepsDone(t.map(() => new Set()));
-          setAnswers(t.map(() => ({})));
-          setTimerDone(t.map(() => false));
-          setProofUploaded(t.map(() => false));
+          let savedAnswers = t.map(() => ({}));
+          let savedIdx = 0;
+          if (data.responses && data.isDraft) {
+            savedAnswers = t.map((_, i) => data.responses.answers[i] || {});
+            savedIdx = data.responses.curIdx || 0;
+            setCurIdx(savedIdx);
+          }
+          setAnswers(savedAnswers);
+          setStepsDone(t.map((tk, i) => {
+             const hasAns = savedAnswers[i] && Object.keys(savedAnswers[i]).length > 0;
+             return hasAns ? new Set(tk.steps.map((_, j) => j)) : new Set();
+          }));
+          setTimerDone(t.map((_, i) => i < savedIdx));
+          setProofUploaded(t.map((_, i) => !!savedAnswers[i]?._proof));
         }
       } catch {
         // use mock for now
@@ -164,6 +174,20 @@ export default function Workspace() {
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
   };
+  const saveDraft = async (newIdx = curIdx) => {
+    if (isReadOnly) return;
+    try {
+      const finalAnswers = answers.map((ans, i) => {
+        const c = { ...ans };
+        if (proofUploaded[i]) c._proof = proofUploaded[i];
+        return c;
+      });
+      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx });
+    } catch (e) {
+      console.warn("Auto-save failed", e);
+    }
+  };
+
   const goNext = async () => {
     if (curIdx === tasks.length - 1) {
       setSubmitting(true);
@@ -182,6 +206,7 @@ export default function Workspace() {
     } else {
       setCurIdx(i => i + 1);
       window.scrollTo(0, 0);
+      saveDraft(curIdx + 1);
     }
   };
 
@@ -258,7 +283,7 @@ export default function Workspace() {
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
           <span style={{ flex: 1 }} />
           <Timer key={curIdx} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
-          <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={() => navigate("/validator/missions")}>
+          <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
             <Icon name="x" size={14} /> Exit
           </button>
         </div>
@@ -307,7 +332,7 @@ export default function Workspace() {
                 </div>
                 {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
                 {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
-                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
+                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} />}
                 {q.type === "text" && <textarea className="field" placeholder="Type your answer…" rows={3} disabled={isReadOnly} value={answers[curIdx]?.[q.id] || ""} onChange={e => setAns(q.id, e.target.value)} />}
               </div>
             ))}
@@ -368,7 +393,7 @@ export default function Workspace() {
 
         {/* Bottom nav */}
         <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 36px", background: "color-mix(in srgb,var(--bg) 90%,transparent)", backdropFilter: "blur(12px)", borderTop: "1px solid var(--border)", zIndex: 30 }}>
-          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); } }} disabled={curIdx === 0}>
+          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
             <Icon name="arrowLeft" size={16} /> Previous
           </button>
           <span style={{ flex: 1 }} />

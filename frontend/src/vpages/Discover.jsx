@@ -126,7 +126,7 @@ export default function Discover() {
       .catch(() => {});
   }, [q, types, reward, time, verifiedOnly, minMatch, sort]);
 
-  const onOpen = (task) => navigate(`/validator/missions/${task.id}`);
+  const onOpen = (task) => navigate(`/validator/missions/${task.id}`, { state: { fromDiscover: true } });
   const onSave = async (task) => {
     const next = !task.saved;
     setData(d => ({ ...d, tasks: d.tasks.map(t => t.id === task.id ? { ...t, saved: next } : t), featured: d.featured && d.featured.id === task.id ? { ...d.featured, saved: next } : d.featured }));

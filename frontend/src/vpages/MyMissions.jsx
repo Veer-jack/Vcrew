@@ -8,6 +8,7 @@ import { vapi } from "../vapi/client";
 const MM_STATUS = {
   applied:   { label: "Applied", tone: "var(--warning)", bg: "var(--warning-weak)" },
   active:    { label: "Active", tone: "var(--accent)", bg: "var(--accent-weak)" },
+  revision:  { label: "Revision Requested", tone: "var(--danger)", bg: "var(--danger-weak)" },
   submitted: { label: "In review", tone: "var(--warning)", bg: "var(--warning-weak)" },
   completed: { label: "Paid", tone: "var(--success)", bg: "var(--success-weak)" },
   rejected:  { label: "Not selected", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
@@ -38,15 +39,15 @@ function MyMissionRow({ m, vtypes, navigate }) {
         <div className="row gap-3 wrap faint" style={{ fontSize: 12.5, marginTop: 5 }}>
           <span className="tag" style={{ background: s.bg, color: s.tone }}>{s.label}</span>
           <span className="row gap-2"><Icon name="clock" size={13} />{m.deadline}</span>
-          {m.status === "active" && <span className="row gap-2"><Icon name="list" size={13} />{m.progress}% complete</span>}
+          {(m.status === "active" || m.status === "revision") && <span className="row gap-2"><Icon name="list" size={13} />{m.progress}% complete</span>}
           {m.quality && m.quality !== "—" && <span className="row gap-2" style={{ color: "var(--success)" }}><Icon name="sparkle" size={13} />{m.quality}</span>}
         </div>
-        {m.status === "active" && <div className="lvl-meter" style={{ marginTop: 10, maxWidth: 320 }}><i style={{ width: m.progress + "%" }} /></div>}
+        {(m.status === "active" || m.status === "revision") && <div className="lvl-meter" style={{ marginTop: 10, maxWidth: 320 }}><i style={{ width: m.progress + "%" }} /></div>}
         {m.reason && <p className="faint" style={{ margin: "7px 0 0", fontSize: 12.5 }}>{m.reason}</p>}
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
         <div style={{ textAlign: "right" }}><VReward amount={m.reward} /><div className="faint" style={{ fontSize: 11 }}>reward</div></div>
-        {m.status === "active" && <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${m.taskId}/workspace`)}>Resume <Icon name="arrowRight" /></button>}
+        {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${m.taskId}/workspace`)}>Resume <Icon name="arrowRight" /></button>}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />Awaiting</span>}
         {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />In review</span>}
         {m.status === "completed" && <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />Paid</span>}

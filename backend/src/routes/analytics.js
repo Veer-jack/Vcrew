@@ -41,7 +41,7 @@ router.get("/", async (req, res) => {
 
   // Geo distribution from the audience pool (real, shared table)
   const geoRows = await db.prepare(`
-    SELECT city, COUNT(*) as cnt FROM audience_members GROUP BY city ORDER BY cnt DESC LIMIT 6
+    SELECT location as city, COUNT(*) as cnt FROM validators GROUP BY location ORDER BY cnt DESC LIMIT 6
   `).all();
   const geo = geoRows.map(r => ({ l: r.city, v: r.cnt }));
 

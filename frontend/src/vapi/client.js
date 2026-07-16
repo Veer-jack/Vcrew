@@ -65,6 +65,7 @@ export const vapi = {
   submit: (taskId, payload) => request(`/missions/${taskId}/submit`, { method: "POST", body: payload }),
   workspaceData: (id) => request(`/missions/${id}/workspace`),
   submitWorkspaceData: (id, payload) => request(`/missions/${id}/workspace/submit`, { method: "PATCH", body: payload }),
+  saveWorkspaceDraft: (id, payload) => request(`/missions/${id}/workspace/draft`, { method: "PATCH", body: payload }),
   uploadWorkspaceProof: async (id, file) => {
     const token = getVToken();
     const formData = new FormData();

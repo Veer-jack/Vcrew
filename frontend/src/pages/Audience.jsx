@@ -13,9 +13,15 @@ export default function AudienceExplorer() {
   const [sel, setSel] = useState({});
   const [closed, setClosed] = useState(new Set());
   const [q, setQ] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    api.audience().then(d => { setMembers(d.members); setFilters(d.filters); setSel(EMPTY_SEL(d.filters)); });
+    api.audience().then(d => { 
+      setMembers(d.members); 
+      setFilters(d.filters); 
+      setSel(EMPTY_SEL(d.filters)); 
+      setIsLoading(false);
+    });
   }, []);
 
   const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
@@ -26,12 +32,27 @@ export default function AudienceExplorer() {
     if (!sel.Geography) return members;
     return members.filter(m => {
       const geo = sel.Geography.size === 0 || sel.Geography.has(m.city);
-      const role = sel["ValidationCrew Role"].size === 0 || sel["ValidationCrew Role"].has(m.role);
+      const role = !sel["ValidationCrew Role"] || sel["ValidationCrew Role"].size === 0 || sel["ValidationCrew Role"].has(m.role);
+      const occ = !sel.Professional || sel.Professional.size === 0 || sel.Professional.has(m.occ);
       const int = sel.Interests.size === 0 || m.expertise.some(e => sel.Interests.has(e)) || [...sel.Interests].some(i => m.industry === i);
       const qq = !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase());
-      return geo && role && int && qq;
+      return geo && role && occ && int && qq;
     }).sort((a, b) => b.match - a.match);
   }, [members, sel, q]);
+
+  const exportCSV = () => {
+    if (!results.length) return;
+    const header = "Name,Occupation,Location,Role,Match %,Verified\n";
+    const rows = results.map(m => `"${m.name}","${m.occ}","${m.city}","${m.role}",${m.match},${m.verified ? "Yes" : "No"}`).join("\n");
+    // Add UTF-8 BOM (\ufeff) so Excel/LibreOffice formats it perfectly
+    const blob = new Blob(["\ufeff" + header + rows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'audience_export.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const verifiedPct = members.length ? Math.round((members.filter(a => a.verified).length / members.length) * 100) : 0;
 
@@ -81,9 +102,17 @@ export default function AudienceExplorer() {
             <div className="seg-search"><Icon name="search" size={16} /><input placeholder="Search by name, role, city…" value={q} onChange={e => setQ(e.target.value)} /></div>
             <span className="muted" style={{ fontSize: 13 }}>{results.length} shown · sorted by match</span>
             <span className="grow" />
-            <Btn variant="ghost" size="sm" icon="download">Export list</Btn>
+            <Btn variant="ghost" size="sm" icon="download" onClick={exportCSV} disabled={results.length === 0}>Export list</Btn>
           </div>
-          {results.length === 0 ? (
+          {isLoading ? (
+            <div className="col gap-3" style={{ opacity: 0.6 }}>
+              {[1, 2, 3].map(i => (
+                <div className="aud-card" key={i} style={{ minHeight: 90 }}>
+                  <div className="muted">Loading members...</div>
+                </div>
+              ))}
+            </div>
+          ) : results.length === 0 ? (
             <Empty icon="users" title="No members match these filters" action={<Btn variant="ghost" icon="refresh" onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); }}>Reset filters</Btn>}>Try widening your geography or removing an interest to grow the pool.</Empty>
           ) : (
             <div className="col gap-3">

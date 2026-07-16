@@ -12,6 +12,16 @@ router.get("/", async (req, res) => {
   const nextLvl = LEVELS.find(l => l.n === v.level + 1) || null;
   const lvlPct = nextLvl ? Math.min(100, Math.round(((v.completed - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
+  // Role Promotion Logic (User -> Tester -> Validator)
+  let calcRole = "User";
+  if (v.completed >= 5 && v.accuracy >= 90) calcRole = "Tester";
+  if (v.verified && v.occupation) calcRole = "Validator";
+
+  if (calcRole !== v.role) {
+    await db.prepare(`UPDATE validators SET role = ? WHERE id = ?`).run(calcRole, v.id);
+    v.role = calcRole;
+  }
+
   // Dynamically evaluate badges
   const dynamicBadges = BADGES.map(b => {
     let got = false;
@@ -42,14 +52,20 @@ router.get("/", async (req, res) => {
     levels: LEVELS, badges: dynamicBadges, expertise: dynamicExpertise,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     payoutVpa: v.payout_vpa || null,
+    role: v.role, occupation: v.occupation, industry: v.industry,
+    location: v.location, bio: v.bio
   });
 });
 
-// PATCH / { name, handle, specialties }
+// PATCH / { name, handle, occupation, industry, location, bio, specialties }
 router.patch("/", async (req, res) => {
   const v = req.validator;
   const name = String(req.body?.name ?? v.name).trim();
   let handle = req.body?.handle === undefined ? v.handle : String(req.body.handle).trim();
+  let occupation = req.body?.occupation === undefined ? v.occupation : String(req.body.occupation).trim();
+  let industry = req.body?.industry === undefined ? v.industry : String(req.body.industry).trim();
+  let location = req.body?.location === undefined ? v.location : String(req.body.location).trim();
+  let bio = req.body?.bio === undefined ? v.bio : String(req.body.bio).trim();
   let specialties = req.body?.specialties === undefined ? JSON.parse(v.specialties_json || "[]") : req.body.specialties;
 
   if (!name) return res.status(400).json({ error: "Name is required" });
@@ -57,8 +73,8 @@ router.patch("/", async (req, res) => {
   if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
   specialties = specialties.map(s => String(s).trim()).filter(Boolean).slice(0, 6);
 
-  await db.prepare(`UPDATE validators SET name = ?, handle = ?, specialties_json = ? WHERE id = ?`)
-    .run(name, handle || null, JSON.stringify(specialties), v.id);
+  await db.prepare(`UPDATE validators SET name = ?, handle = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ? WHERE id = ?`)
+    .run(name, handle || null, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties), v.id);
 
-  res.json({ name, handle: handle || null, specialties });
+  res.json({ name, handle: handle || null, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties });
 });

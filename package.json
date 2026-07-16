@@ -9,5 +9,8 @@
     "build": "npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend && npm audit --prefix backend --audit-level=high || echo '[audit] High/critical vulnerabilities found — review with: npm audit --prefix backend' && npm audit --prefix frontend --audit-level=high || echo '[audit] High/critical vulnerabilities found — review with: npm audit --prefix frontend'",
     "start": "node backend/src/server.js",
     "seed": "node backend/src/seed.js"
+  },
+  "dependencies": {
+    "supertest": "^7.2.2"
   }
 }

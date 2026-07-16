@@ -118,7 +118,10 @@ router.get("/:id", async (req, res) => {
   
   const responses = responsesRaw.map(r => {
     let data = [];
-    try { data = JSON.parse(r.data_json || "[]"); } catch {}
+    try { 
+      const parsed = JSON.parse(r.data_json || "[]"); 
+      data = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {}
     
     // Synthesize a generic quote from the JSON answers
     let synthQuote = "No feedback provided";
@@ -439,7 +442,7 @@ Include 3-5 questions per task mixing types. Make tasks specific to the product 
 });
 
 // GET /api/missions/:id/submissions — founder reviews submissions
-router.get("/:id/submissions", authMiddleware, async (req, res) => {
+router.get("/:id/submissions", authMiddleware, async (req, res) => { console.log("HITTING SUBMISSIONS ROUTE FOR", req.params.id);
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
@@ -451,28 +454,69 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
     ORDER BY r.submitted_at DESC
   `).all(req.params.id);
 
+  let missionTasks = [];
+  try {
+    missionTasks = mission.tasks_json ? JSON.parse(mission.tasks_json) : [];
+  } catch {}
+
   res.json({
     mission: { id: mission.id, name: mission.name, target: mission.target },
     submissions: responses.map(r => {
       let data = [];
-      try { data = r.data_json ? JSON.parse(r.data_json) : []; } catch {}
+      try { 
+        const parsed = r.data_json ? JSON.parse(r.data_json) : []; 
+        data = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {}
       
       const breakdown = data.map((ans, i) => {
         if (!ans) return null;
-        let answerText = "No answer provided";
         let attachments = [];
+        let details = [];
         for (const [key, val] of Object.entries(ans)) {
           if (key === "_proof") {
             const arr = Array.isArray(val) ? val : [val];
             attachments = arr.map(v => v.startsWith("/api") ? v : `/api/uploads/${v}`);
-          } else if (typeof val === "string" && answerText === "No answer provided") {
-            answerText = val;
+            continue;
           }
+
+          let displayLabel = key;
+          let displayValue = String(val);
+
+          if (typeof val === "object" && val !== null) {
+            if (val._detail) {
+              const baseVal = Object.keys(val).filter(k => !isNaN(k)).map(k => val[k]).join("");
+              displayValue = baseVal ? `${baseVal} (Detail: ${val._detail})` : val._detail;
+            } else {
+              displayValue = JSON.stringify(val);
+            }
+          }
+
+          if (missionTasks[i] && Array.isArray(missionTasks[i].questions)) {
+            const isDetail = key.endsWith("_detail");
+            const baseKey = isDetail ? key.replace("_detail", "") : key;
+            const qMatch = missionTasks[i].questions.find(q => q.id === baseKey);
+            
+            if (qMatch) {
+              displayLabel = isDetail ? `Detail: ${qMatch.text}` : qMatch.text;
+            }
+          }
+          
+          details.push({ label: displayLabel, value: displayValue });
         }
+        
+        let taskTitle = `Task ${i + 1}`;
+        if (missionTasks[i] && missionTasks[i].title) {
+          taskTitle = missionTasks[i].title;
+        } else if (missionTasks[i] && missionTasks[i].prompt) {
+          taskTitle = missionTasks[i].prompt;
+        } else if (typeof missionTasks[i] === "string") {
+          taskTitle = missionTasks[i];
+        }
+
         return {
-          t: `Task ${i + 1}`,
+          t: taskTitle,
           rating: 0, // builders will rate it overall
-          ans: answerText,
+          details,
           attachments: attachments.filter(Boolean),
         };
       }).filter(Boolean);
@@ -591,7 +635,7 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   if (!response) return res.status(404).json({ error: "Submission not found" });
 
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
-  await db.prepare(`UPDATE v_my_missions SET status = 'active' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+  await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
     .run(response.validator_id, "alert", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");

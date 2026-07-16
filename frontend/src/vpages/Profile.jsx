@@ -10,6 +10,10 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [industry, setIndustry] = useState("");
+  const [location, setLocation] = useState("");
+  const [bio, setBio] = useState("");
   const [specialties, setSpecialties] = useState([]);
   const [tagInput, setTagInput] = useState("");
   const [error, setError] = useState("");
@@ -20,7 +24,13 @@ export default function Profile() {
   if (!data.name && Object.keys(data).length === 0) return <div className="page rise"><div className="muted">Couldn't load profile. Please refresh.</div></div>;
 
   const startEdit = () => {
-    setName(data.name); setHandle((data.handle || "").replace(/^@/, "")); setSpecialties([...(data.specialties || [])]);
+    setName(data.name); 
+    setHandle((data.handle || "").replace(/^@/, "")); 
+    setOccupation(data.occupation || "");
+    setIndustry(data.industry || "");
+    setLocation(data.location || "");
+    setBio(data.bio || "");
+    setSpecialties([...(data.specialties || [])]);
     setTagInput(""); setError(""); setEditing(true);
   };
 
@@ -37,8 +47,8 @@ export default function Profile() {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      const res = await vapi.updateProfile({ name, handle, specialties });
-      setData(d => ({ ...d, name: res.name, handle: res.handle, specialties: res.specialties }));
+      const res = await vapi.updateProfile({ name, handle, occupation, industry, location, bio, specialties });
+      setData(d => ({ ...d, name: res.name, handle: res.handle, occupation: res.occupation, industry: res.industry, location: res.location, bio: res.bio, specialties: res.specialties }));
       setEditing(false);
     } catch (err) {
       setError(err.message || "Couldn't save changes");
@@ -59,8 +69,14 @@ export default function Profile() {
                 <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
                   <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
                   <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />Lvl {data.level || 1} · {data.levelName || "Trial"}</span>
+                  <span className="tag" style={{ background: data.role === "Validator" ? "var(--purple-weak)" : data.role === "Tester" ? "var(--success-weak)" : "var(--border-color)", color: data.role === "Validator" ? "var(--purple)" : data.role === "Tester" ? "var(--success)" : "var(--text-muted)" }}>
+                    <Icon name={data.role === "Validator" ? "shield" : data.role === "Tester" ? "checkSquare" : "user"} size={13} />
+                    {data.role || "User"}
+                  </span>
                 </div>
-                <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {(data.specialties || []).join(" · ")}</p>
+                <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.occupation || "Unspecified"} · {(data.specialties || []).join(" · ")}</p>
+                {data.location && <p className="muted" style={{ margin: "3px 0 0", fontSize: 13 }}><Icon name="mapPin" size={12} /> {data.location}</p>}
+                {data.bio && <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.4 }}>{data.bio}</p>}
                 <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
                   <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating || 0} · {data.ratingCount || 0} reviews</span>
                   <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy || 0}% accuracy</span>
@@ -81,6 +97,26 @@ export default function Profile() {
                   <label>Handle</label>
                   <div className="inw has-pre"><span className="pre">@</span><input className="fin" value={handle} onChange={e => setHandle(e.target.value.replace(/^@/, ""))} placeholder="yourhandle" /></div>
                 </div>
+              </div>
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Occupation</label>
+                  <input className="fin" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="e.g. Software Engineer" />
+                </div>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Industry</label>
+                  <input className="fin" value={industry} onChange={e => setIndustry(e.target.value)} placeholder="e.g. Technology" />
+                </div>
+              </div>
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Location (City)</label>
+                  <input className="fin" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Bengaluru" />
+                </div>
+              </div>
+              <div className="fld">
+                <label>Bio</label>
+                <textarea className="fin" rows={3} value={bio} onChange={e => setBio(e.target.value)} placeholder="A short bio about yourself..." />
               </div>
               <div className="fld">
                 <label>Specialties (up to 6)</label>

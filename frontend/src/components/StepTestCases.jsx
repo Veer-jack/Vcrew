@@ -164,6 +164,16 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
               <input type="number" min="1" className="fin" value={Math.ceil((task.min_time_seconds || 120) / 60)} onChange={e => onEdit(idx, { min_time_seconds: Math.max(1, parseInt(e.target.value || 1)) * 60 })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 8px", width: 60, textAlign: "center" }} />
             </div>
 
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: 10 }}>
+              <input 
+                type="checkbox" 
+                checked={task.proof === "screenshot"} 
+                onChange={e => onEdit(idx, { proof: e.target.checked ? "screenshot" : null })} 
+                onClick={e => e.stopPropagation()} 
+              />
+              Require screenshot proof
+            </label>
+
             <div style={{ flex: 1 }} />
             
             <button className="btn" style={{ background: "var(--danger-weak)", color: "var(--danger)", border: "none", fontSize: 13 }} onClick={e => { e.stopPropagation(); onDelete(idx); }}>

@@ -245,6 +245,9 @@ CREATE TABLE IF NOT EXISTS validators (
   languages_json TEXT DEFAULT '[]',
   devices_json TEXT DEFAULT '[]',
   hours_per_week TEXT,
+  occupation TEXT,
+  industry TEXT,
+  role TEXT DEFAULT 'User' CHECK (role IN ('User', 'Tester', 'Validator')),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

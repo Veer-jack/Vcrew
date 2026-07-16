@@ -65,6 +65,9 @@ export const FILTERS = {
     "Education", "Environment & Sustainability", "Politics & Policy", "Social Impact",
     "Consumer Goods", "Automotive", "Home & Living", "Other"
   ],
+  "ValidationCrew Role": [
+    "Validator", "Tester", "User"
+  ]
 };
 
 export const catOf = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[0];

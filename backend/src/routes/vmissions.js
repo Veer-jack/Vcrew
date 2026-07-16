@@ -58,14 +58,20 @@ router.get("/", async (req, res) => {
     ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ?`;
   const params = [req.validator.id];
-  if (status) { sql += ` AND mm.status = ?`; params.push(status); }
+  if (status === "active") {
+    sql += ` AND mm.status IN ('active', 'revision')`;
+  } else if (status) { 
+    sql += ` AND mm.status = ?`; 
+    params.push(status); 
+  }
   sql += ` ORDER BY mm.updated_at DESC`;
   const rows = await db.prepare(sql).all(...params);
 
   const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
-    if (counts[r.status] !== undefined) counts[r.status] = Number(r.c);
+    if (r.status === "revision") counts.active += Number(r.c);
+    else if (counts[r.status] !== undefined) counts[r.status] = Number(r.c);
   }
 
   res.json({ missions: rows.map(serializeRow), counts });
@@ -158,17 +164,56 @@ router.get("/:id/workspace", async (req, res) => {
   let tasks = [];
   try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
 
-  const response = await db.prepare(`SELECT data_json FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  const response = await db.prepare(`SELECT data_json, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   let responses = null;
+  let isDraft = false;
   if (response && response.data_json) {
     try { responses = JSON.parse(response.data_json); } catch {}
+    isDraft = response.status === "draft" || response.status === "revision";
   }
 
   res.json({
     mission: { id: m.id, name: m.name, brand: m.brand || m.builder_name, ptype: m.ptype },
     tasks,
     responses,
+    isDraft,
   });
+});
+
+// PATCH /api/v/missions/:id/workspace/draft — auto-save workspace draft
+router.patch("/:id/workspace/draft", async (req, res) => {
+  const { answers, curIdx } = req.body || {};
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  let totalTasks = 1;
+  try {
+    const parsedTasks = JSON.parse(m.tasks_json || "[]");
+    totalTasks = parsedTasks.length || 1;
+  } catch {}
+  
+  const progressPercent = Math.min(100, Math.max(0, Math.round(((curIdx || 0) / totalTasks) * 100)));
+
+  const existing = await db.prepare(`SELECT id, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  
+  const draftData = { answers: answers || [], curIdx: curIdx || 0 };
+  
+  if (existing) {
+    // Only update if it's currently a draft or revision (don't overwrite a submitted mission)
+    if (existing.status === "draft" || existing.status === "revision") {
+      await db.prepare(`UPDATE responses SET data_json = ?, submitted_at = NOW() WHERE id = ?`)
+        .run(JSON.stringify(draftData), existing.id);
+    }
+  } else {
+    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'draft', NOW())`)
+      .run(req.params.id, req.validator.id, JSON.stringify(draftData));
+  }
+
+  // Atomically sync the integer progress percentage for the Dashboard
+  await db.prepare(`UPDATE v_my_missions SET progress = ?, updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
+    .run(progressPercent, req.params.id, req.validator.id);
+
+  res.json({ ok: true, progress: progressPercent });
 });
 
 // POST /api/v/missions/:id/workspace/proof — upload a screenshot for a workspace task
@@ -206,7 +251,7 @@ router.patch("/:id/workspace/submit", async (req, res) => {
 
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm) return res.status(404).json({ error: "You haven't accepted this mission yet" });
-  if (mm.status !== 'active') return res.status(400).json({ error: "Mission already submitted" });
+  if (mm.status !== "active" && mm.status !== "revision") return res.status(400).json({ error: "Mission already submitted" });
 
   // --- Deep Schema Validation (TC 024) ---
   let tasks = [];
@@ -236,8 +281,14 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   }
   // ---------------------------------------
 
-  const existing = await db.prepare(`SELECT id FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  const existing = await db.prepare(`SELECT id, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (existing) {
+    if (existing.status === 'revision') {
+      await db.prepare(`
+        INSERT INTO notifications (builder_id, type, icon, tone, title, body, time_label, unread)
+        VALUES (?, 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
+      `).run(m.builder_id, `A validator has updated their response for ${m.name} and is ready for your review.`);
+    }
     await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
       .run(JSON.stringify(answers || {}), existing.id);
   } else {

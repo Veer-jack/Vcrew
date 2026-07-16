@@ -126,6 +126,12 @@ export async function initDb() {
     if (!vCols.includes('languages_json')) await client.query("ALTER TABLE validators ADD COLUMN languages_json TEXT DEFAULT '[]'");
     if (!vCols.includes('devices_json')) await client.query("ALTER TABLE validators ADD COLUMN devices_json TEXT DEFAULT '[]'");
     if (!vCols.includes('hours_per_week')) await client.query('ALTER TABLE validators ADD COLUMN hours_per_week TEXT');
+    if (!vCols.includes('occupation')) await client.query('ALTER TABLE validators ADD COLUMN occupation TEXT');
+    if (!vCols.includes('industry')) await client.query('ALTER TABLE validators ADD COLUMN industry TEXT');
+    if (!vCols.includes('role')) await client.query("ALTER TABLE validators ADD COLUMN role TEXT DEFAULT 'User' CHECK (role IN ('User', 'Tester', 'Validator'))");
+    if (!vCols.includes('location')) await client.query('ALTER TABLE validators ADD COLUMN location TEXT');
+    if (!vCols.includes('bio')) await client.query('ALTER TABLE validators ADD COLUMN bio TEXT');
+    if (!vCols.includes('phone_verified')) await client.query('ALTER TABLE validators ADD COLUMN phone_verified INTEGER DEFAULT 0');
 
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
