@@ -134,11 +134,13 @@ router.get("/members", async (req, res) => {
   const q = String(req.query.q || "").toLowerCase().trim();
   const type = req.query.type; // 'builder' | 'validator' | undefined
 
-  const builders = type === "validator" ? [] : await db.prepare(`SELECT * FROM builders ORDER BY id`).all().map(b => ({
+  const buildersRaw = type === "validator" ? [] : await db.prepare(`SELECT * FROM builders ORDER BY id`).all();
+  const builders = buildersRaw.map(b => ({
     id: b.id, type: "builder", name: b.name, email: b.email, org: b.org, status: b.status || "active",
     balance: b.balance, phoneVerified: !!b.phone_verified, createdAt: b.created_at,
   }));
-  const validators = type === "builder" ? [] : await db.prepare(`SELECT * FROM validators ORDER BY id`).all().map(v => ({
+  const validatorsRaw = type === "builder" ? [] : await db.prepare(`SELECT * FROM validators ORDER BY id`).all();
+  const validators = validatorsRaw.map(v => ({
     id: v.id, type: "validator", name: v.name, email: v.email, org: v.handle || "—", status: v.status || "active",
     balance: v.available, level: v.level, lifetime: v.lifetime, rating: v.rating, phoneVerified: !!v.phone_verified, createdAt: v.created_at,
   }));

@@ -55,7 +55,8 @@ router.get("/", async (req, res) => {
   }[sort] || ((a, b) => b.match - a.match);
   tasks.sort(cmp);
 
-  const allTasks = await db.prepare(`SELECT * FROM vtasks`).all().map(t => serializeTask(t, savedIds, myStatus));
+  const allTasksRaw = await db.prepare(`SELECT * FROM vtasks`).all();
+  const allTasks = allTasksRaw.map(t => serializeTask(t, savedIds, myStatus));
   const categories = TYPE_ORDER.map(k => ({
     key: k, label: VTYPES[k].label, blurb: VTYPES[k].blurb,
     count: allTasks.filter(t => t.type === k).length,
