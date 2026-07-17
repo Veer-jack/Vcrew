@@ -62,7 +62,7 @@ export default function VOnboarding() {
     setBusy(true);
     setError("");
     try {
-      await vapi.updateProfile({
+      await vapi.patch("/v/profile", {
         handle: d.handle.trim(),
         city: d.city.trim(),
         bio: d.bio.trim(),
