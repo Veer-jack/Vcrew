@@ -98,26 +98,26 @@ async function audit(action, targetType, targetId, detail) {
 
 
 router.get("/dashboard", async (req, res) => {
-  const builders = await db.prepare(`SELECT COUNT(*) AS n FROM builders`).get().n;
-  const validators = await db.prepare(`SELECT COUNT(*) AS n FROM validators`).get().n;
-  const activeMissions = await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE status IN ('live','active','published')`).get().n;
-  const totalMissions = await db.prepare(`SELECT COUNT(*) AS n FROM missions`).get().n;
+  const builders = (await db.prepare(`SELECT COUNT(*) AS n FROM builders`).get()).n;
+  const validators = (await db.prepare(`SELECT COUNT(*) AS n FROM validators`).get()).n;
+  const activeMissions = (await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE status IN ('live','active','published')`).get()).n;
+  const totalMissions = (await db.prepare(`SELECT COUNT(*) AS n FROM missions`).get()).n;
 
-  const gmv = await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit'`).get().n;
-  const spend = await db.prepare(`SELECT COALESCE(SUM(spend),0) AS n FROM missions`).get().n;
+  const gmv = (await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit'`).get()).n;
+  const spend = (await db.prepare(`SELECT COALESCE(SUM(spend),0) AS n FROM missions`).get()).n;
 
-  const openTickets = await db.prepare(`
+  const openTickets = (await db.prepare(`
     SELECT (SELECT COUNT(*) FROM b_tickets WHERE status = 'open') + (SELECT COUNT(*) FROM v_tickets WHERE status = 'open') AS n
-  `).get().n;
+  `).get()).n;
 
   const withdrawalQueue = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(amount),0) AS amt FROM withdrawals WHERE status IN ('queued','processing','pending')`).get();
 
-  const suspended = await db.prepare(`
+  const suspended = (await db.prepare(`
     SELECT (SELECT COUNT(*) FROM builders WHERE status = 'suspended') + (SELECT COUNT(*) FROM validators WHERE status = 'suspended') AS n
-  `).get().n;
+  `).get()).n;
 
-  const pendingVerifications = await db.prepare(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`).get().n;
-  const flaggedMissions = await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get().n;
+  const pendingVerifications = (await db.prepare(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`).get()).n;
+  const flaggedMissions = (await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get()).n;
 
   res.json({
     builders, validators, totalUsers: builders + validators,
