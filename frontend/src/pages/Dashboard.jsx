@@ -30,12 +30,12 @@ function ActivityFeed({ rows }) {
   return (
     <div className="feed">
       {rows.map((a) => (
-        <div className="feed-row" key={a.id}>
+        <div className="feed-row" key={a.id} style={{ alignItems: "center", padding: "16px 12px" }}>
           <span className={`feed-ic ${a.tone}`}><Icon name={a.icon} size={16} /></span>
-          <div className="feed-body">
-            <p><b>{a.who}</b> {a.text} <b>{a.mission_name}</b></p>
-            <div className="feed-time">{a.time_label}</div>
+          <div className="feed-body" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <p style={{ fontSize: "14.5px" }}><b>{a.who}</b> {a.text} <b>{a.mission_name}</b></p>
           </div>
+          <div className="feed-time" style={{ marginTop: 0, fontSize: "13px" }}>{a.time_label}</div>
         </div>
       ))}
     </div>
@@ -82,6 +82,8 @@ export default function Dashboard() {
   const { categories } = useMeta();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [showAllMissions, setShowAllMissions] = useState(false);
+  const [showAllActivity, setShowAllActivity] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
 
   useEffect(() => {
@@ -157,19 +159,37 @@ export default function Dashboard() {
         <QuickActions nav={navigate} balance={builder?.balance} />
       </div>
 
-      <div className="split">
-        <div className="sec" style={{ marginBottom: 0 }}>
-          <div className="sec-head">
-            <h2 className="h-lg">Recent missions</h2>
-            <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => navigate("/missions")}>All missions</Btn>
+      <div className="sec" style={{ marginBottom: 40 }}>
+        <div className="card" style={{ padding: "18px 0" }}>
+          <div className="sec-head" style={{ marginBottom: 12, padding: "0 18px" }}>
+            <h3 className="h-md">Recent missions</h3>
+            <Btn 
+              variant="quiet" 
+              size="sm" 
+              iconRight={showAllMissions ? "x" : "arrowRight"} 
+              onClick={() => setShowAllMissions(!showAllMissions)}
+            >
+              {showAllMissions ? "Close" : "View all missions"}
+            </Btn>
           </div>
-          <MissionsTable rows={recentMissions} nav={navigate} categories={categories} />
+          <MissionsTable rows={showAllMissions ? recentMissions : recentMissions.slice(0, 3)} nav={navigate} categories={categories} />
         </div>
-        <div className="sticky-side">
-          <div className="card" style={{ padding: 18 }}>
-            <div className="sec-head" style={{ marginBottom: 6 }}><h3 className="h-md">Activity feed</h3></div>
-            <ActivityFeed rows={activity} />
+      </div>
+
+      <div className="sec">
+        <div className="card" style={{ padding: 18 }}>
+          <div className="sec-head" style={{ marginBottom: 6 }}>
+            <h3 className="h-md">Activity feed</h3>
+            <Btn 
+              variant="quiet" 
+              size="sm" 
+              iconRight={showAllActivity ? "x" : "arrowRight"} 
+              onClick={() => setShowAllActivity(!showAllActivity)}
+            >
+              {showAllActivity ? "Close" : "View all"}
+            </Btn>
           </div>
+          <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
         </div>
       </div>
     </div>

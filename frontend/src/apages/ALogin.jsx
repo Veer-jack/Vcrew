@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
-import { Btn } from "../components/ui";
+import { Btn, PasswordInput } from "../components/ui";
 import { useAAuth } from "../acontext/AAuthContext";
 
 export default function ALogin() {
@@ -103,7 +103,7 @@ export default function ALogin() {
               </div>
               <div className="fld">
                 <label>Password</label>
-                <input className="fin" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+                <PasswordInput className="fin" value={password} onChange={e => setPassword(e.target.value)} required />
               </div>
               <Btn type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? "Signing in…" : "Continue"}</Btn>
             </form>

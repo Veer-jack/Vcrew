@@ -1,8 +1,38 @@
+import { useState } from "react";
 import Icon from "./Icon";
 
 const AV_COLORS = ["#4f46e5","#0ea5a4","#d6336c","#c2410c","#2563eb","#7c3aed","#16a34a","#0891b2","#b45309","#db2777"];
 export const avColor = (s = "") => AV_COLORS[(s.charCodeAt(0) + s.length) % AV_COLORS.length];
 export const initials = (n = "") => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+
+export function PasswordInput({ className, value, onChange, placeholder, required, style }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div style={{ position: "relative", ...style }}>
+      <input 
+        className={className} 
+        type={show ? "text" : "password"} 
+        value={value} 
+        onChange={onChange} 
+        placeholder={placeholder} 
+        required={required} 
+        style={{ paddingRight: 40 }}
+      />
+      <button 
+        type="button" 
+        onClick={() => setShow(!show)} 
+        style={{ 
+          position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", 
+          background: "none", border: "none", padding: 0, cursor: "pointer", 
+          color: "var(--text-faint)", display: "flex", alignItems: "center", justifyContent: "center"
+        }}
+        title={show ? "Hide password" : "Show password"}
+      >
+        <Icon name={show ? "eyeOff" : "eye"} size={16} />
+      </button>
+    </div>
+  );
+}
 
 export const inr = (n) => "₹" + Number(n || 0).toLocaleString("en-IN");
 export const inrK = (n) => {

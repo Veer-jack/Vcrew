@@ -8,6 +8,7 @@ import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { catOf, ptypeOf, REWARDS, matchCount } from "../meta.js";
 import { sendMissionPublished } from "../email.js";
+import { recalcMissionStats } from "../stats.js";
 
 // Lazy import to avoid circular dependency — admin.js imports db.js,
 // missions.js imports admin.js only for the automod helper.
@@ -76,12 +77,20 @@ function serializeMission(m) {
     ptype: m.ptype,
     ptypeLabel: ptypeOf(m.ptype).label,
     status: m.status,
-    participants: { target: m.target, joined: m.joined, submitted: m.submitted },
+    participants: { 
+      target: m.target, 
+      joined: m.joined, 
+      submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted 
+    },
     reward: { type: m.reward_type, amount: m.reward_amount },
-    completion: m.completion,
+    completion: m.real_submitted !== undefined 
+      ? Math.min(100, Math.round((Number(m.real_submitted) / Math.max(m.target || 1, 1)) * 100)) 
+      : m.completion,
     spend: m.spend,
     region: m.region,
-    rating: m.rating,
+    rating: m.real_rating !== undefined && m.real_rating !== null 
+      ? Math.round(Number(m.real_rating) * 10) / 10 
+      : m.rating,
     description: m.description,
     deadline: m.deadline,
     audience: JSON.parse(m.audience_json || "{}"),
@@ -92,7 +101,13 @@ function serializeMission(m) {
 // GET /api/missions?status=&category=&q=
 router.get("/", async (req, res) => {
   const { status, category, q } = req.query;
-  let sql = `SELECT * FROM missions WHERE builder_id = ?`;
+  let sql = `
+    SELECT m.*, 
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
+    FROM missions m 
+    WHERE m.builder_id = ?
+  `;
   const params = [req.builder.id];
   if (status) { sql += ` AND status = ?`; params.push(status); }
   if (category) { sql += ` AND category = ?`; params.push(category); }
@@ -104,7 +119,14 @@ router.get("/", async (req, res) => {
 
 // GET /api/missions/:id
 router.get("/:id", async (req, res) => {
-  const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  await recalcMissionStats(req.params.id);
+  const m = await db.prepare(`
+    SELECT m.*, 
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
+    FROM missions m 
+    WHERE m.id = ? AND m.builder_id = ?
+  `).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
   const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
@@ -252,20 +274,46 @@ router.post("/", async (req, res) => {
   const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
   const id = "m_" + randomUUID().slice(0, 8);
   const status = b.status === "active" ? "active" : "draft";
+  const target = Number(b.target) || 0;
+  const rewardAmount = Number(reward.amount) || 0;
 
-  await db.prepare(`
-    INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
-      reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, deadline)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, 0, ?, ?, ?, ?)
-  `).run(
-    id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
-    Number(b.target) || 0, rewardType, Number(reward.amount) || 0,
-    b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []), b.deadline || null
-  );
+  try {
+    await db.transaction(async (tx) => {
+      let spend = 0;
+      if (status === "active" && rewardType !== "free" && rewardAmount > 0 && target > 0) {
+        const platformFee = Math.round((target * rewardAmount) * 0.12);
+        const totalCost = (target * rewardAmount) + platformFee;
+        
+        const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
+        if (updateRes.changes === 0) {
+          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. 12% fee). Please top up your wallet.`);
+        }
+        spend = totalCost;
+        
+        const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
+        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${b.name} (incl. 12% fee)`);
+      }
+
+      await tx.prepare(`
+        INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
+          reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, deadline)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?)
+      `).run(
+        id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
+        target, rewardType, rewardAmount, spend,
+        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []), b.deadline || null
+      );
+
+      if (status === "active") {
+        await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
+          .run(req.builder.id, "mission_published", b.name, "Mission published and live");
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
 
   if (status === "active") {
-    await db.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
-      .run(req.builder.id, "mission_published", b.name, "Mission published and live");
     sendMissionPublished({
       builderName: req.builder.name, builderEmail: req.builder.email,
       missionName: b.name, missionId: id,
@@ -306,16 +354,61 @@ router.patch("/:id", async (req, res) => {
   const allowed = ["name", "status", "target", "deadline", "region", "description"];
   const updates = [];
   const params = [];
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) {
-      const col = key === "name" ? "name" : key;
-      updates.push(`${col} = ?`);
-      params.push(req.body[key]);
-    }
+  
+  const newStatus = req.body.status !== undefined ? req.body.status : m.status;
+  const newTarget = req.body.target !== undefined ? Number(req.body.target) : m.target;
+  let spendDelta = 0;
+  
+  try {
+    await db.transaction(async (tx) => {
+      // If moving from draft to active, we need to charge them
+      if (newStatus === "active" && m.status === "draft" && m.reward_type !== "free" && m.reward_amount > 0 && newTarget > 0) {
+        const platformFee = Math.round((newTarget * m.reward_amount) * 0.12);
+        const totalCost = (newTarget * m.reward_amount) + platformFee;
+        
+        const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
+        if (updateRes.changes === 0) {
+          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. 12% fee). Please top up your wallet.`);
+        }
+        spendDelta = totalCost;
+        
+        const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
+        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${m.name} (incl. 12% fee)`);
+      }
+
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) {
+          const col = key === "name" ? "name" : key;
+          updates.push(`${col} = ?`);
+          params.push(req.body[key]);
+        }
+      }
+      if (spendDelta > 0) {
+        updates.push(`spend = spend + ?`);
+        params.push(spendDelta);
+      }
+      
+      if (!updates.length) throw new Error("No valid fields to update");
+      params.push(m.id);
+      await tx.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+      
+      if (newStatus === "active" && m.status === "draft") {
+        await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
+          .run(req.builder.id, "mission_published", m.name, "Mission published and live");
+      }
+    });
+  } catch (err) {
+    if (err.message === "No valid fields to update") return res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
-  if (!updates.length) return res.status(400).json({ error: "No valid fields to update" });
-  params.push(m.id);
-  await db.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  
+  if (newStatus === "active" && m.status === "draft") {
+    sendMissionPublished({
+      builderName: req.builder.name, builderEmail: req.builder.email,
+      missionName: m.name, missionId: m.id,
+    }).catch(() => {});
+    automodMission(m.id);
+  }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
   res.json({ mission: serializeMission(updated) });
@@ -553,17 +646,24 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
 
     const reward = mission.reward_amount || 0;
     if (reward > 0) {
-      const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
-      if (updateRes.changes === 0) throw new Error("Insufficient wallet balance");
+      // Deduct reward ONLY from pending escrow (balance was already deducted at publish)
+      const updateRes = await tx.prepare(`UPDATE builders SET pending = pending - ? WHERE id = ? AND pending >= ?`).run(reward, req.builder.id, reward);
+      if (updateRes.changes === 0) {
+        // Fallback for missions that were already active before this escrow system was implemented
+        const legacyRes = await tx.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
+        if (legacyRes.changes === 0) throw new Error("Insufficient funds in escrow and wallet");
+      }
     }
 
     await tx.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
     
     if (reward > 0) {
-      await tx.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(reward, response.validator_id);
+      await tx.prepare(`UPDATE validators SET balance = balance + ?, earnings_total = earnings_total + ? WHERE id = ?`).run(reward, reward, response.validator_id);
     }
     
-    await tx.prepare(`UPDATE v_my_missions SET status = 'completed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    const feedbackNote = req.body.note || "";
+    const scoreVal = rating * 20; // convert 1-5 to 20-100
+    await tx.prepare(`UPDATE v_my_missions SET status = 'completed', score = ?, reason = ? WHERE mission_id = ? AND validator_id = ?`).run(scoreVal, feedbackNote, req.params.id, response.validator_id);
     await tx.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
 
     // Reputation Engine Update (O(1) Rolling Average)
@@ -581,6 +681,15 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
     await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
       .run(response.validator_id, "application", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! \u20b9${reward} has been added to your wallet.`, "Just now");
 
+    // Log Activity for Builder
+    await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
+      .run(req.builder.id, "submission_approved", mission.name, response.name, 0);
+    if (reward > 0) {
+      await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
+        .run(req.builder.id, "reward_released", mission.name, "", reward);
+    }
+
+    await recalcMissionStats(req.params.id, tx);
   }).catch(err => {
     return res.status(400).json({ error: err.message });
   });
@@ -619,6 +728,7 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
     await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
       .run(response.validator_id, "alert", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
 
+    await recalcMissionStats(req.params.id, tx);
   }).catch(err => {
     return res.status(400).json({ error: err.message });
   });
@@ -639,6 +749,8 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
     .run(response.validator_id, "alert", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
+
+  await recalcMissionStats(req.params.id);
 
   res.json({ ok: true });
 });

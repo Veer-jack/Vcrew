@@ -52,9 +52,13 @@ export default function Analytics() {
           </div>
           <div className="chart-card">
             <div className="sec-head"><h3 className="h-md">Audience pool by city</h3></div>
-            {data.geo.map(g => (
-              <div className="geo-row" key={g.l}><span className="gn">{g.l}</span><span className="gbar"><i style={{ width: (g.v / maxGeo) * 100 + "%" }} /></span><span className="gv">{g.v}</span></div>
-            ))}
+            {data.geo.length === 0 ? (
+              <div className="muted" style={{ padding: "12px 0", fontSize: 14 }}>Not enough audience data yet.</div>
+            ) : (
+              data.geo.map(g => (
+                <div className="geo-row" key={g.l}><span className="gn">{g.l}</span><span className="gbar"><i style={{ width: (g.v / maxGeo) * 100 + "%" }} /></span><span className="gv">{g.v}</span></div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -6,6 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
+import { recalcMissionStats } from "../stats.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -23,11 +24,11 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per file
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
   fileFilter: (req, file, cb) => {
-    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    const allowed = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"];
     if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Invalid file type. Only JPG, PNG, and WebP are allowed."));
+    else cb(new Error("Invalid file type. Only JPG, PNG, WebP, MP4, WebM, and MOV are allowed."));
   },
 });
 router.use(validatorAuthMiddleware);
@@ -127,6 +128,10 @@ router.post("/:taskId/submit", async (req, res) => {
 
   // reward becomes a pending payout while the builder reviews it
   await db.prepare(`UPDATE validators SET pending = pending + ? WHERE id = ?`).run(t.reward, req.validator.id);
+
+  // Log Activity for Builder
+  await db.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (1, 'submission_received', ?, ?, ?)`)
+    .run(t.product + " — " + t.tagline, req.validator.name, 0);
 
   // Evaluate day streak logic (Lazy Evaluation)
   await db.prepare(`
@@ -294,7 +299,7 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   } else {
     await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'pending', NOW())`)
       .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
-    await db.prepare(`UPDATE missions SET submitted = submitted + 1 WHERE id = ?`).run(req.params.id);
+    await recalcMissionStats(req.params.id, db);
   }
 
   await db.prepare(`UPDATE v_my_missions SET status = 'submitted', progress = 100, status_label = 'Submitted for review', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)

@@ -147,8 +147,12 @@ export default function MissionDetails() {
         }
         <span className="grow" />
         <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>Earn <b style={{ color: "var(--success)" }}>₹{task.reward}</b> on approval</span>
-        {accepted
-          ? <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${task.id}/workspace`)} style={{ background: "var(--success)", borderColor: "var(--success)" }}><Icon name="check" />{task.myStatus === "active" ? "Accepted · Start now" : "View submission"}</button>
+        {task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied"
+          ? <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${task.id}/${task.myStatus === "completed" ? "results" : "workspace"}`)} style={{
+              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              opacity: task.myStatus === "rejected" ? 0.8 : 1
+            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} />{task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Accepted · Start now" : "View reason"}</button>
           : <button className="btn btn-primary btn-lg" disabled={busy} onClick={apply}>{busy ? "Applying…" : "Apply to this mission"} <Icon name="arrowRight" /></button>}
       </div>
 

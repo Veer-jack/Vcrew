@@ -8,13 +8,17 @@ router.use(validatorAuthMiddleware);
 
 router.get("/", async (req, res) => {
   const v = req.validator;
-  const lvl = LEVELS.find(l => l.n === v.level) || LEVELS[0];
-  const nextLvl = LEVELS.find(l => l.n === v.level + 1) || null;
-  const lvlPct = nextLvl ? Math.min(100, Math.round(((v.completed - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
+  const lvl = LEVELS.find(l => l.n === (v.level || 1)) || LEVELS[0];
+  const nextLvl = LEVELS.find(l => l.n === (v.level || 1) + 1) || null;
+  const missionsDone = v.missions_done || 0;
+  const lvlPct = nextLvl ? Math.min(100, Math.round(((missionsDone - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
   // Role Promotion Logic (User -> Tester -> Validator)
   let calcRole = "User";
-  if (v.completed >= 5 && v.accuracy >= 90) calcRole = "Tester";
+  const accuracy = 100; // Hardcoded default for now until DB supports accuracy tracking
+  const streak = 0; // Default until tracking implemented
+  
+  if (missionsDone >= 5 && accuracy >= 90) calcRole = "Tester";
   if (v.verified && v.occupation) calcRole = "Validator";
 
   if (calcRole !== v.role) {
@@ -26,28 +30,50 @@ router.get("/", async (req, res) => {
   const dynamicBadges = BADGES.map(b => {
     let got = false;
     if (b.label === "Identity verified") got = !!v.phone_verified;
-    if (b.label === "AI specialist") got = (v.completed >= 50 && v.accuracy >= 90);
-    if (b.label === "30-day streak") got = (v.streak >= 4);
-    if (b.label === "Top 5% rated") got = (v.rating >= 4.8 && v.rating_count >= 50);
-    if (b.label === "SaaS expert") got = (v.completed >= 25);
-    if (b.label === "Perfectionist") got = (v.accuracy >= 98 && v.completed >= 30);
+    if (b.label === "AI specialist") got = (missionsDone >= 50 && accuracy >= 90);
+    if (b.label === "30-day streak") got = (streak >= 4);
+    if (b.label === "Top 5% rated") got = (v.rating >= 4.8 && (v.reviews_count || 0) >= 50);
+    if (b.label === "SaaS expert") got = (missionsDone >= 25);
+    if (b.label === "Perfectionist") got = (accuracy >= 98 && missionsDone >= 30);
     return { ...b, got };
   });
 
-  // Calculate generic expertise based on completed count to replace dummy data
-  const baseScore = Math.min(99, 40 + (v.completed * 2));
+  // Calculate true expertise based on actual category history
+  const categoryCounts = await db.prepare(`
+    SELECT m.ptype, COUNT(*) as c
+    FROM v_my_missions vmm
+    JOIN missions m ON vmm.mission_id = m.id
+    WHERE vmm.validator_id = ? AND vmm.status = 'completed'
+    GROUP BY m.ptype
+  `).all(v.id);
+
+  let countAi = 0, countDev = 0, countLanding = 0, countProto = 0;
+  for (const row of categoryCounts) {
+    if (row.ptype === 'ai') countAi += row.c;
+    else if (row.ptype === 'landing') countLanding += row.c;
+    else if (row.ptype === 'prototype') countProto += row.c;
+    else countDev += row.c; // mvp, idea, or others fallback
+  }
+
   const dynamicExpertise = [
-    { l: "AI products", v: Math.min(99, baseScore + (v.rating >= 4.5 ? 10 : 0)) },
-    { l: "Dev tools & SaaS", v: Math.min(99, baseScore) },
-    { l: "Landing pages", v: Math.min(99, baseScore - 5) },
-    { l: "Prototypes", v: Math.min(99, baseScore + 2) }
+    { l: "AI products", v: Math.min(99, 40 + (countAi * 5) + (v.rating >= 4.5 && countAi > 0 ? 5 : 0)) },
+    { l: "Dev tools & SaaS", v: Math.min(99, 40 + (countDev * 5)) },
+    { l: "Landing pages", v: Math.min(99, 40 + (countLanding * 5)) },
+    { l: "Prototypes", v: Math.min(99, 40 + (countProto * 5)) }
   ];
 
+  const earningsAgg = await db.prepare(`
+    SELECT SUM(m.reward_amount) as lifetime
+    FROM v_my_missions vmm
+    JOIN missions m ON vmm.mission_id = m.id
+    WHERE vmm.validator_id = ? AND vmm.status = 'completed'
+  `).get(v.id);
+
   res.json({
-    name: v.name, handle: v.handle, level: v.level, levelName: lvl.name,
-    rating: v.rating, ratingCount: v.rating_count, accuracy: v.accuracy, streak: v.streak,
+    name: v.name, handle: v.handle, level: v.level || 1, levelName: lvl.name,
+    rating: v.rating, ratingCount: v.reviews_count || 0, accuracy: accuracy, streak: streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
-    acceptRate: v.accept_rate, completed: v.completed, lifetime: v.lifetime,
+    acceptRate: 100, completed: missionsDone, lifetime: earningsAgg?.lifetime || 0,
     levelPct: lvlPct, nextLevel: nextLvl,
     levels: LEVELS, badges: dynamicBadges, expertise: dynamicExpertise,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,

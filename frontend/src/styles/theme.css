@@ -80,6 +80,7 @@ a { color: inherit; text-decoration: none; }
   padding: 22px 16px;
   background: var(--panel);
   border-right: var(--hairline) solid var(--border);
+  overflow-y: auto;
 }
 .brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 18px; }
 .brand-mark {
@@ -299,9 +300,14 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
   .app.mob-open .side { transform: translateX(0); }
   .mob-burger { display: grid; }
   .mob-scrim {
-    position: fixed; inset: 0; background: rgba(10,12,20,.4); z-index: 55; opacity: 0; pointer-events: none; transition: opacity .2s;
+    display: block; position: fixed; inset: 0; background: rgba(10,12,20,.4); 
+    z-index: 55; opacity: 0; pointer-events: none; transition: opacity .2s;
   }
   .app.mob-open .mob-scrim { opacity: 1; pointer-events: auto; }
+  
+  .topbar { padding: 0 16px; gap: 12px; }
+  .topbar h1 { display: none; }
+  .search { max-width: none; }
 }
 
 /* auth screens */
@@ -445,3 +451,10 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
   .asplit-brand { display: none; }
 }
 
+/* Global Mobile Resets */
+@media (max-width: 768px) {
+  :root {
+    --pad-page: 16px;
+    --pad-card: 16px;
+  }
+}

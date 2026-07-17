@@ -13,7 +13,7 @@ const resolveType = (typeStr) => {
   return found ? found.key : "mvp";
 };
 
-async function serializeTask(t, savedIds, myStatus) {
+async function serializeTask(t, savedIds, myContext) {
   const normType = resolveType(t.ptype || t.type || t.raw_type);
   const product = t.product || t.name || "";
   const tagline = t.tagline || (t.description ? t.description.slice(0, 100) : "");
@@ -44,21 +44,24 @@ async function serializeTask(t, savedIds, myStatus) {
     reward, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
     deadline, postedH, brief, steps,
     hot, verified, featured,
-    saved: savedIds.has(t.id), myStatus: myStatus[t.id] || null,
+    saved: savedIds.has(t.id), 
+    myStatus: myContext[t.id]?.status || null,
+    myScore: myContext[t.id]?.score || null,
+    myReason: myContext[t.id]?.reason || null,
   };
 }
 
 async function loadContext(validatorId) {
   const savedRows = await db.prepare(`SELECT task_id FROM v_saved WHERE validator_id = ?`).all(validatorId);
   const savedIds = new Set(savedRows.map(r => r.task_id));
-  const myRows = await db.prepare(`SELECT task_id, mission_id, status FROM v_my_missions WHERE validator_id = ?`).all(validatorId);
-  const myStatus = Object.fromEntries(myRows.map(r => [r.mission_id || r.task_id, r.status]));
-  return { savedIds, myStatus };
+  const myRows = await db.prepare(`SELECT task_id, mission_id, status, score, reason FROM v_my_missions WHERE validator_id = ?`).all(validatorId);
+  const myContext = Object.fromEntries(myRows.map(r => [r.mission_id || r.task_id, { status: r.status, score: r.score, reason: r.reason }]));
+  return { savedIds, myContext };
 }
 
 router.get("/", async (req, res) => {
   const { q, types, reward, time, verified, minMatch, sort } = req.query;
-  const { savedIds, myStatus } = await loadContext(req.validator.id);
+  const { savedIds, myContext } = await loadContext(req.validator.id);
 
   // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
   const baseCTE = `
@@ -78,7 +81,7 @@ router.get("/", async (req, res) => {
 
   // Normalization logic in JS is safer for mapping the exact strings, but filtering is pushed down where possible.
   const rawRows = await db.prepare(baseCTE + ` SELECT * FROM base_tasks`).all();
-  let tasks = await Promise.all(rawRows.map(t => serializeTask(t, savedIds, myStatus)));
+  let tasks = await Promise.all(rawRows.map(t => serializeTask(t, savedIds, myContext)));
 
   // Calculate un-filtered totals for categories (normalized)
   const categories = TYPE_ORDER.map(k => ({
@@ -122,8 +125,8 @@ router.get("/:id", async (req, res) => {
   }
   if (!t) return res.status(404).json({ error: "Mission not found" });
   
-  const { savedIds, myStatus } = await loadContext(req.validator.id);
-  const serialized = await serializeTask(t, savedIds, myStatus);
+  const { savedIds, myContext } = await loadContext(req.validator.id);
+  const serialized = await serializeTask(t, savedIds, myContext);
   res.json({ task: serialized, rubric: VTYPES[serialized.type] });
 });
 

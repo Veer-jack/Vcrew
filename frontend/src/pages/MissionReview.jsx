@@ -103,11 +103,11 @@ function SlideOver({ sub, onClose, onAction }) {
               <div onClick={() => toggleTask(i)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", cursor: "pointer", userSelect: "none", background: "var(--panel)" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "2px 8px", borderRadius: 12, background: "var(--accent-weak)", color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>Task {i + 1}</span>
                 <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{b.t}</span>
-                <div style={{ display: "flex", gap: 2, marginRight: 8 }}>
+                <div style={{ display: "flex", gap: 2, marginRight: 8, alignItems: "center" }}>
                   {[1, 2, 3, 4, 5].map(v => (
-                    <Icon key={v} name="star" size={12} style={{ color: b.rating >= v ? "var(--warning)" : "var(--border-strong)" }} />
+                    <Icon key={v} name="star" size={12} style={{ color: "var(--warning)", fill: "var(--warning)" }} />
                   ))}
-                  <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 4 }}>5/5</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 6, color: "var(--text)" }}>5/5</span>
                 </div>
                 <Icon name={expandedTasks.has(i) ? "chevUp" : "chevDown"} size={16} style={{ color: "var(--text-muted)" }} />
               </div>
@@ -132,17 +132,26 @@ function SlideOver({ sub, onClose, onAction }) {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
                           <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
                             <Icon name="image" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
-                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>Screenshot (if any)</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>Proof (Screenshot / Video)</div>
                           </div>
                           <div style={{ padding: "12px 14px", background: "var(--bg)", display: "flex", gap: 8, flexWrap: "wrap" }}>
-                            {b.attachments.map((src, idx) => (
-                              <div key={idx} style={{ position: "relative", width: 140, height: 80, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)" }}>
-                                <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                                <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
-                                  <Icon name="externalLink" size={12} /> View
-                                </a>
-                              </div>
-                            ))}
+                            {b.attachments.map((src, idx) => {
+                              const isVideo = src.match(/\.(mp4|webm|mov)$/i);
+                              return (
+                                <div key={idx} style={{ position: "relative", width: 140, height: 80, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)", background: "#000" }}>
+                                  {isVideo ? (
+                                    <video src={src} controls style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  ) : (
+                                    <>
+                                      <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                      <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                                        <Icon name="externalLink" size={12} /> View
+                                      </a>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

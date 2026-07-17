@@ -24,10 +24,25 @@ router.get("/", async (req, res) => {
     WHERE mm.validator_id = ? AND mm.status IN ('submitted','completed') ORDER BY mm.updated_at DESC LIMIT 10
   `).all(v.id);
 
+  // Dynamic Scalable Aggregations
+  const earningsAgg = await db.prepare(`
+    SELECT 
+      SUM(CASE WHEN vmm.status = 'completed' THEN m.reward_amount ELSE 0 END) as lifetime,
+      SUM(CASE WHEN vmm.status = 'completed' AND vmm.updated_at >= NOW() - INTERVAL '7 days' THEN m.reward_amount ELSE 0 END) as week_earnings,
+      SUM(CASE WHEN vmm.status = 'submitted' THEN m.reward_amount ELSE 0 END) as pending
+    FROM v_my_missions vmm
+    JOIN missions m ON vmm.mission_id = m.id
+    WHERE vmm.validator_id = ?
+  `).get(v.id);
+
   res.json({
-    weekEarnings: v.week_earnings, weekTarget: v.week_target, pending: v.pending, available: v.available, lifetime: v.lifetime,
-    name: v.name, rating: v.rating, ratingCount: v.rating_count, accuracy: v.accuracy,
-    level: v.level, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - v.completed) : 0, levelPct: lvlPct,
+    weekEarnings: earningsAgg?.week_earnings || 0,
+    weekTarget: 2000, 
+    pending: earningsAgg?.pending || 0,
+    available: v.balance || 0, // Balance remains the absolute source of truth for withdrawals
+    lifetime: earningsAgg?.lifetime || 0,
+    name: v.name, rating: v.rating, ratingCount: v.reviews_count, accuracy: v.accuracy || 100,
+    level: v.level || 1, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - (v.missions_done || 0)) : 0, levelPct: lvlPct,
     specialties: JSON.parse(v.specialties_json || "[]"),
     history: history.map(h => ({
       id: h.id, product: h.product, type: h.type, reward: h.reward,

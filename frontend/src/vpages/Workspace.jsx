@@ -342,19 +342,19 @@ export default function Workspace() {
           {task.proof && (
             <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-                Proof required — screenshot <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                Proof required — screenshot or video <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
               </div>
               {proofUploaded[curIdx] ? (
                 <div style={{ border: "2px solid var(--success)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: "var(--success-weak)" }}>
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--success-weak)", display: "grid", placeItems: "center", marginBottom: 12 }}>
                     <Icon name="check" size={26} style={{ color: "var(--success)" }} />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>Screenshot uploaded</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>File uploaded</div>
                   {!isReadOnly && <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>Remove & re-upload</button>}
                 </div>
               ) : (
                 <label style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: uploadingProof ? "not-allowed" : "pointer", background: "var(--panel-2)", opacity: uploadingProof ? 0.7 : 1, transition: "all .15s" }}>
-                  <input type="file" accept="image/png, image/jpeg, image/webp" style={{ display: "none" }} disabled={uploadingProof} onChange={async (e) => {
+                  <input type="file" accept="image/png, image/jpeg, image/webp, video/mp4, video/webm, video/quicktime" style={{ display: "none" }} disabled={uploadingProof} onChange={async (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
                     setUploadingProof(true);
@@ -370,8 +370,8 @@ export default function Workspace() {
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--panel-inset)", display: "grid", placeItems: "center", marginBottom: 12 }}>
                     {uploadingProof ? <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{uploadingProof ? "Uploading..." : "Drop screenshot here"}</div>
-                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG, WebP accepted</p>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{uploadingProof ? "Uploading..." : "Drop file here"}</div>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG, WebP, MP4, WebM, MOV accepted</p>
                 </label>
               )}
             </div>

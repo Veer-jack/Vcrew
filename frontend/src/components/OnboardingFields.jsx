@@ -1,4 +1,5 @@
 import Icon from "./Icon";
+import { PasswordInput } from "./ui";
 
 export function Field({ label, optional, span, children }) {
   return (
@@ -10,6 +11,9 @@ export function Field({ label, optional, span, children }) {
 }
 
 export function TextInput({ value, onChange, placeholder, type = "text" }) {
+  if (type === "password") {
+    return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
+  }
   return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
 }
 

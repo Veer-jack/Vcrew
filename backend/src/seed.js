@@ -143,19 +143,21 @@ const insertResponse = db.prepare(`
 for (const r of RESPONSES) insertResponse.run(r.name, r.city, r.role, r.trust, r.rating, r.time_label, r.quote, JSON.stringify(r.tags), JSON.stringify(r.attachments), r.flagged);
 
 // ---------- ACTIVITY ----------
+const nowMs = Date.now();
 const ACTIVITY = [
-  { who: "Diya Krishnan", icon: "check", tone: "green", text: "submitted feedback on", mission_id: "m1", mission_name: "Cold Brew Can — Taste Panel", time_label: "6m ago" },
-  { who: "Rohan Pillai", icon: "userplus", tone: "accent", text: "accepted the invite to", mission_id: "m3", mission_name: "Subscription App — Beta Test", time_label: "22m ago" },
-  { who: "System", icon: "coins", tone: "amber", text: "released ₹250 reward for", mission_id: "m1", mission_name: "Cold Brew Can — Taste Panel", time_label: "41m ago" },
-  { who: "Ananya Rao", icon: "star", tone: "accent", text: "left a 5★ response on", mission_id: "m2", mission_name: "Checkout Flow Usability", time_label: "1h ago" },
-  { who: "Kabir Shah", icon: "check", tone: "green", text: "completed the interview for", mission_id: "m4", mission_name: "Founder Interviews — Café Owners", time_label: "2h ago" },
-  { who: "Meera Iyer", icon: "userplus", tone: "accent", text: "applied to", mission_id: "m3", mission_name: "Subscription App — Beta Test", time_label: "3h ago" },
-  { who: "System", icon: "flag", tone: "amber", text: "flagged 1 response for review on", mission_id: "m2", mission_name: "Checkout Flow Usability", time_label: "4h ago" },
-  { who: "Vivaan Nair", icon: "check", tone: "green", text: "submitted feedback on", mission_id: "m3", mission_name: "Subscription App — Beta Test", time_label: "5h ago" },
-  { who: "Saanvi Desai", icon: "star", tone: "accent", text: "left a 4★ response on", mission_id: "m1", mission_name: "Cold Brew Can — Taste Panel", time_label: "6h ago" },
+  { type: "submission_received", detail: "Diya Krishnan", title: "Cold Brew Can — Taste Panel", msAgo: 6 * 60000, amount: 0 },
+  { type: "submission_received", detail: "Rohan Pillai", title: "Subscription App — Beta Test", msAgo: 22 * 60000, amount: 0 },
+  { type: "reward_released", detail: "", title: "Cold Brew Can — Taste Panel", msAgo: 41 * 60000, amount: 250 },
+  { type: "submission_approved", detail: "Ananya Rao", title: "Checkout Flow Usability", msAgo: 60 * 60000, amount: 0 },
+  { type: "submission_approved", detail: "Kabir Shah", title: "Founder Interviews — Café Owners", msAgo: 120 * 60000, amount: 0 },
+  { type: "submission_received", detail: "Meera Iyer", title: "Subscription App — Beta Test", msAgo: 180 * 60000, amount: 0 },
+  { type: "submission_received", detail: "Vivaan Nair", title: "Subscription App — Beta Test", msAgo: 300 * 60000, amount: 0 },
+  { type: "submission_approved", detail: "Saanvi Desai", title: "Cold Brew Can — Taste Panel", msAgo: 360 * 60000, amount: 0 },
 ];
-const insertActivity = db.prepare(`INSERT INTO activity (builder_id, who, text, mission_id, mission_name, icon, tone, time_label) VALUES (?,?,?,?,?,?,?,?)`);
-for (const a of ACTIVITY) insertActivity.run(BUILDER_ID, a.who, a.text, a.mission_id, a.mission_name, a.icon, a.tone, a.time_label);
+const insertActivity = db.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount, created_at) VALUES (?,?,?,?,?,?)`);
+for (const a of ACTIVITY) {
+  insertActivity.run(BUILDER_ID, a.type, a.title, a.detail, a.amount, new Date(nowMs - a.msAgo).toISOString());
+}
 
 // ---------- AUDIENCE ----------
 const AUDIENCE = [

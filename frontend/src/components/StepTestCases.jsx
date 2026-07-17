@@ -171,7 +171,7 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
                 onChange={e => onEdit(idx, { proof: e.target.checked ? "screenshot" : null })} 
                 onClick={e => e.stopPropagation()} 
               />
-              Require screenshot proof
+              Require screenshot or video proof
             </label>
 
             <div style={{ flex: 1 }} />

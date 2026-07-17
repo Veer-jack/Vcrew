@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
-import { Avatar, Btn } from "../components/ui";
+import { Avatar, Btn, PasswordInput } from "../components/ui";
 import PhoneSetup from "../components/PhoneSetup";
 
 export default function Settings() {
@@ -14,6 +14,34 @@ export default function Settings() {
   const [email, setEmail] = useState(builder?.email || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const [pwdCurrent, setPwdCurrent] = useState("");
+  const [pwdNew, setPwdNew] = useState("");
+  const [pwdConfirm, setPwdConfirm] = useState("");
+  const [pwdBusy, setPwdBusy] = useState(false);
+  const [pwdError, setPwdError] = useState("");
+  const [pwdSuccess, setPwdSuccess] = useState("");
+
+  const savePassword = async (e) => {
+    e.preventDefault();
+    setPwdError(""); setPwdSuccess("");
+    if (pwdNew !== pwdConfirm) {
+      return setPwdError("New passwords do not match.");
+    }
+    if (pwdNew.length < 8) {
+      return setPwdError("New password must be at least 8 characters.");
+    }
+    setPwdBusy(true);
+    try {
+      await api.changePassword(pwdCurrent, pwdNew);
+      setPwdSuccess("Password updated successfully.");
+      setPwdCurrent(""); setPwdNew(""); setPwdConfirm("");
+    } catch (err) {
+      setPwdError(err.message || "Failed to change password.");
+    } finally {
+      setPwdBusy(false);
+    }
+  };
 
   const startEdit = () => {
     setName(builder?.name || ""); 
@@ -92,6 +120,34 @@ export default function Settings() {
 
         <PhoneSetup client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
           onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))} />
+
+        {!builder?.oauthProvider && (
+          <div className="card" style={{ padding: "var(--pad-card)" }}>
+            <h2 style={{ fontSize: 18, marginBottom: 8 }}>Security</h2>
+            <p className="faint mb-5">Change your password to keep your account secure.</p>
+            <form onSubmit={savePassword} className="col gap-4">
+              {pwdError && <div className="err-banner">{pwdError}</div>}
+              {pwdSuccess && <div className="banner success">{pwdSuccess}</div>}
+              <div className="fld">
+                <label>Current Password</label>
+                <PasswordInput className="fin" value={pwdCurrent} onChange={e => setPwdCurrent(e.target.value)} required />
+              </div>
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>New Password</label>
+                  <PasswordInput className="fin" value={pwdNew} onChange={e => setPwdNew(e.target.value)} required />
+                </div>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>Confirm New Password</label>
+                  <PasswordInput className="fin" value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)} required />
+                </div>
+              </div>
+              <div>
+                <Btn variant="primary" type="submit" disabled={pwdBusy}>{pwdBusy ? "Saving…" : "Update password"}</Btn>
+              </div>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ export const api = {
   signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: { email } }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: { token, password } }),
+  changePassword: (currentPassword, newPassword) => request("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } }),
   setLanguage: (lang) => request("/auth/language", { method: "PATCH", body: { lang } }),
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),

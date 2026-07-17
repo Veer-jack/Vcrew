@@ -19,6 +19,7 @@ function publicValidator(v) {
     completed: v.completed, acceptRate: v.accept_rate,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     preferredLanguage: v.preferred_language || "en",
+    oauthProvider: v.oauth_provider || null,
   };
 }
 
@@ -134,6 +135,27 @@ router.post("/reset-password", async (req, res) => {
   await db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
   await db.prepare(`DELETE FROM validator_sessions WHERE validator_id = ?`).run(row.user_id);
 
+  res.json({ ok: true });
+});
+
+// POST /api/v/auth/change-password { currentPassword, newPassword }
+router.post("/change-password", validatorAuthMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  
+  if (req.validator.oauth_provider) {
+    return res.status(400).json({ error: "Users registered via Google/GitHub cannot change passwords here." });
+  }
+
+  if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ error: "Current password and a new password (min 8 characters) are required." });
+  }
+
+  const { valid } = await comparePassword(currentPassword, req.validator.password_hash);
+  if (!valid) {
+    return res.status(401).json({ error: "Incorrect current password." });
+  }
+
+  await db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(newPassword), req.validator.id);
   res.json({ ok: true });
 });
 

@@ -36,6 +36,7 @@ import DailyCheckin from "./vpages/DailyCheckin";
 import MissionReview from "./pages/MissionReview";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
+import MissionResults from "./vpages/MissionResults";
 import Workspace from "./vpages/Workspace";
 import Submitted from "./vpages/Submitted";
 import MyMissions from "./vpages/MyMissions";
@@ -122,7 +123,7 @@ function ValidatorRoutes() {
     <Routes>
       <Route path="login" element={<VLogin />} />
         <Route path="onboarding" element={<VOnboarding />} />
-        <Route path="settings" element={<RequireVAuth><VSettings /></RequireVAuth>} />
+
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
@@ -133,11 +134,13 @@ function ValidatorRoutes() {
         <Route path="missions" element={<MyMissions />} />
         <Route path="missions/:id/review" element={<MissionReview />} />
       <Route path="missions/:id" element={<MissionDetails />} />
+        <Route path="missions/:id/results" element={<MissionResults />} />
         <Route path="missions/:id/submitted" element={<Submitted />} />
         <Route path="earnings" element={<Earnings />} />
         <Route path="profile" element={<Profile />} />
         <Route path="messages" element={<VMessages />} />
         <Route path="support" element={<VSupport />} />
+        <Route path="settings" element={<VSettings />} />
       </Route>
       <Route path="*" element={<Navigate to="/validator" replace />} />
     </Routes>

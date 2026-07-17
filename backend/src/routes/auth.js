@@ -18,6 +18,7 @@ export function publicBuilder(b) {
     persona: b.persona || "founder", profile,
     verified: !!b.verified_at, verifiedAt: b.verified_at || null,
     preferredLanguage: b.preferred_language || "en",
+    oauthProvider: b.oauth_provider || null,
   };
 }
 
@@ -203,6 +204,27 @@ router.post("/reset-password", async (req, res) => {
   await db.prepare(`UPDATE password_reset_tokens SET used = 1 WHERE token = ?`).run(token);
   await db.prepare(`DELETE FROM sessions WHERE builder_id = ?`).run(row.user_id); // invalidate all existing sessions
 
+  res.json({ ok: true });
+});
+
+// POST /api/auth/change-password { currentPassword, newPassword }
+router.post("/change-password", authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  
+  if (req.builder.oauth_provider) {
+    return res.status(400).json({ error: "Users registered via Google/GitHub cannot change passwords here." });
+  }
+
+  if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ error: "Current password and a new password (min 8 characters) are required." });
+  }
+
+  const { valid } = await comparePassword(currentPassword, req.builder.password_hash);
+  if (!valid) {
+    return res.status(401).json({ error: "Incorrect current password." });
+  }
+
+  await db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(newPassword), req.builder.id);
   res.json({ ok: true });
 });
 
