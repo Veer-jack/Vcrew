@@ -65,6 +65,69 @@ export default function VSettings() {
         </div>
       </div>
 
+      {/* Validator type & status */}
+      <div className="card" style={{ padding: 22, marginBottom: 16 }}>
+        <div className="eyebrow" style={{ marginBottom: 16 }}>Account type</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>Type</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
+              {validator?.validator_type === "user" ? "User — Consumer tester" : validator?.validator_type === "tester" ? "Verified Tester" : "Validator — Professional"}
+            </div>
+          </div>
+          <span style={{
+            padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
+            background: validator?.validator_type === "user" ? "var(--success-weak)" : validator?.validator_type === "tester" ? "var(--warning-weak)" : "var(--accent-weak)",
+            color: validator?.validator_type === "user" ? "var(--success)" : validator?.validator_type === "tester" ? "var(--warning)" : "var(--accent)",
+          }}>
+            {validator?.validator_type === "user" ? "User" : validator?.validator_type === "tester" ? "Tester" : "Validator"}
+          </span>
+        </div>
+
+        {/* Tester status */}
+        {validator?.validator_type === "tester" && (
+          <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Verification status</div>
+            {validator?.tester_status === "pending_review" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--warning)" }}>
+                <span>⏳</span> Under review — admin will respond within 72 hours
+              </div>
+            )}
+            {validator?.tester_status === "approved" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--success)" }}>
+                <span>✓</span> Verified {validator?.tester_tier === "senior" ? "Senior" : "Junior"} Tester — premium missions unlocked
+              </div>
+            )}
+            {validator?.tester_status === "rejected" && (
+              <div>
+                <div style={{ fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>✗ Application not approved — you can update your profile and reapply</div>
+                <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>Reapply for Verified Tester</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Upgrade options */}
+        {validator?.validator_type === "user" && (
+          <div style={{ padding: "12px 0" }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Upgrade your account</div>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>Have professional expertise? Upgrade to Validator to access app testing and digital product missions.</p>
+            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>
+              Upgrade to Validator →
+            </button>
+          </div>
+        )}
+        {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
+          <div style={{ padding: "12px 0" }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>Apply for Verified Tester</div>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>Have QA or product testing experience? Apply for verified status to access premium high-pay missions.</p>
+            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>
+              Apply for Verified Tester →
+            </button>
+          </div>
+        )}
+      </div>
+
       {/* Danger zone */}
       <div className="card" style={{ padding: 22, border: "1px solid color-mix(in srgb, var(--danger) 25%, transparent)" }}>
         <div className="eyebrow" style={{ marginBottom: 16, color: "var(--danger)" }}>Sign out</div>

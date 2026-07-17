@@ -148,16 +148,76 @@ router.patch("/language", validatorAuthMiddleware, async (req, res) => {
 
 // PATCH /api/v/profile — update validator profile after onboarding
 router.patch("/profile", async (req, res) => {
-  const { handle, city, bio, languages, specialties_json, hours_per_week, devices } = req.body || {};
+  const b = req.body || {};
   await db.prepare(`
     UPDATE validators SET
-      handle = COALESCE(?, handle),
-      city = COALESCE(?, city),
-      bio = COALESCE(?, bio),
-      specialties_json = COALESCE(?, specialties_json),
-      updated_at = NOW()
-    WHERE id = ?
-  `).run(handle || null, city || null, bio || null, specialties_json || null, req.validator.id);
-  const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(req.validator.id);
+      handle = COALESCE($1, handle),
+      bio = COALESCE($2, bio),
+      city = COALESCE($3, city),
+      city_type = COALESCE($4, city_type),
+      languages_json = COALESCE($5, languages_json),
+      validator_type = COALESCE($6, validator_type),
+      tester_status = COALESCE($7, tester_status),
+      age_group = COALESCE($8, age_group),
+      gender = COALESCE($9, gender),
+      marital_status = COALESCE($10, marital_status),
+      has_kids = COALESCE($11, has_kids),
+      income_bracket = COALESCE($12, income_bracket),
+      height = COALESCE($13, height),
+      weight = COALESCE($14, weight),
+      skin_tone = COALESCE($15, skin_tone),
+      hair_type = COALESCE($16, hair_type),
+      hair_length = COALESCE($17, hair_length),
+      body_type = COALESCE($18, body_type),
+      occupation = COALESCE($19, occupation),
+      food_preference = COALESCE($20, food_preference),
+      lifestyle_json = COALESCE($21, lifestyle_json),
+      shopping_preference = COALESCE($22, shopping_preference),
+      devices_json = COALESCE($23, devices_json),
+      hours_per_week = COALESCE($24, hours_per_week),
+      role = COALESCE($25, role),
+      experience_years = COALESCE($26, experience_years),
+      industry_json = COALESCE($27, industry_json),
+      company = COALESCE($28, company),
+      product_types_json = COALESCE($29, product_types_json),
+      tech_tools_json = COALESCE($30, tech_tools_json),
+      testing_domains_json = COALESCE($31, testing_domains_json),
+      certifications_json = COALESCE($32, certifications_json),
+      linkedin_url = COALESCE($33, linkedin_url),
+      portfolio_url = COALESCE($34, portfolio_url),
+      testing_bio = COALESCE($35, testing_bio),
+      specialties_json = COALESCE($36, specialties_json)
+    WHERE id = $37
+  `).run(
+    b.handle || null, b.bio || null, b.city || null, b.city_type || null,
+    b.language ? JSON.stringify(b.language) : null,
+    b.validator_type || null,
+    b.validator_type === 'tester' ? 'pending_review' : null,
+    b.age_group || null, b.gender || null, b.marital || null, b.has_kids || null,
+    b.income || null, b.height || null, b.weight || null, b.skin_tone || null,
+    b.hair_type || null, b.hair_length || null, b.body_type || null,
+    b.occupation || null, b.food_pref || null,
+    b.lifestyle ? JSON.stringify(b.lifestyle) : null,
+    b.shopping_pref || null,
+    b.devices ? JSON.stringify(b.devices) : null,
+    b.hours || null, b.role || null, b.experience || null,
+    b.industry ? JSON.stringify(b.industry) : null,
+    b.company || null,
+    b.product_types ? JSON.stringify(b.product_types) : null,
+    b.tech_tools ? JSON.stringify(b.tech_tools) : null,
+    b.domains ? JSON.stringify(b.domains) : null,
+    b.certifications ? JSON.stringify(b.certifications) : null,
+    b.linkedin_url || null, b.portfolio_url || null, b.testing_bio || null,
+    b.specialties_json || null,
+    req.validator.id
+  );
+
+  // Notify admin if tester application
+  if (b.validator_type === 'tester') {
+    await db.prepare(`INSERT INTO notifications (builder_id, type, icon, tone, title, body, time_label, unread) VALUES (1, 'tester_application', 'star', 'accent', 'New Tester Application', $1, 'Just now', 1)`)
+      .run(`${b.name || 'A validator'} has applied for Verified Tester status. Review within 72 hours.`).catch(() => {});
+  }
+
+  const v = await db.prepare(`SELECT * FROM validators WHERE id = $1`).get(req.validator.id);
   res.json({ validator: v });
 });

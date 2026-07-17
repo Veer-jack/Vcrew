@@ -77,6 +77,51 @@ export async function initDb() {
     if (!mCols.includes('brief_url')) await client.query('ALTER TABLE missions ADD COLUMN brief_url TEXT');
     if (!mCols.includes('brief_credentials')) await client.query('ALTER TABLE missions ADD COLUMN brief_credentials TEXT');
     if (!mCols.includes('duration_days')) await client.query('ALTER TABLE missions ADD COLUMN duration_days INTEGER DEFAULT 7');
+    // Validator type migrations
+    const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
+    const vColNames = vCols.rows.map(r => r.column_name);
+    const newVCols = [
+      ['validator_type', 'TEXT DEFAULT \'validator\''],
+      ['tester_status', 'TEXT DEFAULT \'none\''],
+      ['tester_tier', 'TEXT'],
+      ['city', 'TEXT'],
+      ['city_type', 'TEXT'],
+      ['languages_json', "TEXT DEFAULT '[]'"],
+      ['age_group', 'TEXT'],
+      ['gender', 'TEXT'],
+      ['marital_status', 'TEXT'],
+      ['has_kids', 'TEXT'],
+      ['income_bracket', 'TEXT'],
+      ['height', 'TEXT'],
+      ['weight', 'TEXT'],
+      ['skin_tone', 'TEXT'],
+      ['hair_type', 'TEXT'],
+      ['hair_length', 'TEXT'],
+      ['body_type', 'TEXT'],
+      ['occupation', 'TEXT'],
+      ['food_preference', 'TEXT'],
+      ['lifestyle_json', "TEXT DEFAULT '[]'"],
+      ['shopping_preference', 'TEXT'],
+      ['devices_json', "TEXT DEFAULT '[]'"],
+      ['hours_per_week', 'TEXT'],
+      ['role', 'TEXT'],
+      ['experience_years', 'TEXT'],
+      ['industry_json', "TEXT DEFAULT '[]'"],
+      ['company', 'TEXT'],
+      ['product_types_json', "TEXT DEFAULT '[]'"],
+      ['tech_tools_json', "TEXT DEFAULT '[]'"],
+      ['testing_domains_json', "TEXT DEFAULT '[]'"],
+      ['certifications_json', "TEXT DEFAULT '[]'"],
+      ['linkedin_url', 'TEXT'],
+      ['portfolio_url', 'TEXT'],
+      ['resume_path', 'TEXT'],
+      ['testing_bio', 'TEXT'],
+    ];
+    for (const [col, def] of newVCols) {
+      if (!vColNames.includes(col)) {
+        await client.query(`ALTER TABLE validators ADD COLUMN ${col} ${def}`);
+      }
+    }
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
     client.release();
