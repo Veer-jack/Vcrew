@@ -79,7 +79,12 @@ router.get("/", async (req, res) => {
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     payoutVpa: v.payout_vpa || null,
     role: v.role, occupation: v.occupation, industry: v.industry,
-    location: v.location, bio: v.bio
+    location: v.location, bio: v.bio,
+    address: {
+      line1: v.address_line1 || "", line2: v.address_line2 || "",
+      city: v.address_city || "", state: v.address_state || "",
+      postalCode: v.address_postal_code || "", country: v.address_country || "",
+    }
   });
 });
 
@@ -93,14 +98,26 @@ router.patch("/", async (req, res) => {
   let location = req.body?.location === undefined ? v.location : String(req.body.location).trim();
   let bio = req.body?.bio === undefined ? v.bio : String(req.body.bio).trim();
   let specialties = req.body?.specialties === undefined ? JSON.parse(v.specialties_json || "[]") : req.body.specialties;
+  const addr = req.body?.address || {};
+  const addressLine1 = addr.line1 === undefined ? v.address_line1 : String(addr.line1).trim();
+  const addressLine2 = addr.line2 === undefined ? v.address_line2 : String(addr.line2).trim();
+  const addressCity = addr.city === undefined ? v.address_city : String(addr.city).trim();
+  const addressState = addr.state === undefined ? v.address_state : String(addr.state).trim();
+  const addressPostalCode = addr.postalCode === undefined ? v.address_postal_code : String(addr.postalCode).trim();
+  const addressCountry = addr.country === undefined ? v.address_country : String(addr.country).trim();
 
   if (!name) return res.status(400).json({ error: "Name is required" });
   if (handle && !handle.startsWith("@")) handle = `@${handle}`;
   if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
   specialties = specialties.map(s => String(s).trim()).filter(Boolean).slice(0, 6);
 
-  await db.prepare(`UPDATE validators SET name = ?, handle = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ? WHERE id = ?`)
-    .run(name, handle || null, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties), v.id);
+  await db.prepare(`UPDATE validators SET name = ?, handle = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ?,
+      address_line1 = ?, address_line2 = ?, address_city = ?, address_state = ?, address_postal_code = ?, address_country = ? WHERE id = ?`)
+    .run(name, handle || null, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties),
+      addressLine1 || null, addressLine2 || null, addressCity || null, addressState || null, addressPostalCode || null, addressCountry || null, v.id);
 
-  res.json({ name, handle: handle || null, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties });
+  res.json({
+    name, handle: handle || null, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties,
+    address: { line1: addressLine1 || "", line2: addressLine2 || "", city: addressCity || "", state: addressState || "", postalCode: addressPostalCode || "", country: addressCountry || "" }
+  });
 });

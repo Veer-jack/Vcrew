@@ -5,6 +5,177 @@ import { Btn, KpiCard, MissionLogo, PBarRow, StatusTag, TypeTag, inr, inrK } fro
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
+import { PERSONA_CONFIG } from "../data/personaConfig";
+
+function ProfileCompletionBanner({ builder, nav }) {
+  if (builder?.profile) return null; // already completed
+
+  let activePersonaKey = builder?.persona;
+  let draftStepNum = null;
+
+  // If the user hasn't saved a persona to the DB yet, check if they started a draft
+  if (!activePersonaKey) {
+    for (const key of Object.keys(PERSONA_CONFIG)) {
+      try {
+        const draft = JSON.parse(localStorage.getItem(`vc_onboarding_draft_${key}`));
+        if (draft && typeof draft.step === "number") {
+          activePersonaKey = key;
+          draftStepNum = draft.step + 1; // 1-indexed
+          break;
+        }
+      } catch {}
+    }
+  } else {
+    // They have a persona in DB, but profile is incomplete. Check their draft for progress.
+    try {
+      const draft = JSON.parse(localStorage.getItem(`vc_onboarding_draft_${activePersonaKey}`));
+      if (draft && typeof draft.step === "number") {
+        draftStepNum = draft.step + 1;
+      }
+    } catch {}
+  }
+
+  if (!activePersonaKey) {
+    return (
+      <div className="card" style={{ border: "1px solid var(--accent-weak)", padding: 0, marginBottom: 20, display: "flex", overflow: "hidden" }}>
+        {/* Left Side */}
+        <div style={{ flex: "1", padding: 32, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+            <Icon name="user" size={26} />
+          </div>
+          <h3 style={{ fontSize: 20, marginBottom: 8, color: "var(--heading)", fontWeight: 600 }}>Select your role and complete setup</h3>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.5 }}>
+            Choose the role that best describes you to personalize your workspace and begin the setup process.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text)" }}>
+              <div style={{ color: "#3b82f6" }}><Icon name="alertCircle" size={16} /></div>
+              No role selected
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-muted)" }}>
+              <div style={{ color: "#9ca3af" }}><Icon name="xCircle" size={16} /></div>
+              Setup not started
+            </div>
+          </div>
+        </div>
+        {/* Right Side */}
+        <div style={{ flex: "1.5", padding: 32, background: "#f8fafc", borderLeft: "1px solid var(--border)" }}>
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--heading)", marginBottom: 16 }}>Choose your role</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+            {[
+              { icon: "rocket", name: "Founder / Startup", desc: "Validate your startup ideas, get feedback and grow faster.", color: "#4f46e5" },
+              { icon: "building", name: "Company", desc: "Test products, understand users and make data-driven decisions.", color: "#0891b2" },
+              { icon: "flask", name: "Researcher", desc: "Conduct research, collect insights and contribute to knowledge.", color: "#0d9488" },
+              { icon: "users", name: "Organization", desc: "Drive programs, measure impact and engage your community.", color: "#c2710c" }
+            ].map(r => (
+              <div key={r.name} style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 8, padding: 16, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ color: r.color, marginBottom: 12 }}>
+                  <Icon name={r.icon} size={24} />
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--heading)", marginBottom: 6, lineHeight: 1.2 }}>{r.name}</div>
+                <div style={{ fontSize: 9.5, color: "var(--text-muted)", lineHeight: 1.4 }}>{r.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <Btn variant="primary" onClick={() => nav(`/get-started/feedback`)}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "0 12px" }}>
+                <Icon name="user" size={16} />
+                Select Role
+              </div>
+            </Btn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const persona = PERSONA_CONFIG[activePersonaKey];
+  if (!persona) return null;
+
+  let currentStepNum = draftStepNum || 1;
+  currentStepNum = Math.min(currentStepNum, persona.steps.length);
+
+  const totalSteps = persona.steps.length;
+  const pct = Math.round(((currentStepNum - 1) / totalSteps) * 100);
+  const nextStep = persona.steps[currentStepNum - 1];
+
+  let icName = "rocket";
+  let title = "Founder / Startup";
+  let desc = "Set up your startup details to unlock all platform features.";
+  if (activePersonaKey === "company") { icName = "building"; title = "Company"; desc = "Add your company information to build trust and credibility."; }
+  else if (activePersonaKey === "researcher") { icName = "flask"; title = "Researcher"; desc = "Tell us about your research interests and goals."; }
+  else if (activePersonaKey === "organization") { icName = "users"; title = "Organization"; desc = "Provide organization details to manage your account."; }
+
+  return (
+    <div className="card" style={{
+      border: "1px solid var(--accent)", padding: 24, marginBottom: 20, display: "flex", gap: 32, alignItems: "center"
+    }}>
+      {/* Left */}
+      <div style={{ flex: "0 0 160px", textAlign: "center" }}>
+        <div style={{
+          width: 54, height: 54, borderRadius: "50%", background: "var(--accent-weak)", color: "var(--accent)",
+          display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px"
+        }}>
+          <Icon name={icName} size={26} />
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>{currentStepNum - 1} of {totalSteps} completed</div>
+        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 10, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.3s" }} />
+        </div>
+        <a href={`/signup?role=${activePersonaKey}`} className="faint" style={{ fontSize: 12, fontWeight: 500 }}>View all steps &rarr;</a>
+      </div>
+
+      {/* Middle */}
+      <div style={{ flex: 1 }}>
+        <h3 style={{ fontSize: 18, marginBottom: 4, color: "var(--heading)" }}>Complete your {title} profile</h3>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 14 }}>{desc}</p>
+        <span className="pill" style={{ fontSize: 11, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 600 }}>Step {currentStepNum} of {totalSteps}</span>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Next step</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="layout" size={16} style={{ color: "var(--accent)" }} />
+            <b style={{ fontSize: 14 }}>{nextStep?.label || "Details"}</b>
+          </div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginLeft: 24 }}>Continue filling out your {nextStep?.label?.toLowerCase() || "details"}.</div>
+        </div>
+      </div>
+
+      {/* Right */}
+      <div style={{ flex: "0 0 240px", borderLeft: "1px solid var(--border)", paddingLeft: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+          {persona.steps.map((s, i) => {
+            const isDone = i < currentStepNum - 1;
+            const isCurr = i === currentStepNum - 1;
+            return (
+              <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 10, opacity: (isDone || isCurr) ? 1 : 0.5 }}>
+                {isDone ? (
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--success)", color: "#fff", display: "grid", placeItems: "center" }}>
+                    <Icon name="check" size={12} strokeWidth={3} />
+                  </div>
+                ) : (
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: isCurr ? "var(--accent)" : "var(--panel)", border: isCurr ? "none" : "1px solid var(--border)", color: isCurr ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700 }}>
+                    {i + 1}
+                  </div>
+                )}
+                <span style={{ fontSize: 13, fontWeight: isCurr ? 600 : 500, color: isCurr ? "var(--heading)" : "var(--text)" }}>{s.label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>Continue Setup &rarr;</Btn>
+          {!builder?.persona && (
+            <Btn variant="ghost" block onClick={() => {
+              Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(`vc_onboarding_draft_${k}`); } catch {} });
+              nav(`/get-started/feedback`);
+            }}>Change role</Btn>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function QuickActions({ nav, balance }) {
   const items = [
@@ -130,6 +301,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      <ProfileCompletionBanner builder={builder} nav={navigate} />
       <div className="ph">
         <div>
           <span className="eyebrow">Builder workspace</span>

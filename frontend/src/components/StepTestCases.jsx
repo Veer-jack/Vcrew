@@ -190,6 +190,7 @@ export default function StepTestCases({ d, set }) {
   const [form, setForm] = useState({ desc: "", url: "", platforms: new Set(), goals: new Set(), users: "" });
   const [genState, setGenState] = useState("idle"); // idle | fetching | loading | done
   const [urlFetched, setUrlFetched] = useState(false);
+  const [urlContext, setUrlContext] = useState(null);
   const [expanded, setExpanded] = useState(null);
 
   const tasks = d.tasks || [];
@@ -203,7 +204,15 @@ export default function StepTestCases({ d, set }) {
   const fetchUrl = async () => {
     if (!form.url.trim()) return;
     setGenState("fetching");
-    setTimeout(() => { setUrlFetched(true); setGenState("idle"); }, 1600);
+    try {
+      const res = await api.post("/missions/fetch-url-context", { url: form.url });
+      setUrlContext(res.context || null);
+    } catch {
+      setUrlContext(null);
+    } finally {
+      setUrlFetched(true);
+      setGenState("idle");
+    }
   };
 
   const generate = async () => {
@@ -217,6 +226,9 @@ export default function StepTestCases({ d, set }) {
         platform: [...form.platforms].join(", "),
         goals: [...form.goals].join(", "),
         targetUsers: form.users,
+        category: d.cat,
+        ptype: d.ptype,
+        urlContext,
       });
       set({ tasks: res.tasks || [] });
       setGenState("done");
@@ -233,6 +245,7 @@ export default function StepTestCases({ d, set }) {
       setGenState("done");
       setExpanded(0);
     }
+    set({ genFor: { cat: d.cat, ptype: d.ptype } });
   };
 
   const moveTask = (idx, dir) => {
@@ -270,7 +283,11 @@ export default function StepTestCases({ d, set }) {
                 {genState === "fetching" ? "Fetching…" : "Fetch & analyse"}
               </button>
             </div>
-            {urlFetched && <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>✓ Page analysed — context added</p>}
+            {urlFetched && (
+              urlContext
+                ? <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>✓ Page analysed — context added</p>
+                : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>Couldn't analyse this page — you can still generate from your description</p>
+            )}
           </div>
 
           <div>
@@ -335,6 +352,12 @@ export default function StepTestCases({ d, set }) {
                     <Icon name="plus" size={15} /> Add custom task
                   </button>
                 </div>
+                {d.genFor && (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
+                  <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
+                    <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
+                    <span style={{ color: "var(--warning)", fontWeight: 600 }}>Category or participation type changed since these were generated — regenerate to match.</span>
+                  </div>
+                )}
                 {tasks.map((t, i) => (
                   <TaskCard key={t.id} task={t} idx={i} total={tasks.length} onMove={moveTask} expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} onDelete={(i) => { const a = [...tasks]; a.splice(i, 1); set({ tasks: a }); setExpanded(null); }} onEdit={(i, patch) => { const a = [...tasks]; a[i] = { ...a[i], ...patch }; set({ tasks: a }); }} />
                 ))}

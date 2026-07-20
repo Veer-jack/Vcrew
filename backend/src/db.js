@@ -132,6 +132,12 @@ export async function initDb() {
     if (!vCols.includes('location')) await client.query('ALTER TABLE validators ADD COLUMN location TEXT');
     if (!vCols.includes('bio')) await client.query('ALTER TABLE validators ADD COLUMN bio TEXT');
     if (!vCols.includes('phone_verified')) await client.query('ALTER TABLE validators ADD COLUMN phone_verified INTEGER DEFAULT 0');
+    if (!vCols.includes('address_line1')) await client.query('ALTER TABLE validators ADD COLUMN address_line1 TEXT');
+    if (!vCols.includes('address_line2')) await client.query('ALTER TABLE validators ADD COLUMN address_line2 TEXT');
+    if (!vCols.includes('address_city')) await client.query('ALTER TABLE validators ADD COLUMN address_city TEXT');
+    if (!vCols.includes('address_state')) await client.query('ALTER TABLE validators ADD COLUMN address_state TEXT');
+    if (!vCols.includes('address_postal_code')) await client.query('ALTER TABLE validators ADD COLUMN address_postal_code TEXT');
+    if (!vCols.includes('address_country')) await client.query('ALTER TABLE validators ADD COLUMN address_country TEXT');
 
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {

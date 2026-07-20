@@ -40,7 +40,7 @@ async function serializeTask(t, savedIds, myContext) {
   const featured = !!t.featured;
 
   return {
-    id: t.id, type: normType, product, tagline, company,
+    id: t.id, type: normType, ptype: t.ptype || null, category: t.category || null, product, tagline, company,
     reward, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
     deadline, postedH, brief, steps,
     hot, verified, featured,
@@ -188,6 +188,12 @@ router.post("/:id/apply", async (req, res) => {
       const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
       await db.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
         .run(t.id, req.validator.id, val ? val.name : "New Validator");
+
+      const missionCategory = await db.prepare(`SELECT category FROM missions WHERE id = ?`).get(t.id);
+      if (missionCategory?.category === "sample") {
+        await db.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
+          .run(t.id, req.validator.id);
+      }
     } catch (err) {
       // Revert the increment if the insertion failed for any reason (duplicate/race condition)
       await db.prepare(`UPDATE missions SET joined = joined - 1 WHERE id = ?`).run(t.id);

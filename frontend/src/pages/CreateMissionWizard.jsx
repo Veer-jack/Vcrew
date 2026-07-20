@@ -11,9 +11,9 @@ import StepTestCases from "../components/StepTestCases";
 
 const WZ_STEPS = [
   { t: "Mission Information", s: "Name & category", hint: "Give your mission a clear name and pick the kind of validation you need." },
-  { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks." },
-  { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Participation Type", s: "How they engage", hint: "Choose how participants will engage with your product." },
+  { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks tailored to this mission type." },
+  { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Reward Setup", s: "What they earn", hint: "Set the incentive and size your panel — costs update as you type." },
   { t: "Review & Publish", s: "Confirm & launch", hint: "One last look before it goes live to your matched audience." },
 ];
@@ -128,6 +128,20 @@ function StepParticipation({ d, set, ptypes }) {
           </button>
         ))}
       </div>
+      {d.ptype === "trial" && (
+        <div className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
+          <label>How many days should this trial run?</label>
+          <input
+            className="fin"
+            type="number"
+            min="2"
+            max="30"
+            value={d.durationDays}
+            onChange={e => set({ durationDays: Math.min(30, Math.max(2, +e.target.value || 7)) })}
+          />
+          <p className="fhint">Validators check in once per day, then submit their final review at the end.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -280,6 +294,8 @@ export default function CreateMissionWizard() {
       filters: { ...emptyF, "ValidationCrew Role": new Set(["Validator"]) },
       ptype: ptypes[0]?.id || "ptest",
       reward: { type: "fixed", amount: 250, participants: 120 },
+      genFor: null,
+      durationDays: 7,
     };
   });
 
@@ -341,6 +357,7 @@ export default function CreateMissionWizard() {
         region: geo.length ? geo.join(", ") : "Worldwide",
         audience,
         tasks: d.tasks,
+        durationDays: d.durationDays,
       });
       setPublished(true);
       localStorage.removeItem(DRAFT_KEY);
@@ -359,9 +376,9 @@ export default function CreateMissionWizard() {
 
   const StepBody = [
     <StepInfo d={d} set={set} categories={categories} />,
+    <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
     <StepAudience d={d} toggle={toggle} filters={filters} />,
-    <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepReward d={d} set={set} rewards={rewards} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} />,
   ][step];
@@ -408,8 +425,8 @@ export default function CreateMissionWizard() {
           <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> Back</button>
           <span className="fprog">Step <b>{step + 1}</b> / {WZ_STEPS.length}</span>
           <span className="grow" />
-          {step === 1 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{matchCount(d.filters).toLocaleString("en-IN")} members</span>}
-          {step === 3 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.</span>}
+          {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{matchCount(d.filters).toLocaleString("en-IN")} members</span>}
+          {step === 4 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.</span>}
           <Btn variant="primary" iconRight={last ? "bolt" : "arrowRight"} disabled={!canNext || busy} onClick={goNext}>
             {busy ? "Publishing…" : last ? "Publish Mission" : "Continue"}
           </Btn>

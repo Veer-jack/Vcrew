@@ -44,6 +44,9 @@ export const vapi = {
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
 
+  get: (path) => request(path),
+  post: (path, body) => request(path, { method: "POST", body }),
+
   meta: () => request("/meta"),
   oauthProviders: () => request("/auth/oauth/providers"),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
@@ -72,6 +75,20 @@ export const vapi = {
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch(`/api/v/missions/${id}/workspace/proof`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    let data;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error((data && data.error) || "Upload failed");
+    return data;
+  },
+  uploadCheckinProof: async (id, file) => {
+    const token = getVToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/v/missions/${id}/checkin/proof`, {
       method: "POST",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,

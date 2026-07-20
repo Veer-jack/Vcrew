@@ -95,6 +95,32 @@ function SlideOver({ sub, onClose, onAction }) {
           </div>
         </div>
 
+        {/* Check-in history (multi-day missions only) */}
+        {sub.checkins && sub.checkins.length > 0 && (
+          <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Daily check-in history ({sub.checkins.length} days)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sub.checkins.map((c, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)", alignItems: "flex-start" }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: "var(--accent)", flexShrink: 0, paddingTop: 2 }}>Day {c.dayNumber}</span>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
+                    <div style={{ marginBottom: 4 }}><b>Used it:</b> {c.answers.used || "—"} · <b>Would return:</b> {c.answers.comeback || "—"}</div>
+                    {c.answers.what && <div style={{ color: "var(--text-muted)", marginBottom: c.answers.frustration === "yes" ? 4 : 0 }}>{c.answers.what}</div>}
+                    {c.answers.frustration === "yes" && c.answers.frustrationDetail && (
+                      <div style={{ color: "var(--danger)" }}>Frustration: {c.answers.frustrationDetail}</div>
+                    )}
+                  </div>
+                  {c.screenshotUrl && (
+                    <a href={c.screenshotUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                      <img src={c.screenshotUrl} alt={`Day ${c.dayNumber} proof`} style={{ width: 48, height: 32, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Task breakdown */}
         <div style={{ padding: "16px 24px", flex: 1 }}>
           <div className="eyebrow" style={{ marginBottom: 14 }}>Task responses</div>

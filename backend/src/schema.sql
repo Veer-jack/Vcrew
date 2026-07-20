@@ -407,3 +407,55 @@ CREATE TABLE IF NOT EXISTS checkins (
   screenshot_path TEXT,
   submitted_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS sample_shipments (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'awaiting_shipment' CHECK (status IN ('awaiting_shipment', 'shipped', 'received')),
+  tracking_number TEXT,
+  carrier TEXT,
+  shipped_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS interview_schedules (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'accepted', 'declined', 'completed')),
+  scheduled_at TIMESTAMPTZ,
+  meeting_link TEXT,
+  responded_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (mission_id, validator_id)
+);
+
+CREATE TABLE IF NOT EXISTS focus_group_polls (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  meeting_link TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'locked', 'completed')),
+  locked_slot_id INTEGER,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (mission_id)
+);
+
+CREATE TABLE IF NOT EXISTS focus_group_slots (
+  id SERIAL PRIMARY KEY,
+  poll_id INTEGER REFERENCES focus_group_polls(id) ON DELETE CASCADE,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS focus_group_responses (
+  id SERIAL PRIMARY KEY,
+  poll_id INTEGER REFERENCES focus_group_polls(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  slot_id INTEGER REFERENCES focus_group_slots(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (poll_id, validator_id, slot_id)
+);

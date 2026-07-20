@@ -39,6 +39,7 @@ export const api = {
   post: (path, body) => request(path, { method: "POST", body }),
   login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
   signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
+  completeOnboarding: (payload) => request("/auth/onboarding", { method: "PATCH", body: payload }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: { email } }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: { token, password } }),
   changePassword: (currentPassword, newPassword) => request("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } }),
@@ -69,6 +70,15 @@ export const api = {
   deleteMission: (id) => request(`/missions/${id}`, { method: "DELETE" }),
   moveParticipant: (missionId, participantId, stage) =>
     request(`/missions/${missionId}/participants/${participantId}`, { method: "PATCH", body: { stage } }),
+  missionShipments: (missionId) => request(`/missions/${missionId}/shipments`),
+  markShipmentShipped: (missionId, validatorId, payload) => request(`/missions/${missionId}/shipments/${validatorId}/ship`, { method: "POST", body: payload }),
+  missionSchedules: (missionId) => request(`/missions/${missionId}/schedules`),
+  proposeInterviewTime: (missionId, validatorId, payload) => request(`/missions/${missionId}/schedules/${validatorId}/propose`, { method: "POST", body: payload }),
+  markInterviewCompleted: (missionId, validatorId) => request(`/missions/${missionId}/schedules/${validatorId}/complete`, { method: "POST" }),
+  missionPoll: (missionId) => request(`/missions/${missionId}/poll`),
+  createMissionPoll: (missionId, payload) => request(`/missions/${missionId}/poll`, { method: "POST", body: payload }),
+  lockPollSlot: (missionId, slotId) => request(`/missions/${missionId}/poll/lock`, { method: "POST", body: { slotId } }),
+  completeMissionPoll: (missionId) => request(`/missions/${missionId}/poll/complete`, { method: "POST" }),
   flagResponse: (missionId, responseId, flagged) =>
     request(`/missions/${missionId}/responses/${responseId}`, { method: "PATCH", body: { flagged } }),
 

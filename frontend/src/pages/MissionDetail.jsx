@@ -306,6 +306,229 @@ function MissionPaymentsTab({ payments, navigate, missionId }) {
   );
 }
 
+function MissionShipmentsTab({ missionId }) {
+  const [shipments, setShipments] = useState(null);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+  const [trackingInputs, setTrackingInputs] = useState({});
+
+  useEffect(() => {
+    api.missionShipments(missionId).then(d => setShipments(d.shipments)).catch(err => setError(err.message));
+  }, [missionId]);
+
+  if (error) return <div className="muted">{error}</div>;
+  if (!shipments) return <div className="muted">Loading shipments…</div>;
+  if (shipments.length === 0) return <div className="muted">No validators have accepted this mission yet.</div>;
+
+  const markShipped = async (validatorId) => {
+    setBusyId(validatorId);
+    try {
+      const input = trackingInputs[validatorId] || {};
+      await api.markShipmentShipped(missionId, validatorId, { trackingNumber: input.trackingNumber || "", carrier: input.carrier || "" });
+      setShipments(s => s.map(sh => sh.validatorId === validatorId ? { ...sh, status: "shipped", tracking_number: input.trackingNumber || null, carrier: input.carrier || null } : sh));
+    } catch (err) {
+      setError(err.message || "Couldn't mark as shipped");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="col gap-3 sec">
+      {shipments.map(s => (
+        <div key={s.validatorId} className="card" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700 }}>{s.name}</div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              {[s.address.line1, s.address.line2, s.address.city, s.address.state, s.address.postalCode, s.address.country].filter(Boolean).join(", ") || "No address on file"}
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {s.status === "awaiting_shipment" ? (
+              <>
+                <input className="fin" style={{ width: 130 }} placeholder="Carrier" onChange={e => setTrackingInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], carrier: e.target.value } }))} />
+                <input className="fin" style={{ width: 150 }} placeholder="Tracking number" onChange={e => setTrackingInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], trackingNumber: e.target.value } }))} />
+                <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => markShipped(s.validatorId)}>
+                  {busyId === s.validatorId ? "Saving…" : "Mark as shipped"}
+                </button>
+              </>
+            ) : (
+              <span className="tag" style={{ background: s.status === "received" ? "var(--success-weak)" : "var(--accent-weak)", color: s.status === "received" ? "var(--success)" : "var(--accent)" }}>
+                {s.status === "received" ? "Received" : "Shipped"}{s.tracking_number ? ` · ${s.tracking_number}` : ""}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MissionInterviewsTab({ missionId }) {
+  const [schedules, setSchedules] = useState(null);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+  const [proposeInputs, setProposeInputs] = useState({});
+
+  useEffect(() => {
+    api.missionSchedules(missionId).then(d => setSchedules(d.schedules)).catch(err => setError(err.message));
+  }, [missionId]);
+
+  if (error) return <div className="muted">{error}</div>;
+  if (!schedules) return <div className="muted">Loading interview schedules…</div>;
+  if (schedules.length === 0) return <div className="muted">No validators have accepted this mission yet.</div>;
+
+  const propose = async (validatorId) => {
+    setBusyId(validatorId);
+    try {
+      const input = proposeInputs[validatorId] || {};
+      if (!input.scheduledAt) throw new Error("Pick a date and time first");
+      await api.proposeInterviewTime(missionId, validatorId, { scheduledAt: input.scheduledAt, meetingLink: input.meetingLink || "" });
+      setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "proposed", scheduled_at: input.scheduledAt, meeting_link: input.meetingLink || null } : sc));
+    } catch (err) {
+      setError(err.message || "Couldn't propose a time");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const complete = async (validatorId) => {
+    setBusyId(validatorId);
+    try {
+      await api.markInterviewCompleted(missionId, validatorId);
+      setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "completed" } : sc));
+    } catch (err) {
+      setError(err.message || "Couldn't mark as completed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="col gap-3 sec">
+      {schedules.map(s => (
+        <div key={s.validatorId} className="card" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 700 }}>{s.name}</div>
+            {s.scheduled_at && <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{new Date(s.scheduled_at).toLocaleString()}{s.meeting_link ? ` · ${s.meeting_link}` : ""}</div>}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {(!s.status || s.status === "declined") && (
+              <>
+                <input className="fin" type="datetime-local" style={{ width: 200 }} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
+                <input className="fin" style={{ width: 200 }} placeholder="Meeting link" onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], meetingLink: e.target.value } }))} />
+                <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => propose(s.validatorId)}>
+                  {busyId === s.validatorId ? "Saving…" : s.status === "declined" ? "Propose new time" : "Propose time"}
+                </button>
+              </>
+            )}
+            {s.status === "proposed" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>Awaiting response</span>}
+            {s.status === "accepted" && (
+              <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => complete(s.validatorId)}>
+                {busyId === s.validatorId ? "Saving…" : "Mark interview completed"}
+              </button>
+            )}
+            {s.status === "completed" && <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}>Completed</span>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MissionFocusGroupTab({ missionId }) {
+  const [poll, setPoll] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [meetingLink, setMeetingLink] = useState("");
+  const [slotInputs, setSlotInputs] = useState(["", "", "", ""]);
+
+  const load = () => {
+    api.missionPoll(missionId).then(d => { setPoll(d.poll); setLoading(false); }).catch(err => { setError(err.message); setLoading(false); });
+  };
+  useEffect(load, [missionId]);
+
+  if (loading) return <div className="muted">Loading focus group poll…</div>;
+  if (error) return <div className="muted">{error}</div>;
+
+  const createPoll = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const slots = slotInputs.filter(Boolean).map(s => new Date(s).toISOString());
+      if (slots.length < 2) throw new Error("Enter at least 2 candidate times");
+      await api.createMissionPoll(missionId, { meetingLink, slots });
+      load();
+    } catch (err) {
+      setError(err.message || "Couldn't create the poll");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const lock = async (slotId) => {
+    setBusy(true);
+    try {
+      await api.lockPollSlot(missionId, slotId);
+      load();
+    } catch (err) {
+      setError(err.message || "Couldn't lock this slot");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const complete = async () => {
+    setBusy(true);
+    try {
+      await api.completeMissionPoll(missionId);
+      load();
+    } catch (err) {
+      setError(err.message || "Couldn't mark the session completed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!poll) {
+    return (
+      <div className="card sec" style={{ padding: 20 }}>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>Create a focus group poll</div>
+        <input className="fin" style={{ marginBottom: 10 }} placeholder="Meeting link (shared for whichever time is picked)" value={meetingLink} onChange={e => setMeetingLink(e.target.value)} />
+        {slotInputs.map((val, i) => (
+          <input key={i} className="fin" style={{ marginBottom: 10 }} type="datetime-local" value={val} onChange={e => setSlotInputs(inputs => inputs.map((v, idx) => idx === i ? e.target.value : v))} />
+        ))}
+        {error && <div className="err-banner" style={{ marginBottom: 10 }}>{error}</div>}
+        <button className="btn btn-primary" disabled={busy} onClick={createPoll}>{busy ? "Creating…" : "Create poll"}</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="col gap-3 sec">
+      {error && <div className="err-banner">{error}</div>}
+      <div className="card" style={{ padding: 16 }}>
+        <div className="eyebrow" style={{ marginBottom: 4 }}>Status</div>
+        <div style={{ fontWeight: 700, marginBottom: 12 }}>{poll.status}</div>
+        {poll.slots.map(s => (
+          <div key={s.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderTop: "1px solid var(--border)" }}>
+            <span>{new Date(s.scheduledAt).toLocaleString()} — {s.tally} available</span>
+            {poll.status === "open" && (
+              <button className="btn btn-quiet" disabled={busy} onClick={() => lock(s.id)}>Lock this time</button>
+            )}
+            {s.id === poll.lockedSlotId && <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}>Locked</span>}
+          </div>
+        ))}
+        {poll.status === "locked" && (
+          <button className="btn btn-primary" style={{ marginTop: 12 }} disabled={busy} onClick={complete}>{busy ? "Saving…" : "Mark session completed"}</button>
+        )}
+        {poll.status === "completed" && <span className="tag" style={{ marginTop: 12, background: "var(--success-weak)", color: "var(--success)" }}>Completed</span>}
+      </div>
+    </div>
+  );
+}
+
 export default function MissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -331,7 +554,16 @@ export default function MissionDetail() {
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const { mission } = data;
-  const tabs = TABS.map(t => ({ ...t, c: t.k === "participants" ? participants.length : t.k === "responses" ? responses.length : null }));
+  const baseTabs = TABS.map(t => ({ ...t, c: t.k === "participants" ? participants.length : t.k === "responses" ? responses.length : null }));
+  let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: "Shipments", ic: "box", c: null }, ...baseTabs.slice(3)] : baseTabs;
+  if (mission.ptype === "interview") {
+    const idx = tabs.findIndex(t => t.k === "responses") + 1;
+    tabs = [...tabs.slice(0, idx), { k: "interviews", l: "Interviews", ic: "calendar", c: null }, ...tabs.slice(idx)];
+  }
+  if (mission.ptype === "focus") {
+    const idx = tabs.findIndex(t => t.k === "responses") + 1;
+    tabs = [...tabs.slice(0, idx), { k: "focusgroup", l: "Focus Group", ic: "users", c: null }, ...tabs.slice(idx)];
+  }
 
   return (
     <div className="page rise">
@@ -360,6 +592,9 @@ export default function MissionDetail() {
       {tab === "audience" && <MissionAudienceTab audience={data.audience} />}
       {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} />}
       {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} navigate={navigate} />}
+      {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
+      {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
+      {tab === "focusgroup" && <MissionFocusGroupTab missionId={id} />}
       {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
     </div>

@@ -211,6 +211,12 @@ select.fin { appearance: none; -webkit-appearance: none; cursor: pointer; paddin
 .optcard.on .oc-ic { background: var(--tc, var(--accent)); color: #fff; }
 .optcard.on .oc-tick { background: var(--tc, var(--accent)); border-color: var(--tc, var(--accent)); color: #fff; }
 
+/* selcard used in onboarding */
+.selcard-grid { margin: 8px 0; }
+.selcard { transition: all .14s; border: var(--hairline) solid var(--border); }
+.selcard:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.selcard.selcard-on { border-color: var(--tc, var(--accent)); background: color-mix(in srgb, var(--tc, var(--accent)) 7%, var(--panel)); box-shadow: 0 0 0 1px var(--tc, var(--accent)); }
+
 /* chips */
 .chips { display: flex; flex-wrap: wrap; gap: 9px; }
 .chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px; border-radius: 30px;

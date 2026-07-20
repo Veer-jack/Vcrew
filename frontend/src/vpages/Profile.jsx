@@ -13,6 +13,7 @@ export default function Profile() {
   const [occupation, setOccupation] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
+  const [address, setAddress] = useState({ line1: "", line2: "", city: "", state: "", postalCode: "", country: "" });
   const [bio, setBio] = useState("");
   const [specialties, setSpecialties] = useState([]);
   const [tagInput, setTagInput] = useState("");
@@ -29,6 +30,7 @@ export default function Profile() {
     setOccupation(data.occupation || "");
     setIndustry(data.industry || "");
     setLocation(data.location || "");
+    setAddress({ ...{ line1: "", line2: "", city: "", state: "", postalCode: "", country: "" }, ...(data.address || {}) });
     setBio(data.bio || "");
     setSpecialties([...(data.specialties || [])]);
     setTagInput(""); setError(""); setEditing(true);
@@ -47,8 +49,8 @@ export default function Profile() {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      const res = await vapi.updateProfile({ name, handle, occupation, industry, location, bio, specialties });
-      setData(d => ({ ...d, name: res.name, handle: res.handle, occupation: res.occupation, industry: res.industry, location: res.location, bio: res.bio, specialties: res.specialties }));
+      const res = await vapi.updateProfile({ name, handle, occupation, industry, location, bio, specialties, address });
+      setData(d => ({ ...d, name: res.name, handle: res.handle, occupation: res.occupation, industry: res.industry, location: res.location, bio: res.bio, specialties: res.specialties, address: res.address }));
       setEditing(false);
     } catch (err) {
       setError(err.message || "Couldn't save changes");
@@ -112,6 +114,21 @@ export default function Profile() {
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>Location (City)</label>
                   <input className="fin" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Bengaluru" />
+                </div>
+              </div>
+              <div className="fld">
+                <label>Shipping address <span className="opt">optional — needed only for Sample Distribution missions</span></label>
+                <div className="col gap-3" style={{ marginTop: 6 }}>
+                  <input className="fin" value={address.line1} onChange={e => setAddress(a => ({ ...a, line1: e.target.value }))} placeholder="Address line 1" />
+                  <input className="fin" value={address.line2} onChange={e => setAddress(a => ({ ...a, line2: e.target.value }))} placeholder="Address line 2 (optional)" />
+                  <div className="row gap-3 wrap">
+                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.city} onChange={e => setAddress(a => ({ ...a, city: e.target.value }))} placeholder="City" />
+                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.state} onChange={e => setAddress(a => ({ ...a, state: e.target.value }))} placeholder="State" />
+                  </div>
+                  <div className="row gap-3 wrap">
+                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.postalCode} onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))} placeholder="Postal code" />
+                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.country} onChange={e => setAddress(a => ({ ...a, country: e.target.value }))} placeholder="Country" />
+                  </div>
                 </div>
               </div>
               <div className="fld">

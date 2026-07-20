@@ -33,6 +33,9 @@ import VOnboarding from "./vpages/VOnboarding";
 import VSettings from "./vpages/VSettings";
 import MissionBrief from "./vpages/MissionBrief";
 import DailyCheckin from "./vpages/DailyCheckin";
+import ShipmentStatus from "./vpages/ShipmentStatus";
+import InterviewSchedule from "./vpages/InterviewSchedule";
+import FocusGroupPoll from "./vpages/FocusGroupPoll";
 import MissionReview from "./pages/MissionReview";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
@@ -85,8 +88,8 @@ function BuilderRoutes() {
         <Route index element={<Dashboard />} />
       </Route>
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
-      <Route path="/get-started/feedback" element={builder ? <Navigate to="/" replace /> : <RoleSelect />} />
-      <Route path="/signup" element={<OnboardingWizard />} />
+      <Route path="/get-started/feedback" element={builder?.profile ? <Navigate to="/" replace /> : <RoleSelect />} />
+      <Route path="/signup" element={builder?.profile ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
@@ -129,6 +132,9 @@ function ValidatorRoutes() {
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
       <Route path="missions/:id/brief" element={<RequireVAuth><MissionBrief /></RequireVAuth>} />
       <Route path="missions/:id/checkin" element={<RequireVAuth><DailyCheckin /></RequireVAuth>} />
+      <Route path="missions/:id/shipment" element={<RequireVAuth><ShipmentStatus /></RequireVAuth>} />
+      <Route path="missions/:id/schedule" element={<RequireVAuth><InterviewSchedule /></RequireVAuth>} />
+      <Route path="missions/:id/poll" element={<RequireVAuth><FocusGroupPoll /></RequireVAuth>} />
       <Route element={<RequireVAuth><VLayout /></RequireVAuth>}>
         <Route index element={<Discover />} />
         <Route path="missions" element={<MyMissions />} />

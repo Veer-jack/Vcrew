@@ -15,7 +15,7 @@ export function publicBuilder(b) {
     color: b.color, balance: b.balance, pending: b.pending, monthSpend: b.month_spend,
     phone: b.phone_verified ? b.phone : null, phoneVerified: !!b.phone_verified,
     designation: b.designation || null, website: b.website || null,
-    persona: b.persona || "founder", profile,
+    persona: b.persona || null, profile,
     verified: !!b.verified_at, verifiedAt: b.verified_at || null,
     preferredLanguage: b.preferred_language || "en",
     oauthProvider: b.oauth_provider || null,
@@ -36,7 +36,8 @@ router.post("/signup", async (req, res) => {
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
   if (existing) return res.status(400).json({ error: "An account with that email already exists" });
 
-  const personaKey = PERSONA_LABELS[persona] ? persona : "founder";
+  const personaKey = PERSONA_LABELS[persona] ? persona : null;
+  const dbRole = personaKey ? PERSONA_LABELS[personaKey] : "builder";
   let profileJson = null;
   if (profile && typeof profile === "object") {
     const serialized = JSON.stringify(profile);
@@ -54,7 +55,7 @@ router.post("/signup", async (req, res) => {
     await hashPassword(password),
     designation ? String(designation).trim() : null,
     website ? String(website).trim() : null,
-    PERSONA_LABELS[personaKey],
+    dbRole,
     personaKey,
     profileJson,
   );
@@ -159,6 +160,60 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   if (existing) return res.status(400).json({ error: "That email is already in use" });
 
   await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, req.builder.id);
+
+  const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
+  res.json({ builder: publicBuilder(updated) });
+});
+
+// PATCH /api/auth/onboarding { persona, org, designation, website, profile }
+router.patch("/onboarding", authMiddleware, async (req, res) => {
+  const { persona, profile } = req.body || {};
+  const org = String(req.body?.org || req.builder.org || "").trim();
+  const designation = req.body?.designation !== undefined ? String(req.body.designation).trim() : req.builder.designation;
+  const website = req.body?.website !== undefined ? String(req.body.website).trim() : req.builder.website;
+
+  const personaKey = PERSONA_LABELS[persona] ? persona : "founder";
+  let profileJson = null;
+  if (profile && typeof profile === "object") {
+    const serialized = JSON.stringify(profile);
+    if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
+    profileJson = serialized;
+  }
+
+  await db.prepare(`
+    UPDATE builders 
+    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ? 
+    WHERE id = ?
+  `).run(
+    org || req.builder.name,
+    designation || null,
+    website || null,
+    PERSONA_LABELS[personaKey],
+    personaKey,
+    profileJson,
+    req.builder.id
+  );
+
+  if (profile && typeof profile === "object") {
+    const claims = [
+      { field: "vWebsiteInput", kind: "website" },
+      { field: "vCompanyInput", kind: "linkedin" },
+      { field: "gst", kind: "registry" },
+      { field: "taxId", kind: "registry" },
+      { field: "regNo", kind: "registry" },
+      { field: "researchProfile", kind: "academic" },
+      { field: "govAffiliation", kind: "registry" },
+    ];
+    const insertVerif = db.prepare(`
+      INSERT INTO verifications (builder_id, kind, subject, note) VALUES (?, ?, ?, ?)
+    `);
+    for (const { field, kind } of claims) {
+      const value = profile[field];
+      if (value && String(value).trim()) {
+        insertVerif.run(req.builder.id, kind, String(value).trim(), `Submitted at onboarding (${personaKey})`);
+      }
+    }
+  }
 
   const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });

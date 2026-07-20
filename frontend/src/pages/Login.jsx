@@ -42,7 +42,7 @@ export default function Login() {
     firebaseConfig: () => api.firebaseConfig(),
     phoneLoginVerify: (idToken) => api.phoneLoginVerify(idToken),
     login: (email, password) => api.login(email, password).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
-    signup: ({ name, org, email, password }) => api.signup({ name, org, email, password, persona: "founder" }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
+    signup: ({ name, org, email, password }) => api.signup({ name, org, email, password }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
     userKey: "builder",
     onAuthed: (token, builder) => { setToken(token); setBuilder(builder); },
   };

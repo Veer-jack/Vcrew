@@ -136,7 +136,7 @@ export default function MissionDetails() {
         background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
         border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
         <button className="btn btn-ghost" onClick={toggleSave}>
-          <Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? "Saved" : "Save"}
+          {task.spotsLeft <= 0 && !task.saved ? "🔔 Notify me if a slot opens" : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? "Saved" : "Save"}</>}
         </button>
         <button className="btn btn-quiet" onClick={() => navigate("/validator")}>Decline</button>
         {!reportDone
@@ -148,12 +148,21 @@ export default function MissionDetails() {
         <span className="grow" />
         <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>Earn <b style={{ color: "var(--success)" }}>₹{task.reward}</b> on approval</span>
         {task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied"
-          ? <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${task.id}/${task.myStatus === "completed" ? "results" : "workspace"}`)} style={{
+          ? <button className="btn btn-primary" onClick={() => {
+              const inProgress = task.myStatus === "active" || task.myStatus === "applied";
+              const dest = task.myStatus === "completed" ? "results"
+                : (task.ptype === "trial" && inProgress) ? "checkin"
+                : (task.category === "sample" && inProgress) ? "shipment"
+                : (task.ptype === "interview" && inProgress) ? "schedule"
+                : (task.ptype === "focus" && inProgress) ? "poll"
+                : "workspace";
+              navigate(`/validator/missions/${task.id}/${dest}`);
+            }} style={{
               background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               opacity: task.myStatus === "rejected" ? 0.8 : 1
             }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} />{task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Accepted · Start now" : "View reason"}</button>
-          : <button className="btn btn-primary btn-lg" disabled={busy} onClick={apply}>{busy ? "Applying…" : "Apply to this mission"} <Icon name="arrowRight" /></button>}
+          : <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : apply}>{busy ? "Applying…" : task.spotsLeft <= 0 ? "Out of slots" : "Apply to this mission"} {task.spotsLeft > 0 && <Icon name="arrowRight" />}</button>}
       </div>
 
       {reportOpen && (

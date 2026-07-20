@@ -39,6 +39,12 @@ export function AuthProvider({ children }) {
     return builder;
   };
 
+  const completeOnboarding = async (payload) => {
+    const { builder } = await api.completeOnboarding(payload);
+    setBuilder(builder);
+    return builder;
+  };
+
   const logout = async () => {
     try { await api.logout(); } catch { /* ignore */ }
     setToken(null);
@@ -52,7 +58,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ builder, setBuilder, loading, login, signup, logout, refreshBuilder }}>
+    <AuthContext.Provider value={{ builder, setBuilder, loading, login, signup, completeOnboarding, logout, refreshBuilder }}>
       {children}
     </AuthContext.Provider>
   );
