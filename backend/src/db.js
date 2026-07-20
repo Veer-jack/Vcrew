@@ -117,28 +117,65 @@ export async function initDb() {
     if (!mCols.includes('brief_url')) await client.query('ALTER TABLE missions ADD COLUMN brief_url TEXT');
     if (!mCols.includes('brief_credentials')) await client.query('ALTER TABLE missions ADD COLUMN brief_credentials TEXT');
     if (!mCols.includes('duration_days')) await client.query('ALTER TABLE missions ADD COLUMN duration_days INTEGER DEFAULT 7');
-    
-    const valCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
-    const vCols = valCols.rows.map(r => r.column_name);
-    if (!vCols.includes('payout_vpa')) await client.query('ALTER TABLE validators ADD COLUMN payout_vpa TEXT');
-    if (!vCols.includes('razorpay_contact_id')) await client.query('ALTER TABLE validators ADD COLUMN razorpay_contact_id TEXT');
-    if (!vCols.includes('razorpay_fund_account_id')) await client.query('ALTER TABLE validators ADD COLUMN razorpay_fund_account_id TEXT');
-    if (!vCols.includes('languages_json')) await client.query("ALTER TABLE validators ADD COLUMN languages_json TEXT DEFAULT '[]'");
-    if (!vCols.includes('devices_json')) await client.query("ALTER TABLE validators ADD COLUMN devices_json TEXT DEFAULT '[]'");
-    if (!vCols.includes('hours_per_week')) await client.query('ALTER TABLE validators ADD COLUMN hours_per_week TEXT');
-    if (!vCols.includes('occupation')) await client.query('ALTER TABLE validators ADD COLUMN occupation TEXT');
-    if (!vCols.includes('industry')) await client.query('ALTER TABLE validators ADD COLUMN industry TEXT');
-    if (!vCols.includes('role')) await client.query("ALTER TABLE validators ADD COLUMN role TEXT DEFAULT 'User' CHECK (role IN ('User', 'Tester', 'Validator'))");
-    if (!vCols.includes('location')) await client.query('ALTER TABLE validators ADD COLUMN location TEXT');
-    if (!vCols.includes('bio')) await client.query('ALTER TABLE validators ADD COLUMN bio TEXT');
-    if (!vCols.includes('phone_verified')) await client.query('ALTER TABLE validators ADD COLUMN phone_verified INTEGER DEFAULT 0');
-    if (!vCols.includes('address_line1')) await client.query('ALTER TABLE validators ADD COLUMN address_line1 TEXT');
-    if (!vCols.includes('address_line2')) await client.query('ALTER TABLE validators ADD COLUMN address_line2 TEXT');
-    if (!vCols.includes('address_city')) await client.query('ALTER TABLE validators ADD COLUMN address_city TEXT');
-    if (!vCols.includes('address_state')) await client.query('ALTER TABLE validators ADD COLUMN address_state TEXT');
-    if (!vCols.includes('address_postal_code')) await client.query('ALTER TABLE validators ADD COLUMN address_postal_code TEXT');
-    if (!vCols.includes('address_country')) await client.query('ALTER TABLE validators ADD COLUMN address_country TEXT');
-
+    // Validator type migrations and other new columns
+    const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
+    const vColNames = vCols.rows.map(r => r.column_name);
+    const newVCols = [
+      ['validator_type', 'TEXT DEFAULT \'validator\''],
+      ['tester_status', 'TEXT DEFAULT \'none\''],
+      ['tester_tier', 'TEXT'],
+      ['city', 'TEXT'],
+      ['city_type', 'TEXT'],
+      ['languages_json', "TEXT DEFAULT '[]'"],
+      ['age_group', 'TEXT'],
+      ['gender', 'TEXT'],
+      ['marital_status', 'TEXT'],
+      ['has_kids', 'TEXT'],
+      ['income_bracket', 'TEXT'],
+      ['height', 'TEXT'],
+      ['weight', 'TEXT'],
+      ['skin_tone', 'TEXT'],
+      ['hair_type', 'TEXT'],
+      ['hair_length', 'TEXT'],
+      ['body_type', 'TEXT'],
+      ['occupation', 'TEXT'],
+      ['food_preference', 'TEXT'],
+      ['lifestyle_json', "TEXT DEFAULT '[]'"],
+      ['shopping_preference', 'TEXT'],
+      ['devices_json', "TEXT DEFAULT '[]'"],
+      ['hours_per_week', 'TEXT'],
+      ['role', "TEXT DEFAULT 'User' CHECK (role IN ('User', 'Tester', 'Validator'))"],
+      ['experience_years', 'TEXT'],
+      ['industry_json', "TEXT DEFAULT '[]'"],
+      ['company', 'TEXT'],
+      ['product_types_json', "TEXT DEFAULT '[]'"],
+      ['tech_tools_json', "TEXT DEFAULT '[]'"],
+      ['testing_domains_json', "TEXT DEFAULT '[]'"],
+      ['certifications_json', "TEXT DEFAULT '[]'"],
+      ['linkedin_url', 'TEXT'],
+      ['portfolio_url', 'TEXT'],
+      ['resume_path', 'TEXT'],
+      ['testing_bio', 'TEXT'],
+      // From HEAD branch (stats and escrow)
+      ['payout_vpa', 'TEXT'],
+      ['razorpay_contact_id', 'TEXT'],
+      ['razorpay_fund_account_id', 'TEXT'],
+      ['industry', 'TEXT'],
+      ['location', 'TEXT'],
+      ['bio', 'TEXT'],
+      ['phone_verified', 'INTEGER DEFAULT 0'],
+      ['address_line1', 'TEXT'],
+      ['address_line2', 'TEXT'],
+      ['address_city', 'TEXT'],
+      ['address_state', 'TEXT'],
+      ['address_postal_code', 'TEXT'],
+      ['address_country', 'TEXT']
+    ];
+    for (const [col, def] of newVCols) {
+      if (!vColNames.includes(col)) {
+        await client.query(`ALTER TABLE validators ADD COLUMN ${col} ${def}`);
+      }
+    }
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
     client.release();
