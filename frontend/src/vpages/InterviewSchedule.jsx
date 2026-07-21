@@ -97,7 +97,9 @@ export default function InterviewSchedule() {
           </>
         )}
 
-        <Btn variant="ghost" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>Go to Workspace (Tasks)</Btn>
+        <div style={{ marginTop: 20 }}>
+          <Btn variant="ghost" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>Go to Workspace (Tasks)</Btn>
+        </div>
       </div>
     </div>
   );
