@@ -47,7 +47,14 @@ function MyMissionRow({ m, vtypes, navigate }) {
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
         <div style={{ textAlign: "right" }}><VReward amount={m.reward} /><div className="faint" style={{ fontSize: 11 }}>reward</div></div>
-        {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${m.taskId}/workspace`)}>Resume <Icon name="arrowRight" /></button>}
+        {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => {
+          const dest = (m.type === "trial") ? "checkin"
+            : (m.category === "sample") ? "shipment"
+            : (m.type === "interview") ? "schedule"
+            : (m.type === "focus") ? "poll"
+            : "workspace";
+          navigate(`/validator/missions/${m.taskId}/${dest}`);
+        }}>Resume <Icon name="arrowRight" /></button>}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />Awaiting</span>}
         {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />In review</span>}
         {m.status === "completed" && <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />Paid</span>}
