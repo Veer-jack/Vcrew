@@ -193,6 +193,13 @@ function RouteTracker() {
   const location = useLocation();
   useEffect(() => {
     trackPageview(location.pathname + location.search);
+    if (location.pathname.startsWith("/validator")) {
+      document.title = "ValidationCrew — Validator";
+    } else if (location.pathname.startsWith("/admin")) {
+      document.title = "ValidationCrew — Admin";
+    } else {
+      document.title = "ValidationCrew — Builder";
+    }
   }, [location.pathname, location.search]);
   return null;
 }
