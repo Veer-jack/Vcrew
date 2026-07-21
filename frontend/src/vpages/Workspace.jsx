@@ -248,7 +248,7 @@ export default function Workspace() {
         </div>
         <div style={{ padding: "12px 0", flex: 1 }}>
           {mission?.ptype === "interview" && (
-            <div style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", borderBottom: "1px solid var(--border)", marginBottom: 12, paddingBottom: 16 }}>
+            <button onClick={() => navigate(`/validator/missions/${id}/schedule`)} style={{ display: "flex", width: "100%", textAlign: "left", gap: 13, alignItems: "flex-start", padding: "10px 18px", borderBottom: "1px solid var(--border)", marginBottom: 12, paddingBottom: 16, background: "transparent", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", outline: "none" }}>
                <span style={{
                   width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
                   flexShrink: 0, zIndex: 1,
@@ -259,12 +259,12 @@ export default function Workspace() {
                   {scheduleStatus === "completed" ? <Icon name="check" size={12} /> : <Icon name="video" size={11} />}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Live Interview</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: "var(--text)" }}>Live Interview</div>
                   <div style={{ fontSize: 11.5, color: scheduleStatus === "completed" ? "var(--success)" : "var(--warning)", marginTop: 2 }}>
                     {scheduleStatus === "completed" ? "Completed" : scheduleStatus === "accepted" ? "Confirmed" : "Pending schedule"}
                   </div>
                 </div>
-            </div>
+            </button>
           )}
           {tasks.map((t, i) => {
             const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
