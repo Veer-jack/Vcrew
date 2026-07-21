@@ -116,7 +116,7 @@ function RequireVAuth({ children }) {
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
   if (!validator) return <Navigate to="/validator/login" state={{ from: location.pathname }} replace />;
   
-  if (!validator.validator_type && !location.pathname.includes("/validator/onboarding")) {
+  if ((!validator.validator_type || !validator.city) && !location.pathname.includes("/validator/onboarding")) {
     return <Navigate to="/validator/onboarding" replace />;
   }
   
