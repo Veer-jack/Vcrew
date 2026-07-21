@@ -205,6 +205,7 @@ export default function VOnboarding() {
   useEffect(() => {
     if (!validatorType || showPending) return;
     const handleBeforeUnload = (e) => {
+      if (window.__bypassUnload) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -221,7 +222,10 @@ export default function VOnboarding() {
       localStorage.removeItem(`VC_V_DRAFT_${vtype.toUpperCase()}`);
       await refresh();
       if (vtype === "tester") setShowPending(true);
-      else window.location.href = "/validator";
+      else {
+        window.__bypassUnload = true;
+        window.location.href = "/validator";
+      }
     } catch (err) {
       setError(err.message || "Could not save profile. Please try again.");
     }
