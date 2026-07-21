@@ -215,7 +215,7 @@ export default function VOnboarding() {
   const handleDone = async (data, vtype) => {
     setError("");
     try {
-      await vapi.updateProfile({ ...data, validator_type: vtype, specialties_json: JSON.stringify(data.product_types || data.specialties || []) });
+      await vapi.patch("/auth/profile", { ...data, validator_type: vtype, specialties_json: JSON.stringify(data.product_types || data.specialties || []) });
       localStorage.removeItem("VC_V_TYPE");
       localStorage.removeItem(`VC_V_STEP_${vtype.toUpperCase()}`);
       localStorage.removeItem(`VC_V_DRAFT_${vtype.toUpperCase()}`);

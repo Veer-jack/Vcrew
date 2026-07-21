@@ -46,6 +46,7 @@ export const vapi = {
 
   get: (path) => request(path),
   post: (path, body) => request(path, { method: "POST", body }),
+  patch: (path, body) => request(path, { method: "PATCH", body }),
 
   meta: () => request("/meta"),
   oauthProviders: () => request("/auth/oauth/providers"),
