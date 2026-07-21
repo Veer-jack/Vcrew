@@ -221,7 +221,7 @@ export default function VOnboarding() {
       localStorage.removeItem(`VC_V_DRAFT_${vtype.toUpperCase()}`);
       await refresh();
       if (vtype === "tester") setShowPending(true);
-      else navigate("/validator", { replace: true });
+      else window.location.href = "/validator";
     } catch (err) {
       setError(err.message || "Could not save profile. Please try again.");
     }
@@ -256,7 +256,7 @@ export default function VOnboarding() {
         )}
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
-        {showPending ? <PendingScreen onContinue={() => navigate("/validator", { replace: true })} /> : !validatorType ? <TypeSelector onSelect={setValidatorType} /> : validatorType === "user" ? <UserOnboarding onDone={handleDone} /> : validatorType === "validator" ? <ValidatorOnboarding onDone={handleDone} error={error} /> : <TesterOnboarding onDone={handleDone} error={error} />}
+        {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} /> : !validatorType ? <TypeSelector onSelect={setValidatorType} /> : validatorType === "user" ? <UserOnboarding onDone={handleDone} /> : validatorType === "validator" ? <ValidatorOnboarding onDone={handleDone} error={error} /> : <TesterOnboarding onDone={handleDone} error={error} />}
       </div>
     </div>
   );
