@@ -67,7 +67,7 @@ const Chips = ({ options, value, onChange, multi = true }) => (
 );
 
 const Field = ({ label, required, hint, children }) => (
-  <div className="fld">
+  <div className="fld" style={{ marginBottom: 24 }}>
     <label>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}</label>
     {children}
     {hint && <p className="fhint">{hint}</p>}
