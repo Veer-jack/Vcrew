@@ -78,8 +78,9 @@ router.get("/", async (req, res) => {
     levels: LEVELS, badges: dynamicBadges, expertise: dynamicExpertise,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     payoutVpa: v.payout_vpa || null,
-    role: v.role, occupation: v.occupation, industry: v.industry,
-    location: v.location, bio: v.bio,
+    role: v.role, occupation: v.occupation, 
+    industry: v.industry || (v.industry_json && v.industry_json !== '[]' ? JSON.parse(v.industry_json).join(", ") : ""),
+    location: v.location || v.city, bio: v.bio,
     address: {
       line1: v.address_line1 || "", line2: v.address_line2 || "",
       city: v.address_city || "", state: v.address_state || "",
