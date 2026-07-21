@@ -20,6 +20,12 @@ function publicValidator(v) {
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     preferredLanguage: v.preferred_language || "en",
     oauthProvider: v.oauth_provider || null,
+    validator_type: v.validator_type,
+    tester_status: v.tester_status,
+    role: v.role,
+    avatar: v.avatar,
+    bio: v.bio,
+    city: v.city
   };
 }
 
