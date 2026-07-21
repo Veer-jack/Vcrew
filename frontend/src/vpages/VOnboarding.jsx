@@ -6,6 +6,21 @@ import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 
+function useDraft(key, defaultState) {
+  const [val, setVal] = useState(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return defaultState;
+  });
+  useEffect(() => {
+    if (val === null) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(val));
+  }, [val, key]);
+  return [val, setVal];
+}
+
 const TYPES = [
   { key: "user", icon: "users", title: "User", tagline: "I use everyday products", desc: "Perfect for testing physical products, food, packaging, fashion, and consumer apps. No tech experience needed.", color: "#059669", bg: "var(--success-weak)", missions: "Surveys, taste tests, packaging reviews, lifestyle products" },
   { key: "validator", icon: "shield", title: "Validator", tagline: "I have professional expertise", desc: "For professionals, domain experts, and tech-savvy users who can evaluate apps, SaaS products, and digital experiences.", color: "#4f46e5", bg: "var(--accent-weak)", missions: "App testing, UX evaluation, SaaS reviews, expert feedback" },
@@ -94,8 +109,8 @@ function TypeSelector({ onSelect }) {
 }
 
 function UserOnboarding({ onDone }) {
-  const [step, setStep] = useState(0);
-  const [d, setD] = useState({ name: "", handle: "", city: "", language: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", food_pref: "", lifestyle: [], devices: [], hours: "" });
+  const [step, setStep] = useDraft("VC_V_STEP_USER", 0);
+  const [d, setD] = useDraft("VC_V_DRAFT_USER", { name: "", handle: "", city: "", language: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", food_pref: "", lifestyle: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.age_group && d.gender && d.income, d.height && d.weight && d.skin_tone && d.body_type, d.occupation && d.hours && d.devices.length > 0];
   const steps = ["Basic info","Demographics","Physical profile","Lifestyle"];
@@ -117,8 +132,8 @@ function UserOnboarding({ onDone }) {
 }
 
 function ValidatorOnboarding({ onDone }) {
-  const [step, setStep] = useState(0);
-  const [d, setD] = useState({ name: "", handle: "", city: "", language: [], bio: "", role: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
+  const [step, setStep] = useDraft("VC_V_STEP_VALIDATOR", 0);
+  const [d, setD] = useDraft("VC_V_DRAFT_VALIDATOR", { name: "", handle: "", city: "", language: [], bio: "", role: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.role && d.experience && d.industry.length > 0, d.product_types.length > 0, d.hours && d.devices.length > 0];
   const steps = ["Basic info","Professional","Expertise","Availability"];
@@ -140,9 +155,9 @@ function ValidatorOnboarding({ onDone }) {
 }
 
 function TesterOnboarding({ onDone }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useDraft("VC_V_STEP_TESTER", 0);
   const [resumeFile, setResumeFile] = useState(null);
-  const [d, setD] = useState({ name: "", handle: "", city: "", language: [], role: "", experience: "", industry: [], company: "", domains: [], certifications: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false });
+  const [d, setD] = useDraft("VC_V_DRAFT_TESTER", { name: "", handle: "", city: "", language: [], role: "", experience: "", industry: [], company: "", domains: [], certifications: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const wordCount = d.testing_bio.trim().split(/\s+/).filter(Boolean).length;
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.role && d.experience && d.industry.length > 0 && d.company.trim(), d.linkedin_url.trim() && resumeFile && wordCount >= 30, d.agreed];
@@ -180,7 +195,7 @@ function PendingScreen({ onContinue }) {
 export default function VOnboarding() {
   const navigate = useNavigate();
   const { refresh } = useVAuth();
-  const [validatorType, setValidatorType] = useState(null);
+  const [validatorType, setValidatorType] = useDraft("VC_V_TYPE", null);
   const [showPending, setShowPending] = useState(false);
   const [error, setError] = useState("");
   const type = TYPES.find(t => t.key === validatorType);
@@ -199,6 +214,9 @@ export default function VOnboarding() {
     setError("");
     try {
       await vapi.updateProfile({ ...data, validator_type: vtype, specialties_json: JSON.stringify(data.product_types || data.specialties || []) });
+      localStorage.removeItem("VC_V_TYPE");
+      localStorage.removeItem(`VC_V_STEP_${vtype.toUpperCase()}`);
+      localStorage.removeItem(`VC_V_DRAFT_${vtype.toUpperCase()}`);
       await refresh();
       if (vtype === "tester") setShowPending(true);
       else navigate("/validator", { replace: true });
@@ -225,6 +243,15 @@ export default function VOnboarding() {
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--success)", marginBottom: 4 }}>Account created!</div>
           <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Complete your profile to start getting matched to missions.</div>
         </div>
+        {validatorType && !showPending && (
+          <button className="btn btn-ghost" style={{ marginTop: 12, justifyContent: "center", color: "var(--text-muted)" }} onClick={() => {
+            if (window.confirm("Are you sure you want to change your role? This will clear all your progress.")) {
+              localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}`);
+              localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}`);
+              setValidatorType(null);
+            }
+          }}>Change role (Start over)</button>
+        )}
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
         {error && <div className="err-banner" style={{ marginBottom: 16, maxWidth: 600, width: "100%" }}>{error}</div>}
