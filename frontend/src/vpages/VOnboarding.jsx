@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BrandLogoFull } from "../components/BrandMark";
 import Icon from "../components/Icon";
@@ -184,6 +184,16 @@ export default function VOnboarding() {
   const [showPending, setShowPending] = useState(false);
   const [error, setError] = useState("");
   const type = TYPES.find(t => t.key === validatorType);
+
+  useEffect(() => {
+    if (!validatorType || showPending) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [validatorType, showPending]);
 
   const handleDone = async (data, vtype) => {
     setError("");
