@@ -9,7 +9,7 @@ import { deadlineLabel } from "../vutil";
 export default function MissionDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vtypes } = useVMeta();
+  const { vtypes, ptypes } = useVMeta();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -102,6 +102,18 @@ export default function MissionDetails() {
                   </div>
                 ))}
               </div>
+              {task.ptype && ptypes && ptypes.find(p => p.id === task.ptype) && (() => {
+                const pt = ptypes.find(p => p.id === task.ptype);
+                return (
+                  <div style={{ marginTop: 24, padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--panel-inset)" }}>
+                    <div className="row gap-2" style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
+                      <Icon name={pt.icon} size={15} style={{ color: "var(--text-faint)" }} />
+                      Participation Type: {pt.label}
+                    </div>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23 }}>{pt.desc}</div>
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <div className="eyebrow" style={{ marginBottom: 11 }}>What you'll be graded on</div>
