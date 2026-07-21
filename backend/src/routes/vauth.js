@@ -216,8 +216,7 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
       linkedin_url = COALESCE($35, linkedin_url),
       portfolio_url = COALESCE($36, portfolio_url),
       testing_bio = COALESCE($37, testing_bio),
-      specialties_json = COALESCE($38, specialties_json),
-      updated_at = NOW()
+      specialties_json = COALESCE($38, specialties_json)
     WHERE id = $39
   `).run(
     b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
