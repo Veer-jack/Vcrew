@@ -109,6 +109,7 @@ export default function Workspace() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [scheduleStatus, setScheduleStatus] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -117,6 +118,7 @@ export default function Workspace() {
         const t = data.tasks || [];
         setMission(data.mission);
         setTasks(t);
+        setScheduleStatus(data.scheduleStatus);
         if (data.responses && !data.isDraft) {
           setIsReadOnly(true);
           setAnswers(data.responses);
@@ -166,7 +168,9 @@ export default function Workspace() {
   const stepsComplete = stepsDone[curIdx]?.size === task.steps.length;
   const allAnswered = task.questions.every(q => answers[curIdx]?.[q.id] !== undefined);
   const proofOk = !task.proof || proofUploaded[curIdx];
-  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk;
+  const isFinalTask = curIdx === tasks.length - 1;
+  const interviewOk = !isFinalTask || mission?.ptype !== "interview" || scheduleStatus === "completed";
+  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk && interviewOk;
 
   const toggleStep = (si) => {
     setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
@@ -243,6 +247,25 @@ export default function Workspace() {
           <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{mission?.brand || "Mission brief"}</div>
         </div>
         <div style={{ padding: "12px 0", flex: 1 }}>
+          {mission?.ptype === "interview" && (
+            <div style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", borderBottom: "1px solid var(--border)", marginBottom: 12, paddingBottom: 16 }}>
+               <span style={{
+                  width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
+                  flexShrink: 0, zIndex: 1,
+                  background: scheduleStatus === "completed" ? "var(--success)" : "var(--panel)",
+                  border: `1.5px solid ${scheduleStatus === "completed" ? "var(--success)" : "var(--warning)"}`,
+                  color: scheduleStatus === "completed" ? "#fff" : "var(--warning)",
+                }}>
+                  {scheduleStatus === "completed" ? <Icon name="check" size={12} /> : <Icon name="video" size={11} />}
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25 }}>Live Interview</div>
+                  <div style={{ fontSize: 11.5, color: scheduleStatus === "completed" ? "var(--success)" : "var(--warning)", marginTop: 2 }}>
+                    {scheduleStatus === "completed" ? "Completed" : scheduleStatus === "accepted" ? "Confirmed" : "Pending schedule"}
+                  </div>
+                </div>
+            </div>
+          )}
           {tasks.map((t, i) => {
             const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
             return (
@@ -386,6 +409,7 @@ export default function Workspace() {
                 {!stepsComplete && <li>Check off all steps above</li>}
                 {!allAnswered && <li>Answer all questions</li>}
                 {!proofOk && <li>Upload a screenshot as proof</li>}
+                {!interviewOk && <li>Wait for the builder to mark the live interview as completed</li>}
               </ul>
             </div>
           )}

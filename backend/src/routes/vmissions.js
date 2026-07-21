@@ -68,6 +68,24 @@ router.get("/", async (req, res) => {
   sql += ` ORDER BY mm.updated_at DESC`;
   const rows = await db.prepare(sql).all(...params);
 
+  const interviewMissions = rows.filter(r => r.type === "interview").map(r => r.id);
+  if (interviewMissions.length > 0) {
+    const schedules = await db.prepare(`SELECT mission_id, status FROM interview_schedules WHERE validator_id = ? AND mission_id IN (${interviewMissions.map(()=>'?').join(',')})`)
+      .all(req.validator.id, ...interviewMissions);
+    const scheduleMap = {};
+    for (const s of schedules) scheduleMap[s.mission_id] = s.status;
+    for (const r of rows) {
+      if (r.type === "interview") {
+        const st = scheduleMap[r.id];
+        let boost = 0;
+        if (st === "proposed") boost = 10;
+        else if (st === "accepted") boost = 30;
+        else if (st === "completed") boost = 50;
+        r.progress = boost + Math.floor((r.progress || 0) * 0.5);
+      }
+    }
+  }
+
   const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
@@ -98,9 +116,16 @@ router.get("/:taskId", async (req, res) => {
     ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", ptype: t.ptype || null, category: t.category || null, product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
     : { id: t.id, type: t.type, ptype: null, category: null, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
 
+  let scheduleStatus = null;
+  if (isRealMission && t.ptype === "interview") {
+    const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(t.id, req.validator.id);
+    if (s) scheduleStatus = s.status;
+  }
+
   res.json({
     task: taskData,
     rubric: VTYPES[taskData.type],
+    scheduleStatus,
     myMission: mm ? {
       status: mm.status, progress: mm.progress, score: mm.score,
       ratings: mm.ratings_json ? JSON.parse(mm.ratings_json) : {},
@@ -177,11 +202,18 @@ router.get("/:id/workspace", async (req, res) => {
     isDraft = response.status === "draft" || response.status === "revision";
   }
 
+  let scheduleStatus = null;
+  if (m.ptype === "interview") {
+    const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+    if (s) scheduleStatus = s.status;
+  }
+
   res.json({
     mission: { id: m.id, name: m.name, brand: m.brand || m.builder_name, ptype: m.ptype },
     tasks,
     responses,
     isDraft,
+    scheduleStatus,
   });
 });
 
