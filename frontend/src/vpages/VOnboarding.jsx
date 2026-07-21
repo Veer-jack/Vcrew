@@ -108,9 +108,9 @@ function TypeSelector({ onSelect }) {
   );
 }
 
-function UserOnboarding({ onDone }) {
-  const [step, setStep] = useDraft("VC_V_STEP_USER", 0);
-  const [d, setD] = useDraft("VC_V_DRAFT_USER", { name: "", handle: "", city: "", language: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", food_pref: "", lifestyle: [], devices: [], hours: "" });
+function UserOnboarding({ onDone, vid }) {
+  const [step, setStep] = useDraft(`VC_V_STEP_USER_${vid}`, 0);
+  const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { name: "", handle: "", city: "", language: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", food_pref: "", lifestyle: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.age_group && d.gender && d.income, d.height && d.weight && d.skin_tone && d.body_type, d.occupation && d.hours && d.devices.length > 0];
   const steps = ["Basic info","Demographics","Physical profile","Lifestyle"];
@@ -131,9 +131,9 @@ function UserOnboarding({ onDone }) {
   );
 }
 
-function ValidatorOnboarding({ onDone, error }) {
-  const [step, setStep] = useDraft("VC_V_STEP_VALIDATOR", 0);
-  const [d, setD] = useDraft("VC_V_DRAFT_VALIDATOR", { name: "", handle: "", city: "", language: [], bio: "", occupation: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
+function ValidatorOnboarding({ onDone, error, vid }) {
+  const [step, setStep] = useDraft(`VC_V_STEP_VALIDATOR_${vid}`, 0);
+  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", language: [], bio: "", occupation: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0, d.product_types.length > 0, d.hours && d.devices.length > 0];
   const steps = ["Basic info","Professional","Expertise","Availability"];
@@ -155,10 +155,10 @@ function ValidatorOnboarding({ onDone, error }) {
   );
 }
 
-function TesterOnboarding({ onDone, error }) {
-  const [step, setStep] = useDraft("VC_V_STEP_TESTER", 0);
+function TesterOnboarding({ onDone, error, vid }) {
+  const [step, setStep] = useDraft(`VC_V_STEP_TESTER_${vid}`, 0);
   const [resumeFile, setResumeFile] = useState(null);
-  const [d, setD] = useDraft("VC_V_DRAFT_TESTER", { name: "", handle: "", city: "", language: [], occupation: "", experience: "", industry: [], company: "", domains: [], certifications: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false });
+  const [d, setD] = useDraft(`VC_V_DRAFT_TESTER_${vid}`, { name: "", handle: "", city: "", language: [], occupation: "", experience: "", industry: [], company: "", domains: [], certifications: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const wordCount = d.testing_bio ? d.testing_bio.trim().split(/\s+/).filter(Boolean).length : 0;
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0 && d.company.trim(), d.linkedin_url.trim() && resumeFile && wordCount >= 30, d.agreed];
@@ -196,8 +196,8 @@ function PendingScreen({ onContinue }) {
 
 export default function VOnboarding() {
   const navigate = useNavigate();
-  const { refresh } = useVAuth();
-  const [validatorType, setValidatorType] = useDraft("VC_V_TYPE", null);
+  const { validator, refresh } = useVAuth();
+  const [validatorType, setValidatorType] = useDraft(`VC_V_TYPE_${validator?.id}`, null);
   const [showPending, setShowPending] = useState(false);
   const [error, setError] = useState("");
   const type = TYPES.find(t => t.key === validatorType);
@@ -217,9 +217,9 @@ export default function VOnboarding() {
     setError("");
     try {
       await vapi.patch("/auth/profile", { ...data, validator_type: vtype, specialties_json: JSON.stringify(data.product_types || data.specialties || []) });
-      localStorage.removeItem("VC_V_TYPE");
-      localStorage.removeItem(`VC_V_STEP_${vtype.toUpperCase()}`);
-      localStorage.removeItem(`VC_V_DRAFT_${vtype.toUpperCase()}`);
+      localStorage.removeItem(`VC_V_TYPE_${validator?.id}`);
+      localStorage.removeItem(`VC_V_STEP_${vtype.toUpperCase()}_${validator?.id}`);
+      localStorage.removeItem(`VC_V_DRAFT_${vtype.toUpperCase()}_${validator?.id}`);
       await refresh();
       if (vtype === "tester") setShowPending(true);
       else {
@@ -252,15 +252,15 @@ export default function VOnboarding() {
         {validatorType && !showPending && (
           <button className="btn btn-ghost" style={{ marginTop: 12, justifyContent: "center", color: "var(--text-muted)" }} onClick={() => {
             if (window.confirm("Are you sure you want to change your role? This will clear all your progress.")) {
-              localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}`);
-              localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}`);
+              localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator?.id}`);
+              localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}_${validator?.id}`);
               setValidatorType(null);
             }
           }}>Change role (Start over)</button>
         )}
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
-        {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} /> : !validatorType ? <TypeSelector onSelect={setValidatorType} /> : validatorType === "user" ? <UserOnboarding onDone={handleDone} /> : validatorType === "validator" ? <ValidatorOnboarding onDone={handleDone} error={error} /> : <TesterOnboarding onDone={handleDone} error={error} />}
+        {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} /> : !validatorType ? <TypeSelector onSelect={setValidatorType} /> : validatorType === "user" ? <UserOnboarding vid={validator?.id} onDone={handleDone} /> : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} onDone={handleDone} error={error} /> : <TesterOnboarding vid={validator?.id} onDone={handleDone} error={error} />}
       </div>
     </div>
   );
