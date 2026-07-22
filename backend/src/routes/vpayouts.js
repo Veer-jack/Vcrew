@@ -32,7 +32,15 @@ router.post("/remove", async (req, res) => {
 
 // GET /api/v/payouts/history — recent withdrawal records
 router.get("/history", async (req, res) => {
-  const rows = await db.prepare(`SELECT id, amount, vpa, status, failure_reason, created_at FROM withdrawals WHERE validator_id = ? ORDER BY id DESC LIMIT 20`)
+  const rows = await db.prepare(`SELECT id, amount, account_json, status, note, requested_at FROM withdrawals WHERE validator_id = ? ORDER BY id DESC LIMIT 20`)
     .all(req.validator.id);
-  res.json({ withdrawals: rows });
+  const mapped = rows.map(r => ({
+    id: r.id,
+    amount: r.amount,
+    vpa: (JSON.parse(r.account_json || "{}")).vpa || "",
+    status: r.status,
+    failure_reason: r.note,
+    created_at: r.requested_at
+  }));
+  res.json({ withdrawals: mapped });
 });

@@ -7,18 +7,29 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  ssl: { rejectUnauthorized: false },
   max: 10,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 30000,
 });
 
 pool.on("error", (err) => console.error("PG pool error:", err));
 
-// Convert SQLite ? placeholders → PostgreSQL $1, $2, ...
+// Convert SQLite ? placeholders → PostgreSQL $1, $2, ... safely
 function toPostgres(sql) {
-  let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
+  let inString = false;
+  let result = '';
+  let paramIndex = 0;
+  for (let i = 0; i < sql.length; i++) {
+    const c = sql[i];
+    if (c === "'") inString = !inString;
+    if (c === '?' && !inString) {
+      result += `$${++paramIndex}`;
+    } else {
+      result += c;
+    }
+  }
+  return result;
 }
 
 // Flatten params — some callers use .run(a, b), some use .run([a, b])
@@ -62,6 +73,35 @@ export const db = {
   exec: async (sql) => {
     await query(sql, []);
   },
+  transaction: async (cb) => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const tDb = {
+        prepare: (sql) => ({
+          get: async (...params) => { const r = await client.query(toPostgres(sql), flat(params)); return r.rows[0] ?? null; },
+          all: async (...params) => { const r = await client.query(toPostgres(sql), flat(params)); return r.rows; },
+          run: async (...params) => {
+            const pgSql = toPostgres(sql);
+            const isInsert = /^\s*INSERT/i.test(sql);
+            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens/i.test(sql);
+            const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(pgSql) ? `${pgSql} RETURNING id` : pgSql;
+            const r = await client.query(finalSql, flat(params));
+            return { changes: r.rowCount, lastInsertRowid: r.rows[0]?.id ?? null };
+          }
+        }),
+        exec: async (sql) => client.query(toPostgres(sql))
+      };
+      const result = await cb(tDb);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 };
 
 export async function initDb() {
@@ -77,7 +117,7 @@ export async function initDb() {
     if (!mCols.includes('brief_url')) await client.query('ALTER TABLE missions ADD COLUMN brief_url TEXT');
     if (!mCols.includes('brief_credentials')) await client.query('ALTER TABLE missions ADD COLUMN brief_credentials TEXT');
     if (!mCols.includes('duration_days')) await client.query('ALTER TABLE missions ADD COLUMN duration_days INTEGER DEFAULT 7');
-    // Validator type migrations
+    // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);
     const newVCols = [
@@ -104,7 +144,7 @@ export async function initDb() {
       ['shopping_preference', 'TEXT'],
       ['devices_json', "TEXT DEFAULT '[]'"],
       ['hours_per_week', 'TEXT'],
-      ['role', 'TEXT'],
+      ['role', "TEXT DEFAULT 'User' CHECK (role IN ('User', 'Tester', 'Validator'))"],
       ['experience_years', 'TEXT'],
       ['industry_json', "TEXT DEFAULT '[]'"],
       ['company', 'TEXT'],
@@ -116,6 +156,20 @@ export async function initDb() {
       ['portfolio_url', 'TEXT'],
       ['resume_path', 'TEXT'],
       ['testing_bio', 'TEXT'],
+      // From HEAD branch (stats and escrow)
+      ['payout_vpa', 'TEXT'],
+      ['razorpay_contact_id', 'TEXT'],
+      ['razorpay_fund_account_id', 'TEXT'],
+      ['industry', 'TEXT'],
+      ['location', 'TEXT'],
+      ['bio', 'TEXT'],
+      ['phone_verified', 'INTEGER DEFAULT 0'],
+      ['address_line1', 'TEXT'],
+      ['address_line2', 'TEXT'],
+      ['address_city', 'TEXT'],
+      ['address_state', 'TEXT'],
+      ['address_postal_code', 'TEXT'],
+      ['address_country', 'TEXT']
     ];
     for (const [col, def] of newVCols) {
       if (!vColNames.includes(col)) {

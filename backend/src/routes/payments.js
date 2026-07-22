@@ -34,17 +34,17 @@ router.post("/verify", async (req, res) => {
 
   const balanceRow = async () => await db.prepare(`SELECT balance FROM builders WHERE id = ?`).get(req.builder.id);
 
-  const existing = await db.prepare(`SELECT id FROM transactions WHERE payment_ref = ?`).get(orderId);
+  const existing = await db.prepare(`SELECT id FROM transactions WHERE ref = ?`).get(orderId);
   if (existing) {
-    return res.json({ balance: balanceRow().balance, credited: true });
+    return res.json({ balance: (await balanceRow()).balance, credited: true });
   }
 
   const credit = Math.round(Number(amount));
   if (!credit || credit <= 0) return res.status(400).json({ error: "Invalid amount" });
 
   await db.prepare(`UPDATE builders SET balance = balance + ? WHERE id = ?`).run(credit, req.builder.id);
-  await db.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?,?,?,?,?,?,?)`)
+  await db.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?,?,?,?,?,?)`)
     .run(req.builder.id, "credit", credit, "completed", orderId, "Wallet top-up via card");
 
-  res.json({ balance: balanceRow().balance, credited: true });
+  res.json({ balance: (await balanceRow()).balance, credited: true });
 });

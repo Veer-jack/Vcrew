@@ -141,6 +141,7 @@ export default function AppLayout() {
           <div className="search" style={{ marginLeft: 18 }}><Icon name="search" size={16} /><input placeholder="Search missions, members, responses…" /></div>
           <span className="topbar-spacer" />
           <button className="icon-btn" onClick={() => setBell(true)} title="Notifications"><Icon name="bell" size={17} /></button>
+          <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title="Log out"><Icon name="logout" size={17} /></button>
           <div style={{ position: "relative" }}>
             <button
               className="icon-btn"

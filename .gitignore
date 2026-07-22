@@ -2,3 +2,7 @@ node_modules/
 dist/
 backend/data/
 *.log
+.env
+validator_role_definitions.md
+team_lead_notes.md
+docs/superpowers/

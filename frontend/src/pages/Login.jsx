@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import AuthSplitScreen from "../components/auth/AuthSplitScreen";
 import { useAuth } from "../context/AuthContext";
 import { api, setToken } from "../api/client";
@@ -21,7 +22,19 @@ const COPY = {
 };
 
 export default function Login() {
-  const { setBuilder } = useAuth();
+  const { builder, setBuilder } = useAuth();
+
+  if (builder) {
+    return (
+      <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
+        <div style={{ textAlign: "center", background: "var(--panel)", padding: "40px 32px", borderRadius: "var(--radius)", border: "1px solid var(--border)", maxWidth: 400, boxShadow: "var(--shadow-sm)" }}>
+          <h2 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>Already logged in</h2>
+          <p style={{ color: "var(--text-muted)", marginBottom: 24, fontSize: 15 }}>You are currently logged in as <strong>{builder.email}</strong>.</p>
+          <Link to="/" className="btn btn-primary" style={{ display: "inline-flex", width: "100%", justifyContent: "center" }}>Go to Dashboard →</Link>
+        </div>
+      </div>
+    );
+  }
 
   const adapter = {
     oauthProviders: () => api.oauthProviders(),
@@ -29,7 +42,7 @@ export default function Login() {
     firebaseConfig: () => api.firebaseConfig(),
     phoneLoginVerify: (idToken) => api.phoneLoginVerify(idToken),
     login: (email, password) => api.login(email, password).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
-    signup: ({ name, org, email, password }) => api.signup({ name, org, email, password, persona: "founder" }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
+    signup: ({ name, org, email, password }) => api.signup({ name, org, email, password }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
     userKey: "builder",
     onAuthed: (token, builder) => { setToken(token); setBuilder(builder); },
   };

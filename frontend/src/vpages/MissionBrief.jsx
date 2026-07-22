@@ -17,7 +17,7 @@ export default function MissionBrief() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await vapi.get(`/v/missions/${id}/brief`);
+        const data = await vapi.get(`/missions/${id}/brief`);
         setMission(data.mission);
         setTasks(data.tasks || []);
       } catch {

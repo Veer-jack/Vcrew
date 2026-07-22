@@ -118,7 +118,7 @@ async function setAdminSetting(key, value) {
 }
 
 export async function adminHasTotp() {
-  return !!getAdminSetting("totp_secret");
+  return !!(await getAdminSetting("totp_secret"));
 }
 
 // Generates 8 one-time backup codes. Called once during initial TOTP confirmation.
@@ -128,19 +128,19 @@ async function generateBackupCodes() {
     crypto.randomBytes(5).toString("hex").toUpperCase().replace(/(.{4})/g, "$1-").slice(0, 9)
   );
   const hashed = codes.map(c => crypto.createHash("sha256").update(c).digest("hex"));
-  setAdminSetting("backup_codes_json", JSON.stringify(hashed));
+  await setAdminSetting("backup_codes_json", JSON.stringify(hashed));
   return codes; // returned in plaintext once, never stored in plaintext
 }
 
 export async function getBackupCodeCount() {
-  const stored = getAdminSetting("backup_codes_json");
+  const stored = await getAdminSetting("backup_codes_json");
   if (!stored) return 0;
   try { return JSON.parse(stored).filter(Boolean).length; } catch { return 0; }
 }
 
 // Verifies a backup code and burns it (one-time use)
 export async function consumeBackupCode(code) {
-  const stored = getAdminSetting("backup_codes_json");
+  const stored = await getAdminSetting("backup_codes_json");
   if (!stored) return false;
   let codes;
   try { codes = JSON.parse(stored); } catch { return false; }
@@ -148,14 +148,14 @@ export async function consumeBackupCode(code) {
   const idx = codes.indexOf(hashed);
   if (idx === -1) return false;
   codes[idx] = null; // burn it
-  setAdminSetting("backup_codes_json", JSON.stringify(codes));
+  await setAdminSetting("backup_codes_json", JSON.stringify(codes));
   return true;
 }
 
 // Called after a fresh, unconfirmed setup -- not active until confirmTotp() succeeds.
 export async function generateTotpSecret() {
   const secret = generateSecret();
-  setAdminSetting("totp_secret_pending", secret);
+  await setAdminSetting("totp_secret_pending", secret);
   const uri = generateURI({ issuer: "ValidationCrew Admin", label: ADMIN_EMAIL, secret, type: "totp" });
   return { secret, uri };
 }
@@ -171,17 +171,17 @@ async function checkTotp(secret, code) {
 }
 
 export async function confirmTotpSetup(code) {
-  const pending = getAdminSetting("totp_secret_pending");
+  const pending = await getAdminSetting("totp_secret_pending");
   if (!pending) return null;
   if (!(await checkTotp(pending, code))) return null;
-  setAdminSetting("totp_secret", pending);
+  await setAdminSetting("totp_secret", pending);
   await db.prepare(`DELETE FROM admin_settings WHERE key = 'totp_secret_pending'`).run();
-  const backupCodes = generateBackupCodes();
+  const backupCodes = await generateBackupCodes();
   return backupCodes; // plaintext codes returned once to caller, never stored
 }
 
 export async function verifyTotpCode(code) {
-  const secret = getAdminSetting("totp_secret");
+  const secret = await getAdminSetting("totp_secret");
   if (!secret) return false;
   return checkTotp(secret, code);
 }
@@ -200,7 +200,7 @@ export async function createPending2fa() {
 export async function checkPending2fa(token) {
   const row = await db.prepare(`SELECT * FROM admin_pending_2fa WHERE token = ?`).get(token);
   if (!row) return false;
-  const ageMin = (Date.now() - new Date(row.created_at + "Z").getTime()) / 60000;
+  const ageMin = (Date.now() - (row.created_at instanceof Date ? row.created_at : new Date(row.created_at + "Z")).getTime()) / 60000;
   if (ageMin > PENDING_2FA_MINUTES || row.attempts >= PENDING_2FA_MAX_ATTEMPTS) {
     await db.prepare(`DELETE FROM admin_pending_2fa WHERE token = ?`).run(token);
     return false;
@@ -231,7 +231,7 @@ export async function adminAuthMiddleware(req, res, next) {
   const session = await db.prepare(`SELECT * FROM admin_sessions WHERE token = ?`).get(token);
   if (!session) return res.status(401).json({ error: "Invalid or expired session" });
 
-  const ageHours = (Date.now() - new Date(session.created_at + "Z").getTime()) / 3600000;
+  const ageHours = (Date.now() - (session.created_at instanceof Date ? session.created_at : new Date(session.created_at + "Z")).getTime()) / 3600000;
   if (ageHours > ADMIN_SESSION_HOURS) {
     await db.prepare(`DELETE FROM admin_sessions WHERE token = ?`).run(token);
     return res.status(401).json({ error: "Session expired, please sign in again" });

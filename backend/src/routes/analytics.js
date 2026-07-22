@@ -8,7 +8,23 @@ router.use(authMiddleware);
 
 router.get("/", async (req, res) => {
   const bId = req.builder.id;
-  const missions = await db.prepare(`SELECT * FROM missions WHERE builder_id = ?`).all(bId);
+  const rawMissions = await db.prepare(`
+    SELECT m.*, 
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
+    FROM missions m WHERE builder_id = ?
+  `).all(bId);
+  
+  const missions = rawMissions.map(m => ({
+    ...m,
+    submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted,
+    completion: m.real_submitted !== undefined 
+      ? Math.min(100, Math.round((Number(m.real_submitted) / Math.max(m.target || 1, 1)) * 100)) 
+      : m.completion,
+    rating: m.real_rating !== undefined && m.real_rating !== null 
+      ? Math.round(Number(m.real_rating) * 10) / 10 
+      : m.rating,
+  }));
   const missionIds = missions.map(m => m.id);
 
   let responses = [];
@@ -41,7 +57,12 @@ router.get("/", async (req, res) => {
 
   // Geo distribution from the audience pool (real, shared table)
   const geoRows = await db.prepare(`
-    SELECT city, COUNT(*) as cnt FROM audience_members GROUP BY city ORDER BY cnt DESC LIMIT 6
+    SELECT location as city, COUNT(*) as cnt 
+    FROM validators 
+    WHERE location IS NOT NULL AND location != ''
+    GROUP BY location 
+    ORDER BY cnt DESC 
+    LIMIT 6
   `).all();
   const geo = geoRows.map(r => ({ l: r.city, v: r.cnt }));
 

@@ -1,4 +1,5 @@
 import Icon from "./Icon";
+import { PasswordInput } from "./ui";
 
 export function Field({ label, optional, span, children }) {
   return (
@@ -10,6 +11,9 @@ export function Field({ label, optional, span, children }) {
 }
 
 export function TextInput({ value, onChange, placeholder, type = "text" }) {
+  if (type === "password") {
+    return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
+  }
   return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
 }
 
@@ -46,7 +50,7 @@ export function Chips({ options, value, onChange, multi = true }) {
   return (
     <div className="row gap-2" style={{ flexWrap: "wrap" }}>
       {options.map((o) => (
-        <button key={o} type="button" className={`pill chip-btn${isOn(o) ? " chip-on" : ""}`} onClick={() => toggle(o)}>
+        <button key={o} type="button" className={`chip${isOn(o) ? " on" : ""}`} onClick={() => toggle(o)}>
           {o}
         </button>
       ))}
@@ -201,9 +205,7 @@ export function PersonalFields({ d, set, roleField }) {
           ? <TextInput value={d[roleField.key]} onChange={(v) => set(roleField.key, v)} placeholder={roleField.placeholder} />
           : <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={["Founder & CEO", "Co-founder", "Product Manager", "Head of Product", "Growth / Marketing", "Design Lead", "Engineering Lead", "Operations", "Other"]} placeholder="Select role" />}
       </Field>
-      <Field label="Password" span>
-        <TextInput type="password" value={d.password} onChange={(v) => set("password", v)} placeholder="At least 8 characters" />
-      </Field>
+
     </div>
   );
 }

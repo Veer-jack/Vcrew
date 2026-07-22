@@ -120,7 +120,7 @@ function FoVerify({ d, set, region }) {
 }
 function foValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation && (d.password || "").length >= 8;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation;
     case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && !!d.stage;
     case "validate": return (d.vTypes || []).length >= 1;
     case "audience": return (d.ageBands || []).length >= 1;
@@ -182,7 +182,7 @@ function CoVerify({ d, set, region }) {
 }
 function coValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation && (d.password || "").length >= 8;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation;
     case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size;
     case "needs": return (d.looking || []).length >= 1 && !!(d.productName && d.productName.trim());
     case "audience": return (d.ageBands || []).length >= 1;
@@ -268,7 +268,7 @@ function ResEthics({ d, set }) {
 }
 function resValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && (d.password || "").length >= 8;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8;
     case "academic": return !!(d.institution && d.institution.trim()) && !!d.designation && !!d.qualification;
     case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).length >= 1 && (d.support || []).length >= 1;
     case "participants": return !!d.sampleSize && (d.ageBands || []).length >= 1;
@@ -352,7 +352,7 @@ function OrgVerify({ d, set }) {
 }
 function orgValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && !!d.designation && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && (d.password || "").length >= 8;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && !!d.designation && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8;
     case "organization": return !!(d.orgName && d.orgName.trim()) && !!d.orgType;
     case "goals": return (d.learn || []).length >= 1 && !!(d.initiativeName && d.initiativeName.trim());
     case "audience": return (d.targetGroups || []).length >= 1 || (d.ageBands || []).length >= 1;
@@ -385,7 +385,7 @@ export const PERSONA_CONFIG = {
   company: {
     name: "Company",
     steps: [
-      { key: "personal", label: "About you" },
+      { key: "personal", label: "Your details" },
       { key: "company", label: "Company" },
       { key: "needs", label: "Your needs" },
       { key: "audience", label: "Audience" },
@@ -405,7 +405,7 @@ export const PERSONA_CONFIG = {
   researcher: {
     name: "Researcher",
     steps: [
-      { key: "personal", label: "About you" },
+      { key: "personal", label: "Your details" },
       { key: "academic", label: "Academic" },
       { key: "research", label: "Research" },
       { key: "participants", label: "Participants" },
@@ -425,7 +425,7 @@ export const PERSONA_CONFIG = {
   organization: {
     name: "Organization",
     steps: [
-      { key: "personal", label: "Representative" },
+      { key: "personal", label: "Your details" },
       { key: "organization", label: "Organization" },
       { key: "goals", label: "Goals" },
       { key: "audience", label: "Audience" },

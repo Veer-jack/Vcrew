@@ -10,17 +10,17 @@ router.get("/", async (req, res) => {
   const bId = req.builder.id;
   const transactions = await db.prepare(`SELECT * FROM transactions WHERE builder_id = ? ORDER BY id DESC`).all(bId);
   const invoices = await db.prepare(`SELECT * FROM invoices WHERE builder_id = ? ORDER BY id DESC`).all(bId);
-  const paymentMethods = await db.prepare(`SELECT * FROM payment_methods WHERE builder_id = ? ORDER BY is_primary DESC, id ASC`).all(bId);
+  const paymentMethods = await db.prepare(`SELECT * FROM payment_methods WHERE builder_id = ? ORDER BY is_default DESC, id ASC`).all(bId);
 
   res.json({
     balance: req.builder.balance,
     pending: req.builder.pending,
     monthSpend: req.builder.month_spend,
     transactions: transactions.map(t => ({
-      id: t.id, date: t.date_label, description: t.description, type: t.type, amount: t.amount, missionId: t.mission_id,
+      id: t.id, date: t.created_at, description: t.detail, type: t.type, amount: t.amount, missionId: null,
     })),
-    invoices: invoices.map(i => ({ id: i.id, date: i.date_label, amount: i.amount, status: i.status })),
-    paymentMethods: paymentMethods.map(p => ({ id: p.id, brand: p.brand, last4: p.last4, exp: p.exp, primary: !!p.is_primary })),
+    invoices: invoices.map(i => ({ id: i.id, date: i.created_at, amount: i.amount, status: i.status })),
+    paymentMethods: paymentMethods.map(p => ({ id: p.id, brand: p.brand, last4: p.last4, exp: null, primary: !!p.is_default })),
   });
 });
 

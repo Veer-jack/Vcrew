@@ -39,9 +39,13 @@ export const vapi = {
   signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: { email } }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: { token, password } }),
+  changePassword: (currentPassword, newPassword) => request("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } }),
   setLanguage: (lang) => request("/auth/language", { method: "PATCH", body: { lang } }),
   logout: () => request("/auth/logout", { method: "POST" }),
   me: () => request("/auth/me"),
+
+  get: (path) => request(path),
+  post: (path, body) => request(path, { method: "POST", body }),
 
   meta: () => request("/meta"),
   oauthProviders: () => request("/auth/oauth/providers"),
@@ -63,6 +67,37 @@ export const vapi = {
   myMissions: (status) => request(`/missions${status ? `?status=${status}` : ""}`),
   workspace: (taskId) => request(`/missions/${taskId}`),
   submit: (taskId, payload) => request(`/missions/${taskId}/submit`, { method: "POST", body: payload }),
+  workspaceData: (id) => request(`/missions/${id}/workspace`),
+  submitWorkspaceData: (id, payload) => request(`/missions/${id}/workspace/submit`, { method: "PATCH", body: payload }),
+  saveWorkspaceDraft: (id, payload) => request(`/missions/${id}/workspace/draft`, { method: "PATCH", body: payload }),
+  uploadWorkspaceProof: async (id, file) => {
+    const token = getVToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/v/missions/${id}/workspace/proof`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    let data;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error((data && data.error) || "Upload failed");
+    return data;
+  },
+  uploadCheckinProof: async (id, file) => {
+    const token = getVToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/v/missions/${id}/checkin/proof`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    let data;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error((data && data.error) || "Upload failed");
+    return data;
+  },
 
   earnings: () => request("/earnings"),
   withdraw: (amount, stepUpToken) => request("/earnings/withdraw", { method: "POST", body: { amount, stepUpToken } }),

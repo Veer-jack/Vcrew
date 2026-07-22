@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
@@ -39,14 +39,14 @@ function StepRail({ steps, current, maxReached, onJump }) {
   );
 }
 
-function SuccessScreen({ persona, d, onFinish }) {
+function SuccessScreen({ persona, d, builder, onFinish }) {
   const items = persona.summary(d, REGION);
   return (
     <div className="rise" style={{ textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
       <div className="brand-mark" style={{ margin: "0 auto 18px", background: "var(--success-weak)", color: "var(--success)" }}>
         <Icon name="checkCircle" size={20} />
       </div>
-      <h1 style={{ fontSize: 24, marginBottom: 8 }}>You're all set, {(d.fullName || "").split(" ")[0] || "there"}</h1>
+      <h1 style={{ fontSize: 24, marginBottom: 8 }}>You're all set, {(builder?.name || d.fullName || "").split(" ")[0] || "there"}</h1>
       <p className="muted" style={{ marginBottom: 24, fontSize: 14 }}>
         {persona.workspace(d)} is ready. We're already lining up {persona.noun === "study" ? "participants" : "validators"} who match your audience.
       </p>
@@ -67,17 +67,43 @@ export default function OnboardingWizard() {
   const [params] = useSearchParams();
   const role = params.get("role") || "founder";
   const persona = PERSONA_CONFIG[role];
-  const { signup } = useAuth();
+  const { completeOnboarding, builder } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(0);
-  const [maxReached, setMaxReached] = useState(0);
+  const DRAFT_KEY = `vc_onboarding_draft_${role}`;
+
+  const [step, setStep] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
+      return saved ? saved.step : 0;
+    } catch { return 0; }
+  });
+  
+  const [maxReached, setMaxReached] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
+      return saved ? saved.maxReached : 0;
+    } catch { return 0; }
+  });
+  
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [d, setD] = useState({});
+  const [d, setD] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
+      return saved ? saved.d : {};
+    } catch { return {}; }
+  });
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
+
+  const saveDraft = (newStep, newMaxReached, currentD) => {
+    if (done) return;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: newStep, maxReached: newMaxReached, d: currentD }));
+    } catch {}
+  };
 
   if (!persona) {
     return (
@@ -100,8 +126,10 @@ export default function OnboardingWizard() {
     setError("");
     if (!isLast) {
       const next = step + 1;
+      const newMax = Math.max(maxReached, next);
       setStep(next);
-      setMaxReached((m) => Math.max(m, next));
+      setMaxReached(newMax);
+      saveDraft(next, newMax, d);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
@@ -109,30 +137,38 @@ export default function OnboardingWizard() {
     setBusy(true);
     try {
       const nameField = PERSONA_NAME_FIELD[role];
-      await signup({
-        name: d.fullName,
-        email: d.email,
-        password: d.password,
+      await completeOnboarding({
         designation: d.designation || null,
-        org: d[nameField] || d.fullName,
+        org: d[nameField] || builder?.name,
         website: d.website || null,
         persona: role,
         profile: d,
       });
+      try { localStorage.removeItem(DRAFT_KEY); } catch {}
       setDone(true);
     } catch (err) {
-      setError(err.message || "Couldn't create your account");
+      setError(err.message || "Couldn't save your profile");
     } finally {
       setBusy(false);
     }
   };
 
-  const goBack = () => { setError(""); setStep((s) => Math.max(0, s - 1)); };
+  const goBack = () => {
+    setError("");
+    const prev = Math.max(0, step - 1);
+    setStep(prev);
+    saveDraft(prev, maxReached, d);
+  };
+
+  const handleJump = (i) => {
+    setStep(i);
+    saveDraft(i, maxReached, d);
+  };
 
   if (done) {
     return (
       <div className="auth-shell">
-        <SuccessScreen persona={persona} d={d} onFinish={() => navigate("/", { replace: true })} />
+        <SuccessScreen persona={persona} d={d} builder={builder} onFinish={() => navigate("/", { replace: true })} />
       </div>
     );
   }
@@ -144,11 +180,21 @@ export default function OnboardingWizard() {
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
         <span className="pill" style={{ marginLeft: 10 }}>{persona.name}</span>
         <div style={{ flex: 1 }} />
+        <button 
+          onClick={() => {
+            localStorage.removeItem(DRAFT_KEY);
+            window.location.reload();
+          }}
+          className="faint" 
+          style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginRight: 16 }}
+        >
+          Start over
+        </button>
         <a href="/" className="faint" style={{ fontSize: 13 }}>Skip for now</a>
       </header>
 
       <div className="wiz-body-grid">
-        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={(i) => setStep(i)} />
+        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} />
         <div className="wiz-content">
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} />

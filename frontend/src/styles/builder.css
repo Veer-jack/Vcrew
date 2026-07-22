@@ -122,7 +122,7 @@ html[data-direction="signal"] .feed-ic.accent { color: var(--accent-2); }
 
 /* ============ DATA TABLE ============ */
 .tbl-wrap { background: var(--panel); border: var(--hairline) solid var(--border); border-radius: var(--radius);
-  box-shadow: var(--shadow-sm); overflow: hidden; }
+  box-shadow: var(--shadow-sm); overflow-x: auto; overflow-y: hidden; }
 .tbl { width: 100%; border-collapse: collapse; }
 .tbl thead th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-faint); padding: 12px 16px; border-bottom: var(--hairline) solid var(--border); white-space: nowrap; }
@@ -210,6 +210,12 @@ select.fin { appearance: none; -webkit-appearance: none; cursor: pointer; paddin
   box-shadow: 0 0 0 1px var(--tc, var(--accent)); }
 .optcard.on .oc-ic { background: var(--tc, var(--accent)); color: #fff; }
 .optcard.on .oc-tick { background: var(--tc, var(--accent)); border-color: var(--tc, var(--accent)); color: #fff; }
+
+/* selcard used in onboarding */
+.selcard-grid { margin: 8px 0; }
+.selcard { transition: all .14s; border: var(--hairline) solid var(--border); }
+.selcard:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.selcard.selcard-on { border-color: var(--tc, var(--accent)); background: color-mix(in srgb, var(--tc, var(--accent)) 7%, var(--panel)); box-shadow: 0 0 0 1px var(--tc, var(--accent)); }
 
 /* chips */
 .chips { display: flex; flex-wrap: wrap; gap: 9px; }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark, BrandLogoFull } from "../components/BrandMark";
 import { VAvatar } from "./vui";
@@ -90,12 +90,22 @@ export default function VLayout() {
         <div className="brand">
           <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
         </div>
-        {NAV.map(it => (
-          <NavLink key={it.to} to={it.to} end={it.end} onClick={() => setMobOpen(false)}
-            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-            <Icon name={it.icon} />{it.label}
-          </NavLink>
-        ))}
+        {NAV.map(it => {
+          let customActive = false;
+          if (it.to === "/validator") {
+            customActive = location.pathname === "/validator" || (location.pathname.startsWith("/validator/missions/") && location.state?.fromDiscover);
+          } else if (it.to === "/validator/missions") {
+            customActive = location.pathname === "/validator/missions" || (location.pathname.startsWith("/validator/missions/") && !location.state?.fromDiscover);
+          } else {
+            customActive = location.pathname.startsWith(it.to);
+          }
+          return (
+            <Link key={it.to} to={it.to} onClick={() => setMobOpen(false)}
+              className={`nav-item ${customActive ? "active" : ""}`}>
+              <Icon name={it.icon} />{it.label}
+            </Link>
+          );
+        })}
         <div style={{ marginTop: 8 }}>
           <NavLink to="/validator/support" onClick={() => setMobOpen(false)} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
             <Icon name="life" />Help &amp; support
@@ -112,7 +122,7 @@ export default function VLayout() {
                 </div>
               </div>
               <div className="lvl-meter"><i style={{ width: "72%" }} /></div>
-              <div className="faint" style={{ fontSize: 11, marginTop: 7 }}>{validator ? Math.max(0, 400 - validator.completed) : 0} validations to Elite</div>
+              <div className="faint" style={{ fontSize: 11, marginTop: 7 }}>{validator ? Math.max(0, 400 - (validator.completed || 0)) : 0} validations to Elite</div>
             </div>
           </button>
         </div>

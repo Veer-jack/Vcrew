@@ -99,6 +99,11 @@ CREATE TABLE IF NOT EXISTS participants (
   validator_id INTEGER,
   name TEXT,
   email TEXT,
+  role TEXT,
+  city TEXT,
+  stage TEXT DEFAULT 'accepted',
+  reward INTEGER DEFAULT 0,
+  trust INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active',
   joined_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -258,7 +263,7 @@ CREATE TABLE IF NOT EXISTS validators (
   shopping_preference TEXT,
   devices_json TEXT DEFAULT '[]',
   hours_per_week TEXT,
-  role TEXT,
+  role TEXT DEFAULT 'User' CHECK (role IN ('User', 'Tester', 'Validator')),
   experience_years TEXT,
   industry_json TEXT DEFAULT '[]',
   company TEXT,
@@ -270,6 +275,20 @@ CREATE TABLE IF NOT EXISTS validators (
   portfolio_url TEXT,
   resume_path TEXT,
   testing_bio TEXT,
+  -- From HEAD branch (stats and escrow)
+  payout_vpa TEXT,
+  razorpay_contact_id TEXT,
+  razorpay_fund_account_id TEXT,
+  industry TEXT,
+  location TEXT,
+  bio TEXT,
+  phone_verified INTEGER DEFAULT 0,
+  address_line1 TEXT,
+  address_line2 TEXT,
+  address_city TEXT,
+  address_state TEXT,
+  address_postal_code TEXT,
+  address_country TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -428,4 +447,56 @@ CREATE TABLE IF NOT EXISTS checkins (
   answers_json TEXT DEFAULT '{}',
   screenshot_path TEXT,
   submitted_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS sample_shipments (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'awaiting_shipment' CHECK (status IN ('awaiting_shipment', 'shipped', 'received')),
+  tracking_number TEXT,
+  carrier TEXT,
+  shipped_at TIMESTAMPTZ,
+  received_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS interview_schedules (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'accepted', 'declined', 'completed')),
+  scheduled_at TIMESTAMPTZ,
+  meeting_link TEXT,
+  responded_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (mission_id, validator_id)
+);
+
+CREATE TABLE IF NOT EXISTS focus_group_polls (
+  id SERIAL PRIMARY KEY,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  meeting_link TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'locked', 'completed')),
+  locked_slot_id INTEGER,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (mission_id)
+);
+
+CREATE TABLE IF NOT EXISTS focus_group_slots (
+  id SERIAL PRIMARY KEY,
+  poll_id INTEGER REFERENCES focus_group_polls(id) ON DELETE CASCADE,
+  scheduled_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS focus_group_responses (
+  id SERIAL PRIMARY KEY,
+  poll_id INTEGER REFERENCES focus_group_polls(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  slot_id INTEGER REFERENCES focus_group_slots(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (poll_id, validator_id, slot_id)
 );

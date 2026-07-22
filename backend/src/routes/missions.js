@@ -6,8 +6,10 @@ import path from "node:path";
 import multer from "multer";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
-import { catOf, ptypeOf, REWARDS, matchCount } from "../meta.js";
+import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE } from "../meta.js";
+import { fetchUrlContext } from "../urlContext.js";
 import { sendMissionPublished } from "../email.js";
+import { recalcMissionStats } from "../stats.js";
 
 // Lazy import to avoid circular dependency — admin.js imports db.js,
 // missions.js imports admin.js only for the automod helper.
@@ -76,12 +78,20 @@ function serializeMission(m) {
     ptype: m.ptype,
     ptypeLabel: ptypeOf(m.ptype).label,
     status: m.status,
-    participants: { target: m.target, joined: m.joined, submitted: m.submitted },
+    participants: { 
+      target: m.target, 
+      joined: m.joined, 
+      submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted 
+    },
     reward: { type: m.reward_type, amount: m.reward_amount },
-    completion: m.completion,
+    completion: m.real_submitted !== undefined 
+      ? Math.min(100, Math.round((Number(m.real_submitted) / Math.max(m.target || 1, 1)) * 100)) 
+      : m.completion,
     spend: m.spend,
     region: m.region,
-    rating: m.rating,
+    rating: m.real_rating !== undefined && m.real_rating !== null 
+      ? Math.round(Number(m.real_rating) * 10) / 10 
+      : m.rating,
     description: m.description,
     deadline: m.deadline,
     audience: JSON.parse(m.audience_json || "{}"),
@@ -92,26 +102,83 @@ function serializeMission(m) {
 // GET /api/missions?status=&category=&q=
 router.get("/", async (req, res) => {
   const { status, category, q } = req.query;
-  let sql = `SELECT * FROM missions WHERE builder_id = ?`;
+  let sql = `
+    SELECT m.*, 
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
+    FROM missions m 
+    WHERE m.builder_id = ?
+  `;
   const params = [req.builder.id];
   if (status) { sql += ` AND status = ?`; params.push(status); }
   if (category) { sql += ` AND category = ?`; params.push(category); }
-  if (q) { sql += ` AND name LIKE ?`; params.push(`%${q}%`); }
+  if (q) { sql += ` AND name ILIKE ?`; params.push(`%${q}%`); }
   sql += ` ORDER BY created_at DESC`;
-  const rows = db.prepare(sql).all(...params);
+  const rows = await db.prepare(sql).all(...params);
   res.json({ missions: rows.map(serializeMission) });
 });
 
 // GET /api/missions/:id
 router.get("/:id", async (req, res) => {
-  const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  await recalcMissionStats(req.params.id);
+  const m = await db.prepare(`
+    SELECT m.*, 
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
+    FROM missions m 
+    WHERE m.id = ? AND m.builder_id = ?
+  `).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
   const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
-  const responsesRaw = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? ORDER BY id DESC`).all(m.id);
-  const responses = responsesRaw
-    .map(r => ({ ...r, tags: JSON.parse(r.tags_json || "[]"), attachments: JSON.parse(r.attachments_json || "[]"), flagged: !!r.flagged }));
+  const responsesRaw = await db.prepare(`
+    SELECT r.*, p.name, p.role, p.city, p.trust, v.rating as real_rating
+    FROM responses r 
+    LEFT JOIN participants p ON p.validator_id = r.validator_id AND p.mission_id = r.mission_id
+    LEFT JOIN validators v ON v.id = r.validator_id
+    WHERE r.mission_id = ? ORDER BY r.id DESC
+  `).all(m.id);
+  
+  const responses = responsesRaw.map(r => {
+    let data = [];
+    try { 
+      const parsed = JSON.parse(r.data_json || "[]"); 
+      data = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {}
+    
+    // Synthesize a generic quote from the JSON answers
+    let synthQuote = "No feedback provided";
+    let attachments = [];
+    let tags = [];
 
+    for (const ans of data) {
+      if (!ans) continue;
+      // Search the answer keys for anything that looks like text
+      for (const [key, val] of Object.entries(ans)) {
+        if (key === "_proof") {
+          attachments.push(val);
+        } else if (typeof val === "string" && val.length > 10) {
+          synthQuote = val;
+        } else if (typeof val === "string" && val.length > 2 && val.length <= 15) {
+          tags.push(val); // e.g. "Yes" or short tags
+        }
+      }
+    }
+
+    return {
+      ...r,
+      name: r.name || "Validator",
+      role: r.role || "User",
+      city: r.city || "Remote",
+      trust: r.trust || 50,
+      time_label: new Date(r.submitted_at).toLocaleDateString(),
+      rating: r.real_rating || 5, // True lifetime rating from DB
+      quote: synthQuote,
+      tags: tags.slice(0, 3), // max 3 tags
+      attachments,
+      flagged: !!r.flagged
+    };
+  });
   // ---- Audience snapshot ----
   const audienceFilters = JSON.parse(m.audience_json || "{}");
   const defn = Object.entries(audienceFilters)
@@ -123,8 +190,13 @@ router.get("/:id", async (req, res) => {
   const segments = Object.entries(roleCounts).map(([role, n]) => ({
     l: role + "s", v: Math.round((n / roleTotal) * 100), c: roleColors[role] || "var(--t-research)",
   }));
+  
+  // Real database count instead of dummy matchCount()
+  const realCountRaw = await db.prepare(`SELECT COUNT(*) as c FROM validators`).get();
+  const realCount = Number(realCountRaw.c) || 0;
+
   const audience = {
-    matched: matchCount(audienceFilters),
+    matched: realCount,
     invited: m.joined,
     defn,
     segments: segments.length ? segments : [{ l: "Members", v: 100, c: "var(--t-feedback)" }],
@@ -180,9 +252,7 @@ router.post("/", async (req, res) => {
   const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
   if (!isVerified) {
-    const activeMissions = db.prepare(
-      `SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`
-    ).get(req.builder.id).n;
+    const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
 
     if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
       return res.status(403).json({
@@ -205,20 +275,48 @@ router.post("/", async (req, res) => {
   const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
   const id = "m_" + randomUUID().slice(0, 8);
   const status = b.status === "active" ? "active" : "draft";
+  const target = Number(b.target) || 0;
+  const rewardAmount = Number(reward.amount) || 0;
 
-  await db.prepare(`
-    INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
-      reward_type, reward_amount, completion, spend, region, rating, description, audience_json, deadline)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, 0, ?, 0, ?, ?, ?)
-  `).run(
-    id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
-    Number(b.target) || 0, rewardType, Number(reward.amount) || 0,
-    b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), b.deadline || null
-  );
+  try {
+    await db.transaction(async (tx) => {
+      let spend = 0;
+      if (status === "active" && rewardType !== "free" && rewardAmount > 0 && target > 0) {
+        const platformFee = Math.round((target * rewardAmount) * 0.12);
+        const totalCost = (target * rewardAmount) + platformFee;
+        
+        const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
+        if (updateRes.changes === 0) {
+          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. 12% fee). Please top up your wallet.`);
+        }
+        spend = totalCost;
+        
+        const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
+        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${b.name} (incl. 12% fee)`);
+      }
+
+      const durationDays = Math.min(30, Math.max(2, Number(b.durationDays) || 7));
+
+      await tx.prepare(`
+        INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
+          reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, deadline, duration_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?)
+      `).run(
+        id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
+        target, rewardType, rewardAmount, spend,
+        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []), b.deadline || null, durationDays
+      );
+
+      if (status === "active") {
+        await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
+          .run(req.builder.id, "mission_published", b.name, "Mission published and live");
+      }
+    });
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
 
   if (status === "active") {
-    await db.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
-      .run(req.builder.id, "mission_published", b.name, "Mission published and live");
     sendMissionPublished({
       builderName: req.builder.name, builderEmail: req.builder.email,
       missionName: b.name, missionId: id,
@@ -240,9 +338,7 @@ router.patch("/:id", async (req, res) => {
     const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
     const isVerified = !!(builder && builder.verified_at);
     if (!isVerified) {
-      const activeMissions = db.prepare(
-        `SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`
-      ).get(req.builder.id).n;
+      const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
       if (activeMissions >= 3) {
         return res.status(403).json({
           error: "Unverified accounts can run a maximum of 3 active missions. Verify your website to unlock unlimited campaigns.",
@@ -261,16 +357,61 @@ router.patch("/:id", async (req, res) => {
   const allowed = ["name", "status", "target", "deadline", "region", "description"];
   const updates = [];
   const params = [];
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) {
-      const col = key === "name" ? "name" : key;
-      updates.push(`${col} = ?`);
-      params.push(req.body[key]);
-    }
+  
+  const newStatus = req.body.status !== undefined ? req.body.status : m.status;
+  const newTarget = req.body.target !== undefined ? Number(req.body.target) : m.target;
+  let spendDelta = 0;
+  
+  try {
+    await db.transaction(async (tx) => {
+      // If moving from draft to active, we need to charge them
+      if (newStatus === "active" && m.status === "draft" && m.reward_type !== "free" && m.reward_amount > 0 && newTarget > 0) {
+        const platformFee = Math.round((newTarget * m.reward_amount) * 0.12);
+        const totalCost = (newTarget * m.reward_amount) + platformFee;
+        
+        const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
+        if (updateRes.changes === 0) {
+          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. 12% fee). Please top up your wallet.`);
+        }
+        spendDelta = totalCost;
+        
+        const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
+        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${m.name} (incl. 12% fee)`);
+      }
+
+      for (const key of allowed) {
+        if (req.body[key] !== undefined) {
+          const col = key === "name" ? "name" : key;
+          updates.push(`${col} = ?`);
+          params.push(req.body[key]);
+        }
+      }
+      if (spendDelta > 0) {
+        updates.push(`spend = spend + ?`);
+        params.push(spendDelta);
+      }
+      
+      if (!updates.length) throw new Error("No valid fields to update");
+      params.push(m.id);
+      await tx.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+      
+      if (newStatus === "active" && m.status === "draft") {
+        await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
+          .run(req.builder.id, "mission_published", m.name, "Mission published and live");
+      }
+    });
+  } catch (err) {
+    if (err.message === "No valid fields to update") return res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
   }
-  if (!updates.length) return res.status(400).json({ error: "No valid fields to update" });
-  params.push(m.id);
-  await db.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+  
+  if (newStatus === "active" && m.status === "draft") {
+    sendMissionPublished({
+      builderName: req.builder.name, builderEmail: req.builder.email,
+      missionName: m.name, missionId: m.id,
+    }).catch(() => {});
+    automodMission(m.id);
+  }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
   res.json({ mission: serializeMission(updated) });
@@ -344,43 +485,13 @@ router.delete("/:id/files/:filename", async (req, res) => {
 
 // POST /api/missions/generate-tasks — AI test case generator
 router.post("/generate-tasks", authMiddleware, async (req, res) => {
-  const { description, url, platform, goals, targetUsers } = req.body || {};
+  const { description, url, platform, goals, targetUsers, category, ptype, urlContext } = req.body || {};
   if (!description && !url) return res.status(400).json({ error: "Description or URL required" });
+
+  const prompt = buildTaskPrompt({ description, url, platform, goals, targetUsers, category, ptype, urlContext });
 
   try {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const prompt = `You are a Principal QA Engineer with 15+ years of experience. You think like a seasoned tester who probes edge cases, data integrity issues, UX dead-ends, and moments where the product breaks trust with the user.\n\nA founder needs expert validation for:\n\nPRODUCT: ${description || 'Not provided'}\nURL: ${url || 'Not provided'}\nPLATFORM: ${platform || 'Web'}\nVALIDATION GOALS: ${goals || 'Core flow, UX, edge cases'}\nTARGET USERS: ${targetUsers || 'General users'}\n\nGenerate 5-7 PROFESSIONAL test cases a seasoned QA engineer would run. NOT beginner tasks like open the app and browse. These are structured, methodical scenarios that stress-test the product deeply.\n\nRULES:\n1. Task title must name the SPECIFIC flow or feature - never generic titles\n2. Steps must include adversarial actions: wrong inputs, blank fields, mid-flow navigation\n3. Include at least one task testing error/failure states\n4. Include at least one task testing data persistence (close and reopen - is data saved?)\n5. Final task must capture NPS and what would stop them using the product again\n6. Questions must be expert-level - not was it easy but where specifically did friction occur\n\nQUESTION QUALITY EXAMPLES:\nBAD: Was signup easy? GOOD: At which exact step did friction first occur and what caused it?\nBAD: Did you like the design? GOOD: Which UI element felt most inconsistent with expectations?\n\nReturn ONLY valid JSON. No markdown, no backticks, no explanation:\n{tasks: [{id:1, title:string, severity:crit|imp|nice, steps:[string], questions:[{id,text,type,scale?,options?}], proof:screenshot|null, min_time_seconds:number}]}\n\nTypes: rating(scale:5), multiple_choice(options[]), yes_no_detail, text\nmin_time_seconds minimum 300. Make every task specific to this exact product.
-
-Product description: ${description || "Not provided"}
-URL: ${url || "Not provided"}
-Platform: ${platform || "Web"}
-Validation goals: ${goals || "Core flow, UX"}
-Target users: ${targetUsers || "General users"}
-
-Generate 4-6 structured test cases. Return ONLY valid JSON with no markdown, no backticks, no preamble. Use this exact schema:
-{
-  "tasks": [
-    {
-      "id": 1,
-      "title": "Task title",
-      "severity": "crit",
-      "steps": ["Step 1", "Step 2"],
-      "questions": [
-        { "id": "q1", "text": "Question text", "type": "rating", "scale": 5 },
-        { "id": "q2", "text": "Question text", "type": "multiple_choice", "options": ["Option A", "Option B"] },
-        { "id": "q3", "text": "Question text", "type": "yes_no_detail" }
-      ],
-      "proof": "screenshot",
-      "min_time_seconds": 180
-    }
-  ]
-}
-
-severity must be one of: crit, imp, nice
-question types: rating (needs scale), multiple_choice (needs options), yes_no_detail, text
-proof: "screenshot" or null
-Include 3-5 questions per task mixing types. Make tasks specific to the product described.`;
-
     const completion = await client.chat.completions.create({
       model: "gpt-4o-mini",
       max_tokens: 2000,
@@ -392,13 +503,199 @@ Include 3-5 questions per task mixing types. Make tasks specific to the product 
     const parsed = JSON.parse(raw);
     res.json(parsed);
   } catch (err) {
-    console.error("AI generate-tasks error:", err.message);
-    res.status(500).json({ error: "Failed to generate test cases", detail: err.message });
+    // AI generation failed (network/parse/quota error) — degrade to a
+    // type-appropriate hand-written fallback instead of a hard error, so the
+    // wizard always shows something useful. "ptest" is the closest thing to
+    // a generic hands-on mission, used when ptype is missing/unrecognized.
+    const fallbackTasks = TASK_GUIDANCE[ptype]?.fallback || TASK_GUIDANCE.ptest.fallback;
+    res.json({ tasks: fallbackTasks, fallback: true });
   }
 });
 
+// POST /api/missions/fetch-url-context — fetch and extract basic context from a product URL
+router.post("/fetch-url-context", authMiddleware, async (req, res) => {
+  const { url } = req.body || {};
+  if (!url) return res.status(400).json({ error: "URL required" });
+  const context = await fetchUrlContext(url);
+  res.json({ context });
+});
+
+// GET /api/missions/:id/shipments — builder views sample-shipment status for their mission
+router.get("/:id/shipments", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id, category FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const rows = await db.prepare(`
+    SELECT p.validator_id, v.name,
+      v.address_line1, v.address_line2, v.address_city, v.address_state, v.address_postal_code, v.address_country,
+      s.status, s.tracking_number, s.carrier, s.shipped_at, s.received_at
+    FROM participants p
+    JOIN validators v ON v.id = p.validator_id
+    LEFT JOIN sample_shipments s ON s.mission_id = p.mission_id AND s.validator_id = p.validator_id
+    WHERE p.mission_id = ?
+    ORDER BY p.joined_at ASC
+  `).all(req.params.id);
+
+  res.json({
+    shipments: rows.map(r => ({
+      validatorId: r.validator_id, name: r.name,
+      address: { line1: r.address_line1, line2: r.address_line2, city: r.address_city, state: r.address_state, postalCode: r.address_postal_code, country: r.address_country },
+      status: r.status || "awaiting_shipment",
+      tracking_number: r.tracking_number, carrier: r.carrier, shipped_at: r.shipped_at, received_at: r.received_at,
+    })),
+  });
+});
+
+// POST /api/missions/:id/shipments/:validatorId/ship — builder marks a sample shipped
+router.post("/:id/shipments/:validatorId/ship", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const { trackingNumber, carrier } = req.body || {};
+  const updateRes = await db.prepare(`UPDATE sample_shipments SET status = 'shipped', tracking_number = ?, carrier = ?, shipped_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'awaiting_shipment'`)
+    .run(trackingNumber || null, carrier || null, req.params.id, req.params.validatorId);
+  if (updateRes.changes === 0) return res.status(400).json({ error: "This shipment is not awaiting shipment (already shipped, or the validator hasn't accepted this mission)" });
+
+  res.json({ ok: true });
+});
+
+// GET /api/missions/:id/schedules — builder views interview-schedule status for their mission
+router.get("/:id/schedules", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id, ptype FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const rows = await db.prepare(`
+    SELECT p.validator_id, v.name, s.status, s.scheduled_at, s.meeting_link
+    FROM participants p
+    JOIN validators v ON v.id = p.validator_id
+    LEFT JOIN interview_schedules s ON s.mission_id = p.mission_id AND s.validator_id = p.validator_id
+    WHERE p.mission_id = ?
+    ORDER BY p.joined_at ASC
+  `).all(req.params.id);
+
+  res.json({
+    schedules: rows.map(r => ({
+      validatorId: r.validator_id, name: r.name,
+      status: r.status || null, scheduled_at: r.scheduled_at, meeting_link: r.meeting_link,
+    })),
+  });
+});
+
+// POST /api/missions/:id/schedules/:validatorId/propose — builder proposes (or re-proposes) an interview time
+router.post("/:id/schedules/:validatorId/propose", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const { scheduledAt, meetingLink } = req.body || {};
+  if (!scheduledAt) return res.status(400).json({ error: "A scheduled time is required" });
+
+  const result = await db.prepare(`
+    INSERT INTO interview_schedules (mission_id, validator_id, status, scheduled_at, meeting_link)
+    VALUES (?, ?, 'proposed', ?, ?)
+    ON CONFLICT (mission_id, validator_id) DO UPDATE
+      SET status = 'proposed', scheduled_at = EXCLUDED.scheduled_at, meeting_link = EXCLUDED.meeting_link, responded_at = NULL, completed_at = NULL
+      WHERE interview_schedules.status = 'declined'
+  `).run(req.params.id, req.params.validatorId, scheduledAt, meetingLink || null);
+  if (result.changes === 0) return res.status(400).json({ error: "This validator already has a pending or completed interview schedule" });
+
+  res.json({ ok: true });
+});
+
+// POST /api/missions/:id/schedules/:validatorId/complete — builder marks the interview as having happened
+router.post("/:id/schedules/:validatorId/complete", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'completed', completed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'accepted'`)
+    .run(req.params.id, req.params.validatorId);
+  if (updateRes.changes === 0) return res.status(400).json({ error: "This interview is not in an accepted state" });
+
+  res.json({ ok: true });
+});
+
+// GET /api/missions/:id/poll — builder views the focus-group poll for their mission
+router.get("/:id/poll", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(req.params.id);
+  if (!poll) return res.json({ poll: null });
+
+  const slots = await db.prepare(`
+    SELECT s.id, s.scheduled_at, COUNT(r.id) as tally
+    FROM focus_group_slots s
+    LEFT JOIN focus_group_responses r ON r.slot_id = s.id
+    WHERE s.poll_id = ?
+    GROUP BY s.id, s.scheduled_at
+    ORDER BY s.scheduled_at ASC
+  `).all(poll.id);
+
+  res.json({
+    poll: {
+      status: poll.status,
+      meetingLink: poll.meeting_link,
+      lockedSlotId: poll.locked_slot_id,
+      slots: slots.map(s => ({ id: s.id, scheduledAt: s.scheduled_at, tally: Number(s.tally) })),
+    },
+  });
+});
+
+// POST /api/missions/:id/poll — builder creates the poll (once per mission)
+router.post("/:id/poll", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const { meetingLink, slots } = req.body || {};
+  if (!Array.isArray(slots) || slots.length < 2 || slots.length > 4) return res.status(400).json({ error: "Between 2 and 4 candidate time slots are required" });
+
+  let pollId;
+  try {
+    await db.transaction(async (tx) => {
+      const pollRes = await tx.prepare(`INSERT INTO focus_group_polls (mission_id, meeting_link, status) VALUES (?, ?, 'open')`).run(req.params.id, meetingLink || null);
+      pollId = pollRes.lastInsertRowid;
+      for (const scheduledAt of slots) {
+        await tx.prepare(`INSERT INTO focus_group_slots (poll_id, scheduled_at) VALUES (?, ?)`).run(pollId, scheduledAt);
+      }
+    });
+  } catch {
+    return res.status(400).json({ error: "A poll already exists for this mission" });
+  }
+
+  res.json({ ok: true, pollId });
+});
+
+// POST /api/missions/:id/poll/lock — builder locks in a candidate slot
+router.post("/:id/poll/lock", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const { slotId } = req.body || {};
+  if (!slotId) return res.status(400).json({ error: "slotId is required" });
+
+  const updateRes = await db.prepare(`
+    UPDATE focus_group_polls SET status = 'locked', locked_slot_id = ?
+    WHERE mission_id = ? AND status = 'open'
+      AND EXISTS (SELECT 1 FROM focus_group_slots WHERE id = ? AND poll_id = focus_group_polls.id)
+  `).run(slotId, req.params.id, slotId);
+  if (updateRes.changes === 0) return res.status(400).json({ error: "Cannot lock this poll (already locked, or the slot doesn't belong to this poll)" });
+
+  res.json({ ok: true });
+});
+
+// POST /api/missions/:id/poll/complete — builder marks the focus group session as having happened
+router.post("/:id/poll/complete", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const updateRes = await db.prepare(`UPDATE focus_group_polls SET status = 'completed', completed_at = NOW() WHERE mission_id = ? AND status = 'locked'`)
+    .run(req.params.id);
+  if (updateRes.changes === 0) return res.status(400).json({ error: "This poll is not in a locked state" });
+
+  res.json({ ok: true });
+});
+
 // GET /api/missions/:id/submissions — founder reviews submissions
-router.get("/:id/submissions", authMiddleware, async (req, res) => {
+router.get("/:id/submissions", authMiddleware, async (req, res) => { console.log("HITTING SUBMISSIONS ROUTE FOR", req.params.id);
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
@@ -410,45 +707,261 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
     ORDER BY r.submitted_at DESC
   `).all(req.params.id);
 
+  let missionTasks = [];
+  try {
+    missionTasks = mission.tasks_json ? JSON.parse(mission.tasks_json) : [];
+  } catch {}
+
+  let checkinsByValidator = {};
+  if (mission.ptype === "trial") {
+    const allCheckins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? ORDER BY validator_id, day_number ASC`).all(req.params.id).catch(() => []);
+    for (const c of allCheckins) {
+      if (!checkinsByValidator[c.validator_id]) checkinsByValidator[c.validator_id] = [];
+      checkinsByValidator[c.validator_id].push({
+        dayNumber: c.day_number,
+        answers: (() => { try { return JSON.parse(c.answers_json || "{}"); } catch { return {}; } })(),
+        screenshotUrl: c.screenshot_path ? `/api/uploads/${c.screenshot_path}` : null,
+        submittedAt: c.submitted_at,
+      });
+    }
+  }
+
   res.json({
     mission: { id: mission.id, name: mission.name, target: mission.target },
-    submissions: responses.map(r => ({
-      id: r.id,
-      name: r.name || "Validator",
-      city: "Remote",
-      trust: Math.round((r.trust_score || 0) * 10),
-      status: r.status || "pending",
-      quality: r.flagged ? "flagged" : "medium",
-      date: new Date(r.submitted_at).toLocaleDateString(),
-      mins: 20,
-      tasks: "All",
-      breakdown: [],
-      data: r.data_json ? JSON.parse(r.data_json) : {},
-    })),
+    submissions: responses.map(r => {
+      let data = [];
+      try { 
+        const parsed = r.data_json ? JSON.parse(r.data_json) : []; 
+        data = Array.isArray(parsed) ? parsed : [parsed];
+      } catch {}
+      
+      const breakdown = data.map((ans, i) => {
+        if (!ans) return null;
+        let attachments = [];
+        let details = [];
+        for (const [key, val] of Object.entries(ans)) {
+          if (key === "_proof") {
+            const arr = Array.isArray(val) ? val : [val];
+            attachments = arr.map(v => v.startsWith("/api") ? v : `/api/uploads/${v}`);
+            continue;
+          }
+
+          let displayLabel = key;
+          let displayValue = String(val);
+
+          if (typeof val === "object" && val !== null) {
+            if (val._detail) {
+              const baseVal = Object.keys(val).filter(k => !isNaN(k)).map(k => val[k]).join("");
+              displayValue = baseVal ? `${baseVal} (Detail: ${val._detail})` : val._detail;
+            } else {
+              displayValue = JSON.stringify(val);
+            }
+          }
+
+          if (missionTasks[i] && Array.isArray(missionTasks[i].questions)) {
+            const isDetail = key.endsWith("_detail");
+            const baseKey = isDetail ? key.replace("_detail", "") : key;
+            const qMatch = missionTasks[i].questions.find(q => q.id === baseKey);
+            
+            if (qMatch) {
+              displayLabel = isDetail ? `Detail: ${qMatch.text}` : qMatch.text;
+            }
+          }
+          
+          details.push({ label: displayLabel, value: displayValue });
+        }
+        
+        let taskTitle = `Task ${i + 1}`;
+        if (missionTasks[i] && missionTasks[i].title) {
+          taskTitle = missionTasks[i].title;
+        } else if (missionTasks[i] && missionTasks[i].prompt) {
+          taskTitle = missionTasks[i].prompt;
+        } else if (typeof missionTasks[i] === "string") {
+          taskTitle = missionTasks[i];
+        }
+
+        return {
+          t: taskTitle,
+          rating: 0, // builders will rate it overall
+          details,
+          attachments: attachments.filter(Boolean),
+        };
+      }).filter(Boolean);
+
+      return {
+        id: r.id,
+        name: r.name || "Validator",
+        city: "Remote",
+        trust: Math.round((r.trust_score || 0) * 10),
+        status: r.status || "pending",
+        quality: r.flagged ? "flagged" : "medium",
+        date: new Date(r.submitted_at).toLocaleDateString(),
+        mins: 20,
+        tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
+        breakdown,
+        data,
+        checkins: checkinsByValidator[r.validator_id] || [],
+      };
+    }),
   });
 });
 
 // POST /api/missions/:id/submissions/:responseId/approved
 router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
-  if (!mission) return res.status(404).json({ error: "Mission not found" });
-  await db.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
-  res.json({ ok: true });
+  const rating = Number(req.body.rating) || 5;
+  if (rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be between 1 and 5" });
+
+  await db.transaction(async (tx) => {
+    const mission = await tx.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ? FOR UPDATE`).get(req.params.id, req.builder.id);
+    if (!mission) throw new Error("Mission not found");
+    
+    const response = await tx.prepare(`SELECT validator_id, status FROM responses WHERE id = ? AND mission_id = ? FOR UPDATE`).get(req.params.responseId, req.params.id);
+    if (!response) throw new Error("Submission not found");
+    if (response.status === 'approved') throw new Error("Submission already approved");
+
+    const reward = mission.reward_amount || 0;
+    if (reward > 0) {
+      // Deduct reward ONLY from pending escrow (balance was already deducted at publish)
+      const updateRes = await tx.prepare(`UPDATE builders SET pending = pending - ? WHERE id = ? AND pending >= ?`).run(reward, req.builder.id, reward);
+      if (updateRes.changes === 0) {
+        // Fallback for missions that were already active before this escrow system was implemented
+        const legacyRes = await tx.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
+        if (legacyRes.changes === 0) throw new Error("Insufficient funds in escrow and wallet");
+      }
+    }
+
+    await tx.prepare(`UPDATE responses SET status = 'approved' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+    
+    if (reward > 0) {
+      await tx.prepare(`UPDATE validators SET balance = balance + ?, earnings_total = earnings_total + ? WHERE id = ?`).run(reward, reward, response.validator_id);
+    }
+    
+    const feedbackNote = req.body.note || "";
+    const scoreVal = rating * 20; // convert 1-5 to 20-100
+    await tx.prepare(`UPDATE v_my_missions SET status = 'completed', score = ?, reason = ? WHERE mission_id = ? AND validator_id = ?`).run(scoreVal, feedbackNote, req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+
+    // Reputation Engine Update (O(1) Rolling Average)
+    const v = await tx.prepare(`SELECT rating, reviews_count, missions_done FROM validators WHERE id = ?`).get(response.validator_id);
+    if (v) {
+      const count = v.reviews_count || 0;
+      const oldRating = v.rating || 5;
+      const newRating = Math.round(((oldRating * count + rating) / (count + 1)) * 10) / 10;
+      const completed = (v.missions_done || 0) + 1;
+
+      await tx.prepare(`UPDATE validators SET rating = ?, reviews_count = ?, missions_done = ? WHERE id = ?`)
+        .run(newRating, count + 1, completed, response.validator_id);
+    }
+    
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+      .run(response.validator_id, "application", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! \u20b9${reward} has been added to your wallet.`, "Just now");
+
+    // Log Activity for Builder
+    await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
+      .run(req.builder.id, "submission_approved", mission.name, response.name, 0);
+    if (reward > 0) {
+      await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
+        .run(req.builder.id, "reward_released", mission.name, "", reward);
+    }
+
+    await recalcMissionStats(req.params.id, tx);
+  }).catch(err => {
+    return res.status(400).json({ error: err.message });
+  });
+  
+  if (!res.headersSent) res.json({ ok: true });
 });
 
 // POST /api/missions/:id/submissions/:responseId/rejected
 router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
-  if (!mission) return res.status(404).json({ error: "Mission not found" });
-  await db.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
-  res.json({ ok: true });
+  const rating = Number(req.body.rating) || 1;
+  if (rating < 1 || rating > 5) return res.status(400).json({ error: "Rating must be between 1 and 5" });
+
+  await db.transaction(async (tx) => {
+    const mission = await tx.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ? FOR UPDATE`).get(req.params.id, req.builder.id);
+    if (!mission) throw new Error("Mission not found");
+    
+    const response = await tx.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ? FOR UPDATE`).get(req.params.responseId, req.params.id);
+    if (!response) throw new Error("Submission not found");
+
+    await tx.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+
+    await tx.prepare(`UPDATE v_my_missions SET status = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+
+    // Free up the slot since they are rejected
+    const updatedMission = await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ? RETURNING joined, target, name`).get(req.params.id);
+    if (updatedMission && updatedMission.joined === Math.max(0, updatedMission.target - 1)) {
+      // The mission just opened up 1 slot from being full! Notify waitlisted validators
+      const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
+      for (const sv of savedVals) {
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+          .run(sv.validator_id, "alert", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for ${updatedMission.name}.`, "Just now");
+      }
+    }
+
+    // Reputation Engine Update
+    const v = await tx.prepare(`SELECT rating, reviews_count FROM validators WHERE id = ?`).get(response.validator_id);
+    if (v) {
+      const count = v.reviews_count || 0;
+      const oldRating = v.rating || 5;
+      const newRating = Math.round(((oldRating * count + rating) / (count + 1)) * 10) / 10;
+
+      await tx.prepare(`UPDATE validators SET rating = ?, reviews_count = ? WHERE id = ?`)
+        .run(newRating, count + 1, response.validator_id);
+    }
+    
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+      .run(response.validator_id, "alert", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
+
+    await recalcMissionStats(req.params.id, tx);
+  }).catch(err => {
+    return res.status(400).json({ error: err.message });
+  });
+
+  if (!res.headersSent) res.json({ ok: true });
 });
 
 // POST /api/missions/:id/submissions/:responseId/revision
 router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  
+  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  if (!response) return res.status(404).json({ error: "Submission not found" });
+
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
+  
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+    .run(response.validator_id, "alert", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
+
+  await recalcMissionStats(req.params.id);
+
   res.json({ ok: true });
 });
 
+// DELETE /api/missions/:id
+router.delete("/:id", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  await db.transaction(async (tx) => {
+    // Refund whatever escrow wasn't already paid out to validators via approvals
+    const approved = await tx.prepare(`SELECT COUNT(*) as c FROM responses WHERE mission_id = ? AND status = 'approved'`).get(mission.id);
+    const alreadyReleased = (parseInt(approved.c, 10) || 0) * (mission.reward_amount || 0);
+    const refund = Math.max(0, (mission.spend || 0) - alreadyReleased);
+
+    if (refund > 0) {
+      await tx.prepare(`UPDATE builders SET balance = balance + ?, pending = pending - ? WHERE id = ?`).run(refund, refund, req.builder.id);
+      await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, 'credit', ?, 'completed', ?, ?)`)
+        .run(req.builder.id, refund, null, `Escrow refund for deleted mission ${mission.name}`);
+    }
+
+    await tx.prepare(`DELETE FROM v_my_missions WHERE mission_id = ?`).run(mission.id);
+    await tx.prepare(`DELETE FROM participants WHERE mission_id = ?`).run(mission.id);
+    await tx.prepare(`DELETE FROM missions WHERE id = ?`).run(mission.id);
+  });
+
+  res.json({ ok: true });
+});

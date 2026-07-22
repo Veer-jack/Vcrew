@@ -14,27 +14,33 @@ export default function DailyCheckin() {
   const [lockHours, setLockHours] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [proofUploaded, setProofUploaded] = useState(false);
+  const [proofFilename, setProofFilename] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
   const [answers, setAnswers] = useState({ used: null, what: "", frustration: null, frustrationDetail: "", comeback: null });
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await vapi.get(`/v/missions/${id}/checkin-status`);
+        const data = await vapi.get(`/missions/${id}/checkin-status`);
+        const allDone = (data.checkins || []).length > 0 && data.checkins.every(Boolean) && data.checkins.length >= (data.mission?.total_days || 7);
+        if (allDone) {
+          navigate(`/validator/missions/${id}/workspace`, { replace: true });
+          return;
+        }
         setMission(data.mission);
         setCheckins(data.checkins || []);
         setLocked(data.locked || false);
         setLockHours(data.hoursUntilNext || 0);
       } catch {
         // mock
-        setMission({ name: "Reusable Cup — 7-Day Product Trial", brand: "Kettle & Co", total_days: 7, reward_per_day: 150 });
+        setMission({ name: "Reusable Cup — 7-Day Product Trial", brand: "Kettle & Co", total_days: 7, reward_total: 1050 });
         setCheckins([true, true, true, false, false, false, false]);
         setLocked(false);
       } finally {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, navigate]);
 
   if (loading) return <div className="page rise"><div className="muted">Loading check-in…</div></div>;
 
@@ -42,19 +48,21 @@ export default function DailyCheckin() {
   const currentDay = completedDays + 1;
   const totalDays = mission?.total_days || 7;
   const streak = completedDays;
-  const rewardPerDay = mission?.reward_per_day || 150;
+  const rewardTotal = mission?.reward_total || 0;
 
-  const canSubmit = answers.used && answers.what.trim().length > 10 && answers.comeback && proofUploaded;
+  const canSubmit = answers.used && answers.what.trim().length > 10 && answers.comeback && !!proofFilename;
+
+  const isFinalDay = currentDay >= totalDays;
 
   const submit = async () => {
     setSubmitting(true);
     try {
-      await vapi.post(`/v/missions/${id}/checkin`, { day: currentDay, answers, proofUploaded });
-      setSubmitted(true);
+      await vapi.post(`/missions/${id}/checkin`, { day: currentDay, answers, screenshot_path: proofFilename });
     } catch {
-      setSubmitted(true); // optimistic
+      // optimistic — still show the confirmation screen even if the network call failed transiently
     } finally {
       setSubmitting(false);
+      setSubmitted(true);
     }
   };
 
@@ -65,9 +73,19 @@ export default function DailyCheckin() {
           <Icon name="check" size={40} style={{ color: "var(--success)" }} />
         </div>
         <h2 style={{ margin: "0 0 10px", fontSize: 24, fontWeight: 800 }}>Day {currentDay} submitted!</h2>
-        <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>Come back tomorrow for Day {currentDay + 1}.</p>
-        <p style={{ color: "var(--success)", fontWeight: 700, margin: "0 0 26px" }}>₹{rewardPerDay} will be credited after review.</p>
-        <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+        {isFinalDay ? (
+          <>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>That's all {totalDays} days — time for your final review.</p>
+            <p style={{ color: "var(--success)", fontWeight: 700, margin: "0 0 26px" }}>₹{rewardTotal} will be credited once your final review is approved.</p>
+            <Btn variant="primary" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>Continue to final review</Btn>
+          </>
+        ) : (
+          <>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>Come back tomorrow for Day {currentDay + 1}.</p>
+            <p style={{ color: "var(--success)", fontWeight: 700, margin: "0 0 26px" }}>₹{rewardTotal} total will be credited after your final review is approved.</p>
+            <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+          </>
+        )}
       </div>
     </div>
   );
@@ -82,7 +100,7 @@ export default function DailyCheckin() {
             <div style={{ fontSize: 12, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>Longitudinal · {mission?.brand}</div>
           </div>
           <span style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "4px 10px", borderRadius: 20, background: "var(--panel-inset)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-            ₹{rewardPerDay} / check-in
+            ₹{rewardTotal} on completion
           </span>
         </div>
 
@@ -122,8 +140,8 @@ export default function DailyCheckin() {
                   )}
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 13, color: "var(--text-faint)", marginBottom: 4 }}>Today's reward</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "var(--success)" }}>₹{rewardPerDay}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-faint)", marginBottom: 4 }}>Total reward</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: "var(--success)" }}>₹{rewardTotal}</div>
                 </div>
               </div>
               {/* Calendar dots */}
@@ -197,18 +215,31 @@ export default function DailyCheckin() {
             {/* Screenshot upload */}
             <div className="card" style={{ padding: 20, marginBottom: 24 }}>
               <div className="eyebrow" style={{ marginBottom: 12 }}>Today's screenshot <span style={{ color: "var(--danger)", marginLeft: 4 }}>required</span></div>
-              {proofUploaded ? (
+              {proofFilename ? (
                 <div style={{ border: "2px solid var(--success)", borderRadius: "var(--radius)", padding: "24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: "var(--success-weak)" }}>
                   <Icon name="check" size={28} style={{ color: "var(--success)", marginBottom: 8 }} />
                   <div style={{ fontWeight: 700, color: "var(--success)" }}>Screenshot uploaded</div>
-                  <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(false)}>Remove</button>
+                  <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofFilename(null)}>Remove</button>
                 </div>
               ) : (
-                <div onClick={() => setProofUploaded(true)} style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "28px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: "pointer", background: "var(--panel-2)" }}>
+                <label style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "28px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: uploadingProof ? "not-allowed" : "pointer", background: "var(--panel-2)", opacity: uploadingProof ? 0.7 : 1 }}>
+                  <input type="file" accept="image/png, image/jpeg, image/webp" style={{ display: "none" }} disabled={uploadingProof} onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    setUploadingProof(true);
+                    try {
+                      const res = await vapi.uploadCheckinProof(id, file);
+                      setProofFilename(res.file.filename);
+                    } catch (err) {
+                      alert(err.message || "Failed to upload proof");
+                    } finally {
+                      setUploadingProof(false);
+                    }
+                  }} />
                   <Icon name="upload" size={24} style={{ color: "var(--text-faint)", marginBottom: 10 }} />
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Drop screenshot here</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{uploadingProof ? "Uploading…" : "Drop screenshot here"}</div>
                   <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>PNG or JPG · max 10MB</p>
-                </div>
+                </label>
               )}
             </div>
 

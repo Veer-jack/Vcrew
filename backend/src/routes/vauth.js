@@ -19,6 +19,7 @@ function publicValidator(v) {
     completed: v.completed, acceptRate: v.accept_rate,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     preferredLanguage: v.preferred_language || "en",
+    oauthProvider: v.oauth_provider || null,
   };
 }
 
@@ -137,6 +138,27 @@ router.post("/reset-password", async (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /api/v/auth/change-password { currentPassword, newPassword }
+router.post("/change-password", validatorAuthMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  
+  if (req.validator.oauth_provider) {
+    return res.status(400).json({ error: "Users registered via Google/GitHub cannot change passwords here." });
+  }
+
+  if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+    return res.status(400).json({ error: "Current password and a new password (min 8 characters) are required." });
+  }
+
+  const { valid } = await comparePassword(currentPassword, req.validator.password_hash);
+  if (!valid) {
+    return res.status(401).json({ error: "Incorrect current password." });
+  }
+
+  await db.prepare(`UPDATE validators SET password_hash = ? WHERE id = ?`).run(await hashPassword(newPassword), req.validator.id);
+  res.json({ ok: true });
+});
+
 // PATCH /api/v/auth/language { lang } — save preferred language for validator
 router.patch("/language", validatorAuthMiddleware, async (req, res) => {
   const { lang } = req.body || {};
@@ -147,48 +169,52 @@ router.patch("/language", validatorAuthMiddleware, async (req, res) => {
 });
 
 // PATCH /api/v/profile — update validator profile after onboarding
-router.patch("/profile", async (req, res) => {
+router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
   const b = req.body || {};
   await db.prepare(`
     UPDATE validators SET
-      handle = COALESCE($1, handle),
-      bio = COALESCE($2, bio),
-      city = COALESCE($3, city),
-      city_type = COALESCE($4, city_type),
-      languages_json = COALESCE($5, languages_json),
-      validator_type = COALESCE($6, validator_type),
-      tester_status = COALESCE($7, tester_status),
-      age_group = COALESCE($8, age_group),
-      gender = COALESCE($9, gender),
-      marital_status = COALESCE($10, marital_status),
-      has_kids = COALESCE($11, has_kids),
-      income_bracket = COALESCE($12, income_bracket),
-      height = COALESCE($13, height),
-      weight = COALESCE($14, weight),
-      skin_tone = COALESCE($15, skin_tone),
-      hair_type = COALESCE($16, hair_type),
-      hair_length = COALESCE($17, hair_length),
-      body_type = COALESCE($18, body_type),
-      occupation = COALESCE($19, occupation),
-      food_preference = COALESCE($20, food_preference),
-      lifestyle_json = COALESCE($21, lifestyle_json),
-      shopping_preference = COALESCE($22, shopping_preference),
-      devices_json = COALESCE($23, devices_json),
-      hours_per_week = COALESCE($24, hours_per_week),
-      role = COALESCE($25, role),
-      experience_years = COALESCE($26, experience_years),
-      industry_json = COALESCE($27, industry_json),
-      company = COALESCE($28, company),
-      product_types_json = COALESCE($29, product_types_json),
-      tech_tools_json = COALESCE($30, tech_tools_json),
-      testing_domains_json = COALESCE($31, testing_domains_json),
-      certifications_json = COALESCE($32, certifications_json),
-      linkedin_url = COALESCE($33, linkedin_url),
-      portfolio_url = COALESCE($34, portfolio_url),
-      testing_bio = COALESCE($35, testing_bio),
-      specialties_json = COALESCE($36, specialties_json)
-    WHERE id = $37
+      name = COALESCE($1, name),
+      email = COALESCE($2, email),
+      handle = COALESCE($3, handle),
+      bio = COALESCE($4, bio),
+      city = COALESCE($5, city),
+      city_type = COALESCE($6, city_type),
+      languages_json = COALESCE($7, languages_json),
+      validator_type = COALESCE($8, validator_type),
+      tester_status = COALESCE($9, tester_status),
+      age_group = COALESCE($10, age_group),
+      gender = COALESCE($11, gender),
+      marital_status = COALESCE($12, marital_status),
+      has_kids = COALESCE($13, has_kids),
+      income_bracket = COALESCE($14, income_bracket),
+      height = COALESCE($15, height),
+      weight = COALESCE($16, weight),
+      skin_tone = COALESCE($17, skin_tone),
+      hair_type = COALESCE($18, hair_type),
+      hair_length = COALESCE($19, hair_length),
+      body_type = COALESCE($20, body_type),
+      occupation = COALESCE($21, occupation),
+      food_preference = COALESCE($22, food_preference),
+      lifestyle_json = COALESCE($23, lifestyle_json),
+      shopping_preference = COALESCE($24, shopping_preference),
+      devices_json = COALESCE($25, devices_json),
+      hours_per_week = COALESCE($26, hours_per_week),
+      role = COALESCE($27, role),
+      experience_years = COALESCE($28, experience_years),
+      industry_json = COALESCE($29, industry_json),
+      company = COALESCE($30, company),
+      product_types_json = COALESCE($31, product_types_json),
+      tech_tools_json = COALESCE($32, tech_tools_json),
+      testing_domains_json = COALESCE($33, testing_domains_json),
+      certifications_json = COALESCE($34, certifications_json),
+      linkedin_url = COALESCE($35, linkedin_url),
+      portfolio_url = COALESCE($36, portfolio_url),
+      testing_bio = COALESCE($37, testing_bio),
+      specialties_json = COALESCE($38, specialties_json),
+      updated_at = NOW()
+    WHERE id = $39
   `).run(
+    b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
     b.handle || null, b.bio || null, b.city || null, b.city_type || null,
     b.language ? JSON.stringify(b.language) : null,
     b.validator_type || null,

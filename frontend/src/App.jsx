@@ -33,9 +33,13 @@ import VOnboarding from "./vpages/VOnboarding";
 import VSettings from "./vpages/VSettings";
 import MissionBrief from "./vpages/MissionBrief";
 import DailyCheckin from "./vpages/DailyCheckin";
+import ShipmentStatus from "./vpages/ShipmentStatus";
+import InterviewSchedule from "./vpages/InterviewSchedule";
+import FocusGroupPoll from "./vpages/FocusGroupPoll";
 import MissionReview from "./pages/MissionReview";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
+import MissionResults from "./vpages/MissionResults";
 import Workspace from "./vpages/Workspace";
 import Submitted from "./vpages/Submitted";
 import MyMissions from "./vpages/MyMissions";
@@ -65,23 +69,33 @@ function RequireAuth({ children }) {
   return children;
 }
 
+function ExternalRedirect({ to }) {
+  useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+  return <div className="page rise"><div className="muted">Redirecting…</div></div>;
+}
+
 function BuilderRoutes() {
   const { builder, loading } = useAuth();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
     <Routes>
-      <Route path="/login" element={builder ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword apiClient={api} loginPath="/login" />} />
+      <Route path="/" element={builder ? <RequireAuth><AppLayout /></RequireAuth> : <ExternalRedirect to="/site/index.html" />}>
+        <Route index element={<Dashboard />} />
+      </Route>
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
-      <Route path="/get-started/feedback" element={builder ? <Navigate to="/" replace /> : <RoleSelect />} />
-      <Route path="/signup" element={builder ? <Navigate to="/" replace /> : <OnboardingWizard />} />
+      <Route path="/get-started/feedback" element={builder?.profile ? <Navigate to="/" replace /> : <RoleSelect />} />
+      <Route path="/signup" element={builder?.profile ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
-        <Route path="/" element={<Dashboard />} />
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
+        <Route path="/missions/:id/submissions" element={<MissionReview />} />
         <Route path="/audience" element={<Audience />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/wallet" element={<Wallet />} />
@@ -110,24 +124,29 @@ function ValidatorRoutes() {
 
   return (
     <Routes>
-      <Route path="login" element={validator ? <Navigate to="/validator" replace /> : <VLogin />} />
+      <Route path="login" element={<VLogin />} />
         <Route path="onboarding" element={<VOnboarding />} />
-        <Route path="settings" element={<RequireVAuth><VSettings /></RequireVAuth>} />
+
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
       <Route path="missions/:id/workspace" element={<RequireVAuth><Workspace /></RequireVAuth>} />
       <Route path="missions/:id/brief" element={<RequireVAuth><MissionBrief /></RequireVAuth>} />
       <Route path="missions/:id/checkin" element={<RequireVAuth><DailyCheckin /></RequireVAuth>} />
+      <Route path="missions/:id/shipment" element={<RequireVAuth><ShipmentStatus /></RequireVAuth>} />
+      <Route path="missions/:id/schedule" element={<RequireVAuth><InterviewSchedule /></RequireVAuth>} />
+      <Route path="missions/:id/poll" element={<RequireVAuth><FocusGroupPoll /></RequireVAuth>} />
       <Route element={<RequireVAuth><VLayout /></RequireVAuth>}>
         <Route index element={<Discover />} />
         <Route path="missions" element={<MyMissions />} />
         <Route path="missions/:id/review" element={<MissionReview />} />
       <Route path="missions/:id" element={<MissionDetails />} />
+        <Route path="missions/:id/results" element={<MissionResults />} />
         <Route path="missions/:id/submitted" element={<Submitted />} />
         <Route path="earnings" element={<Earnings />} />
         <Route path="profile" element={<Profile />} />
         <Route path="messages" element={<VMessages />} />
         <Route path="support" element={<VSupport />} />
+        <Route path="settings" element={<VSettings />} />
       </Route>
       <Route path="*" element={<Navigate to="/validator" replace />} />
     </Routes>
@@ -148,7 +167,7 @@ function AdminRoutes() {
 
   return (
     <Routes>
-      <Route path="login" element={admin ? <Navigate to="/admin" replace /> : <ALogin />} />
+      <Route path="login" element={<ALogin />} />
       <Route element={<RequireAAuth><ALayout /></RequireAAuth>}>
         <Route index element={<ADashboard />} />
         <Route path="members" element={<AMembers />} />

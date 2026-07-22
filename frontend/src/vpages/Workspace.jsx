@@ -25,20 +25,21 @@ function Timer({ secs, onDone }) {
       transition: "all .3s",
     }}>
       <Icon name="clock" size={14} />
-      {done ? "✓ Time met" : `${m}:${String(s).padStart(2, "0")} remaining`}
+      {done || rem === 9999 ? "✓ Completed" : `${m}:${String(s).padStart(2, "0")} remaining`}
     </span>
   );
 }
 
-function RatingQ({ ans, setAns }) {
+function RatingQ({ ans, setAns, readOnly }) {
   return (
     <div style={{ display: "flex", gap: 6 }}>
       {[1, 2, 3, 4, 5].map(v => (
-        <button key={v} onClick={() => setAns(v)} style={{
+        <button key={v} disabled={readOnly} onClick={() => setAns(v)} style={{
           width: 40, height: 40, borderRadius: "var(--radius-sm)",
           border: `1px solid ${ans >= v ? "var(--warning)" : "var(--border)"}`,
           background: ans >= v ? "var(--warning)" : "var(--panel)",
-          display: "grid", placeItems: "center", cursor: "pointer", transition: "all .12s",
+          display: "grid", placeItems: "center", cursor: readOnly ? "default" : "pointer", transition: "all .12s",
+          opacity: readOnly && ans < v ? 0.6 : 1,
         }}>
           <svg viewBox="0 0 24 24" width={18} height={18} fill={ans >= v ? "#fff" : "none"} stroke={ans >= v ? "#fff" : "var(--border-strong)"} strokeWidth="1.8" strokeLinejoin="round">
             <path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2Z" />
@@ -49,37 +50,39 @@ function RatingQ({ ans, setAns }) {
   );
 }
 
-function MCQ({ q, ans, setAns }) {
+function MCQ({ q, ans, setAns, readOnly }) {
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {q.options.map(o => (
-        <button key={o} onClick={() => setAns(o)} style={{
+        <button key={o} disabled={readOnly} onClick={() => setAns(o)} style={{
           padding: "8px 16px", borderRadius: 30,
           border: `1.5px solid ${ans === o ? "var(--accent)" : "var(--border)"}`,
           background: ans === o ? "var(--accent-weak)" : "var(--panel)",
           color: ans === o ? "var(--accent)" : "var(--text-muted)",
-          fontSize: 13.5, fontWeight: 600, cursor: "pointer", transition: "all .13s",
+          fontSize: 13.5, fontWeight: 600, cursor: readOnly ? "default" : "pointer", transition: "all .13s",
+          opacity: readOnly && ans !== o ? 0.6 : 1,
         }}>{o}</button>
       ))}
     </div>
   );
 }
 
-function YNQ({ ans, setAns }) {
+function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: ans === "yes" ? 12 : 0 }}>
         {["yes", "no"].map(v => (
-          <button key={v} onClick={() => setAns(ans === v ? null : v)} style={{
+          <button key={v} disabled={readOnly} onClick={() => setAns(ans === v ? null : v)} style={{
             flex: 1, padding: 11, borderRadius: "var(--radius-sm)",
             border: `1.5px solid ${ans === v ? (v === "yes" ? "var(--success)" : "var(--danger)") : "var(--border)"}`,
             background: ans === v ? (v === "yes" ? "var(--success-weak)" : "var(--danger-weak)") : "var(--panel)",
             color: ans === v ? (v === "yes" ? "var(--success)" : "var(--danger)") : "var(--text-muted)",
-            fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all .13s",
+            fontSize: 14, fontWeight: 700, cursor: readOnly ? "default" : "pointer", transition: "all .13s",
+            opacity: readOnly && ans !== v ? 0.6 : 1,
           }}>{v === "yes" ? "Yes" : "No"}</button>
         ))}
       </div>
-      {ans === "yes" && <textarea className="field" placeholder="Tell us more — what was confusing or broken?" rows={3} />}
+      {ans === "yes" && <textarea className="field" placeholder="Tell us more — what was confusing or broken?" rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
     </div>
   );
 }
@@ -104,18 +107,38 @@ export default function Workspace() {
   const [showSummary, setShowSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const data = await vapi.get(`/v/missions/${id}/workspace`);
+        const data = await vapi.workspaceData(id);
         const t = data.tasks || [];
         setMission(data.mission);
         setTasks(t);
-        setStepsDone(t.map(() => new Set()));
-        setAnswers(t.map(() => ({})));
-        setTimerDone(t.map(() => false));
-        setProofUploaded(t.map(() => false));
+        if (data.responses && !data.isDraft) {
+          setIsReadOnly(true);
+          setAnswers(data.responses);
+          setStepsDone(t.map(tk => new Set(tk.steps.map((_, j) => j))));
+          setTimerDone(t.map(() => true));
+          setProofUploaded(t.map((_, i) => !!data.responses[i]?._proof));
+        } else {
+          let savedAnswers = t.map(() => ({}));
+          let savedIdx = 0;
+          if (data.responses && data.isDraft) {
+            savedAnswers = t.map((_, i) => data.responses.answers[i] || {});
+            savedIdx = data.responses.curIdx || 0;
+            setCurIdx(savedIdx);
+          }
+          setAnswers(savedAnswers);
+          setStepsDone(t.map((tk, i) => {
+             const hasAns = savedAnswers[i] && Object.keys(savedAnswers[i]).length > 0;
+             return hasAns ? new Set(tk.steps.map((_, j) => j)) : new Set();
+          }));
+          setTimerDone(t.map((_, i) => i < savedIdx));
+          setProofUploaded(t.map((_, i) => !!savedAnswers[i]?._proof));
+        }
       } catch {
         // use mock for now
         const mock = [
@@ -151,17 +174,39 @@ export default function Workspace() {
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
   };
+  const saveDraft = async (newIdx = curIdx) => {
+    if (isReadOnly) return;
+    try {
+      const finalAnswers = answers.map((ans, i) => {
+        const c = { ...ans };
+        if (proofUploaded[i]) c._proof = proofUploaded[i];
+        return c;
+      });
+      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx });
+    } catch (e) {
+      console.warn("Auto-save failed", e);
+    }
+  };
+
   const goNext = async () => {
     if (curIdx === tasks.length - 1) {
       setSubmitting(true);
       try {
-        await vapi.patch(`/v/missions/${id}/workspace/submit`, { answers });
-      } catch {}
+        const finalAnswers = answers.map((ans, i) => {
+          const c = { ...ans };
+          if (proofUploaded[i]) c._proof = proofUploaded[i];
+          return c;
+        });
+        await vapi.submitWorkspaceData(id, { answers: finalAnswers });
+      } catch (err) {
+        console.error("Submission failed:", err);
+      }
       setShowSummary(true);
       setSubmitting(false);
     } else {
       setCurIdx(i => i + 1);
       window.scrollTo(0, 0);
+      saveDraft(curIdx + 1);
     }
   };
 
@@ -235,10 +280,10 @@ export default function Workspace() {
       <div style={{ display: "flex", flexDirection: "column", background: "var(--bg)" }}>
         {/* Topbar */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
-          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length}</span>
+          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
           <span style={{ flex: 1 }} />
-          <Timer secs={task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
-          <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={() => navigate("/validator/missions")}>
+          <Timer key={curIdx} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
+          <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
             <Icon name="x" size={14} /> Exit
           </button>
         </div>
@@ -261,8 +306,8 @@ export default function Workspace() {
             </div>
             {task.steps.map((s, i) => (
               <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                <div onClick={() => toggleStep(i)} style={{
-                  width: 22, height: 22, borderRadius: 7, flexShrink: 0, cursor: "pointer", display: "grid", placeItems: "center",
+                <div onClick={() => !isReadOnly && toggleStep(i)} style={{
+                  width: 22, height: 22, borderRadius: 7, flexShrink: 0, cursor: isReadOnly ? "default" : "pointer", display: "grid", placeItems: "center",
                   background: stepsDone[curIdx]?.has(i) ? "var(--success)" : "var(--panel)",
                   border: `1.5px solid ${stepsDone[curIdx]?.has(i) ? "var(--success)" : "var(--border-strong)"}`,
                   transition: "all .15s",
@@ -285,10 +330,10 @@ export default function Workspace() {
                   <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--text-faint)", paddingTop: 3, flexShrink: 0 }}>Q{i + 1}</span>
                   <span style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.4 }}>{q.text}</span>
                 </div>
-                {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} />}
-                {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} />}
-                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} />}
-                {q.type === "text" && <textarea className="field" placeholder="Type your answer…" rows={3} onChange={e => setAns(q.id, e.target.value)} />}
+                {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
+                {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
+                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} />}
+                {q.type === "text" && <textarea className="field" placeholder="Type your answer…" rows={3} disabled={isReadOnly} value={answers[curIdx]?.[q.id] || ""} onChange={e => setAns(q.id, e.target.value)} />}
               </div>
             ))}
           </div>
@@ -297,30 +342,43 @@ export default function Workspace() {
           {task.proof && (
             <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-                Proof required — screenshot <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                Proof required — screenshot or video <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
               </div>
               {proofUploaded[curIdx] ? (
                 <div style={{ border: "2px solid var(--success)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: "var(--success-weak)" }}>
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--success-weak)", display: "grid", placeItems: "center", marginBottom: 12 }}>
                     <Icon name="check" size={26} style={{ color: "var(--success)" }} />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>Screenshot uploaded</div>
-                  <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>Remove & re-upload</button>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>File uploaded</div>
+                  {!isReadOnly && <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>Remove & re-upload</button>}
                 </div>
               ) : (
-                <div onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = true; return a; })} style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: "pointer", background: "var(--panel-2)", transition: "all .15s" }}>
+                <label style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: uploadingProof ? "not-allowed" : "pointer", background: "var(--panel-2)", opacity: uploadingProof ? 0.7 : 1, transition: "all .15s" }}>
+                  <input type="file" accept="image/png, image/jpeg, image/webp, video/mp4, video/webm, video/quicktime" style={{ display: "none" }} disabled={uploadingProof} onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    setUploadingProof(true);
+                    try {
+                      const res = await vapi.uploadWorkspaceProof(id, file);
+                      setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.filename; return a; });
+                    } catch (err) {
+                      alert(err.message || "Failed to upload proof");
+                    } finally {
+                      setUploadingProof(false);
+                    }
+                  }} />
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--panel-inset)", display: "grid", placeItems: "center", marginBottom: 12 }}>
-                    <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />
+                    {uploadingProof ? <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Drop screenshot here</div>
-                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG accepted</p>
-                </div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{uploadingProof ? "Uploading..." : "Drop file here"}</div>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG, WebP, MP4, WebM, MOV accepted</p>
+                </label>
               )}
             </div>
           )}
 
           {/* Readiness checklist */}
-          {!canNext && (
+          {!isReadOnly && !canNext && (
             <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb,var(--warning) 30%,transparent)", borderRadius: "var(--radius)", padding: "12px 16px", fontSize: 13, color: "var(--warning)" }}>
               <b>Before continuing:</b>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
@@ -335,14 +393,14 @@ export default function Workspace() {
 
         {/* Bottom nav */}
         <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 36px", background: "color-mix(in srgb,var(--bg) 90%,transparent)", backdropFilter: "blur(12px)", borderTop: "1px solid var(--border)", zIndex: 30 }}>
-          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); } }} disabled={curIdx === 0}>
+          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
             <Icon name="arrowLeft" size={16} /> Previous
           </button>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 13, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>{curIdx + 1} / {tasks.length}</span>
           <span style={{ flex: 1 }} />
-          <Btn variant="primary" onClick={goNext} disabled={!canNext || submitting} style={{ opacity: canNext ? 1 : 0.55 }}>
-            {submitting ? "Submitting…" : curIdx === tasks.length - 1 ? "Submit all responses" : "Next task"}
+          <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate("/validator/missions") : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
+            {isReadOnly ? (curIdx === tasks.length - 1 ? "Back to Missions" : "Next task") : (submitting ? "Submitting…" : curIdx === tasks.length - 1 ? "Submit all responses" : "Next task")}
             {curIdx < tasks.length - 1 && <Icon name="arrowRight" size={16} />}
           </Btn>
         </div>

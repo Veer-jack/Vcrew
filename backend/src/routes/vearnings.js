@@ -15,14 +15,34 @@ router.get("/", async (req, res) => {
   const lvlPct = nextLvl ? Math.min(100, Math.round(((v.completed - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
   const history = await db.prepare(`
-    SELECT mm.*, t.product, t.type, t.reward FROM v_my_missions mm JOIN vtasks t ON t.id = mm.task_id
+    SELECT mm.*, t.product, t.type, t.reward FROM v_my_missions mm 
+    JOIN (
+      SELECT id::text, type::text, product::text, reward::int FROM vtasks
+      UNION ALL
+      SELECT id::text, ptype::text as type, name::text as product, reward_amount::int as reward FROM missions
+    ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ? AND mm.status IN ('submitted','completed') ORDER BY mm.updated_at DESC LIMIT 10
   `).all(v.id);
 
+  // Dynamic Scalable Aggregations
+  const earningsAgg = await db.prepare(`
+    SELECT 
+      SUM(CASE WHEN vmm.status = 'completed' THEN m.reward_amount ELSE 0 END) as lifetime,
+      SUM(CASE WHEN vmm.status = 'completed' AND vmm.updated_at >= NOW() - INTERVAL '7 days' THEN m.reward_amount ELSE 0 END) as week_earnings,
+      SUM(CASE WHEN vmm.status = 'submitted' THEN m.reward_amount ELSE 0 END) as pending
+    FROM v_my_missions vmm
+    JOIN missions m ON vmm.mission_id = m.id
+    WHERE vmm.validator_id = ?
+  `).get(v.id);
+
   res.json({
-    weekEarnings: v.week_earnings, weekTarget: v.week_target, pending: v.pending, available: v.available, lifetime: v.lifetime,
-    name: v.name, rating: v.rating, ratingCount: v.rating_count, accuracy: v.accuracy,
-    level: v.level, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - v.completed) : 0, levelPct: lvlPct,
+    weekEarnings: earningsAgg?.week_earnings || 0,
+    weekTarget: 2000, 
+    pending: earningsAgg?.pending || 0,
+    available: v.balance || 0, // Balance remains the absolute source of truth for withdrawals
+    lifetime: earningsAgg?.lifetime || 0,
+    name: v.name, rating: v.rating, ratingCount: v.reviews_count, accuracy: v.accuracy || 100,
+    level: v.level || 1, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - (v.missions_done || 0)) : 0, levelPct: lvlPct,
     specialties: JSON.parse(v.specialties_json || "[]"),
     history: history.map(h => ({
       id: h.id, product: h.product, type: h.type, reward: h.reward,
@@ -34,8 +54,10 @@ router.get("/", async (req, res) => {
 
 // POST /api/v/earnings/withdraw { amount, stepUpToken? }
 router.post("/withdraw", async (req, res) => {
+  const MIN_WITHDRAWAL_AMOUNT = 500;
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
+  if (amount < MIN_WITHDRAWAL_AMOUNT) return res.status(400).json({ error: `Minimum withdrawal amount is \u20b9${MIN_WITHDRAWAL_AMOUNT}` });
   if (amount > req.validator.available) return res.status(400).json({ error: "Amount exceeds available balance" });
 
   if (req.validator.phone_verified) {

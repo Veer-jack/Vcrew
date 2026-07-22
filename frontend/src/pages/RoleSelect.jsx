@@ -46,7 +46,16 @@ export default function RoleSelect() {
               className={`card role-card ${!r.live ? "role-card-soon" : ""}`}
               style={{ "--rc-accent": r.accent, textAlign: "left", cursor: r.live ? "pointer" : "default" }}
               disabled={!r.live}
-              onClick={() => r.live && navigate(`/signup?role=${r.key}`)}
+              onClick={() => {
+                if (!r.live) return;
+                // Clear any lingering drafts to ensure a clean slate when switching roles
+                ROLES.forEach(roleObj => {
+                  try { localStorage.removeItem(`vc_onboarding_draft_${roleObj.key}`); } catch {}
+                });
+                // Formally initialize a blank draft so the dashboard instantly knows the user's choice
+                try { localStorage.setItem(`vc_onboarding_draft_${r.key}`, JSON.stringify({ step: 0, maxReached: 0, d: {} })); } catch {}
+                navigate(`/signup?role=${r.key}`);
+              }}
             >
               <div className="row between" style={{ alignItems: "flex-start" }}>
                 <span className="intent-ic" style={{ background: `${r.accent}1a`, color: r.accent }}>

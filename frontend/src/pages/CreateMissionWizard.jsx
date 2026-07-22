@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
@@ -11,9 +11,9 @@ import StepTestCases from "../components/StepTestCases";
 
 const WZ_STEPS = [
   { t: "Mission Information", s: "Name & category", hint: "Give your mission a clear name and pick the kind of validation you need." },
-  { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks." },
-  { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Participation Type", s: "How they engage", hint: "Choose how participants will engage with your product." },
+  { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks tailored to this mission type." },
+  { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Reward Setup", s: "What they earn", hint: "Set the incentive and size your panel — costs update as you type." },
   { t: "Review & Publish", s: "Confirm & launch", hint: "One last look before it goes live to your matched audience." },
 ];
@@ -128,6 +128,20 @@ function StepParticipation({ d, set, ptypes }) {
           </button>
         ))}
       </div>
+      {d.ptype === "trial" && (
+        <div className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
+          <label>How many days should this trial run?</label>
+          <input
+            className="fin"
+            type="number"
+            min="2"
+            max="30"
+            value={d.durationDays}
+            onChange={e => set({ durationDays: Math.min(30, Math.max(2, +e.target.value || 7)) })}
+          />
+          <p className="fhint">Validators check in once per day, then submit their final review at the end.</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -234,20 +248,87 @@ function emptyFilters(filters) {
   return Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 }
 
+const DRAFT_KEY = "vcrew_mission_draft";
+
+function serializeDraft(d) {
+  const data = { ...d, filters: {} };
+  for (const k in d.filters) {
+    data.filters[k] = Array.from(d.filters[k] || []);
+  }
+  return JSON.stringify(data);
+}
+
+function deserializeDraft(jsonStr, emptyF) {
+  try {
+    const data = JSON.parse(jsonStr);
+    for (const k in data.filters) {
+      data.filters[k] = new Set(data.filters[k] || []);
+    }
+    data.filters = { ...emptyF, ...data.filters };
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 export default function CreateMissionWizard() {
   const navigate = useNavigate();
   const { builder, refreshBuilder } = useAuth();
   const { categories, ptypes, rewards, filters } = useMeta();
 
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [d, setD] = useState({
-    title: "", desc: "", cat: categories[0]?.id || "feedback",
-    filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
-    ptype: ptypes[0]?.id || "ptest",
-    reward: { type: "fixed", amount: 250, participants: 120 },
+  const [published, setPublished] = useState(false);
+  const [showExitWarning, setShowExitWarning] = useState(false);
+
+  const [d, setD] = useState(() => {
+    const saved = localStorage.getItem(DRAFT_KEY);
+    const emptyF = emptyFilters(filters);
+    if (saved) {
+      const parsed = deserializeDraft(saved, emptyF);
+      if (parsed) return parsed;
+    }
+    return {
+      title: "", desc: "", cat: categories[0]?.id || "feedback",
+      filters: { ...emptyF, "ValidationCrew Role": new Set(["Validator"]) },
+      ptype: ptypes[0]?.id || "ptest",
+      reward: { type: "fixed", amount: 250, participants: 120 },
+      genFor: null,
+      durationDays: 7,
+    };
   });
+
+  // Auto-save to localStorage
+  useEffect(() => {
+    if (!published) {
+      localStorage.setItem(DRAFT_KEY, serializeDraft(d));
+      localStorage.setItem(DRAFT_KEY + "_step", step);
+    }
+  }, [d, step, published]);
+
+  // Native browser prompt for tab close/refresh
+  useEffect(() => {
+    if (published) return;
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [published]);
+
+  // Clear draft on hard reload or tab close
+  useEffect(() => {
+    const handleUnload = () => {
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY + "_step");
+    };
+    window.addEventListener("unload", handleUnload);
+    return () => window.removeEventListener("unload", handleUnload);
+  }, []);
+
+
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
   const toggle = (group, opt) => setD(p => {
@@ -275,7 +356,12 @@ export default function CreateMissionWizard() {
         reward: { type: d.reward.type, amount: d.reward.amount },
         region: geo.length ? geo.join(", ") : "Worldwide",
         audience,
+        tasks: d.tasks,
+        durationDays: d.durationDays,
       });
+      setPublished(true);
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(DRAFT_KEY + "_step");
       await refreshBuilder();
       navigate(`/missions/${mission.id}`);
     } catch (err) {
@@ -286,13 +372,13 @@ export default function CreateMissionWizard() {
   };
 
   const goNext = () => last ? publish() : setStep(s => s + 1);
-  const goBack = () => step === 0 ? navigate("/") : setStep(s => s - 1);
+  const goBack = () => step === 0 ? setShowExitWarning(true) : setStep(s => s - 1);
 
   const StepBody = [
     <StepInfo d={d} set={set} categories={categories} />,
+    <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
     <StepAudience d={d} toggle={toggle} filters={filters} />,
-    <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepReward d={d} set={set} rewards={rewards} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} />,
   ][step];
@@ -313,7 +399,7 @@ export default function CreateMissionWizard() {
           ))}
         </div>
         <div className="wz-rail-foot">
-          <button className="backlink" onClick={() => navigate("/")}><Icon name="arrowLeft" size={16} /> Exit to dashboard</button>
+          <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> Exit to dashboard</button>
         </div>
       </aside>
 
@@ -339,13 +425,32 @@ export default function CreateMissionWizard() {
           <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> Back</button>
           <span className="fprog">Step <b>{step + 1}</b> / {WZ_STEPS.length}</span>
           <span className="grow" />
-          {step === 1 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{matchCount(d.filters).toLocaleString("en-IN")} members</span>}
-          {step === 3 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.</span>}
+          {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{matchCount(d.filters).toLocaleString("en-IN")} members</span>}
+          {step === 4 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.</span>}
           <Btn variant="primary" iconRight={last ? "bolt" : "arrowRight"} disabled={!canNext || busy} onClick={goNext}>
             {busy ? "Publishing…" : last ? "Publish Mission" : "Continue"}
           </Btn>
         </div>
       </div>
+      
+      {showExitWarning && (
+        <div style={{ display: "contents" }}>
+          <div className="notif-overlay" onClick={() => setShowExitWarning(false)} />
+          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 400, maxWidth: "92vw", zIndex: 61,
+            background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+            <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
+              <b style={{ fontSize: 15 }}>Unsaved Changes</b>
+            </div>
+            <div style={{ padding: 20 }}>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>Are you sure you want to leave? Your progress has been auto-saved as a draft, but the mission hasn't been created yet.</p>
+              <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+                <button className="btn outline" onClick={() => navigate("/")}>Leave Page</button>
+                <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>Stay on Page</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

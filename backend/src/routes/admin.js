@@ -123,7 +123,7 @@ router.get("/dashboard", async (req, res) => {
     builders, validators, totalUsers: builders + validators,
     activeMissions, totalMissions, gmv, spend,
     openTickets, suspended,
-    withdrawalQueue: withdrawalQueue.n, withdrawalQueueAmount: withdrawalQueue.amt,
+    withdrawalQueue: Number(withdrawalQueue.n), withdrawalQueueAmount: Number(withdrawalQueue.amt),
     pendingVerifications, flaggedMissions,
   });
 });
@@ -348,8 +348,10 @@ router.get("/analytics", async (req, res) => {
     Number((await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit' AND TO_CHAR(created_at, 'YYYY-MM') <= ?`).get(ym)).n)
   ));
 
-  const byCategory = await db.prepare(`SELECT category, COUNT(*) AS n FROM missions GROUP BY category ORDER BY n DESC`).all();
-  const byPersona = await db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
+  const byCategoryRaw = await db.prepare(`SELECT category, COUNT(*) AS n FROM missions GROUP BY category ORDER BY n DESC`).all();
+  const byCategory = byCategoryRaw.map(r => ({ ...r, n: Number(r.n) }));
+  const byPersonaRaw = await db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
+  const byPersona = byPersonaRaw.map(r => ({ ...r, n: Number(r.n) }));
 
   res.json({ months, userGrowth, missionGrowth, revenueByMonth, byCategory, byPersona });
 });

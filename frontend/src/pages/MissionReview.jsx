@@ -10,7 +10,30 @@ const TABS = [
   { k: "pending", l: "Pending" },
   { k: "approved", l: "Approved" },
   { k: "flagged", l: "Flagged" },
+  { k: "rejected", l: "Rejected" },
+  { k: "revision", l: "Revision" },
 ];
+
+function Toast({ message, type, onClose }) {
+  if (!message) return null;
+  const colors = { success: "var(--success)", error: "var(--danger)", warning: "var(--warning)" };
+  const icons = { success: "checkCircle", error: "alertTriangle", warning: "edit" };
+  
+  return (
+    <div style={{
+      position: "fixed", top: 80, right: 24, zIndex: 100,
+      background: "var(--bg)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", borderRadius: 8,
+      padding: "14px 18px", display: "flex", alignItems: "center", gap: 12,
+      borderLeft: `4px solid ${colors[type] || colors.success}`,
+      animation: "slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+      maxWidth: 350
+    }}>
+      <Icon name={icons[type] || "info"} size={20} style={{ color: colors[type] || colors.success }} />
+      <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{message}</div>
+      <button className="btn btn-ghost" style={{ padding: 4, margin: "-4px -4px -4px 4px" }} onClick={onClose}><Icon name="x" size={14} /></button>
+    </div>
+  );
+}
 
 function QualityBadge({ quality }) {
   const cfg = {
@@ -29,13 +52,19 @@ function QualityBadge({ quality }) {
 function SlideOver({ sub, onClose, onAction }) {
   const [rejectReason, setRejectReason] = useState("");
   const [reviseNote, setReviseNote] = useState("");
-  const [view, setView] = useState("review"); // review | reject | revise
+  const [rating, setRating] = useState(0); // Add rating state
+  const [view, setView] = useState("review"); // review | reject | revise | approve
+  const [expandedTasks, setExpandedTasks] = useState(new Set([0]));
+  const toggleTask = (i) => setExpandedTasks(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
+
   if (!sub) return null;
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
       <div style={{ flex: 1, background: "rgba(0,0,0,.4)", backdropFilter: "blur(2px)" }} onClick={onClose} />
-      <div style={{ width: 520, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+      <div style={{ width: 660, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
         {/* Header */}
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{sub.name[0]}</div>
@@ -47,58 +76,198 @@ function SlideOver({ sub, onClose, onAction }) {
         </div>
 
         {/* Meta */}
-        <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 20, fontSize: 13 }}>
-          <div><div style={{ color: "var(--text-faint)", fontSize: 11, fontWeight: 600, marginBottom: 2 }}>SUBMITTED</div><b>{sub.date}</b></div>
-          <div><div style={{ color: "var(--text-faint)", fontSize: 11, fontWeight: 600, marginBottom: 2 }}>TIME TAKEN</div><b>{sub.mins} min</b></div>
-          <div><div style={{ color: "var(--text-faint)", fontSize: 11, fontWeight: 600, marginBottom: 2 }}>TASKS</div><b>{sub.tasks}</b></div>
-          <div><div style={{ color: "var(--text-faint)", fontSize: 11, fontWeight: 600, marginBottom: 2 }}>QUALITY</div><QualityBadge quality={sub.quality} /></div>
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12, overflowX: "auto" }}>
+          <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="calendar" size={12} style={{ color: "var(--accent)" }} /> Submitted</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.date}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="clock" size={12} style={{ color: "var(--accent)" }} /> Time Taken</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.mins} min</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="checkCircle" size={12} style={{ color: "var(--accent)" }} /> Tasks</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.tasks}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> Quality</div>
+            <div><QualityBadge quality={sub.quality} /></div>
+          </div>
         </div>
+
+        {/* Check-in history (multi-day missions only) */}
+        {sub.checkins && sub.checkins.length > 0 && (
+          <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>Daily check-in history ({sub.checkins.length} days)</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sub.checkins.map((c, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)", alignItems: "flex-start" }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: "var(--accent)", flexShrink: 0, paddingTop: 2 }}>Day {c.dayNumber}</span>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
+                    <div style={{ marginBottom: 4 }}><b>Used it:</b> {c.answers.used || "—"} · <b>Would return:</b> {c.answers.comeback || "—"}</div>
+                    {c.answers.what && <div style={{ color: "var(--text-muted)", marginBottom: c.answers.frustration === "yes" ? 4 : 0 }}>{c.answers.what}</div>}
+                    {c.answers.frustration === "yes" && c.answers.frustrationDetail && (
+                      <div style={{ color: "var(--danger)" }}>Frustration: {c.answers.frustrationDetail}</div>
+                    )}
+                  </div>
+                  {c.screenshotUrl && (
+                    <a href={c.screenshotUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                      <img src={c.screenshotUrl} alt={`Day ${c.dayNumber} proof`} style={{ width: 48, height: 32, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Task breakdown */}
         <div style={{ padding: "16px 24px", flex: 1 }}>
           <div className="eyebrow" style={{ marginBottom: 14 }}>Task responses</div>
           {(sub.breakdown || []).map((b, i) => (
-            <div key={i} className="card" style={{ padding: "14px 16px", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--text-faint)" }}>Task {i + 1}</span>
+            <div key={i} className="card rise" style={{ marginBottom: 12, overflow: "hidden", border: "1px solid var(--border)" }}>
+              <div onClick={() => toggleTask(i)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", cursor: "pointer", userSelect: "none", background: "var(--panel)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "2px 8px", borderRadius: 12, background: "var(--accent-weak)", color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>Task {i + 1}</span>
                 <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{b.t}</span>
-                <div style={{ display: "flex", gap: 2 }}>
+                <div style={{ display: "flex", gap: 2, marginRight: 8, alignItems: "center" }}>
                   {[1, 2, 3, 4, 5].map(v => (
-                    <div key={v} style={{ width: 14, height: 14, borderRadius: 3, background: b.rating >= v ? "var(--warning)" : "var(--panel-inset)" }} />
+                    <Icon key={v} name="star" size={12} style={{ color: "var(--warning)", fill: "var(--warning)" }} />
                   ))}
+                  <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 6, color: "var(--text)" }}>5/5</span>
                 </div>
+                <Icon name={expandedTasks.has(i) ? "chevUp" : "chevDown"} size={16} style={{ color: "var(--text-muted)" }} />
               </div>
-              {b.ans && <p style={{ margin: 0, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>{b.ans}</p>}
+              
+              {expandedTasks.has(i) && (
+                <div style={{ padding: "0 16px 16px", borderTop: "1px solid var(--border)" }}>
+                  {b.ans && !b.details && <p style={{ margin: "16px 0 0", fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{b.ans}</p>}
+                  {b.details && b.details.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 16, background: "var(--border)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                      {b.details.map((dt, didx) => (
+                        <div key={didx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
+                          <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
+                            <Icon name="helpCircle" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{dt.label}</div>
+                          </div>
+                          <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word" }}>
+                            {dt.value}
+                          </div>
+                        </div>
+                      ))}
+                      {b.attachments && b.attachments.length > 0 && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
+                          <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
+                            <Icon name="image" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>Proof (Screenshot / Video)</div>
+                          </div>
+                          <div style={{ padding: "12px 14px", background: "var(--bg)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {b.attachments.map((src, idx) => {
+                              const isVideo = src.match(/\.(mp4|webm|mov)$/i);
+                              return (
+                                <div key={idx} style={{ position: "relative", width: 140, height: 80, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)", background: "#000" }}>
+                                  {isVideo ? (
+                                    <video src={src} controls style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  ) : (
+                                    <>
+                                      <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                      <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                                        <Icon name="externalLink" size={12} /> View
+                                      </a>
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
+        </div>
 
-        {/* Actions */}
+        {/* Actions Footer */}
         {view === "review" && sub.status === "pending" && (
-          <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
-            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: "center" }} onClick={() => setView("reject")}>
+          <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
+            <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
+              <Icon name="messageSquare" size={14} /> Add Reviewer Notes...
+            </button>
+            <div style={{ flex: 1 }} />
+            <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
               <Icon name="x" size={14} /> Reject
             </button>
-            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: "center" }} onClick={() => setView("revise")}>
-              <Icon name="edit" size={14} /> Request revision
-            </button>
-            <Btn variant="primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => onAction(sub.id, "approved")}>
+            <Btn variant="primary" style={{ padding: "8px 24px", background: "var(--success-weak)", color: "var(--success)", border: "1px solid color-mix(in srgb,var(--success) 40%,transparent)", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("approve")}>
               <Icon name="check" size={14} /> Approve
             </Btn>
           </div>
         )}
+        
+        {view === "approve" && (
+          <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Rate this submission</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
+              Your rating directly impacts the validator's Trust Score.
+            </div>
+            
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map(v => (
+                <div 
+                  key={v} 
+                  onClick={() => setRating(v)}
+                  style={{ 
+                    cursor: "pointer", padding: "10px", borderRadius: 8,
+                    background: rating >= v ? "var(--warning)" : "var(--panel-inset)",
+                    color: rating >= v ? "#fff" : "var(--text-faint)",
+                    display: "grid", placeItems: "center", transition: "all .15s"
+                  }}
+                >
+                  <Icon name="star" size={24} />
+                </div>
+              ))}
+            </div>
+
+            {rating > 0 && rating <= 2 && (
+              <textarea 
+                className="fin" 
+                placeholder="What went wrong? (Required for low ratings)" 
+                rows={2} 
+                value={rejectReason} 
+                onChange={e => setRejectReason(e.target.value)} 
+                style={{ marginBottom: 10 }} 
+              />
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
+              <Btn 
+                variant="primary" 
+                style={{ flex: 1, justifyContent: "center" }} 
+                onClick={() => onAction(sub.id, "approved", rejectReason, rating)} 
+                disabled={rating === 0 || (rating <= 2 && !rejectReason.trim())}
+              >
+                Approve & Rate {rating > 0 ? rating : ''} ★
+              </Btn>
+            </div>
+          </div>
+        )}
+
         {view === "reject" && (
-          <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Reason for rejection</div>
             <textarea className="fin" placeholder="Explain why this submission doesn't meet the requirements…" rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
-              <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => onAction(sub.id, "rejected", rejectReason)} disabled={!rejectReason.trim()}>Reject submission</button>
+              <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => onAction(sub.id, "rejected", rejectReason, 1)} disabled={!rejectReason.trim()}>Reject submission</button>
             </div>
           </div>
         )}
+
         {view === "revise" && (
-          <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+          <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>What needs revision?</div>
             <textarea className="fin" placeholder="e.g. Please re-test the checkout flow and describe what happened at step 3…" rows={3} value={reviseNote} onChange={e => setReviseNote(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
@@ -120,7 +289,13 @@ export default function MissionReview() {
   const [subs, setSubs] = useState([]);
   const [mission, setMission] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => {
     (async () => {
@@ -128,15 +303,10 @@ export default function MissionReview() {
         const data = await api.get(`/missions/${id}/submissions`);
         setMission(data.mission);
         setSubs(data.submissions || []);
-      } catch {
-        // mock
-        setMission({ name: "Subscription App — Beta Test", target: 50 });
-        setSubs([
-          { id: "s1", name: "Diya Krishnan", city: "Bengaluru", trust: 94, status: "pending", quality: "high", date: "Today, 9:42 am", mins: 24, tasks: "5/5", breakdown: [{ t: "Sign up & onboarding", rating: 3, ans: "3–4 steps. The email verification loop was confusing." }, { t: "Core product discovery", rating: 4, ans: "Easy to browse but search had no filters." }, { t: "First purchase", rating: 2, ans: "Checkout crashed on payment screen." }] },
-          { id: "s2", name: "Arjun Mehta", city: "Mumbai", trust: 88, status: "pending", quality: "medium", date: "Today, 8:15 am", mins: 31, tasks: "5/5", breakdown: [{ t: "Sign up & onboarding", rating: 4, ans: "Smooth, 3 steps." }, { t: "Core product discovery", rating: 3, ans: "Found what I needed eventually." }] },
-          { id: "s3", name: "Priya Nair", city: "Kochi", trust: 91, status: "approved", quality: "high", date: "Yesterday", mins: 28, tasks: "5/5", breakdown: [] },
-          { id: "s4", name: "Rahul Singh", city: "Delhi", trust: 72, status: "flagged", quality: "low", date: "Yesterday", mins: 4, tasks: "3/5", breakdown: [] },
-        ]);
+      } catch (err) {
+        console.error("Failed to load submissions:", err);
+        showToast(err.message || "Failed to load submissions", "error");
+        setSubs([]);
       } finally {
         setLoading(false);
       }
@@ -145,12 +315,34 @@ export default function MissionReview() {
 
   if (loading) return <div className="page rise"><div className="muted">Loading submissions…</div></div>;
 
-  const counts = { all: subs.length, pending: subs.filter(s => s.status === "pending").length, approved: subs.filter(s => s.status === "approved").length, flagged: subs.filter(s => s.status === "flagged").length };
+  const counts = { 
+    all: subs.length, 
+    pending: subs.filter(s => s.status === "pending").length, 
+    approved: subs.filter(s => s.status === "approved").length, 
+    flagged: subs.filter(s => s.status === "flagged").length,
+    rejected: subs.filter(s => s.status === "rejected").length,
+    revision: subs.filter(s => s.status === "revision").length,
+  };
   const visible = tab === "all" ? subs : subs.filter(s => s.status === tab);
   const selectedSub = selected ? subs.find(s => s.id === selected) : null;
 
-  const handleAction = async (subId, action, note) => {
-    try { await api.post(`/missions/${id}/submissions/${subId}/${action}`, { note }); } catch {}
+  const handleAction = async (subId, action, reason, rating) => {
+    const subName = subs.find(s => s.id === subId)?.name || "Validator";
+    try {
+      if (action === "approved") {
+        await api.post(`/missions/${id}/submissions/${subId}/approved`, { rating });
+        showToast(`Approved submission from ${subName}`, "success");
+      } else if (action === "rejected") {
+        await api.post(`/missions/${id}/submissions/${subId}/rejected`, { note: reason, rating });
+        showToast(`Rejected submission from ${subName}`, "error");
+      } else if (action === "revision") {
+        await api.post(`/missions/${id}/submissions/${subId}/revision`, { note: reason });
+        showToast(`Revision request sent to ${subName}`, "warning");
+      }
+    } catch (err) {
+      alert(err.message || "An error occurred");
+      return; // Stop execution on error
+    }
     setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: action === "approved" ? "approved" : action === "rejected" ? "rejected" : "revision" } : s));
     setSelected(null);
   };
@@ -162,6 +354,7 @@ export default function MissionReview() {
 
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "28px 24px" }}>
+      <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 24 }}>
         <button className="btn btn-ghost" style={{ padding: "8px 10px" }} onClick={() => navigate(`/missions/${id}`)}>
@@ -237,10 +430,12 @@ export default function MissionReview() {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ Approved</span>}
               {sub.status === "flagged" && <span style={{ color: "var(--danger)", fontWeight: 700, fontSize: 13 }}>⚑ Flagged</span>}
+              {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ Rejected</span>}
+              {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ Revision Req</span>}
               {sub.status === "pending" && (
                 <>
                   <button className="btn btn-ghost" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>Review</button>
-                  <button className="btn btn-success" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); handleAction(sub.id, "approved"); }}>✓ Approve</button>
+                  <button className="btn btn-success" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>✓ Approve</button>
                 </>
               )}
             </div>

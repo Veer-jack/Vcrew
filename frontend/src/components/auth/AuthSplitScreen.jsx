@@ -29,7 +29,10 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [mode, setMode] = useState("signin"); // signin | signup
+  const [mode, setMode] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("mode") === "signup" ? "signup" : "signin";
+  }); // signin | signup
   const [stage, setStage] = useState("main"); // main | forgot | forgot-sent
   const [method, setMethod] = useState("email"); // email | phone
   const [providers, setProviders] = useState({});

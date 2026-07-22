@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { BrandMark } from "../components/BrandMark";
-import { Btn } from "../components/ui";
+import { Btn, PasswordInput } from "../components/ui";
 
 /**
  * Shared reset-password page used by both builder (/reset-password)
@@ -68,12 +68,12 @@ export default function ResetPassword({ apiClient, loginPath }) {
         <form onSubmit={submit} className="col gap-4">
           <div className="fld">
             <label>New password</label>
-            <input className="fin" type="password" value={password}
+            <PasswordInput className="fin" value={password}
               onChange={e => setPassword(e.target.value)} placeholder="At least 8 characters" autoFocus required />
           </div>
           <div className="fld">
             <label>Confirm password</label>
-            <input className="fin" type="password" value={confirm}
+            <PasswordInput className="fin" value={confirm}
               onChange={e => setConfirm(e.target.value)} placeholder="••••••••" required />
           </div>
           <Btn type="submit" variant="primary" size="lg" block disabled={busy}>

@@ -22,7 +22,12 @@ function MktCard({ task, vtypes, onSave, onOpen }) {
   const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
   const urgent = deadlineHours(task.deadline) <= 12;
   return (
-    <div className="card mkt-cardhover" style={{ padding: 18, display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
+    <div className="card mkt-cardhover" style={{ position: "relative", overflow: "hidden", padding: "38px 18px 18px", display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
+      {task.myStatus === "completed" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--warning)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="award" size={11} style={{ marginRight: 4 }} />Approved</span> :
+       task.myStatus === "submitted" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="send" size={11} style={{ marginRight: 4 }} />Submitted</span> :
+       (task.myStatus === "active" || task.myStatus === "applied") ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--success)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="checkCircle" size={11} style={{ marginRight: 4 }} />Accepted</span> :
+       task.myStatus === "rejected" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--danger)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="xCircle" size={11} style={{ marginRight: 4 }} />Rejected</span> :
+       <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="zap" size={11} style={{ marginRight: 4 }} />Open</span>}
       <div className="row between" style={{ alignItems: "flex-start" }}>
         <div className="row gap-2 wrap">
           <VTypeTag type={task.type} vtypes={vtypes} />
@@ -52,7 +57,15 @@ function MktCard({ task, vtypes, onSave, onOpen }) {
       </div>
       <div className="row between" style={{ marginTop: 2, paddingTop: 11, borderTop: "1px solid var(--border)" }}>
         <div><VReward amount={task.reward} /><span className="faint" style={{ fontSize: 11 }}> on approval</span></div>
-        <button className="btn btn-primary" style={{ padding: "8px 14px" }} onClick={e => { e.stopPropagation(); onOpen(task); }}>View<Icon name="arrowRight" size={15} /></button>
+        <button className="btn btn-primary" style={{ 
+          padding: "8px 14px",
+          background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+          borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+          opacity: task.myStatus === "rejected" ? 0.8 : 1
+        }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
+          {task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Resume" : task.myStatus === "rejected" ? "View reason" : "View"}
+          <Icon name="arrowRight" size={15} />
+        </button>
       </div>
     </div>
   );
@@ -63,7 +76,12 @@ function FeaturedMission({ task, vtypes, onSave, onOpen }) {
   return (
     <div className="card rise-2" onClick={() => onOpen(task)} style={{ padding: 0, overflow: "hidden", cursor: "pointer",
       background: `linear-gradient(120deg, color-mix(in srgb, var(${t.accentVar}) 13%, var(--panel)), var(--panel) 62%)` }}>
-      <div style={{ padding: "22px 24px" }}>
+      <div style={{ position: "relative", padding: "42px 24px 22px" }}>
+        {task.myStatus === "completed" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--warning)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="award" size={12} style={{ marginRight: 5 }} />Approved</span> :
+         task.myStatus === "submitted" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="send" size={12} style={{ marginRight: 5 }} />Submitted</span> :
+         (task.myStatus === "active" || task.myStatus === "applied") ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--success)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="checkCircle" size={12} style={{ marginRight: 5 }} />Accepted</span> :
+         task.myStatus === "rejected" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--danger)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="xCircle" size={12} style={{ marginRight: 5 }} />Rejected</span> :
+         <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="zap" size={12} style={{ marginRight: 5 }} />Open</span>}
         <div className="row between wrap gap-3" style={{ alignItems: "flex-start" }}>
           <div className="row gap-2 wrap" style={{ marginBottom: 4 }}>
             <span className="tag" style={{ background: `var(${t.accentVar})`, color: "#fff" }}><Icon name="bolt" size={12} />Featured</span>
@@ -88,7 +106,13 @@ function FeaturedMission({ task, vtypes, onSave, onOpen }) {
           </div>
           <div className="row gap-3" style={{ alignItems: "center" }}>
             <div style={{ textAlign: "right" }}><VReward amount={task.reward} big /><div className="faint" style={{ fontSize: 11 }}>on approval</div></div>
-            <button className="btn btn-primary btn-lg" onClick={e => { e.stopPropagation(); onOpen(task); }}>Start validating <Icon name="arrowRight" /></button>
+            <button className="btn btn-primary btn-lg" style={{
+              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              opacity: task.myStatus === "rejected" ? 0.8 : 1
+            }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
+              {task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Resume mission" : task.myStatus === "rejected" ? "View reason" : "Start validating"} <Icon name="arrowRight" />
+            </button>
           </div>
         </div>
       </div>
@@ -126,7 +150,13 @@ export default function Discover() {
       .catch(() => {});
   }, [q, types, reward, time, verifiedOnly, minMatch, sort]);
 
-  const onOpen = (task) => navigate(`/validator/missions/${task.id}`);
+  const onOpen = (task) => {
+    if (task.myStatus === "completed") {
+      navigate(`/validator/missions/${task.id}/results`);
+    } else {
+      navigate(`/validator/missions/${task.id}`, { state: { fromDiscover: true } });
+    }
+  };
   const onSave = async (task) => {
     const next = !task.saved;
     setData(d => ({ ...d, tasks: d.tasks.map(t => t.id === task.id ? { ...t, saved: next } : t), featured: d.featured && d.featured.id === task.id ? { ...d.featured, saved: next } : d.featured }));
