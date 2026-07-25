@@ -105,12 +105,13 @@ export default function MissionDetails() {
               {task.ptype && ptypes && ptypes.find(p => p.id === task.ptype) && (() => {
                 const pt = ptypes.find(p => p.id === task.ptype);
                 return (
-                  <div style={{ marginTop: 24, padding: "14px 16px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--panel-inset)" }}>
-                    <div className="row gap-2" style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>
-                      <Icon name={pt.icon} size={15} style={{ color: "var(--text-faint)" }} />
-                      Participation Type: {pt.label}
-                    </div>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23 }}>{pt.desc}</div>
+                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
+                    <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>Mission requirements</h3>
+                    <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14.5, color: "var(--text)", lineHeight: 1.6 }}>
+                      <li>Feedback Format: {pt.label}</li>
+                      <li>Estimated time: {pt.est}</li>
+                    </ul>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23, marginTop: 10 }}>{pt.desc}</div>
                   </div>
                 );
               })()}

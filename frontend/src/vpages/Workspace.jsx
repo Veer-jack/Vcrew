@@ -5,14 +5,24 @@ import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 
-function Timer({ secs, onDone }) {
-  const [rem, setRem] = useState(secs);
-  const done = rem <= 0;
+function Timer({ secs, onDone, taskKey }) {
+  const getInitialRem = () => {
+    if (!taskKey) return secs;
+    const startStr = localStorage.getItem("timer_start_" + taskKey);
+    if (startStr) {
+      const elapsed = Math.floor((Date.now() - parseInt(startStr)) / 1000);
+      return Math.max(0, secs - elapsed);
+    }
+    localStorage.setItem("timer_start_" + taskKey, Date.now().toString());
+    return secs;
+  };
+  const [rem, setRem] = useState(getInitialRem);
+  const done = rem <= 0 || rem === 9999;
   useEffect(() => {
     if (done) { onDone?.(); return; }
     const id = setInterval(() => setRem(r => r - 1), 1000);
     return () => clearInterval(id);
-  }, [done]);
+  }, [done, onDone]);
   const m = Math.floor(Math.abs(rem) / 60), s = Math.abs(rem) % 60;
   const cls = done ? "done" : rem < 30 ? "warn" : "";
   return (
@@ -124,7 +134,7 @@ export default function Workspace() {
           setAnswers(data.responses);
           setStepsDone(t.map(tk => new Set(tk.steps.map((_, j) => j))));
           setTimerDone(t.map(() => true));
-          setProofUploaded(t.map((_, i) => !!data.responses[i]?._proof));
+          setProofUploaded(t.map((_, i) => data.responses[i]?._proof || false));
         } else {
           let savedAnswers = t.map(() => ({}));
           let savedIdx = 0;
@@ -139,7 +149,7 @@ export default function Workspace() {
              return hasAns ? new Set(tk.steps.map((_, j) => j)) : new Set();
           }));
           setTimerDone(t.map((_, i) => i < savedIdx));
-          setProofUploaded(t.map((_, i) => !!savedAnswers[i]?._proof));
+          setProofUploaded(t.map((_, i) => savedAnswers[i]?._proof || false));
         }
       } catch {
         // use mock for now
@@ -169,8 +179,9 @@ export default function Workspace() {
   const allAnswered = task.questions.every(q => answers[curIdx]?.[q.id] !== undefined);
   const proofOk = !task.proof || proofUploaded[curIdx];
   const isFinalTask = curIdx === tasks.length - 1;
-  const interviewOk = !isFinalTask || mission?.ptype !== "interview" || scheduleStatus === "completed";
-  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk && interviewOk;
+  const requiresLiveSession = mission?.ptype === "interview" || mission?.ptype === "focus";
+  const liveSessionOk = !isFinalTask || !requiresLiveSession || scheduleStatus === "completed";
+  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk && liveSessionOk;
 
   const toggleStep = (si) => {
     setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
@@ -247,7 +258,7 @@ export default function Workspace() {
           <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{mission?.brand || "Mission brief"}</div>
         </div>
         <div style={{ padding: "12px 0", flex: 1 }}>
-          {mission?.ptype === "interview" && (
+          {(mission?.ptype === "interview" || mission?.ptype === "focus") && (
             <button onClick={() => navigate(`/validator/missions/${id}/schedule`)} style={{ display: "flex", width: "100%", textAlign: "left", gap: 13, alignItems: "flex-start", padding: "10px 18px", borderBottom: "1px solid var(--border)", marginBottom: 12, paddingBottom: 16, background: "transparent", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", outline: "none" }}>
                <span style={{
                   width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
@@ -256,10 +267,10 @@ export default function Workspace() {
                   border: `1.5px solid ${scheduleStatus === "completed" ? "var(--success)" : "var(--warning)"}`,
                   color: scheduleStatus === "completed" ? "#fff" : "var(--warning)",
                 }}>
-                  {scheduleStatus === "completed" ? <Icon name="check" size={12} /> : <Icon name="video" size={11} />}
+                  {scheduleStatus === "completed" ? <Icon name="check" size={12} /> : (mission?.ptype === "focus" ? <Icon name="users" size={11} /> : <Icon name="video" size={11} />)}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: "var(--text)" }}>Live Interview</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: "var(--text)" }}>{mission?.ptype === "focus" ? "Focus Group" : "Live Interview"}</div>
                   <div style={{ fontSize: 11.5, color: scheduleStatus === "completed" ? "var(--success)" : "var(--warning)", marginTop: 2 }}>
                     {scheduleStatus === "completed" ? "Completed" : scheduleStatus === "accepted" ? "Confirmed" : "Pending schedule"}
                   </div>
@@ -305,7 +316,7 @@ export default function Workspace() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
           <span style={{ flex: 1 }} />
-          <Timer key={curIdx} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
+          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
           <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
             <Icon name="x" size={14} /> Exit
           </button>
@@ -409,7 +420,7 @@ export default function Workspace() {
                 {!stepsComplete && <li>Check off all steps above</li>}
                 {!allAnswered && <li>Answer all questions</li>}
                 {!proofOk && <li>Upload a screenshot as proof</li>}
-                {!interviewOk && <li>Wait for the builder to mark the live interview as completed</li>}
+                {!liveSessionOk && <li>Wait for the builder to mark the {mission?.ptype === "focus" ? "focus group" : "live interview"} as completed</li>}
               </ul>
             </div>
           )}

@@ -14,14 +14,14 @@ export const CATEGORIES = [
 ];
 
 export const PTYPES = [
-  { id: "survey",    label: "Survey",          icon: "list",    desc: "10–15 structured questions",  est: "8 min" },
-  { id: "ptest",     label: "Product Testing", icon: "flask",   desc: "Guided tasks + feedback",      est: "25 min" },
-  { id: "interview", label: "Interview",       icon: "mic",     desc: "Scheduled 1:1 call",           est: "30 min" },
-  { id: "focus",     label: "Focus Group",     icon: "users",   desc: "Moderated 6–8 person session", est: "45 min" },
-  { id: "trial",     label: "Product Trial",   icon: "gift",    desc: "Use over several days",        est: "7 days" },
-  { id: "video",     label: "Video Call",      icon: "video",   desc: "Recorded walkthrough",         est: "20 min" },
-  { id: "webtest",   label: "Website Testing", icon: "browser", desc: "Think-aloud browse",           est: "15 min" },
-  { id: "apptest",   label: "App Testing",     icon: "phone",   desc: "Install + task flows",         est: "20 min" },
+  { id: "survey",    label: "Written Survey",          icon: "list",    desc: "10–15 structured questions",  est: "8 min" },
+  { id: "ptest",     label: "Guided Task Flow",        icon: "flask",   desc: "Guided tasks + feedback",      est: "25 min" },
+  { id: "interview", label: "Live 1:1 Video Call",     icon: "mic",     desc: "Scheduled 1:1 call",           est: "30 min" },
+  { id: "focus",     label: "Moderated Group Session", icon: "users",   desc: "Moderated 6–8 person session", est: "45 min" },
+  { id: "trial",     label: "Multi-Day Diary Study",   icon: "gift",    desc: "Use over several days",        est: "7 days" },
+  { id: "video",     label: "Screen Recording Walkthrough", icon: "video", desc: "Recorded walkthrough",      est: "20 min" },
+  { id: "webtest",   label: "Website Navigation Audit",icon: "browser", desc: "Think-aloud browse",           est: "15 min" },
+  { id: "apptest",   label: "App Install & Usage Test",icon: "phone",   desc: "Install + task flows",         est: "20 min" },
 ];
 
 // Per-participation-type guidance for AI task generation: how tasks of this

@@ -11,7 +11,7 @@ import StepTestCases from "../components/StepTestCases";
 
 const WZ_STEPS = [
   { t: "Mission Information", s: "Name & category", hint: "Give your mission a clear name and pick the kind of validation you need." },
-  { t: "Participation Type", s: "How they engage", hint: "Choose how participants will engage with your product." },
+  { t: "Feedback Format", s: "How they engage", hint: "Choose how participants will engage with your product." },
   { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks tailored to this mission type." },
   { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Reward Setup", s: "What they earn", hint: "Set the incentive and size your panel — costs update as you type." },
@@ -124,7 +124,7 @@ function StepParticipation({ d, set, ptypes }) {
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
             <b>{p.label}</b><p>{p.desc}</p>
-            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.est}</span>
+            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? `${d.durationDays} days` : p.est}</span>
           </button>
         ))}
       </div>

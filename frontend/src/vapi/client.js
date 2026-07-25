@@ -29,6 +29,7 @@ async function request(path, { method = "GET", body } = {}) {
     const err = new Error(message);
     err.status = res.status;
     err.code = data && data.code;
+    err.detail = data && data.detail;
     throw err;
   }
   return data;
@@ -120,4 +121,5 @@ export const vapi = {
 
   support: () => request("/support"),
   raiseTicket: (payload) => request("/support/tickets", { method: "POST", body: payload }),
+  getTicket: (id) => request(`/support/tickets/${id}`),
 };

@@ -375,7 +375,7 @@ function MissionInterviewsTab({ missionId }) {
   }, [missionId]);
 
   if (error) return <div className="muted">{error}</div>;
-  if (!schedules) return <div className="muted">Loading interview schedules…</div>;
+  if (!schedules) return <div className="muted">Loading schedules…</div>;
   if (schedules.length === 0) return <div className="muted">No validators have accepted this mission yet.</div>;
 
   const propose = async (validatorId) => {
@@ -411,6 +411,12 @@ function MissionInterviewsTab({ missionId }) {
           <div style={{ minWidth: 0 }}>
             <div style={{ fontWeight: 700 }}>{s.name}</div>
             {s.scheduled_at && <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{new Date(s.scheduled_at).toLocaleString()}{s.meeting_link ? ` · ${s.meeting_link}` : ""}</div>}
+            {s.status === "declined" && s.notes && (
+              <div style={{ marginTop: 10, padding: "8px 12px", borderLeft: "3px solid var(--warning)", background: "var(--warning-weak)", fontSize: 13 }}>
+                <div style={{ color: "var(--warning)" }}><b>Reason declined:</b> {s.notes.reason}</div>
+                {s.notes.timeRange && <div style={{ color: "var(--warning)", marginTop: 4 }}><b>Preferred time hint:</b> {s.notes.timeRange}</div>}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {(!s.status || s.status === "declined") && (
@@ -425,7 +431,7 @@ function MissionInterviewsTab({ missionId }) {
             {s.status === "proposed" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>Awaiting response</span>}
             {s.status === "accepted" && (
               <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => complete(s.validatorId)}>
-                {busyId === s.validatorId ? "Saving…" : "Mark interview completed"}
+                {busyId === s.validatorId ? "Saving…" : "Mark session completed"}
               </button>
             )}
             {s.status === "completed" && <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}>Completed</span>}
@@ -529,6 +535,8 @@ function MissionFocusGroupTab({ missionId }) {
   );
 }
 
+
+
 export default function MissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -564,6 +572,10 @@ export default function MissionDetail() {
     const idx = tabs.findIndex(t => t.k === "responses") + 1;
     tabs = [...tabs.slice(0, idx), { k: "focusgroup", l: "Focus Group", ic: "users", c: null }, ...tabs.slice(idx)];
   }
+  if (mission.ptype === "trial") {
+    const idx = tabs.findIndex(t => t.k === "responses") + 1;
+    tabs = [...tabs.slice(0, idx), { k: "checkins", l: "Check-ins", ic: "calendar", c: null }, ...tabs.slice(idx)];
+  }
 
   return (
     <div className="page rise">
@@ -595,8 +607,53 @@ export default function MissionDetail() {
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
       {tab === "focusgroup" && <MissionFocusGroupTab missionId={id} />}
+      {tab === "checkins" && <MissionCheckinsTab responses={responses} />}
       {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
+    </div>
+  );
+}
+
+function MissionCheckinsTab({ responses }) {
+  if (!responses || responses.length === 0) return <div className="card rise" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>No validators have submitted check-ins yet.</div>;
+  
+  return (
+    <div className="col gap-3 sec">
+      {responses.map(r => (
+        <div key={r.id} className="card rise" style={{ padding: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>Trust score: {r.trust}%</div>
+            </div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--success)" }}>{(r.checkins || []).length} / 7 days logged</div>
+            </div>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+            {(r.checkins || []).map((c, i) => (
+              <div key={i} style={{ background: "var(--panel-2)", padding: 16, borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                <div style={{ fontWeight: 700, marginBottom: 12, display: "flex", justifyContent: "space-between" }}>
+                  <span>Day {c.dayNumber}</span>
+                  <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 400 }}>{new Date(c.submittedAt).toLocaleDateString()}</span>
+                </div>
+                <div style={{ fontSize: 13, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div><span style={{ color: "var(--text-muted)" }}>Used it?</span> {c.answers?.used || "N/A"}</div>
+                  <div><span style={{ color: "var(--text-muted)" }}>What did you do?</span><br />{c.answers?.what || "N/A"}</div>
+                  {c.answers?.frustration === "yes" && <div><span style={{ color: "var(--danger)" }}>Frustrated:</span> {c.answers?.frustrationDetail}</div>}
+                  {c.screenshotUrl && (
+                    <a href={c.screenshotUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8, color: "var(--accent)", fontSize: 12, fontWeight: 600 }}>
+                      <Icon name="image" size={14} style={{ verticalAlign: -2 }} /> View Screenshot
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+            {(r.checkins || []).length === 0 && <div className="muted" style={{ fontSize: 13 }}>No daily check-ins logged yet.</div>}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

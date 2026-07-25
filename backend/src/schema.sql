@@ -468,6 +468,7 @@ CREATE TABLE IF NOT EXISTS interview_schedules (
   status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'accepted', 'declined', 'completed')),
   scheduled_at TIMESTAMPTZ,
   meeting_link TEXT,
+  validator_notes TEXT,
   responded_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),

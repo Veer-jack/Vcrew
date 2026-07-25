@@ -156,7 +156,8 @@ router.get("/:id", async (req, res) => {
       // Search the answer keys for anything that looks like text
       for (const [key, val] of Object.entries(ans)) {
         if (key === "_proof") {
-          attachments.push(val);
+          const arr = Array.isArray(val) ? val : [val];
+          arr.filter(v => typeof v === 'string').forEach(v => attachments.push(v));
         } else if (typeof val === "string" && val.length > 10) {
           synthQuote = val;
         } else if (typeof val === "string" && val.length > 2 && val.length <= 15) {
@@ -565,7 +566,7 @@ router.get("/:id/schedules", authMiddleware, async (req, res) => {
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const rows = await db.prepare(`
-    SELECT p.validator_id, v.name, s.status, s.scheduled_at, s.meeting_link
+    SELECT p.validator_id, v.name, s.status, s.scheduled_at, s.meeting_link, s.validator_notes
     FROM participants p
     JOIN validators v ON v.id = p.validator_id
     LEFT JOIN interview_schedules s ON s.mission_id = p.mission_id AND s.validator_id = p.validator_id
@@ -577,6 +578,7 @@ router.get("/:id/schedules", authMiddleware, async (req, res) => {
     schedules: rows.map(r => ({
       validatorId: r.validator_id, name: r.name,
       status: r.status || null, scheduled_at: r.scheduled_at, meeting_link: r.meeting_link,
+      notes: r.validator_notes ? JSON.parse(r.validator_notes) : null
     })),
   });
 });
@@ -703,7 +705,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => { console.log
     SELECT r.*, v.name, v.handle, v.rating as trust_score
     FROM responses r
     LEFT JOIN validators v ON v.id = r.validator_id
-    WHERE r.mission_id = ?
+    WHERE r.mission_id = ? AND r.status != 'draft'
     ORDER BY r.submitted_at DESC
   `).all(req.params.id);
 
@@ -742,7 +744,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => { console.log
         for (const [key, val] of Object.entries(ans)) {
           if (key === "_proof") {
             const arr = Array.isArray(val) ? val : [val];
-            attachments = arr.map(v => v.startsWith("/api") ? v : `/api/uploads/${v}`);
+            attachments = arr.filter(v => typeof v === 'string').map(v => v.startsWith("/api") ? v : `/api/uploads/${v}`);
             continue;
           }
 
@@ -819,7 +821,8 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
     if (!response) throw new Error("Submission not found");
     if (response.status === 'approved') throw new Error("Submission already approved");
 
-    const reward = mission.reward_amount || 0;
+    let reward = mission.reward_amount || 0;
+
     if (reward > 0) {
       // Deduct reward ONLY from pending escrow (balance was already deducted at publish)
       const updateRes = await tx.prepare(`UPDATE builders SET pending = pending - ? WHERE id = ? AND pending >= ?`).run(reward, req.builder.id, reward);

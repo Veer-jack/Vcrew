@@ -34,11 +34,10 @@ const upload = multer({
 router.use(validatorAuthMiddleware);
 
 function serializeRow(row) {
-  const t = row;
   return {
     id: row.mm_id,
     taskId: row.id,
-    type: VTYPES[row.type] ? row.type : "mvp", category: row.category, product: row.product, tagline: row.tagline, company: row.company,
+    type: row.category ? row.type : (VTYPES[row.type] ? row.type : "mvp"), category: row.category, product: row.product, tagline: row.tagline, company: row.company,
     reward: row.reward, minutes: row.minutes, match: row.match_pct,
     deadline: row.deadline_label,
     status: row.status, progress: row.progress, quality: row.quality, reason: row.reason,
@@ -120,6 +119,12 @@ router.get("/:taskId", async (req, res) => {
   if (isRealMission && t.ptype === "interview") {
     const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(t.id, req.validator.id);
     if (s) scheduleStatus = s.status;
+  } else if (isRealMission && t.ptype === "focus") {
+    const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(t.id);
+    if (poll) {
+      const resp = await db.prepare(`SELECT slot_id FROM focus_group_responses WHERE poll_id = ? AND validator_id = ? AND slot_id = ?`).get(poll.id, req.validator.id, poll.locked_slot_id);
+      if (resp) scheduleStatus = poll.status;
+    }
   }
 
   res.json({
@@ -206,6 +211,12 @@ router.get("/:id/workspace", async (req, res) => {
   if (m.ptype === "interview") {
     const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
     if (s) scheduleStatus = s.status;
+  } else if (m.ptype === "focus") {
+    const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(req.params.id);
+    if (poll) {
+      const resp = await db.prepare(`SELECT slot_id FROM focus_group_responses WHERE poll_id = ? AND validator_id = ? AND slot_id = ?`).get(poll.id, req.validator.id, poll.locked_slot_id);
+      if (resp) scheduleStatus = poll.status;
+    }
   }
 
   res.json({
@@ -407,16 +418,53 @@ router.get("/:id/checkin-status", async (req, res) => {
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "trial") return res.status(400).json({ error: "This mission does not use daily check-ins" });
 
+  const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!p) return res.status(403).json({ error: "Not participating" });
+
+  const acceptedDate = new Date(p.accepted_at);
+  const now = new Date();
+  const acceptedMidnight = new Date(acceptedDate.getFullYear(), acceptedDate.getMonth(), acceptedDate.getDate()).getTime();
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const diffDays = Math.floor((nowMidnight - acceptedMidnight) / (1000 * 60 * 60 * 24));
+  const currentCalendarDay = diffDays + 1;
+  const totalDays = m.duration_days || 7;
+  const extraDays = 2; // Fixed buffer
+
   const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
-  const last = checkins[checkins.length - 1];
-  const hoursSinceLast = last ? (Date.now() - new Date(last.submitted_at).getTime()) / 3600000 : 999;
-  const locked = hoursSinceLast < 20;
+  const completedDays = checkins.length;
+
+  // Check if they already submitted for today
+  let alreadySubmittedToday = false;
+  if (checkins.length > 0) {
+    const lastCheckin = checkins[checkins.length - 1];
+    const lastDate = new Date(lastCheckin.submitted_at);
+    const lastMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate()).getTime();
+    alreadySubmittedToday = lastMidnight === nowMidnight;
+  }
+
+  // Calculate skipped days
+  // If calendar day is 3, and they have 1 completion, and they haven't submitted today,
+  // that means they had 2 days in the past, but only 1 completion -> 1 skipped day.
+  // Formula: skipped = max(0, (currentCalendarDay - 1) - (completedDays - (alreadySubmittedToday ? 1 : 0)))
+  const pastDays = currentCalendarDay - 1;
+  const pastCompleted = alreadySubmittedToday ? completedDays - 1 : completedDays;
+  const skippedDays = Math.max(0, pastDays - pastCompleted);
+
+  const remainingExtraDays = extraDays - skippedDays;
+  const lockedOut = remainingExtraDays < 0;
+  const currentDay = completedDays + (alreadySubmittedToday ? 0 : 1);
+  const isFinished = completedDays >= totalDays;
 
   res.json({
-    mission: { name: m.name, brand: m.brand, total_days: m.duration_days || 7, reward_total: m.reward_amount || 0 },
-    checkins: Array.from({ length: m.duration_days || 7 }).map((_, i) => !!checkins[i]),
-    locked,
-    hoursUntilNext: locked ? Math.max(0, 20 - hoursSinceLast) : 0,
+    mission: { name: m.name, brand: m.brand, total_days: totalDays, reward_total: m.reward_amount || 0 },
+    currentCalendarDay,
+    currentDay: Math.min(currentDay, totalDays),
+    completedDays,
+    skippedDays,
+    remainingExtraDays,
+    lockedOut,
+    isFinished,
+    canSubmitToday: !lockedOut && !isFinished && !alreadySubmittedToday,
   });
 });
 
@@ -480,12 +528,15 @@ router.post("/:id/schedule/accept", async (req, res) => {
 
 // POST /api/v/missions/:id/schedule/decline — validator declines the proposed interview time
 router.post("/:id/schedule/decline", async (req, res) => {
+  const { reason, timeRange } = req.body || {};
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "interview") return res.status(400).json({ error: "This mission does not use scheduled interviews" });
 
-  const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'declined', responded_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'proposed'`)
-    .run(req.params.id, req.validator.id);
+  const notes = JSON.stringify({ reason: reason || "", timeRange: timeRange || "" });
+
+  const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'declined', validator_notes = ?, responded_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'proposed'`)
+    .run(notes, req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to decline" });
 
   res.json({ ok: true });
@@ -562,15 +613,41 @@ router.post("/:id/checkin", async (req, res) => {
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm || mm.status !== "active") return res.status(400).json({ error: "Mission not active or not accepted" });
 
-  // Time gate — must be 20h since last checkin
-  const last = await db.prepare(`SELECT submitted_at FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(req.params.id, req.validator.id).catch(() => null);
-  if (last) {
-    const hours = (Date.now() - new Date(last.submitted_at).getTime()) / 3600000;
-    if (hours < 20) return res.status(400).json({ error: "Too early — come back in " + Math.ceil(20 - hours) + " hours" });
+  const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!p) return res.status(403).json({ error: "Not participating" });
+
+  const acceptedDate = new Date(p.accepted_at);
+  const now = new Date();
+  const acceptedMidnight = new Date(acceptedDate.getFullYear(), acceptedDate.getMonth(), acceptedDate.getDate()).getTime();
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const currentCalendarDay = Math.floor((nowMidnight - acceptedMidnight) / (1000 * 60 * 60 * 24)) + 1;
+  const totalDays = m.duration_days || 7;
+  const extraDays = 2;
+
+  const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
+  const completedDays = checkins.length;
+
+  let alreadySubmittedToday = false;
+  if (checkins.length > 0) {
+    const lastCheckin = checkins[checkins.length - 1];
+    const lastDate = new Date(lastCheckin.submitted_at);
+    const lastMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate()).getTime();
+    alreadySubmittedToday = lastMidnight === nowMidnight;
   }
 
+  const pastDays = currentCalendarDay - 1;
+  const pastCompleted = alreadySubmittedToday ? completedDays - 1 : completedDays;
+  const skippedDays = Math.max(0, pastDays - pastCompleted);
+
+  if (extraDays - skippedDays < 0) return res.status(400).json({ error: "Mission failed due to too many missed check-ins." });
+  if (completedDays >= totalDays) return res.status(400).json({ error: "All required check-ins are already complete." });
+  if (alreadySubmittedToday) return res.status(400).json({ error: "Already submitted for today." });
+
+  // In the elastic model, the day_number recorded is simply the sequential day (completedDays + 1)
+  const sequentialDay = completedDays + 1;
+
   await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, screenshot_path, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())`)
-    .run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}), screenshot_path || null).catch(async () => {
+    .run(req.params.id, req.validator.id, sequentialDay, JSON.stringify(answers || {}), screenshot_path || null).catch(async () => {
       // table might not exist yet — create it
       await db.exec(`CREATE TABLE IF NOT EXISTS checkins (id SERIAL PRIMARY KEY, mission_id TEXT, validator_id INTEGER, day_number INTEGER, answers_json TEXT DEFAULT '{}', screenshot_path TEXT, submitted_at TIMESTAMPTZ DEFAULT NOW())`);
       await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, screenshot_path, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())`).run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}), screenshot_path || null);
