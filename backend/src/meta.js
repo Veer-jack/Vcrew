@@ -299,6 +299,10 @@ proof: "screenshot" or null — follow the mission type guidance's proof default
 Include 3-5 questions per task mixing types. Make tasks specific to the product described.`;
 }
 
+// Single source of truth for the platform fee charged on top of reward spend when a
+// mission is published — read this instead of hardcoding 0.12 anywhere else.
+export const PLATFORM_FEE_PCT = 0.12;
+
 export const REWARDS = [
   { id: "free",   label: "Free",           icon: "heart", desc: "Goodwill / community love",  needsAmt: false },
   { id: "fixed",  label: "Fixed Reward",   icon: "coins", desc: "Cash to each participant",    needsAmt: true },
@@ -307,39 +311,31 @@ export const REWARDS = [
 ];
 
 export const FILTERS = {
-  Geography: [
-    "Worldwide", "Remote / Online only",
-    "India", "Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur",
-    "Singapore", "Indonesia", "Malaysia", "Philippines", "Vietnam", "Thailand", "Japan", "South Korea", "Australia", "New Zealand",
-    "USA", "Canada", "Mexico",
-    "UK", "Germany", "France", "Netherlands", "Spain", "Italy", "Sweden", "Denmark", "Poland",
-    "UAE", "Saudi Arabia", "Israel", "Nigeria", "Kenya", "South Africa",
-    "Brazil", "Argentina", "Colombia",
-    "Other"
-  ],
-  Demographics: [
-    "18-24", "25-34", "35-44", "45-54", "55+",
-    "Male", "Female", "Non-binary", "Prefer not to say",
-    "Low income", "Middle income", "Upper-middle income", "High income",
-    "Student", "Early career", "Mid career", "Senior professional", "Retired",
-    "Single", "Married / partnered", "Parent", "Empty nester"
-  ],
+  Geography: {
+    "Global & Remote": ["Worldwide", "Remote / Online only"],
+    "India - 9 cities": ["India", "Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"],
+    "Asia Pacific": ["Singapore", "Indonesia", "Malaysia", "Philippines", "Vietnam", "Thailand", "Japan", "South Korea", "Australia", "New Zealand"],
+    "Americas": ["USA", "Canada", "Mexico", "Brazil", "Argentina", "Colombia"],
+    "EMEA": ["UK", "Germany", "France", "Netherlands", "Spain", "Italy", "Sweden", "Denmark", "Poland", "UAE", "Saudi Arabia", "Israel", "Nigeria", "Kenya", "South Africa"],
+    "Other": ["Other"]
+  },
+  Demographics: {
+    "Age": ["Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"],
+    "Gender": ["Male", "Female", "Non-binary", "Prefer not to say"],
+    "Income Bracket": ["Under Rs2.5L", "Rs2.5L-5L", "Rs5L-10L", "Rs10L-20L", "Rs20L-50L", "Above Rs50L"],
+    "Marital Status": ["Single", "Married", "Divorced", "Widowed", "In a relationship"],
+    "Has Kids": ["Yes", "No"]
+  },
   Professional: [
-    "Software Engineer", "Data Scientist / Analyst", "Product Manager", "UX / UI Designer", "DevOps / Infrastructure",
-    "Founder / Entrepreneur", "CXO / C-suite", "Business Analyst", "Consultant", "Operations",
-    "Marketer", "Content Creator", "Designer", "Brand Manager", "PR / Comms",
-    "Sales", "Customer Success", "Account Manager",
-    "Doctor / Healthcare", "Lawyer / Legal", "Finance / Accounting", "HR / People", "Teacher / Educator",
-    "Freelancer", "Student", "Researcher", "Other"
+    "Product Manager", "UX / UI Designer", "Software Engineer", "Data Scientist", "QA / Test Engineer", 
+    "DevOps", "Founder", "CXO", "Business Analyst", "Consultant", "Marketer", "Content Creator", "Sales", 
+    "Customer Success", "Doctor", "Lawyer", "Finance", "HR", "Teacher", "Researcher", "Freelancer", "Student", "Other"
   ],
-  Interests: [
-    "Artificial Intelligence", "Technology", "Gaming", "Cybersecurity", "Blockchain / Web3",
-    "Finance & Investing", "Entrepreneurship", "E-commerce", "Real Estate",
-    "Healthcare", "Fitness & Sports", "Food & Beverage", "Travel", "Parenting",
-    "Media & Entertainment", "Music", "Books & Literature", "Fashion & Beauty",
-    "Education", "Environment & Sustainability", "Politics & Policy", "Social Impact",
-    "Consumer Goods", "Automotive", "Home & Living", "Other"
-  ],
+  Interests: {
+    "Lifestyle": ["Fitness", "Yoga", "Outdoor activities", "Cooking", "Travel", "Gaming", "Reading", "Music", "Fashion", "Parenting", "Pets", "Tech", "Cinema", "Sports", "Social media"],
+    "Industry": ["SaaS / B2B Software", "Fintech", "Healthcare", "EdTech", "E-commerce", "FMCG", "Automotive", "Real Estate", "Media", "AI / ML", "Logistics", "Manufacturing", "Government", "Non-profit"],
+    "Product Types": ["Mobile apps iOS", "Mobile apps Android", "Web apps / SaaS", "AI / LLM products", "Fintech products", "Healthcare apps", "Developer tools", "Enterprise software", "Consumer apps", "Physical products", "Packaging", "Marketing campaigns", "Websites"]
+  },
   "ValidationCrew Role": [
     "Validator", "Tester", "User"
   ]

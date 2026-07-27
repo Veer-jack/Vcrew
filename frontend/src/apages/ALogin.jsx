@@ -10,18 +10,6 @@ export default function ALogin() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (admin) {
-    return (
-      <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
-        <div style={{ textAlign: "center", background: "var(--panel)", padding: "40px 32px", borderRadius: "var(--radius)", border: "1px solid var(--border)", maxWidth: 400, boxShadow: "var(--shadow-sm)" }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>Already logged in</h2>
-          <p style={{ color: "var(--text-muted)", marginBottom: 24, fontSize: 15 }}>You are currently logged in as <strong>{admin.email}</strong>.</p>
-          <Link to="/admin" className="btn btn-primary" style={{ display: "inline-flex", width: "100%", justifyContent: "center" }}>Go to Admin Dashboard →</Link>
-        </div>
-      </div>
-    );
-  }
-
   const [stage, setStage] = useState("credentials"); // credentials | setup | code
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -34,6 +22,18 @@ export default function ALogin() {
   const [busy, setBusy] = useState(false);
 
   const goToApp = () => navigate(location.state?.from || "/admin", { replace: true });
+
+  if (admin) {
+    return (
+      <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
+        <div style={{ textAlign: "center", background: "var(--panel)", padding: "40px 32px", borderRadius: "var(--radius)", border: "1px solid var(--border)", maxWidth: 400, boxShadow: "var(--shadow-sm)" }}>
+          <h2 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>Already logged in</h2>
+          <p style={{ color: "var(--text-muted)", marginBottom: 24, fontSize: 15 }}>You are currently logged in as <strong>{admin.email}</strong>.</p>
+          <Link to="/admin" className="btn btn-primary" style={{ display: "inline-flex", width: "100%", justifyContent: "center" }}>Go to Admin Dashboard →</Link>
+        </div>
+      </div>
+    );
+  }
 
   const submitCredentials = async (e) => {
     e.preventDefault();

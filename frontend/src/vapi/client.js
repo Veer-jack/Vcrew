@@ -67,6 +67,9 @@ export const vapi = {
   reportMission: (id, reason) => request(`/marketplace/${id}/report`, { method: "POST", body: { reason } }),
 
   myMissions: (status) => request(`/missions${status ? `?status=${status}` : ""}`),
+  invitations: () => request("/missions/invitations"),
+  acceptInvitation: (id) => request(`/missions/invitations/${id}/accept`, { method: "POST" }),
+  declineInvitation: (id) => request(`/missions/invitations/${id}/decline`, { method: "POST" }),
   workspace: (taskId) => request(`/missions/${taskId}`),
   submit: (taskId, payload) => request(`/missions/${taskId}/submit`, { method: "POST", body: payload }),
   workspaceData: (id) => request(`/missions/${id}/workspace`),
@@ -113,11 +116,26 @@ export const vapi = {
 
   notifications: () => request("/notifications"),
   markAllRead: () => request("/notifications/read-all", { method: "POST" }),
+  clearAllNotifications: () => request("/notifications/clear-all", { method: "POST" }),
   markRead: (id) => request(`/notifications/${id}`, { method: "PATCH" }),
 
   threads: () => request("/messages/threads"),
   thread: (id) => request(`/messages/threads/${id}`),
   sendMessage: (threadId, text) => request(`/messages/threads/${threadId}/messages`, { method: "POST", body: { text } }),
+  sendAttachment: (threadId, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    const t = token;
+    return fetch(`/api/v/messages/threads/${threadId}/attachment`, {
+      method: "POST",
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: form,
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `Upload failed (${r.status})`);
+      return data;
+    });
+  },
 
   support: () => request("/support"),
   raiseTicket: (payload) => request("/support/tickets", { method: "POST", body: payload }),

@@ -94,8 +94,8 @@ export async function validatorAuthMiddleware(req, res, next) {
 /* ============ Admin (single account via env vars, + TOTP 2FA) ============ */
 import { generateSecret, generateURI, verify } from "otplib";
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@validationcrew.app").toLowerCase().trim();
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "admin123";
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@validationcrew.app").replace(/^"|"$/g, '').toLowerCase().trim();
+const ADMIN_PASSWORD = (process.env.ADMIN_PASSWORD || "admin123").replace(/^"|"$/g, '');
 const ADMIN_SESSION_HOURS = 12;
 const PENDING_2FA_MINUTES = 5;
 const PENDING_2FA_MAX_ATTEMPTS = 6;

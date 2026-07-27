@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
@@ -18,7 +18,20 @@ export default function MissionDetails() {
   const [reportBusy, setReportBusy] = useState(false);
   const [reportDone, setReportDone] = useState(false);
 
-  useEffect(() => { vapi.task(id).then(setData); }, [id]);
+  const location = useLocation();
+  useEffect(() => { 
+    vapi.task(id).then(d => {
+      setData(d);
+      // Auto-save logic if directed from notification
+      if (location.state?.autoSave && !d.task.saved) {
+        vapi.saveTask(id, true).catch(() => {});
+        d.task.saved = true;
+        setData({ ...d });
+        // Clear the state so it doesn't fire again on refresh
+        navigate(".", { replace: true, state: {} });
+      }
+    }); 
+  }, [id]); // Remove location.state from dependencies to prevent infinite loops
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const { task, rubric } = data;
@@ -33,6 +46,29 @@ export default function MissionDetails() {
       setData(d => ({ ...d, task: { ...d.task, myStatus: "active" } }));
     } finally { setBusy(false); }
   };
+
+  const acceptInvite = async () => {
+    setBusy(true);
+    try {
+      await vapi.post(`/missions/invitations/${task.inviteId}/accept`);
+      setData(d => ({ ...d, task: { ...d.task, myStatus: "active", inviteId: null } }));
+    } catch (e) {
+      alert(e.message || "Failed to accept invite");
+      // refresh task to get updated slots
+      vapi.task(id).then(setData);
+    } finally { setBusy(false); }
+  };
+
+  const declineInvite = async () => {
+    try {
+      await vapi.post(`/missions/invitations/${task.inviteId}/decline`);
+      setData(d => ({ ...d, task: { ...d.task, inviteId: null } }));
+      navigate("/validator");
+    } catch (e) {
+      alert("Failed to decline invite");
+    }
+  };
+
   const toggleSave = async () => {
     const next = !task.saved;
     setData(d => ({ ...d, task: { ...d.task, saved: next } }));
@@ -160,8 +196,17 @@ export default function MissionDetails() {
         }
         <span className="grow" />
         <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>Earn <b style={{ color: "var(--success)" }}>₹{task.reward}</b> on approval</span>
-        {task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied"
-          ? <button className="btn btn-primary" onClick={() => {
+        
+        {task.inviteId ? (
+          <div className="row gap-2">
+            <button className="btn btn-ghost" disabled={busy} onClick={declineInvite} style={{ color: "var(--danger)" }}>Decline</button>
+            <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : acceptInvite}>
+              <Icon name="userplus" />
+              {busy ? "Accepting…" : task.spotsLeft <= 0 ? "Slots Filled" : "Accept Invitation"}
+            </button>
+          </div>
+        ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied" ? (
+          <button className="btn btn-primary" onClick={() => {
               const inProgress = task.myStatus === "active" || task.myStatus === "applied";
               const dest = task.myStatus === "completed" ? "results"
                 : (task.ptype === "trial" && inProgress) ? "checkin"
@@ -175,7 +220,11 @@ export default function MissionDetails() {
               borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               opacity: task.myStatus === "rejected" ? 0.8 : 1
             }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} />{task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Accepted · Start now" : "View reason"}</button>
-          : <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : apply}>{busy ? "Applying…" : task.spotsLeft <= 0 ? "Out of slots" : "Apply to this mission"} {task.spotsLeft > 0 && <Icon name="arrowRight" />}</button>}
+        ) : (
+          <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : apply}>
+            {busy ? "Applying…" : task.spotsLeft <= 0 ? "Out of slots" : "Apply to this mission"} {task.spotsLeft > 0 && <Icon name="arrowRight" />}
+          </button>
+        )}
       </div>
 
       {reportOpen && (

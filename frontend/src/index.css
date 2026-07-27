@@ -1,0 +1,21 @@
+
+.bell-unread-dot {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--danger, #ff4d4f);
+  border-radius: 50%;
+  border: 1px solid var(--panel, #ffffff);
+}
+
+.blink {
+  animation: blink-animation 1.5s infinite;
+}
+
+@keyframes blink-animation {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}

@@ -109,7 +109,7 @@ function StepAudience({ d, toggle, filters }) {
         <div className="r-foot"><span>Narrower = higher quality</span><span>{pct}% of total pool</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
-        <FilterGroup key={g} title={g} options={opts} sel={d.filters[g]} toggle={toggle} />
+        <FilterGroup key={g} title={g} options={Array.isArray(opts) ? opts : Object.values(opts).flat()} sel={d.filters[g]} toggle={toggle} />
       ))}
     </div>
   );
@@ -182,12 +182,12 @@ function StepReward({ d, set, rewards }) {
   );
 }
 
-function CostCard({ d, rewards, balance }) {
+function CostCard({ d, rewards, balance, platformFeePct }) {
   const rw = rewards.find(r => r.id === d.reward.type);
   const n = +d.reward.participants || 0;
   const per = rw?.needsAmt ? (+d.reward.amount || 0) : 0;
   const subtotal = per * n;
-  const fee = Math.round(subtotal * 0.12);
+  const fee = Math.round(subtotal * platformFeePct);
   const fulfil = d.reward.type === "sample" ? n * 60 : 0;
   const total = subtotal + fee + fulfil;
   return (
@@ -197,7 +197,7 @@ function CostCard({ d, rewards, balance }) {
       <div>
         {rw?.needsAmt && <div className="est-row"><span className="lab">{inr(per)} × {n} participants</span><span className="v">{inr(subtotal)}</span></div>}
         {fulfil > 0 && <div className="est-row"><span className="lab">Sample fulfilment × {n}</span><span className="v">{inr(fulfil)}</span></div>}
-        <div className="est-row"><span className="lab">Platform fee (12%)</span><span className="v">{inr(fee)}</span></div>
+        <div className="est-row"><span className="lab">Platform fee ({Math.round(platformFeePct * 100)}%)</span><span className="v">{inr(fee)}</span></div>
         <div className="est-total"><span className="lab" style={{ fontWeight: 700 }}>Total</span><span className="v">{inr(total)}</span></div>
       </div>
       <div className="row gap-2" style={{ marginTop: 14, fontSize: 12, color: "var(--text-faint)" }}>
@@ -274,7 +274,7 @@ function deserializeDraft(jsonStr, emptyF) {
 export default function CreateMissionWizard() {
   const navigate = useNavigate();
   const { builder, refreshBuilder } = useAuth();
-  const { categories, ptypes, rewards, filters } = useMeta();
+  const { categories, ptypes, rewards, filters, platformFeePct } = useMeta();
 
   const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [busy, setBusy] = useState(false);
@@ -414,7 +414,7 @@ export default function CreateMissionWizard() {
           {last ? (
             <div className="split">
               <div>{StepBody}</div>
-              <div className="sticky-side"><CostCard d={d} rewards={rewards} balance={builder?.balance} /></div>
+              <div className="sticky-side"><CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} /></div>
             </div>
           ) : StepBody}
         </div>

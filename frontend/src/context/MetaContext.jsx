@@ -7,7 +7,7 @@ export function MetaProvider({ children }) {
   const [meta, setMeta] = useState(null);
 
   useEffect(() => {
-    api.meta().then(setMeta).catch(() => setMeta({ categories: [], ptypes: [], rewards: [], filters: {} }));
+    api.meta().then(setMeta).catch(() => setMeta({ categories: [], ptypes: [], rewards: [], filters: {}, platformFeePct: 0.12 }));
   }, []);
 
   if (!meta) return null;

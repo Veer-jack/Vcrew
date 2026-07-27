@@ -2,21 +2,20 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { sendValidatorWelcome } from "../email.js";
-import { LEVELS } from "../vmeta.js";
+import { levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 
 function publicValidator(v) {
-  const lvl = LEVELS.find(l => l.n === v.level) || LEVELS[0];
+  const lvl = levelForCompleted(v.missions_done);
   return {
     id: v.id, name: v.name, handle: v.handle, email: v.email,
-    level: v.level, levelName: lvl.name,
-    rating: v.rating, ratingCount: v.rating_count, accuracy: v.accuracy, streak: v.streak,
+    level: lvl.n, levelName: lvl.name,
+    rating: v.rating, ratingCount: v.reviews_count, accuracy: v.accuracy, streak: v.streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
     languages: JSON.parse(v.languages_json || "[]"),
-    weekEarnings: v.week_earnings, weekTarget: v.week_target,
-    pending: v.pending, available: v.available, lifetime: v.lifetime,
-    completed: v.completed, acceptRate: v.accept_rate,
+    pending: v.earnings_pending, available: v.balance, lifetime: v.earnings_total,
+    completed: v.missions_done,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     preferredLanguage: v.preferred_language || "en",
     oauthProvider: v.oauth_provider || null,
@@ -252,7 +251,7 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
 
   // Notify admin if tester application
   if (b.validator_type === 'tester') {
-    await db.prepare(`INSERT INTO notifications (builder_id, type, icon, tone, title, body, time_label, unread) VALUES (1, 'tester_application', 'star', 'accent', 'New Tester Application', $1, 'Just now', 1)`)
+    await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (1, 'application', 'tester_application', 'star', 'accent', 'New Tester Application', $1, 'Just now', 1)`)
       .run(`${b.name || 'A validator'} has applied for Verified Tester status. Review within 72 hours.`).catch(() => {});
   }
 

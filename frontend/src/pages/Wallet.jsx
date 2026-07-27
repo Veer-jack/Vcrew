@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
 import { Btn, KpiCard, inr, inrK } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
+import { exportCSV } from "../exportUtils";
 
 const TABS = [
   { k: "transactions", l: "Transaction history", ic: "list" },
@@ -43,11 +45,18 @@ export default function Wallet() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [cardsReady, setCardsReady] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
-  const load = () => api.wallet().then(setData);
+  const load = () => { setLoadError(""); return api.wallet().then(setData).catch(err => setLoadError(err.message || "Couldn't load your wallet")); };
   useEffect(() => { load(); }, []);
   useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
 
+  if (loadError) return (
+    <div className="page rise">
+      <div className="err-banner" style={{ marginBottom: 12 }}>{loadError}</div>
+      <Btn variant="ghost" onClick={load}>Retry</Btn>
+    </div>
+  );
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const payWithCard = async () => {
@@ -93,6 +102,39 @@ export default function Wallet() {
     }
   };
 
+  const exportStatement = () => {
+    exportCSV(
+      "wallet_statement.csv",
+      ["Date", "Description", "Type", "Amount"],
+      data.transactions.map(t => [t.date, t.description, t.type, t.amount])
+    );
+  };
+
+  const downloadInvoice = (inv) => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("ValidationCrew", 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Invoice", 14, 30);
+    doc.setTextColor(20, 20, 20);
+    doc.setFontSize(13);
+    const rows = [
+      ["Invoice", inv.id],
+      ["Date", inv.date],
+      ["Status", inv.status],
+      ["Billed to", builder?.org || "—"],
+      ["Amount", inr(inv.amount)],
+    ];
+    let y = 46;
+    for (const [label, value] of rows) {
+      doc.setFont(undefined, "bold"); doc.text(`${label}:`, 14, y);
+      doc.setFont(undefined, "normal"); doc.text(String(value), 60, y);
+      y += 9;
+    }
+    doc.save(`${inv.id}.pdf`);
+  };
+
   const addFunds = async (stepUpToken) => {
     setBusy(true); setError("");
     try {
@@ -112,7 +154,7 @@ export default function Wallet() {
     <div className="page rise">
       <div className="ph">
         <div><span className="eyebrow">Wallet &amp; billing</span><h1>Wallet</h1><p className="lead">Top up, track mission spend and manage how {builder?.org} pays.</p></div>
-        <div className="ph-actions"><Btn variant="ghost" icon="download">Statement</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>Add funds</Btn></div>
+        <div className="ph-actions"><Btn variant="ghost" icon="download" onClick={exportStatement}>Statement</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>Add funds</Btn></div>
       </div>
 
       {error && !adding && (
@@ -196,7 +238,7 @@ export default function Wallet() {
                   <td className="muted">{v.date}</td>
                   <td><span className="st st-active"><span className="d" />{v.status}</span></td>
                   <td className="num">{inr(v.amount)}</td>
-                  <td><button className="icon-btn" style={{ width: 32, height: 32 }} title="Download"><Icon name="download" size={15} /></button></td>
+                  <td><button className="icon-btn" style={{ width: 32, height: 32 }} title="Download" onClick={() => downloadInvoice(v)}><Icon name="download" size={15} /></button></td>
                 </tr>
               ))}
             </tbody>

@@ -78,6 +78,13 @@ export const LEVELS = [
   { n: 5, name: "Elite", min: 400, perks: "Top placement + concierge support" },
 ];
 
+// Single source of truth for level thresholds — derive from missions_done, don't
+// duplicate the min-count ladder inline at each call site.
+export function levelForCompleted(completed) {
+  const c = completed || 0;
+  return [...LEVELS].reverse().find(l => c >= l.min) || LEVELS[0];
+}
+
 export const BADGES = [
   { icon: "shield", label: "Identity verified", got: true, desc: "LinkedIn + phone confirmed" },
   { icon: "cpu", label: "AI specialist", got: true, desc: "50+ AI validations at ≥90% accuracy" },

@@ -153,7 +153,7 @@ export default function DailyCheckin() {
             <div style={{ position: "relative", marginBottom: 40, overflowX: "auto", paddingBottom: 16 }}>
               <div style={{ display: "flex", minWidth: 700, alignItems: "center", justifyContent: "space-between", position: "relative" }}>
                 {/* Background dashed line */}
-                <div style={{ position: "absolute", left: 24, right: 24, top: 20, height: 2, background: "repeating-linear-gradient(to right, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)", zIndex: 0 }} />
+                <div style={{ position: "absolute", left: 24, right: 24, top: 48, height: 2, background: "repeating-linear-gradient(to right, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)", zIndex: 0 }} />
                 
                 {Array.from({ length: totalNodes }).map((_, i) => {
                   const nodeIndex = i + 1;
@@ -208,7 +208,7 @@ export default function DailyCheckin() {
                       
                       {/* Line connector to previous node (dynamically colored) */}
                       {nodeIndex > 1 && (
-                        <div style={{ position: "absolute", left: "-50%", right: "50%", top: 41, height: 2, zIndex: -1, background: state === "completed" ? "var(--success)" : state === "skipped" ? "var(--danger)" : state === "today" ? "var(--accent)" : "transparent" }} />
+                        <div style={{ position: "absolute", left: "-50%", right: "50%", top: 48, height: 2, zIndex: -1, background: state === "completed" ? "var(--success)" : state === "skipped" ? "var(--danger)" : state === "today" ? "var(--accent)" : "transparent" }} />
                       )}
 
                       <div style={{ width: 44, height: 44, borderRadius: state === "today" ? 12 : "50%", background: bg, border: `2px solid ${border}`, display: "grid", placeItems: "center" }}>
@@ -416,8 +416,15 @@ export default function DailyCheckin() {
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text-muted)" }}>
                   <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--accent-weak)", marginLeft: 2 }} /> Extra Days Left
                 </span>
-                <span style={{ fontWeight: 700, color: "var(--accent)" }}>{remainingExtraDays} {remainingExtraDays === 1 ? 'day' : 'days'}</span>
+                <span style={{ fontWeight: 700, color: remainingExtraDays === 0 ? "var(--danger)" : "var(--accent)" }}>{Math.max(0, remainingExtraDays)} {Math.max(0, remainingExtraDays) === 1 ? 'day' : 'days'}</span>
               </div>
+              
+              {remainingExtraDays === 0 && !lockedOut && (
+                <div style={{ background: "var(--danger-weak)", padding: 12, borderRadius: "var(--radius)", fontSize: 13, color: "var(--danger)", display: "flex", alignItems: "flex-start", gap: 8, marginTop: 4 }}>
+                  <Icon name="alertCircle" size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div><strong>Warning:</strong> You have 0 extra days left. Skipping another day will result in mission failure.</div>
+                </div>
+              )}
             </div>
 
             <div style={{ background: "var(--accent-weak)", border: "1px solid var(--accent)", borderRadius: "var(--radius)", padding: 16, display: "flex", gap: 12, alignItems: "center" }}>

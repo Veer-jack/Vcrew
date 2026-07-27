@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
@@ -16,13 +16,16 @@ function Timer({ secs, onDone, taskKey }) {
     localStorage.setItem("timer_start_" + taskKey, Date.now().toString());
     return secs;
   };
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+
   const [rem, setRem] = useState(getInitialRem);
   const done = rem <= 0 || rem === 9999;
   useEffect(() => {
-    if (done) { onDone?.(); return; }
+    if (done) { onDoneRef.current?.(); return; }
     const id = setInterval(() => setRem(r => r - 1), 1000);
     return () => clearInterval(id);
-  }, [done, onDone]);
+  }, [done]);
   const m = Math.floor(Math.abs(rem) / 60), s = Math.abs(rem) % 60;
   const cls = done ? "done" : rem < 30 ? "warn" : "";
   return (
@@ -121,6 +124,19 @@ export default function Workspace() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [scheduleStatus, setScheduleStatus] = useState(null);
 
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (loading || isReadOnly) return;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timerId = setTimeout(() => {
+      saveDraft(curIdx);
+    }, 1200);
+    return () => clearTimeout(timerId);
+  }, [answers, proofUploaded]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -152,17 +168,8 @@ export default function Workspace() {
           setProofUploaded(t.map((_, i) => savedAnswers[i]?._proof || false));
         }
       } catch {
-        // use mock for now
-        const mock = [
-          { id: 1, title: "Sign up & onboarding", severity: "crit", min_time_seconds: 10, steps: ["Open the app", "Create account", "Complete onboarding", "Reach dashboard"], questions: [{ id: "q1", text: "How many steps did signup take?", type: "multiple_choice", options: ["1–2", "3–4", "5+"] }, { id: "q2", text: "Was anything confusing?", type: "yes_no_detail" }, { id: "q3", text: "Rate the signup experience", type: "rating", scale: 5 }], proof: true },
-          { id: 2, title: "Core product flow", severity: "crit", min_time_seconds: 10, steps: ["Browse main content", "Try the core feature", "Complete one full action"], questions: [{ id: "q4", text: "How easy was the core flow?", type: "rating", scale: 5 }, { id: "q5", text: "Describe your experience", type: "text" }], proof: true },
-          { id: 3, title: "Overall feedback", severity: "imp", min_time_seconds: 10, steps: ["Reflect on full experience", "Answer final questions"], questions: [{ id: "q6", text: "Would you use this again?", type: "yes_no_detail" }, { id: "q7", text: "Overall rating", type: "rating", scale: 5 }], proof: false },
-        ];
-        setTasks(mock);
-        setStepsDone(mock.map(() => new Set()));
-        setAnswers(mock.map(() => ({})));
-        setTimerDone(mock.map(() => false));
-        setProofUploaded(mock.map(() => false));
+        // do not fallback to mock
+        setTasks([]);
       } finally {
         setLoading(false);
       }
@@ -170,6 +177,15 @@ export default function Workspace() {
   }, [id]);
 
   if (loading) return <div className="page rise"><div className="muted">Loading workspace…</div></div>;
+
+  if (tasks.length === 0) return (
+    <div className="page rise" style={{ textAlign: "center", paddingTop: 80 }}>
+      <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
+      <h2 style={{ fontSize: 20, marginBottom: 8 }}>No tasks found</h2>
+      <p style={{ color: "var(--text-muted)" }}>This mission does not have any tasks generated yet.</p>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>Go Back</Btn>
+    </div>
+  );
 
   const task = tasks[curIdx];
   if (!task) return null;
@@ -189,7 +205,7 @@ export default function Workspace() {
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
   };
-  const saveDraft = async (newIdx = curIdx) => {
+  async function saveDraft(newIdx = curIdx) {
     if (isReadOnly) return;
     try {
       const finalAnswers = answers.map((ans, i) => {
@@ -201,7 +217,7 @@ export default function Workspace() {
     } catch (e) {
       console.warn("Auto-save failed", e);
     }
-  };
+  }
 
   const goNext = async () => {
     if (curIdx === tasks.length - 1) {
@@ -316,7 +332,10 @@ export default function Workspace() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
           <span style={{ flex: 1 }} />
-          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
+          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { 
+            if (p[curIdx] === true) return p;
+            const a = [...p]; a[curIdx] = true; return a; 
+          })} />
           <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
             <Icon name="x" size={14} /> Exit
           </button>

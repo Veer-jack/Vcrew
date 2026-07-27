@@ -3,16 +3,16 @@ import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { consumeStepUpToken } from "../firebaseRoutes.js";
 import { isRazorpayXConfigured, createContact, createFundAccount, createPayout } from "../razorpayClient.js";
-import { LEVELS } from "../vmeta.js";
+import { LEVELS, levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
 
 router.get("/", async (req, res) => {
   const v = req.validator;
-  const lvl = LEVELS.find(l => l.n === v.level) || LEVELS[0];
-  const nextLvl = LEVELS.find(l => l.n === v.level + 1) || null;
-  const lvlPct = nextLvl ? Math.min(100, Math.round(((v.completed - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
+  const lvl = levelForCompleted(v.missions_done);
+  const nextLvl = LEVELS.find(l => l.n === lvl.n + 1) || null;
+  const lvlPct = nextLvl ? Math.min(100, Math.round((((v.missions_done || 0) - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
   const history = await db.prepare(`
     SELECT mm.*, t.product, t.type, t.reward FROM v_my_missions mm 
@@ -42,7 +42,7 @@ router.get("/", async (req, res) => {
     available: v.balance || 0, // Balance remains the absolute source of truth for withdrawals
     lifetime: earningsAgg?.lifetime || 0,
     name: v.name, rating: v.rating, ratingCount: v.reviews_count, accuracy: v.accuracy || 100,
-    level: v.level || 1, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - (v.missions_done || 0)) : 0, levelPct: lvlPct,
+    level: lvl.n, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - (v.missions_done || 0)) : 0, levelPct: lvlPct,
     specialties: JSON.parse(v.specialties_json || "[]"),
     history: history.map(h => ({
       id: h.id, product: h.product, type: h.type, reward: h.reward,
@@ -58,18 +58,26 @@ router.post("/withdraw", async (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
   if (amount < MIN_WITHDRAWAL_AMOUNT) return res.status(400).json({ error: `Minimum withdrawal amount is \u20b9${MIN_WITHDRAWAL_AMOUNT}` });
-  if (amount > req.validator.available) return res.status(400).json({ error: "Amount exceeds available balance" });
+  if (amount > req.validator.balance) return res.status(400).json({ error: "Amount exceeds available balance" });
 
   if (req.validator.phone_verified) {
     const ok = await consumeStepUpToken({ table: "validators", userId: req.validator.id, purpose: "withdraw", token: req.body?.stepUpToken });
     if (!ok) return res.status(403).json({ error: "Please verify with the code sent to your phone", code: "STEP_UP_REQUIRED" });
   }
 
-  if (isRazorpayXConfigured()) {
-    if (!req.validator.payout_vpa) {
-      return res.status(400).json({ error: "Add a UPI ID for payouts in your profile first", code: "PAYOUT_DETAILS_REQUIRED" });
-    }
+  if (isRazorpayXConfigured() && !req.validator.payout_vpa) {
+    return res.status(400).json({ error: "Add a UPI ID for payouts in your profile first", code: "PAYOUT_DETAILS_REQUIRED" });
+  }
 
+  // Reserve the funds atomically before attempting any external payout \u2014 closes the
+  // race where a stale req.validator.balance would otherwise let a validator withdraw
+  // more than they actually have, and guarantees a payout is never fired without a
+  // matching internal deduction.
+  const reserve = await db.prepare(`UPDATE validators SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(amount, req.validator.id, amount);
+  if (reserve.changes === 0) return res.status(400).json({ error: "Amount exceeds available balance" });
+  const refundReservation = () => db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(amount, req.validator.id);
+
+  if (isRazorpayXConfigured()) {
     try {
       let { razorpay_contact_id: contactId, razorpay_fund_account_id: fundAccountId } = req.validator;
 
@@ -92,24 +100,21 @@ router.post("/withdraw", async (req, res) => {
       await db.prepare(`INSERT INTO withdrawals (validator_id, amount, method, account_json, status) VALUES (?,?,?,?,?)`)
         .run(req.validator.id, amount, 'razorpay', JSON.stringify({ vpa: req.validator.payout_vpa, payout_id: payout.id }), payout.status || 'queued');
 
-      await db.prepare(`UPDATE validators SET balance = balance - ? WHERE id = ?`).run(amount, req.validator.id);
       await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)
         .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} to ${req.validator.payout_vpa} is ${payout.status || "queued"} and should land within 24h.`);
 
       const availRow = await db.prepare(`SELECT balance FROM validators WHERE id = ?`).get(req.validator.id);
-  const available = availRow.balance;
-      return res.json({ available, payoutStatus: payout.status });
+      return res.json({ available: availRow.balance, payoutStatus: payout.status });
     } catch (err) {
+      await refundReservation();
       return res.status(400).json({ error: err.message });
     }
   }
 
   // Simulated fallback when RazorpayX isn't configured.
-  await db.prepare(`UPDATE validators SET balance = balance - ? WHERE id = ?`).run(amount, req.validator.id);
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'reward','coin','amber',?,?, 'Just now', 1)`)
     .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} is being processed and should land within 24h.`);
 
   const availRow = await db.prepare(`SELECT balance FROM validators WHERE id = ?`).get(req.validator.id);
-  const available = availRow.balance;
-  res.json({ available });
+  res.json({ available: availRow.balance });
 });

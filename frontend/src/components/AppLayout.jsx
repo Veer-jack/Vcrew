@@ -8,13 +8,22 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "../i18n/index.jsx";
 import { BrandMark, BrandLogoFull } from "./BrandMark";
 
-function NotifPanel({ onClose }) {
-  const [items, setItems] = useState([]);
-  useEffect(() => { api.notifications().then(d => setItems(d.notifications)); }, []);
+function NotifPanel({ onClose, items, setItems }) {
+  const [cat, setCat] = useState("all");
+
+  const rows = cat === "all" ? items : items.filter(n => n.cat === cat);
+  const cats = [
+    { k: "all", l: "All" }, { k: "application", l: "Applications" }, 
+    { k: "message", l: "Messages" }, { k: "system", l: "System" }
+  ];
 
   const markAll = async () => {
     await api.markAllRead();
     setItems(its => its.map(i => ({ ...i, unread: false })));
+  };
+  const clearAll = async () => {
+    await api.clearAllNotifications();
+    setItems([]);
   };
   const open = async (n) => {
     if (n.unread) {
@@ -31,11 +40,19 @@ function NotifPanel({ onClose }) {
           <b>Notifications</b>
           <div className="row gap-2">
             <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>Mark all read</button>
+            <button className="backlink" style={{ margin: 0, fontSize: 12.5, color: "var(--danger, #ff4d4f)" }} onClick={clearAll}>Clear all</button>
             <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
         </div>
+        <div style={{ display: "flex", gap: 6, padding: "12px 16px", borderBottom: "var(--hairline) solid var(--border)", overflowX: "auto" }}>
+          {cats.map(c => (
+            <button key={c.k} className="pill" onClick={() => setCat(c.k)} style={{ cursor: "pointer", whiteSpace: "nowrap", flex: "none",
+              background: cat === c.k ? "var(--accent)" : "var(--panel)", borderColor: cat === c.k ? "var(--accent)" : "var(--border)", color: cat === c.k ? "#fff" : "var(--text-muted)" }}>{c.l}</button>
+          ))}
+        </div>
         <div className="notif-list">
-          {items.map(n => (
+          {rows.length === 0 && <div className="muted" style={{ padding: 24, textAlign: "center" }}>No notifications here.</div>}
+          {rows.map(n => (
             <div key={n.id} className={`notif-item ${n.unread ? "unread" : ""}`} onClick={() => open(n)}>
               <span className="notif-dot" />
               <span className={`feed-ic ${n.tone}`} style={{ width: 34, height: 34 }}><Icon name={n.icon} size={16} /></span>
@@ -45,7 +62,6 @@ function NotifPanel({ onClose }) {
               </div>
             </div>
           ))}
-          {items.length === 0 && <div className="muted" style={{ padding: 24, textAlign: "center" }}>No notifications yet.</div>}
         </div>
       </div>
     </div>
@@ -127,8 +143,16 @@ export default function AppLayout() {
   const [bell, setBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
+  const [topbarQ, setTopbarQ] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    api.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
+  }, []);
+
+  const unreadCount = notifs.filter(n => n.unread).length;
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
@@ -138,9 +162,24 @@ export default function AppLayout() {
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{pageTitle(location.pathname)}</h1>
-          <div className="search" style={{ marginLeft: 18 }}><Icon name="search" size={16} /><input placeholder="Search missions, members, responses…" /></div>
+          <div className="search" style={{ marginLeft: 18 }}>
+            <Icon name="search" size={16} />
+            <input
+              placeholder="Search missions…"
+              value={topbarQ}
+              onChange={e => setTopbarQ(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && topbarQ.trim()) {
+                  navigate(`/missions?q=${encodeURIComponent(topbarQ.trim())}`);
+                }
+              }}
+            />
+          </div>
           <span className="topbar-spacer" />
-          <button className="icon-btn" onClick={() => setBell(true)} title="Notifications"><Icon name="bell" size={17} /></button>
+          <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title="Notifications">
+            <Icon name="bell" size={17} />
+            {unreadCount > 0 && <span className="bell-unread-dot blink" />}
+          </button>
           <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title="Log out"><Icon name="logout" size={17} /></button>
           <div style={{ position: "relative" }}>
             <button
@@ -172,7 +211,7 @@ export default function AppLayout() {
         </header>
         <Outlet />
       </div>
-      {bell && <NotifPanel onClose={() => setBell(false)} />}
+      {bell && <NotifPanel onClose={() => setBell(false)} items={notifs} setItems={setNotifs} />}
     </div>
   );
 }

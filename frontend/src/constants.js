@@ -3,7 +3,6 @@ export const STAGES = [
   { id: "accepted", label: "Accepted", color: "var(--t-website)" },
   { id: "started",  label: "Started",  color: "var(--t-app)" },
   { id: "submitted",label: "Submitted",color: "var(--warning)" },
-  { id: "approved", label: "Approved", color: "var(--t-trial)" },
   { id: "rewarded", label: "Rewarded", color: "var(--success)" },
 ];
 

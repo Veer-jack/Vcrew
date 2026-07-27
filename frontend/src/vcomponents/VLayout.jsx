@@ -6,10 +6,8 @@ import { VAvatar } from "./vui";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 
-function VNotifPanel({ onClose }) {
-  const [items, setItems] = useState([]);
+function VNotifPanel({ onClose, items, setItems }) {
   const [cat, setCat] = useState("all");
-  useEffect(() => { vapi.notifications().then(d => setItems(d.notifications)); }, []);
 
   const rows = cat === "all" ? items : items.filter(n => n.cat === cat);
   const cats = [
@@ -18,8 +16,14 @@ function VNotifPanel({ onClose }) {
   ];
 
   const markAll = async () => { await vapi.markAllRead(); setItems(its => its.map(i => ({ ...i, unread: false }))); };
+  const clearAll = async () => { await vapi.clearAllNotifications(); setItems([]); };
+  const navigate = useNavigate();
   const open = async (n) => {
     if (n.unread) { await vapi.markRead(n.id); setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i)); }
+    if (n.type === 'mission_full' && n.target_id) {
+      onClose();
+      navigate(`/validator/missions/${n.target_id}`, { state: { autoSave: true } });
+    }
   };
 
   return (
@@ -30,6 +34,7 @@ function VNotifPanel({ onClose }) {
           <b>Notifications</b>
           <div className="row gap-2">
             <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>Mark all read</button>
+            <button className="backlink" style={{ margin: 0, fontSize: 12.5, color: "var(--danger, #ff4d4f)" }} onClick={clearAll}>Clear all</button>
             <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
         </div>
@@ -80,8 +85,15 @@ export default function VLayout() {
   const { validator, logout } = useVAuth();
   const [bell, setBell] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
+  const [notifs, setNotifs] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    vapi.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
+  }, []);
+
+  const unreadCount = notifs.filter(n => n.unread).length;
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
@@ -133,13 +145,16 @@ export default function VLayout() {
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{pageTitle(location.pathname)}</h1>
           <span className="topbar-spacer" />
-          <button className="icon-btn" onClick={() => setBell(true)} title="Notifications"><Icon name="bell" size={17} /></button>
+          <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title="Notifications">
+            <Icon name="bell" size={17} />
+            {unreadCount > 0 && <span className="bell-unread-dot blink" />}
+          </button>
           <button className="icon-btn" onClick={async () => { await logout(); navigate("/validator/login"); }} title="Log out"><Icon name="logout" size={17} /></button>
           <VAvatar name={validator?.name || ""} size={38} ring />
         </header>
         <Outlet />
       </main>
-      {bell && <VNotifPanel onClose={() => setBell(false)} />}
+      {bell && <VNotifPanel onClose={() => setBell(false)} items={notifs} setItems={setNotifs} />}
     </div>
   );
 }

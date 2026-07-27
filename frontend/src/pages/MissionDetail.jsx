@@ -4,7 +4,10 @@ import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, inr, inrK } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
+import { InviteValidatorModal } from "../components/InviteValidatorModal";
+import { Modal } from "../components/Modal";
 import { STAGES, FILE_KIND } from "../constants";
+import { exportCSV } from "../exportUtils";
 
 const TABS = [
   { k: "overview", l: "Overview", ic: "target" },
@@ -49,29 +52,40 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
   );
 }
 
-function ParticipantKanban({ missionId, participants, setParticipants }) {
+function ParticipantKanban({ missionId, participants, setParticipants, onInvite }) {
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
 
   const move = async (id, stage) => {
-    setParticipants(ps => ps.map(p => p.id === id ? { ...p, stage } : p));
-    try { await api.moveParticipant(missionId, id, stage); } catch { /* best effort */ }
+    let prevStage;
+    setParticipants(ps => ps.map(p => {
+      if (p.id !== id) return p;
+      prevStage = p.stage;
+      return { ...p, stage };
+    }));
+    try {
+      await api.moveParticipant(missionId, id, stage);
+    } catch {
+      // Roll back the optimistic move — e.g. the backend rejected a stage it doesn't allow.
+      setParticipants(ps => ps.map(p => p.id === id ? { ...p, stage: prevStage } : p));
+    }
   };
 
   return (
     <div>
       <div className="row between" style={{ marginBottom: 14 }}>
         <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>Drag participants across the pipeline. {participants.length} total in this mission.</p>
-        <Btn variant="ghost" size="sm" icon="userplus">Invite more</Btn>
+        <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>Invite more</Btn>
       </div>
       <div className="kanban">
         {STAGES.map(st => {
           const col = participants.filter(p => p.stage === st.id);
+          const droppable = st.id !== "rewarded";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""}`}
-              onDragOver={e => { e.preventDefault(); setOver(st.id); }}
+              onDragOver={e => { if (droppable) { e.preventDefault(); setOver(st.id); } }}
               onDragLeave={() => setOver(o => o === st.id ? null : o)}
-              onDrop={e => { e.preventDefault(); if (drag != null) move(drag, st.id); setOver(null); setDrag(null); }}>
+              onDrop={e => { e.preventDefault(); if (droppable && drag != null) move(drag, st.id); setOver(null); setDrag(null); }}>
               <div className="kcol-h"><span className="kdot" style={{ background: st.color }} /><b>{st.label}</b><span className="cnt">{col.length}</span></div>
               <div className="kcol-body">
                 {col.map(p => (
@@ -92,6 +106,18 @@ function ParticipantKanban({ missionId, participants, setParticipants }) {
 }
 
 function ResponseCard({ r, missionId, onFlag, navigate }) {
+  const [replying, setReplying] = useState(false);
+  const reply = async () => {
+    setReplying(true);
+    try {
+      const { threadId } = await api.findOrCreateThread(r.validator_id, missionId);
+      navigate(`/messages?thread=${threadId}`);
+    } catch (err) {
+      alert(err.message || "Couldn't start conversation");
+    } finally {
+      setReplying(false);
+    }
+  };
   return (
     <div className="resp-card" style={r.flagged ? { borderColor: "color-mix(in srgb, var(--danger) 40%, var(--border))" } : null}>
       <div className="resp-head">
@@ -111,7 +137,7 @@ function ResponseCard({ r, missionId, onFlag, navigate }) {
       {r.flagged && <div className="row gap-2" style={{ marginTop: 12, color: "var(--danger)", fontSize: 12.5, fontWeight: 600 }}><Icon name="flag" size={14} /> Auto-flagged: possible low-effort or broken-link report</div>}
       <div className="row gap-2" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
         <Btn variant="primary" size="sm" icon="check" onClick={() => navigate(`/missions/${missionId}/submissions`)}>Review submission</Btn>
-        <Btn variant="ghost" size="sm" icon="message">Reply</Btn>
+        <Btn variant="ghost" size="sm" icon="message" disabled={replying} onClick={reply}>{replying ? "Opening…" : "Reply"}</Btn>
         <Btn variant={r.flagged ? "primary" : "quiet"} size="sm" icon="flag" onClick={() => onFlag(r, !r.flagged)}>{r.flagged ? "Unflag" : "Flag"}</Btn>
       </div>
     </div>
@@ -134,7 +160,11 @@ function ResponseReview({ missionId, responses, setResponses, navigate }) {
         <div className="seg-search"><Icon name="search" size={16} /><input placeholder="Search responses…" value={q} onChange={e => setQ(e.target.value)} /></div>
         <div className="tabs">{[0, 3, 4, 5].map(r => <button key={r} className={minR === r ? "on" : ""} onClick={() => setMinR(r)}>{r === 0 ? "All" : <><Icon name="star" size={12} />{r}+</>}</button>)}</div>
         <span className="grow" />
-        <Btn variant="ghost" size="sm" icon="download">Export</Btn>
+        <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV(
+          "responses.csv",
+          ["Name", "Role", "City", "Rating", "Trust", "Submitted", "Flagged", "Quote"],
+          rows.map(r => [r.name, r.role, r.city, r.rating, r.trust, r.time_label, r.flagged ? "Yes" : "No", r.quote])
+        )}>Export</Btn>
       </div>
       {rows.length === 0
         ? <div className="muted" style={{ padding: 24 }}>No responses yet for this mission.</div>
@@ -143,12 +173,107 @@ function ResponseReview({ missionId, responses, setResponses, navigate }) {
   );
 }
 
-function MissionAudienceTab({ audience }) {
+function EditMissionModal({ mission, onClose, onSaved }) {
+  const [name, setName] = useState(mission.name || "");
+  const [description, setDescription] = useState(mission.description || "");
+  const [region, setRegion] = useState(mission.region || "");
+  const [target, setTarget] = useState(mission.participants.target || 0);
+  const [deadline, setDeadline] = useState(mission.deadline ? mission.deadline.slice(0, 10) : "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const save = async () => {
+    setBusy(true); setErr("");
+    try {
+      const { mission: updated } = await api.updateMission(mission.id, { name, description, region, target: Number(target), deadline: deadline || null });
+      onSaved(updated);
+      onClose();
+    } catch (e) {
+      setErr(e.message || "Couldn't save changes");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title="Edit mission" onClose={onClose} width={480}>
+      <div className="col gap-3" style={{ padding: "0 20px 20px" }}>
+        {err && <div className="err-banner">{err}</div>}
+        <div className="fld"><label>Name</label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
+        <div className="fld"><label>Description</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
+        <div className="row gap-3">
+          <div className="fld" style={{ flex: 1 }}><label>Region</label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
+          <div className="fld" style={{ flex: 1 }}><label>Target participants</label><input className="fin" type="number" min="0" value={target} onChange={e => setTarget(e.target.value)} /></div>
+        </div>
+        <div className="fld"><label>Deadline</label><input className="fin" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></div>
+        <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
+          <Btn variant="quiet" onClick={onClose}>Cancel</Btn>
+          <Btn variant="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save changes"}</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function EditAudienceModal({ mission, audience, onClose, onSaved }) {
+  const { filters } = useMeta();
+  const [sel, setSel] = useState(() => Object.fromEntries(
+    Object.keys(filters).map(g => [g, new Set(audience.defn.find(d => d.group === g)?.values || [])])
+  ));
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
+
+  const save = async () => {
+    setBusy(true); setErr("");
+    try {
+      const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
+      await api.updateMission(mission.id, { audience: payload });
+      onSaved(Object.entries(payload).filter(([, values]) => values.length).map(([group, values]) => ({ group, values })));
+      onClose();
+    } catch (e) {
+      setErr(e.message || "Couldn't save audience");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title="Edit audience" onClose={onClose} width={560}>
+      <div className="col gap-4" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
+        {err && <div className="err-banner">{err}</div>}
+        <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>Changes only affect future matching and invites — validators who already joined this mission are unaffected.</p>
+        {Object.entries(filters).map(([g, opts]) => (
+          <div key={g}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{g}</div>
+            <div className="row gap-2 wrap">
+              {(Array.isArray(opts) ? opts : Object.values(opts).flat()).map(o => {
+                const on = sel[g]?.has(o);
+                return (
+                  <button key={o} type="button" className={`fcheck ${on ? "on" : ""}`} onClick={() => toggle(g, o)}>
+                    <span className="box">{on && <Icon name="check" size={11} />}</span>{o}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "0 20px 20px" }}>
+        <Btn variant="quiet" onClick={onClose}>Cancel</Btn>
+        <Btn variant="primary" disabled={busy} onClick={save}>{busy ? "Saving…" : "Save audience"}</Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function MissionAudienceTab({ audience, onEdit }) {
   return (
     <div className="split rise">
       <div className="col gap-5">
         <div className="card" style={{ padding: 20 }}>
-          <div className="sec-head"><h3 className="h-md">Audience definition</h3><Btn variant="ghost" size="sm" icon="edit">Edit</Btn></div>
+          <div className="sec-head"><h3 className="h-md">Audience definition</h3><Btn variant="ghost" size="sm" icon="edit" onClick={onEdit}>Edit</Btn></div>
           {audience.defn.length === 0
             ? <p className="muted" style={{ margin: "6px 0 0", fontSize: 14 }}>No audience filters were set for this mission — it's open to all eligible members.</p>
             : (
@@ -268,7 +393,7 @@ function MissionFilesTab({ missionId, files: initialFiles }) {
 }
 
 function MissionPaymentsTab({ payments, navigate, missionId }) {
-  const STATUS = { paid: { l: "Paid", c: "st-active" }, queued: { l: "Queued", c: "st-completed" }, review: { l: "In review", c: "st-closed" } };
+  const STATUS = { paid: { l: "Paid", c: "st-active" }, review: { l: "In review", c: "st-closed" } };
   return (
     <div className="split rise">
       <div className="tbl-wrap">
@@ -284,7 +409,7 @@ function MissionPaymentsTab({ payments, navigate, missionId }) {
                   <td><span className="mtag">{r.stage}</span></td>
                   <td><span className={`st ${st.c}`}><span className="d" />{st.l}</span></td>
                   <td className="num">{inr(r.amount)}</td>
-                  <td>{r.status === "queued" ? <Btn variant="primary" size="sm" icon="check">Release</Btn> : r.status === "review" ? <Btn variant="ghost" size="sm" icon="eye" onClick={() => navigate(`/missions/${missionId}/submissions`)}>Review</Btn> : <span className="verif"><Icon name="checkCircle" size={14} />Done</span>}</td>
+                  <td>{r.status === "review" ? <Btn variant="ghost" size="sm" icon="eye" onClick={() => navigate(`/missions/${missionId}/submissions`)}>Review</Btn> : <span className="verif"><Icon name="checkCircle" size={14} />Done</span>}</td>
                 </tr>
               );
             })}
@@ -296,11 +421,10 @@ function MissionPaymentsTab({ payments, navigate, missionId }) {
           <span className="eyebrow" style={{ display: "block", marginBottom: 12 }}>Budget</span>
           <div className="est-row"><span className="lab">Held in escrow</span><span className="v">{inr(payments.held)}</span></div>
           <div className="est-row"><span className="lab">Released</span><span className="v" style={{ color: "var(--success)" }}>{inr(payments.released)}</span></div>
-          <div className="est-row"><span className="lab">Pending approval</span><span className="v" style={{ color: "var(--warning)" }}>{inr(payments.pending)}</span></div>
+          <div className="est-row"><span className="lab">Pending review</span><span className="v" style={{ color: "var(--warning)" }}>{inr(payments.pending)}</span></div>
           <div className="est-total"><span>Refundable</span><span className="v">{inr(payments.refundable)}</span></div>
         </div>
-        <Btn variant="primary" block icon="check">Release all approved</Btn>
-        <p className="faint" style={{ fontSize: 12, margin: 0, textAlign: "center" }}>Unused reward slots are refunded when the mission closes.</p>
+        <p className="faint" style={{ fontSize: 12, margin: 0, textAlign: "center" }}>Approving a submission in Review pays the validator immediately. Unused reward slots are refunded when the mission closes.</p>
       </div>
     </div>
   );
@@ -546,6 +670,9 @@ export default function MissionDetail() {
   const [participants, setParticipants] = useState([]);
   const [responses, setResponses] = useState([]);
   const [error, setError] = useState("");
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showEditAudience, setShowEditAudience] = useState(false);
 
   useEffect(() => {
     setData(null);
@@ -588,10 +715,14 @@ export default function MissionDetail() {
             <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> Closes {mission.deadline}</span></div>
           </div>
         </div>
-        <div className="ph-actions"><Btn variant="ghost" icon="edit">Edit</Btn><Btn variant="ghost" icon="download">Export</Btn><Btn variant="primary" icon="userplus">Invite</Btn></div>
+        <div className="ph-actions" style={{ flexWrap: "wrap" }}><Btn variant="ghost" icon="edit" onClick={() => setShowEditModal(true)}>Edit</Btn><Btn variant="ghost" icon="download" onClick={() => exportCSV(
+          `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
+          ["Name", "Role", "City", "Stage", "Trust", "Reward"],
+          participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
+        )}>Export</Btn><Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>Invite</Btn></div>
       </div>
 
-      <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+      <div className="kpis sec">
         <KpiCard label="Participants" value={mission.participants.joined} unit={` / ${mission.participants.target}`} icon="users" />
         <KpiCard label="Submitted" value={mission.participants.submitted} icon="check" tone="green" />
         <KpiCard label="Completion" value={mission.completion} unit="%" icon="target" />
@@ -601,8 +732,8 @@ export default function MissionDetail() {
       <div className="utabs sec">{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={setTab} navigate={navigate} />}
-      {tab === "audience" && <MissionAudienceTab audience={data.audience} />}
-      {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} />}
+      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => setShowEditAudience(true)} />}
+      {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} />}
       {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} navigate={navigate} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
@@ -610,6 +741,16 @@ export default function MissionDetail() {
       {tab === "checkins" && <MissionCheckinsTab responses={responses} />}
       {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
+
+      {showInviteModal && mission && (
+        <InviteValidatorModal mission={mission} onClose={() => setShowInviteModal(false)} />
+      )}
+      {showEditModal && mission && (
+        <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} />
+      )}
+      {showEditAudience && mission && (
+        <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={(defn) => setData(d => ({ ...d, audience: { ...d.audience, defn } }))} />
+      )}
     </div>
   );
 }

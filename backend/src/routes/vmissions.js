@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { recalcMissionStats } from "../stats.js";
+import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -93,6 +94,22 @@ router.get("/", async (req, res) => {
   }
 
   res.json({ missions: rows.map(serializeRow), counts });
+});
+
+// GET /api/v/missions/invitations
+// Must be registered before the /:taskId catch-all below, or Express matches
+// "invitations" as a taskId and this route is never reached.
+router.get("/invitations", async (req, res) => {
+  const invites = await db.prepare(`
+    SELECT i.id as invite_id, i.status as invite_status, i.created_at, m.*, b.name as builder_name, b.org as builder_org
+    FROM mission_invitations i
+    JOIN missions m ON m.id = i.mission_id
+    JOIN builders b ON b.id = i.builder_id
+    WHERE i.validator_id = ? AND i.status = 'pending'
+    ORDER BY i.created_at DESC
+  `).all(req.validator.id);
+
+  res.json({ invitations: invites });
 });
 
 // GET /api/v/missions/:taskId — workspace context (task + rubric + my mission state)
@@ -363,9 +380,10 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   const existing = await db.prepare(`SELECT id, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (existing) {
     if (existing.status === 'revision') {
+      // Notify Builder
       await db.prepare(`
-        INSERT INTO notifications (builder_id, type, icon, tone, title, body, time_label, unread)
-        VALUES (?, 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
+        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+        VALUES (?, 'application', 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
       `).run(m.builder_id, `A validator has updated their response for ${m.name} and is ready for your review.`);
     }
     await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
@@ -373,6 +391,12 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   } else {
     await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'pending', NOW())`)
       .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
+    
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+      VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1)
+    `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`);
+    
     await recalcMissionStats(req.params.id, db);
   }
 
@@ -421,37 +445,11 @@ router.get("/:id/checkin-status", async (req, res) => {
   const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!p) return res.status(403).json({ error: "Not participating" });
 
-  const acceptedDate = new Date(p.accepted_at);
-  const now = new Date();
-  const acceptedMidnight = new Date(acceptedDate.getFullYear(), acceptedDate.getMonth(), acceptedDate.getDate()).getTime();
-  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const diffDays = Math.floor((nowMidnight - acceptedMidnight) / (1000 * 60 * 60 * 24));
-  const currentCalendarDay = diffDays + 1;
   const totalDays = m.duration_days || 7;
-  const extraDays = 2; // Fixed buffer
-
   const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
-  const completedDays = checkins.length;
+  const { currentCalendarDay, completedDays, alreadySubmittedToday, skippedDays, lockedOut } = computeCheckinStatus(p.accepted_at, checkins);
 
-  // Check if they already submitted for today
-  let alreadySubmittedToday = false;
-  if (checkins.length > 0) {
-    const lastCheckin = checkins[checkins.length - 1];
-    const lastDate = new Date(lastCheckin.submitted_at);
-    const lastMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate()).getTime();
-    alreadySubmittedToday = lastMidnight === nowMidnight;
-  }
-
-  // Calculate skipped days
-  // If calendar day is 3, and they have 1 completion, and they haven't submitted today,
-  // that means they had 2 days in the past, but only 1 completion -> 1 skipped day.
-  // Formula: skipped = max(0, (currentCalendarDay - 1) - (completedDays - (alreadySubmittedToday ? 1 : 0)))
-  const pastDays = currentCalendarDay - 1;
-  const pastCompleted = alreadySubmittedToday ? completedDays - 1 : completedDays;
-  const skippedDays = Math.max(0, pastDays - pastCompleted);
-
-  const remainingExtraDays = extraDays - skippedDays;
-  const lockedOut = remainingExtraDays < 0;
+  const remainingExtraDays = TRIAL_EXTRA_DAYS - skippedDays;
   const currentDay = completedDays + (alreadySubmittedToday ? 0 : 1);
   const isFinished = completedDays >= totalDays;
 
@@ -494,6 +492,9 @@ router.post("/:id/shipment/received", async (req, res) => {
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This sample hasn't been marked as shipped yet" });
 
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shipment_received', 'package', 'success', ?, ?, 'Just now', 1)`)
+    .run(m.builder_id, "Sample Received", `${req.validator.name} has received the sample for ${m.name}.`);
+
   res.json({ ok: true });
 });
 
@@ -523,6 +524,12 @@ router.post("/:id/schedule/accept", async (req, res) => {
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to accept" });
 
+  const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+  await db.prepare(`
+    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+    VALUES (?, 'application', 'schedule_accepted', 'calendar', 'success', 'Interview Accepted', ?, 'Just now', 1)
+  `).run(m.builder_id, `${val ? val.name : 'A validator'} has accepted the interview time for "${m.name}".`);
+
   res.json({ ok: true });
 });
 
@@ -538,6 +545,9 @@ router.post("/:id/schedule/decline", async (req, res) => {
   const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'declined', validator_notes = ?, responded_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'proposed'`)
     .run(notes, req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to decline" });
+
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'schedule_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
+    .run(m.builder_id, "Interview Declined", `${req.validator.name} declined the proposed interview time for ${m.name}.`);
 
   res.json({ ok: true });
 });
@@ -616,30 +626,26 @@ router.post("/:id/checkin", async (req, res) => {
   const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!p) return res.status(403).json({ error: "Not participating" });
 
-  const acceptedDate = new Date(p.accepted_at);
-  const now = new Date();
-  const acceptedMidnight = new Date(acceptedDate.getFullYear(), acceptedDate.getMonth(), acceptedDate.getDate()).getTime();
-  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const currentCalendarDay = Math.floor((nowMidnight - acceptedMidnight) / (1000 * 60 * 60 * 24)) + 1;
   const totalDays = m.duration_days || 7;
-  const extraDays = 2;
-
   const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
-  const completedDays = checkins.length;
+  const { completedDays, alreadySubmittedToday, lockedOut } = computeCheckinStatus(p.accepted_at, checkins);
 
-  let alreadySubmittedToday = false;
-  if (checkins.length > 0) {
-    const lastCheckin = checkins[checkins.length - 1];
-    const lastDate = new Date(lastCheckin.submitted_at);
-    const lastMidnight = new Date(lastDate.getFullYear(), lastDate.getMonth(), lastDate.getDate()).getTime();
-    alreadySubmittedToday = lastMidnight === nowMidnight;
+  if (lockedOut) {
+    await db.prepare(`UPDATE v_my_missions SET status = 'failed', status_label = 'Failed (Missed Check-ins)', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await db.prepare(`UPDATE participants SET stage = 'failed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+      VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1)
+    `).run(m.builder_id, `A validator failed the mission "${m.name}" due to missed check-ins.`);
+
+    await db.prepare(`
+      INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'system', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1, ?)
+    `).run(req.validator.id, `You failed the mission "${m.name}" because you missed too many daily check-ins.`, req.params.id);
+
+    return res.status(400).json({ error: "Mission failed due to too many missed check-ins." });
   }
-
-  const pastDays = currentCalendarDay - 1;
-  const pastCompleted = alreadySubmittedToday ? completedDays - 1 : completedDays;
-  const skippedDays = Math.max(0, pastDays - pastCompleted);
-
-  if (extraDays - skippedDays < 0) return res.status(400).json({ error: "Mission failed due to too many missed check-ins." });
   if (completedDays >= totalDays) return res.status(400).json({ error: "All required check-ins are already complete." });
   if (alreadySubmittedToday) return res.status(400).json({ error: "Already submitted for today." });
 
@@ -652,6 +658,82 @@ router.post("/:id/checkin", async (req, res) => {
       await db.exec(`CREATE TABLE IF NOT EXISTS checkins (id SERIAL PRIMARY KEY, mission_id TEXT, validator_id INTEGER, day_number INTEGER, answers_json TEXT DEFAULT '{}', screenshot_path TEXT, submitted_at TIMESTAMPTZ DEFAULT NOW())`);
       await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, screenshot_path, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())`).run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}), screenshot_path || null);
     });
+
+  const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+  await db.prepare(`
+    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+    VALUES (?, 'application', 'checkin', 'check', 'accent', 'Review Completed', ?, 'Just now', 1)
+  `).run(m.builder_id, `Day ${sequentialDay} review completed by ${val ? val.name : 'a validator'} for mission "${m.name}".`);
+
+  res.json({ ok: true });
+});
+
+// POST /api/v/missions/invitations/:id/accept
+router.post("/invitations/:id/accept", async (req, res) => {
+  const invite = await db.prepare(`SELECT * FROM mission_invitations WHERE id = ? AND validator_id = ? AND status = 'pending'`).get(req.params.id, req.validator.id);
+  if (!invite) return res.status(404).json({ error: "Invite not found or already processed" });
+
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(invite.mission_id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  // Join logic
+  try {
+    await db.transaction(async (tx) => {
+      // Lock the mission row to prevent concurrent acceptances exceeding the slot limit
+      const m = await tx.prepare(`SELECT * FROM missions WHERE id = ? FOR UPDATE`).get(invite.mission_id);
+      if (!m) throw new Error("Mission not found");
+      if (m.joined >= m.target) {
+        throw new Error("MISSION_FULL");
+      }
+
+      await tx.prepare(`UPDATE mission_invitations SET status = 'accepted' WHERE id = ?`).run(invite.id);
+      await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
+        .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
+      await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status) VALUES (?, ?, 'active')`)
+        .run(req.validator.id, m.id);
+      
+      const newJoined = m.joined + 1;
+      await tx.prepare(`UPDATE missions SET joined = ? WHERE id = ?`).run(newJoined, m.id);
+      
+      // Notify Builder
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
+        .run(m.builder_id, "Invite Accepted", `${req.validator.name} has accepted your invitation and joined ${m.name}.`);
+
+      // If the mission is now completely full, notify all other pending invitees
+      if (newJoined >= m.target) {
+        const pending = await tx.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND status = 'pending'`).all(m.id);
+        for (const p of pending) {
+          // Close their invitation so they can no longer accept it
+          await tx.prepare(`UPDATE mission_invitations SET status = 'closed' WHERE id = ?`).run(p.id);
+          // Send notification prompting them to click and save
+          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'mission_full', 'alertCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+            .run(p.validator_id, "Mission Slots Full", `The mission "${m.name}" has reached its maximum participants. Click here to save it for future updates.`, m.id);
+        }
+      }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.message === "MISSION_FULL") {
+      return res.status(400).json({ error: "Sorry, this mission has just filled all available slots." });
+    }
+    throw err;
+  }
+});
+
+// POST /api/v/missions/invitations/:id/decline
+router.post("/invitations/:id/decline", async (req, res) => {
+  const invite = await db.prepare(`SELECT * FROM mission_invitations WHERE id = ? AND validator_id = ? AND status = 'pending'`).get(req.params.id, req.validator.id);
+  if (!invite) return res.status(404).json({ error: "Invite not found or already processed" });
+
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(invite.mission_id);
+
+  await db.transaction(async (tx) => {
+    await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
+    if (m) {
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
+        .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`);
+    }
+  });
 
   res.json({ ok: true });
 });

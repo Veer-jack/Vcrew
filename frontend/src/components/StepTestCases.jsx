@@ -233,17 +233,11 @@ export default function StepTestCases({ d, set }) {
       set({ tasks: res.tasks || [] });
       setGenState("done");
       setExpanded(0);
-    } catch {
-      // Fallback mock if API not ready
-      const mock = [
-        { id: 1, title: "Sign up & onboarding", severity: "crit", steps: ["Open the app on your device", "Create an account with email", "Complete the onboarding screens", "Arrive at the main dashboard"], questions: [{ id: "q1", text: "How many steps did signup take?", type: "multiple_choice", options: ["1–2", "3–4", "5+"] }, { id: "q2", text: "Was anything confusing during onboarding?", type: "yes_no_detail" }, { id: "q3", text: "Rate the overall signup experience", type: "rating", scale: 5 }], proof: "screenshot", min_time_seconds: 180 },
-        { id: 2, title: "Core product discovery", severity: "crit", steps: ["Browse the main catalogue", "Search for at least two specific items", "Open a product detail page", "Add one item to cart"], questions: [{ id: "q4", text: "How easy was it to find what you needed?", type: "rating", scale: 5 }, { id: "q5", text: "Describe your first impression of the layout", type: "text" }, { id: "q6", text: "Did search results feel relevant?", type: "yes_no_detail" }], proof: "screenshot", min_time_seconds: 240 },
-        { id: 3, title: "First purchase / conversion", severity: "imp", steps: ["Navigate to checkout", "Select delivery address", "Choose payment and confirm"], questions: [{ id: "q7", text: "How confident did you feel completing the purchase?", type: "rating", scale: 5 }, { id: "q8", text: "Were there any blockers during checkout?", type: "yes_no_detail" }], proof: "screenshot", min_time_seconds: 180 },
-        { id: 4, title: "Overall feedback", severity: "imp", steps: ["Think back on the full experience", "Answer the final questions"], questions: [{ id: "q9", text: "Would you use this app regularly?", type: "yes_no_detail" }, { id: "q10", text: "Rate the overall experience", type: "rating", scale: 5 }], proof: null, min_time_seconds: 120 },
-      ];
-      set({ tasks: mock });
-      setGenState("done");
-      setExpanded(0);
+    } catch (err) {
+      // Handle API failure
+      set({ tasks: [] });
+      setGenState("idle");
+      alert("Failed to generate test cases. Make sure the backend server is running and AI services are configured.");
     }
     set({ genFor: { cat: d.cat, ptype: d.ptype } });
   };

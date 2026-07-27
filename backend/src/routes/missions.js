@@ -6,10 +6,12 @@ import path from "node:path";
 import multer from "multer";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
-import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE } from "../meta.js";
+import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE, PLATFORM_FEE_PCT } from "../meta.js";
 import { fetchUrlContext } from "../urlContext.js";
+import { levelForCompleted } from "../vmeta.js";
 import { sendMissionPublished } from "../email.js";
 import { recalcMissionStats } from "../stats.js";
+import { notifyMatchingValidators } from "../notificationsHelper.js";
 
 // Lazy import to avoid circular dependency — admin.js imports db.js,
 // missions.js imports admin.js only for the automod helper.
@@ -204,22 +206,24 @@ router.get("/:id", async (req, res) => {
   };
 
   // ---- Payments snapshot (derived from participant rewards) ----
+  // Approving a submission (Review page) pays instantly and moves the participant
+  // straight to "rewarded" — there is no separate hold/release step, so this only
+  // ever distinguishes "already paid" (rewarded) from "awaiting review" (submitted).
   const sumReward = (stage) => participants.filter(p => p.stage === stage).reduce((s, p) => s + (p.reward || 0), 0);
   const released = sumReward("rewarded");
-  const queued = sumReward("approved");
   const review = sumReward("submitted");
   const fallbackBudget = m.target * m.reward_amount;
   const held = m.spend > 0 ? m.spend : fallbackBudget;
-  const refundable = Math.max(0, held - released - queued - review);
+  const refundable = Math.max(0, held - released - review);
   const paymentRows = participants
-    .filter(p => ["submitted", "approved", "rewarded"].includes(p.stage))
+    .filter(p => ["submitted", "rewarded"].includes(p.stage))
     .map(p => ({
       name: p.name,
       stage: p.stage.charAt(0).toUpperCase() + p.stage.slice(1),
       amount: p.reward,
-      status: p.stage === "rewarded" ? "paid" : p.stage === "approved" ? "queued" : "review",
+      status: p.stage === "rewarded" ? "paid" : "review",
     }));
-  const payments = { held, released, pending: queued + review, refundable, rows: paymentRows };
+  const payments = { held, released, pending: review, refundable, rows: paymentRows };
 
   // ---- Files ----
   const fileRows = await db.prepare(`SELECT * FROM mission_files WHERE mission_id = ?`).all(m.id);
@@ -283,17 +287,17 @@ router.post("/", async (req, res) => {
     await db.transaction(async (tx) => {
       let spend = 0;
       if (status === "active" && rewardType !== "free" && rewardAmount > 0 && target > 0) {
-        const platformFee = Math.round((target * rewardAmount) * 0.12);
+        const platformFee = Math.round((target * rewardAmount) * PLATFORM_FEE_PCT);
         const totalCost = (target * rewardAmount) + platformFee;
-        
+
         const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
         if (updateRes.changes === 0) {
-          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. 12% fee). Please top up your wallet.`);
+          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. ${Math.round(PLATFORM_FEE_PCT * 100)}% fee). Please top up your wallet.`);
         }
         spend = totalCost;
-        
+
         const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
-        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${b.name} (incl. 12% fee)`);
+        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${b.name} (incl. ${Math.round(PLATFORM_FEE_PCT * 100)}% fee)`);
       }
 
       const durationDays = Math.min(30, Math.max(2, Number(b.durationDays) || 7));
@@ -323,6 +327,7 @@ router.post("/", async (req, res) => {
       missionName: b.name, missionId: id,
     }).catch(() => {});
     automodMission(id); // fire-and-forget, never blocks
+    setImmediate(() => notifyMatchingValidators(id));
   }
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
@@ -355,7 +360,7 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
-  const allowed = ["name", "status", "target", "deadline", "region", "description"];
+  const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
   const updates = [];
   const params = [];
   
@@ -367,24 +372,30 @@ router.patch("/:id", async (req, res) => {
     await db.transaction(async (tx) => {
       // If moving from draft to active, we need to charge them
       if (newStatus === "active" && m.status === "draft" && m.reward_type !== "free" && m.reward_amount > 0 && newTarget > 0) {
-        const platformFee = Math.round((newTarget * m.reward_amount) * 0.12);
+        const platformFee = Math.round((newTarget * m.reward_amount) * PLATFORM_FEE_PCT);
         const totalCost = (newTarget * m.reward_amount) + platformFee;
-        
+
         const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
         if (updateRes.changes === 0) {
-          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. 12% fee). Please top up your wallet.`);
+          throw new Error(`Insufficient funds to publish. Mission costs ₹${totalCost} (incl. ${Math.round(PLATFORM_FEE_PCT * 100)}% fee). Please top up your wallet.`);
         }
         spendDelta = totalCost;
-        
+
         const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
-        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${m.name} (incl. 12% fee)`);
+        await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${m.name} (incl. ${Math.round(PLATFORM_FEE_PCT * 100)}% fee)`);
       }
 
       for (const key of allowed) {
         if (req.body[key] !== undefined) {
-          const col = key === "name" ? "name" : key;
-          updates.push(`${col} = ?`);
-          params.push(req.body[key]);
+          if (key === "audience") {
+            // Re-targeting only affects future matching (notifyMatchingValidators, Audience
+            // Explorer) — already-joined participants are untouched, by design.
+            updates.push(`audience_json = ?`);
+            params.push(JSON.stringify(req.body.audience || {}));
+          } else {
+            updates.push(`${key} = ?`);
+            params.push(req.body[key]);
+          }
         }
       }
       if (spendDelta > 0) {
@@ -400,6 +411,17 @@ router.patch("/:id", async (req, res) => {
         await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
           .run(req.builder.id, "mission_published", m.name, "Mission published and live");
       }
+      
+      // Notify saved users when mission completes
+      if (newStatus === "completed" && m.status !== "completed") {
+        // Find everyone who saved it
+        const savedValidators = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(m.id);
+        for (const sv of savedValidators) {
+          // Send polite notification
+          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'mission_completed', 'flag', 'muted', ?, ?, 'Just now', 1)`)
+            .run(sv.validator_id, "Mission Closed", `The mission "${m.name}" you saved has been completed by the builder. We'll meet you in another mission!`);
+        }
+      }
     });
   } catch (err) {
     if (err.message === "No valid fields to update") return res.status(400).json({ error: err.message });
@@ -412,6 +434,7 @@ router.patch("/:id", async (req, res) => {
       missionName: m.name, missionId: m.id,
     }).catch(() => {});
     automodMission(m.id);
+    setImmediate(() => notifyMatchingValidators(m.id));
   }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
@@ -419,16 +442,28 @@ router.patch("/:id", async (req, res) => {
 });
 
 // PATCH /api/missions/:id/participants/:pid — move kanban stage
+// Stages a builder can set by hand on the Kanban board. "rewarded" is deliberately
+// excluded — it must only be reached by actually approving a submission (which pays
+// the validator atomically), never by a manual drag that moves no money.
+const MANUAL_PARTICIPANT_STAGES = ["invited", "accepted", "started", "submitted"];
+
 router.patch("/:id/participants/:pid", async (req, res) => {
   const m = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   const { stage } = req.body || {};
   if (!stage) return res.status(400).json({ error: "stage is required" });
+  if (!MANUAL_PARTICIPANT_STAGES.includes(stage)) {
+    return res.status(400).json({ error: "This stage can only be reached by approving the validator's submission." });
+  }
 
   const p = await db.prepare(`SELECT * FROM participants WHERE id = ? AND mission_id = ?`).get(req.params.pid, m.id);
   if (!p) return res.status(404).json({ error: "Participant not found" });
 
   await db.prepare(`UPDATE participants SET stage = ? WHERE id = ?`).run(stage, p.id);
+  
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'stage_update', 'info', 'primary', ?, ?, 'Just now', 1)`)
+    .run(p.validator_id, "Status Updated", `Your status for ${m.name} was changed to: ${stage}.`);
+
   res.json({ participant: { ...p, stage } });
 });
 
@@ -557,6 +592,9 @@ router.post("/:id/shipments/:validatorId/ship", authMiddleware, async (req, res)
     .run(trackingNumber || null, carrier || null, req.params.id, req.params.validatorId);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This shipment is not awaiting shipment (already shipped, or the validator hasn't accepted this mission)" });
 
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shipped', 'truck', 'primary', ?, ?, 'Just now', 1)`)
+    .run(req.params.validatorId, "Sample Shipped", `The sample for ${mission.name} has been shipped! Tracking: ${trackingNumber || "N/A"}`);
+
   res.json({ ok: true });
 });
 
@@ -599,6 +637,13 @@ router.post("/:id/schedules/:validatorId/propose", authMiddleware, async (req, r
       WHERE interview_schedules.status = 'declined'
   `).run(req.params.id, req.params.validatorId, scheduledAt, meetingLink || null);
   if (result.changes === 0) return res.status(400).json({ error: "This validator already has a pending or completed interview schedule" });
+
+  const m = await db.prepare(`SELECT name, builder_id FROM missions WHERE id = ?`).get(req.params.id);
+  const b = await db.prepare(`SELECT org FROM builders WHERE id = ?`).get(m.builder_id);
+  await db.prepare(`
+    INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+    VALUES (?, 'invite', 'schedule_proposed', 'calendar', 'primary', 'Interview Scheduled', ?, 'Just now', 1, ?)
+  `).run(req.params.validatorId, `${b?.org || 'The builder'} has proposed a time for an interview for "${m?.name || 'Unknown'}". Please check your workspace.`, req.params.id);
 
   res.json({ ok: true });
 });
@@ -850,14 +895,24 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
       const count = v.reviews_count || 0;
       const oldRating = v.rating || 5;
       const newRating = Math.round(((oldRating * count + rating) / (count + 1)) * 10) / 10;
-      const completed = (v.missions_done || 0) + 1;
+      const oldCompleted = v.missions_done || 0;
+      const completed = oldCompleted + 1;
 
       await tx.prepare(`UPDATE validators SET rating = ?, reviews_count = ?, missions_done = ? WHERE id = ?`)
         .run(newRating, count + 1, completed, response.validator_id);
+
+      // Milestone check
+      const oldLvl = levelForCompleted(oldCompleted).n;
+      const newLvlEntry = levelForCompleted(completed);
+
+      if (newLvlEntry.n > oldLvl) {
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
+          .run(response.validator_id, "system", "star", "success", "Level Up!", `Congratulations! You've reached Level ${newLvlEntry.n} (${newLvlEntry.name}).`, "Just now");
+      }
     }
     
     await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "application", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! \u20b9${reward} has been added to your wallet.`, "Just now");
+      .run(response.validator_id, "reward", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now");
 
     // Log Activity for Builder
     await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
@@ -967,4 +1022,31 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   });
 
   res.json({ ok: true });
+});
+
+// POST /api/missions/:id/invite/:validatorId
+router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const validator = await db.prepare(`SELECT id, name FROM validators WHERE id = ?`).get(req.params.validatorId);
+  if (!validator) return res.status(404).json({ error: "Validator not found" });
+
+  // Prevent multiple invites
+  const existing = await db.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
+  if (existing) return res.status(400).json({ error: "Validator has already been invited to this mission." });
+
+  // Prevent inviting if they already joined
+  const participant = await db.prepare(`SELECT * FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
+  if (participant) return res.status(400).json({ error: "Validator has already joined this mission." });
+
+  await db.transaction(async (tx) => {
+    await tx.prepare(`INSERT INTO mission_invitations (builder_id, validator_id, mission_id, status) VALUES (?, ?, ?, 'pending')`)
+      .run(req.builder.id, req.params.validatorId, req.params.id);
+
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'invite', 'mission_invite', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
+      .run(req.params.validatorId, "New Mission Invitation", `${req.builder.org || req.builder.name} has invited you to their mission: ${mission.name}`);
+  });
+
+  res.json({ ok: true, invited: true });
 });
