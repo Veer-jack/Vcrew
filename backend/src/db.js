@@ -169,13 +169,54 @@ export async function initDb() {
       ['address_city', 'TEXT'],
       ['address_state', 'TEXT'],
       ['address_postal_code', 'TEXT'],
-      ['address_country', 'TEXT']
+      ['address_country', 'TEXT'],
+      ['status', "TEXT DEFAULT 'active'"],
+      ['streak', 'INTEGER DEFAULT 0'],
+      ['last_active_date', 'DATE']
     ];
     for (const [col, def] of newVCols) {
       if (!vColNames.includes(col)) {
         await client.query(`ALTER TABLE validators ADD COLUMN ${col} ${def}`);
       }
     }
+
+    const vmmCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='v_my_missions'");
+    const vmmColNames = vmmCols.rows.map(r => r.column_name);
+    const newVmmCols = [
+      ['progress', 'INTEGER DEFAULT 0'],
+      ['quality', 'TEXT'],
+      ['reason', 'TEXT'],
+      ['status_label', 'TEXT'],
+      ['score', 'REAL DEFAULT 0'],
+      ['created_at', 'TIMESTAMPTZ DEFAULT NOW()'],
+      ['updated_at', 'TIMESTAMPTZ DEFAULT NOW()']
+    ];
+    for (const [col, def] of newVmmCols) {
+      if (!vmmColNames.includes(col)) {
+        await client.query(`ALTER TABLE v_my_missions ADD COLUMN ${col} ${def}`);
+      }
+    }
+
+    const tmCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='thread_messages'");
+    const tmColNames = tmCols.rows.map(r => r.column_name);
+    for (const col of ['attachment_path', 'attachment_name']) {
+      if (!tmColNames.includes(col)) {
+        await client.query(`ALTER TABLE thread_messages ADD COLUMN ${col} TEXT`);
+      }
+    }
+
+    const bCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='builders'");
+    const bColNames = bCols.rows.map(r => r.column_name);
+    if (!bColNames.includes('status')) {
+      await client.query(`ALTER TABLE builders ADD COLUMN status TEXT DEFAULT 'active'`);
+    }
+
+    const vnCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='v_notifications'");
+    const vnColNames = vnCols.rows.map(r => r.column_name);
+    if (!vnColNames.includes('target_id')) {
+      await client.query(`ALTER TABLE v_notifications ADD COLUMN target_id TEXT`);
+    }
+
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
     client.release();

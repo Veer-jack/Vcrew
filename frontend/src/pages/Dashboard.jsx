@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Btn, KpiCard, MissionLogo, PBarRow, StatusTag, TypeTag, inr, inrK } from "../components/ui";
+import { Btn, KpiCard, inr, inrK } from "../components/ui";
+import MissionsTable from "../components/MissionsTable";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
@@ -209,41 +210,6 @@ function ActivityFeed({ rows }) {
           <div className="feed-time" style={{ marginTop: 0, fontSize: "13px" }}>{a.time_label}</div>
         </div>
       ))}
-    </div>
-  );
-}
-
-function MissionsTable({ rows, nav, categories }) {
-  if (!rows.length) return <div className="muted" style={{ padding: 24 }}>No missions yet — create your first one.</div>;
-  return (
-    <div className="tbl-wrap">
-      <table className="tbl">
-        <thead>
-          <tr>
-            <th>Mission</th><th>Type</th><th>Status</th>
-            <th style={{ textAlign: "right" }}>Participants</th>
-            <th style={{ textAlign: "right" }}>Reward</th>
-            <th style={{ width: 150 }}>Completion</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(m => (
-            <tr className="click" key={m.id} onClick={() => nav(`/missions/${m.id}`)}>
-              <td>
-                <div className="t-name">
-                  <MissionLogo name={m.name} cat={m.category} size={34} />
-                  <div><div>{m.name}</div><div className="t-sub">{m.region}</div></div>
-                </div>
-              </td>
-              <td><TypeTag cat={m.category} categories={categories} /></td>
-              <td><StatusTag status={m.status} /></td>
-              <td className="num">{m.participants.joined}<span className="faint"> / {m.participants.target}</span></td>
-              <td className="num">{m.reward.type === "sample" ? "Sample" : m.reward.type === "free" ? "Free" : inr(m.reward.amount)}</td>
-              <td>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>Not started</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </div>
   );
 }

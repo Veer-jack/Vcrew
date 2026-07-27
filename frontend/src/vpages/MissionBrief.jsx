@@ -21,21 +21,8 @@ export default function MissionBrief() {
         setMission(data.mission);
         setTasks(data.tasks || []);
       } catch {
-        // mock fallback
-        setMission({
-          name: "Subscription App — Beta Test",
-          brand: "Kettle & Co",
-          description: "We're validating our subscription app before launch. You'll test the core shopping flow, checkout, and account management.",
-          brief_url: "https://testflight.apple.com/join/example",
-          brief_credentials: "test@example.com / TestPass123",
-          ptype: "ptest",
-        });
-        setTasks([
-          { id: 1, title: "Sign up & onboarding", severity: "crit", min_time_seconds: 180 },
-          { id: 2, title: "Core product discovery", severity: "crit", min_time_seconds: 240 },
-          { id: 3, title: "First purchase / conversion", severity: "imp", min_time_seconds: 180 },
-          { id: 4, title: "Overall feedback", severity: "imp", min_time_seconds: 120 },
-        ]);
+        setMission(null);
+        setTasks([]);
       } finally {
         setLoading(false);
       }
@@ -43,6 +30,14 @@ export default function MissionBrief() {
   }, [id]);
 
   if (loading) return <div className="page rise"><div className="muted">Loading brief…</div></div>;
+  if (!mission) return (
+    <div className="page rise" style={{ textAlign: "center", paddingTop: 80 }}>
+      <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
+      <h2 style={{ fontSize: 20, marginBottom: 8 }}>Mission not found</h2>
+      <p style={{ color: "var(--text-muted)" }}>This mission may have been deleted or is unavailable.</p>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>Go Back</Btn>
+    </div>
+  );
 
   const totalMins = Math.ceil(tasks.reduce((a, t) => a + (t.min_time_seconds || 120), 0) / 60);
   const SEV = { crit: { l: "Critical", bg: "var(--danger-weak)", color: "var(--danger)" }, imp: { l: "Important", bg: "var(--warning-weak)", color: "var(--warning)" }, nice: { l: "Nice to have", bg: "var(--success-weak)", color: "var(--success)" } };

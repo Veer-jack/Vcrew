@@ -329,18 +329,36 @@ html[data-direction="signal"] .reach .r-ic { color: var(--accent-2); }
 
 /* ============ AUDIENCE EXPLORER ============ */
 .aud { display: grid; grid-template-columns: 280px minmax(0,1fr); gap: 22px; align-items: start; }
-.filter-panel { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 4px; max-height: calc(100vh - 110px); overflow-y: auto; padding-right: 4px; }
-.fgroup { border-bottom: var(--hairline) solid var(--border); padding: 4px 0 12px; margin-bottom: 8px; }
-.fgroup-h { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 2px; border: none; background: none;
-  font-size: 12.5px; font-weight: 800; letter-spacing: .02em; color: var(--text); text-transform: uppercase; }
+.filter-panel { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 4px; max-height: calc(100vh - 110px); overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-sm); }
+.filter-panel::-webkit-scrollbar { width: 4px; }
+.fgroup { border-bottom: var(--hairline) solid var(--border); padding: 4px 0 12px; margin-bottom: 8px; transition: all .2s; }
+.fgroup:not(.closed) { border: 1px solid var(--accent); border-radius: 8px; padding: 12px; margin: 4px 0 12px; background: var(--panel); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 15%, transparent); }
+.fgroup-h { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 2px; border: none; background: none; font-size: 12.5px; font-weight: 800; letter-spacing: .02em; color: var(--text); text-transform: uppercase; cursor: pointer; }
 .fgroup-h svg { width: 15px; height: 15px; color: var(--text-faint); transition: transform .2s; }
 .fgroup.closed .fgroup-h svg { transform: rotate(-90deg); }
-.fgroup-body { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; }
+.fgroup-body { display: flex; flex-direction: column; gap: 4px; padding-top: 10px; }
 .fgroup.closed .fgroup-body { display: none; }
-.fcheck { display: flex; align-items: center; gap: 10px; padding: 6px 6px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text-muted); transition: background .12s; }
+.fcheck { display: flex; align-items: center; gap: 10px; padding: 6px 6px; border-radius: var(--radius-sm); font-size: 13px; color: var(--text-muted); transition: background .12s; border: none; background: none; width: 100%; text-align: left; cursor: pointer; }
 .fcheck:hover { background: var(--panel-inset); color: var(--text); }
-.fcheck .box { width: 17px; height: 17px; border-radius: 5px; border: 1.6px solid var(--border-strong); flex: none; display: grid; place-items: center; color: transparent; transition: all .13s; }
-.fcheck .box svg { width: 11px; height: 11px; }
+.fcheck .box { width: 14px; height: 14px; border: var(--hairline) solid var(--border-strong); border-radius: 4px; display: flex; align-items: center; justify-content: center; background: var(--bg); transition: all .2s; }
+.fcheck.on .box { background: var(--accent); border-color: var(--accent); color: white; }
+.fcheck .fcount { margin-left: auto; font-size: 11px; color: var(--text-faint); font-weight: 500; font-family: var(--font-mono); }
+
+.subgroup { margin-bottom: 12px; border: none; background: transparent; }
+.subgroup.open { }
+.subgroup-h { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 6px; background: var(--panel); font-size: 12.5px; font-weight: 700; color: var(--accent); cursor: pointer; text-align: left; transition: all .2s; }
+.subgroup-h:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--panel)); }
+.subgroup.open .subgroup-h { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+.subgroup-h svg { width: 14px; height: 14px; color: var(--accent); transition: transform .2s; transform: rotate(-90deg); }
+.subgroup.open .subgroup-h svg { transform: rotate(0deg); }
+.subgroup-body { display: none; flex-direction: column; padding: 8px 0 0; background: transparent; }
+.subgroup.open .subgroup-body { display: flex; }
+.subgroup .fcheck { padding: 5px 6px; }
+
+.active-filters-bar { padding: 4px 0 24px 0; display: flex; flex-direction: column; gap: 10px; }
+.afilter-chip { display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--accent); border-radius: 20px; font-size: 12.5px; font-weight: 600; }
+.afilter-chip button { border: none; background: none; padding: 0; color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; transition: background .2s; }
+.afilter-chip button:hover { background: rgba(0,0,0,0.1); }
 .fcheck.on { color: var(--text); font-weight: 600; }
 .fcheck.on .box { background: var(--accent); border-color: var(--accent); color: #fff; }
 .fcheck .cnt { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }

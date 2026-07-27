@@ -22,8 +22,9 @@ const TABS = [
   { k: "rejected", l: "Rejected" },
 ];
 
-function MyMissionRow({ m, vtypes, navigate }) {
-  const t = vtypes[m.type];
+function MyMissionRow({ m, vtypes, ptypes, navigate }) {
+  const pt = ptypes?.find(p => p.id === m.type);
+  const t = vtypes[m.type] || (pt ? { icon: pt.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
   const s = MM_STATUS[m.status];
   return (
     <div className="card" style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
@@ -47,7 +48,14 @@ function MyMissionRow({ m, vtypes, navigate }) {
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
         <div style={{ textAlign: "right" }}><VReward amount={m.reward} /><div className="faint" style={{ fontSize: 11 }}>reward</div></div>
-        {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${m.taskId}/workspace`)}>Resume <Icon name="arrowRight" /></button>}
+        {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => {
+          const dest = (m.type === "trial") ? "checkin"
+            : (m.category === "sample") ? "shipment"
+            : (m.type === "interview") ? "schedule"
+            : (m.type === "focus") ? "poll"
+            : "workspace";
+          navigate(`/validator/missions/${m.taskId}/${dest}`);
+        }}>Resume <Icon name="arrowRight" /></button>}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />Awaiting</span>}
         {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />In review</span>}
         {m.status === "completed" && <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />Paid</span>}
@@ -58,7 +66,7 @@ function MyMissionRow({ m, vtypes, navigate }) {
 
 export default function MyMissions() {
   const navigate = useNavigate();
-  const { vtypes } = useVMeta();
+  const { vtypes, ptypes } = useVMeta();
   const [tab, setTab] = useState("active");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -101,7 +109,7 @@ export default function MyMissions() {
               body={tab === "applied" ? "Missions you apply to will wait here for a decision." : tab === "completed" ? "Approved, paid missions will collect here." : "When you take on a mission it'll show up here."}
               cta={tab !== "completed" && tab !== "rejected" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>Discover missions</button> : null} />
           </div>
-        : <div className="rise-3" style={{ display: "grid", gap: 12 }}>{data.missions.map(m => <MyMissionRow key={m.id} m={m} vtypes={vtypes} navigate={navigate} />)}</div>}
+        : <div className="rise-3" style={{ display: "grid", gap: 12 }}>{data.missions.map(m => <MyMissionRow key={m.id} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} />)}</div>}
     </div>
   );
 }

@@ -42,6 +42,7 @@ const PATHS = {
   mapPin: "M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0ZM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
   briefcase: "M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2ZM16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16",
   shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z",
+  shieldCheck: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10ZM9 12l2 2 4-4",
   bolt: "M13 2 3 14h9l-1 8 10-12h-9l1-8Z",
   trendingUp: "M23 6l-9.5 9.5-5-5L1 18M17 6h6v6",
   trendingDown: "M23 18l-9.5-9.5-5 5L1 6M17 18h6v-6",

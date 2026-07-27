@@ -50,6 +50,7 @@ export const api = {
   updateProfile: (body) => request("/auth/profile", { method: "PATCH", body }),
   support: () => request("/support"),
   raiseTicket: (payload) => request("/support/tickets", { method: "POST", body: payload }),
+  getTicket: (id) => request(`/support/tickets/${id}`),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
   phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
   phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
@@ -68,6 +69,7 @@ export const api = {
   createMission: (payload) => request("/missions", { method: "POST", body: payload }),
   updateMission: (id, payload) => request(`/missions/${id}`, { method: "PATCH", body: payload }),
   deleteMission: (id) => request(`/missions/${id}`, { method: "DELETE" }),
+  inviteValidator: (missionId, validatorId) => request(`/missions/${missionId}/invite/${validatorId}`, { method: "POST" }),
   moveParticipant: (missionId, participantId, stage) =>
     request(`/missions/${missionId}/participants/${participantId}`, { method: "PATCH", body: { stage } }),
   missionShipments: (missionId) => request(`/missions/${missionId}/shipments`),
@@ -97,11 +99,27 @@ export const api = {
 
   notifications: () => request("/notifications"),
   markAllRead: () => request("/notifications/read-all", { method: "POST" }),
+  clearAllNotifications: () => request("/notifications/clear-all", { method: "POST" }),
   markRead: (id) => request(`/notifications/${id}`, { method: "PATCH" }),
 
   threads: () => request("/messages/threads"),
   thread: (id) => request(`/messages/threads/${id}`),
   sendMessage: (threadId, text) => request(`/messages/threads/${threadId}/messages`, { method: "POST", body: { text } }),
+  sendAttachment: (threadId, file) => {
+    const form = new FormData();
+    form.append("file", file);
+    const t = token;
+    return fetch(`/api/messages/threads/${threadId}/attachment`, {
+      method: "POST",
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body: form,
+    }).then(async r => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `Upload failed (${r.status})`);
+      return data;
+    });
+  },
+  findOrCreateThread: (validatorId, missionId) => request("/messages/threads", { method: "POST", body: { validatorId, missionId } }),
 
   uploadMissionFile: (missionId, file, section = "brief") => {
     const form = new FormData();

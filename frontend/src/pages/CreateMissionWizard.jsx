@@ -11,7 +11,7 @@ import StepTestCases from "../components/StepTestCases";
 
 const WZ_STEPS = [
   { t: "Mission Information", s: "Name & category", hint: "Give your mission a clear name and pick the kind of validation you need." },
-  { t: "Participation Type", s: "How they engage", hint: "Choose how participants will engage with your product." },
+  { t: "Feedback Format", s: "How they engage", hint: "Choose how participants will engage with your product." },
   { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks tailored to this mission type." },
   { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
   { t: "Reward Setup", s: "What they earn", hint: "Set the incentive and size your panel — costs update as you type." },
@@ -109,7 +109,7 @@ function StepAudience({ d, toggle, filters }) {
         <div className="r-foot"><span>Narrower = higher quality</span><span>{pct}% of total pool</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
-        <FilterGroup key={g} title={g} options={opts} sel={d.filters[g]} toggle={toggle} />
+        <FilterGroup key={g} title={g} options={Array.isArray(opts) ? opts : Object.values(opts).flat()} sel={d.filters[g]} toggle={toggle} />
       ))}
     </div>
   );
@@ -124,7 +124,7 @@ function StepParticipation({ d, set, ptypes }) {
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
             <b>{p.label}</b><p>{p.desc}</p>
-            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.est}</span>
+            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? `${d.durationDays} days` : p.est}</span>
           </button>
         ))}
       </div>
@@ -182,12 +182,12 @@ function StepReward({ d, set, rewards }) {
   );
 }
 
-function CostCard({ d, rewards, balance }) {
+function CostCard({ d, rewards, balance, platformFeePct }) {
   const rw = rewards.find(r => r.id === d.reward.type);
   const n = +d.reward.participants || 0;
   const per = rw?.needsAmt ? (+d.reward.amount || 0) : 0;
   const subtotal = per * n;
-  const fee = Math.round(subtotal * 0.12);
+  const fee = Math.round(subtotal * platformFeePct);
   const fulfil = d.reward.type === "sample" ? n * 60 : 0;
   const total = subtotal + fee + fulfil;
   return (
@@ -197,7 +197,7 @@ function CostCard({ d, rewards, balance }) {
       <div>
         {rw?.needsAmt && <div className="est-row"><span className="lab">{inr(per)} × {n} participants</span><span className="v">{inr(subtotal)}</span></div>}
         {fulfil > 0 && <div className="est-row"><span className="lab">Sample fulfilment × {n}</span><span className="v">{inr(fulfil)}</span></div>}
-        <div className="est-row"><span className="lab">Platform fee (12%)</span><span className="v">{inr(fee)}</span></div>
+        <div className="est-row"><span className="lab">Platform fee ({Math.round(platformFeePct * 100)}%)</span><span className="v">{inr(fee)}</span></div>
         <div className="est-total"><span className="lab" style={{ fontWeight: 700 }}>Total</span><span className="v">{inr(total)}</span></div>
       </div>
       <div className="row gap-2" style={{ marginTop: 14, fontSize: 12, color: "var(--text-faint)" }}>
@@ -274,7 +274,7 @@ function deserializeDraft(jsonStr, emptyF) {
 export default function CreateMissionWizard() {
   const navigate = useNavigate();
   const { builder, refreshBuilder } = useAuth();
-  const { categories, ptypes, rewards, filters } = useMeta();
+  const { categories, ptypes, rewards, filters, platformFeePct } = useMeta();
 
   const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [busy, setBusy] = useState(false);
@@ -414,7 +414,7 @@ export default function CreateMissionWizard() {
           {last ? (
             <div className="split">
               <div>{StepBody}</div>
-              <div className="sticky-side"><CostCard d={d} rewards={rewards} balance={builder?.balance} /></div>
+              <div className="sticky-side"><CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} /></div>
             </div>
           ) : StepBody}
         </div>

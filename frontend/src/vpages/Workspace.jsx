@@ -1,15 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 
-function Timer({ secs, onDone }) {
-  const [rem, setRem] = useState(secs);
-  const done = rem <= 0;
+function Timer({ secs, onDone, taskKey }) {
+  const getInitialRem = () => {
+    if (!taskKey) return secs;
+    const startStr = localStorage.getItem("timer_start_" + taskKey);
+    if (startStr) {
+      const elapsed = Math.floor((Date.now() - parseInt(startStr)) / 1000);
+      return Math.max(0, secs - elapsed);
+    }
+    localStorage.setItem("timer_start_" + taskKey, Date.now().toString());
+    return secs;
+  };
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+
+  const [rem, setRem] = useState(getInitialRem);
+  const done = rem <= 0 || rem === 9999;
   useEffect(() => {
-    if (done) { onDone?.(); return; }
+    if (done) { onDoneRef.current?.(); return; }
     const id = setInterval(() => setRem(r => r - 1), 1000);
     return () => clearInterval(id);
   }, [done]);
@@ -109,6 +122,20 @@ export default function Workspace() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [scheduleStatus, setScheduleStatus] = useState(null);
+
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (loading || isReadOnly) return;
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const timerId = setTimeout(() => {
+      saveDraft(curIdx);
+    }, 1200);
+    return () => clearTimeout(timerId);
+  }, [answers, proofUploaded]);
 
   useEffect(() => {
     (async () => {
@@ -117,12 +144,13 @@ export default function Workspace() {
         const t = data.tasks || [];
         setMission(data.mission);
         setTasks(t);
+        setScheduleStatus(data.scheduleStatus);
         if (data.responses && !data.isDraft) {
           setIsReadOnly(true);
           setAnswers(data.responses);
           setStepsDone(t.map(tk => new Set(tk.steps.map((_, j) => j))));
           setTimerDone(t.map(() => true));
-          setProofUploaded(t.map((_, i) => !!data.responses[i]?._proof));
+          setProofUploaded(t.map((_, i) => data.responses[i]?._proof || false));
         } else {
           let savedAnswers = t.map(() => ({}));
           let savedIdx = 0;
@@ -137,20 +165,11 @@ export default function Workspace() {
              return hasAns ? new Set(tk.steps.map((_, j) => j)) : new Set();
           }));
           setTimerDone(t.map((_, i) => i < savedIdx));
-          setProofUploaded(t.map((_, i) => !!savedAnswers[i]?._proof));
+          setProofUploaded(t.map((_, i) => savedAnswers[i]?._proof || false));
         }
       } catch {
-        // use mock for now
-        const mock = [
-          { id: 1, title: "Sign up & onboarding", severity: "crit", min_time_seconds: 10, steps: ["Open the app", "Create account", "Complete onboarding", "Reach dashboard"], questions: [{ id: "q1", text: "How many steps did signup take?", type: "multiple_choice", options: ["1–2", "3–4", "5+"] }, { id: "q2", text: "Was anything confusing?", type: "yes_no_detail" }, { id: "q3", text: "Rate the signup experience", type: "rating", scale: 5 }], proof: true },
-          { id: 2, title: "Core product flow", severity: "crit", min_time_seconds: 10, steps: ["Browse main content", "Try the core feature", "Complete one full action"], questions: [{ id: "q4", text: "How easy was the core flow?", type: "rating", scale: 5 }, { id: "q5", text: "Describe your experience", type: "text" }], proof: true },
-          { id: 3, title: "Overall feedback", severity: "imp", min_time_seconds: 10, steps: ["Reflect on full experience", "Answer final questions"], questions: [{ id: "q6", text: "Would you use this again?", type: "yes_no_detail" }, { id: "q7", text: "Overall rating", type: "rating", scale: 5 }], proof: false },
-        ];
-        setTasks(mock);
-        setStepsDone(mock.map(() => new Set()));
-        setAnswers(mock.map(() => ({})));
-        setTimerDone(mock.map(() => false));
-        setProofUploaded(mock.map(() => false));
+        // do not fallback to mock
+        setTasks([]);
       } finally {
         setLoading(false);
       }
@@ -159,6 +178,15 @@ export default function Workspace() {
 
   if (loading) return <div className="page rise"><div className="muted">Loading workspace…</div></div>;
 
+  if (tasks.length === 0) return (
+    <div className="page rise" style={{ textAlign: "center", paddingTop: 80 }}>
+      <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
+      <h2 style={{ fontSize: 20, marginBottom: 8 }}>No tasks found</h2>
+      <p style={{ color: "var(--text-muted)" }}>This mission does not have any tasks generated yet.</p>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>Go Back</Btn>
+    </div>
+  );
+
   const task = tasks[curIdx];
   if (!task) return null;
 
@@ -166,7 +194,10 @@ export default function Workspace() {
   const stepsComplete = stepsDone[curIdx]?.size === task.steps.length;
   const allAnswered = task.questions.every(q => answers[curIdx]?.[q.id] !== undefined);
   const proofOk = !task.proof || proofUploaded[curIdx];
-  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk;
+  const isFinalTask = curIdx === tasks.length - 1;
+  const requiresLiveSession = mission?.ptype === "interview" || mission?.ptype === "focus";
+  const liveSessionOk = !isFinalTask || !requiresLiveSession || scheduleStatus === "completed";
+  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk && liveSessionOk;
 
   const toggleStep = (si) => {
     setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
@@ -174,7 +205,7 @@ export default function Workspace() {
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
   };
-  const saveDraft = async (newIdx = curIdx) => {
+  async function saveDraft(newIdx = curIdx) {
     if (isReadOnly) return;
     try {
       const finalAnswers = answers.map((ans, i) => {
@@ -186,7 +217,7 @@ export default function Workspace() {
     } catch (e) {
       console.warn("Auto-save failed", e);
     }
-  };
+  }
 
   const goNext = async () => {
     if (curIdx === tasks.length - 1) {
@@ -243,6 +274,25 @@ export default function Workspace() {
           <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{mission?.brand || "Mission brief"}</div>
         </div>
         <div style={{ padding: "12px 0", flex: 1 }}>
+          {(mission?.ptype === "interview" || mission?.ptype === "focus") && (
+            <button onClick={() => navigate(`/validator/missions/${id}/schedule`)} style={{ display: "flex", width: "100%", textAlign: "left", gap: 13, alignItems: "flex-start", padding: "10px 18px", borderBottom: "1px solid var(--border)", marginBottom: 12, paddingBottom: 16, background: "transparent", border: "none", borderBottom: "1px solid var(--border)", cursor: "pointer", outline: "none" }}>
+               <span style={{
+                  width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
+                  flexShrink: 0, zIndex: 1,
+                  background: scheduleStatus === "completed" ? "var(--success)" : "var(--panel)",
+                  border: `1.5px solid ${scheduleStatus === "completed" ? "var(--success)" : "var(--warning)"}`,
+                  color: scheduleStatus === "completed" ? "#fff" : "var(--warning)",
+                }}>
+                  {scheduleStatus === "completed" ? <Icon name="check" size={12} /> : (mission?.ptype === "focus" ? <Icon name="users" size={11} /> : <Icon name="video" size={11} />)}
+                </span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: "var(--text)" }}>{mission?.ptype === "focus" ? "Focus Group" : "Live Interview"}</div>
+                  <div style={{ fontSize: 11.5, color: scheduleStatus === "completed" ? "var(--success)" : "var(--warning)", marginTop: 2 }}>
+                    {scheduleStatus === "completed" ? "Completed" : scheduleStatus === "accepted" ? "Confirmed" : "Pending schedule"}
+                  </div>
+                </div>
+            </button>
+          )}
           {tasks.map((t, i) => {
             const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
             return (
@@ -282,7 +332,10 @@ export default function Workspace() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
           <span style={{ flex: 1 }} />
-          <Timer key={curIdx} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { const a = [...p]; a[curIdx] = true; return a; })} />
+          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { 
+            if (p[curIdx] === true) return p;
+            const a = [...p]; a[curIdx] = true; return a; 
+          })} />
           <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
             <Icon name="x" size={14} /> Exit
           </button>
@@ -386,6 +439,7 @@ export default function Workspace() {
                 {!stepsComplete && <li>Check off all steps above</li>}
                 {!allAnswered && <li>Answer all questions</li>}
                 {!proofOk && <li>Upload a screenshot as proof</li>}
+                {!liveSessionOk && <li>Wait for the builder to mark the {mission?.ptype === "focus" ? "focus group" : "live interview"} as completed</li>}
               </ul>
             </div>
           )}

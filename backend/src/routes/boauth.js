@@ -73,7 +73,7 @@ router.get("/:provider/callback", async (req, res) => {
       builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(profile.email.toLowerCase());
       isNewUser = true;
 
-      await db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
+      await db.prepare(`INSERT INTO notifications (builder_id, cat, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shield','green',?,?, 'Just now', 1)`)
         .run(builder.id, "Welcome to ValidationCrew", `Your account was created via ${provider.name}. Update your workspace name in Settings any time.`);
       sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
     }

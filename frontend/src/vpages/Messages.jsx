@@ -8,7 +8,9 @@ export default function Messages() {
   const [activeId, setActiveId] = useState(null);
   const [active, setActive] = useState(null);
   const [draft, setDraft] = useState("");
+  const [q, setQ] = useState("");
   const scrollRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     vapi.threads().then(d => { setThreads(d.threads); if (d.threads.length) setActiveId(d.threads[0].id); });
@@ -24,16 +26,31 @@ export default function Messages() {
     try { await vapi.sendMessage(activeId, text); } catch { /* best effort */ }
   };
 
+  const sendFile = async (file) => {
+    if (!file || !activeId) return;
+    try {
+      const { message } = await vapi.sendAttachment(activeId, file);
+      setActive(a => ({ ...a, messages: [...a.messages, message] }));
+    } catch (err) {
+      alert(err.message || "Couldn't send file");
+    }
+  };
+
   if (!threads.length) return <div className="page rise"><div className="muted">No conversations yet.</div></div>;
+
+  const visibleThreads = q.trim()
+    ? threads.filter(t => (t.name + " " + (t.mission || "")).toLowerCase().includes(q.trim().toLowerCase()))
+    : threads;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", height: "calc(100vh - 64px)" }} className="msg-wrap">
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0 }}>
         <div style={{ padding: "16px var(--pad-card) 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
-          <div className="search"><Icon name="search" size={16} /><input placeholder="Search messages…" /></div>
+          <div className="search"><Icon name="search" size={16} /><input placeholder="Search messages…" value={q} onChange={e => setQ(e.target.value)} /></div>
         </div>
         <div style={{ overflowY: "auto", flex: 1 }}>
-          {threads.map(t => (
+          {visibleThreads.length === 0 && <div className="muted" style={{ padding: 18, fontSize: 13.5 }}>No conversations match "{q}".</div>}
+          {visibleThreads.map(t => (
             <button key={t.id} onClick={() => setActiveId(t.id)} style={{ display: "flex", gap: 12, width: "100%", textAlign: "left", padding: "14px var(--pad-card)",
               border: "none", borderBottom: "var(--hairline) solid var(--border)", background: t.id === activeId ? "var(--accent-weak)" : "transparent", cursor: "pointer" }}>
               <VAvatar name={t.name} size={42} />
@@ -61,14 +78,19 @@ export default function Messages() {
                   <div style={{ padding: "10px 14px", borderRadius: 14, fontSize: 14, lineHeight: 1.5,
                     background: m.from === "me" ? "var(--accent)" : "var(--panel)", color: m.from === "me" ? "#fff" : "var(--text)",
                     border: m.from === "me" ? "none" : "var(--hairline) solid var(--border)",
-                    borderBottomRightRadius: m.from === "me" ? 4 : 14, borderBottomLeftRadius: m.from === "me" ? 14 : 4 }}>{m.text}</div>
+                    borderBottomRightRadius: m.from === "me" ? 4 : 14, borderBottomLeftRadius: m.from === "me" ? 14 : 4 }}>
+                    {m.attachment
+                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6 }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
+                      : m.text}
+                  </div>
                   <div className="feed-time" style={{ textAlign: m.from === "me" ? "right" : "left", marginTop: 4, padding: "0 4px" }}>{m.time}</div>
                 </div>
               </div>
             ))}
           </div>
           <div className="row gap-2" style={{ padding: "14px var(--pad-page)", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
-            <button className="icon-btn" aria-label="Attach file"><Icon name="paperclip" size={18} /></button>
+            <input ref={fileInputRef} type="file" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; if (f) sendFile(f); e.target.value = ""; }} />
+            <button className="icon-btn" aria-label="Attach file" onClick={() => fileInputRef.current?.click()}><Icon name="paperclip" size={18} /></button>
             <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === "Enter" && send()} placeholder={`Message ${active.name}…`}
               style={{ flex: 1, padding: "11px 14px", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel-inset)", fontFamily: "inherit", fontSize: 14, color: "var(--text)", outline: "none" }} />
             <button className="btn btn-primary" onClick={send} disabled={!draft.trim()}><Icon name="send" size={17} />Send</button>

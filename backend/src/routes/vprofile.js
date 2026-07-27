@@ -1,22 +1,34 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
-import { LEVELS, BADGES, EXPERTISE } from "../vmeta.js";
+import { LEVELS, BADGES, EXPERTISE, levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
 
 router.get("/", async (req, res) => {
   const v = req.validator;
-  const lvl = LEVELS.find(l => l.n === (v.level || 1)) || LEVELS[0];
-  const nextLvl = LEVELS.find(l => l.n === (v.level || 1) + 1) || null;
   const missionsDone = v.missions_done || 0;
+  const lvl = levelForCompleted(missionsDone);
+  const nextLvl = LEVELS.find(l => l.n === lvl.n + 1) || null;
   const lvlPct = nextLvl ? Math.min(100, Math.round(((missionsDone - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
   // Role Promotion Logic (User -> Tester -> Validator)
   let calcRole = "User";
-  const accuracy = 100; // Hardcoded default for now until DB supports accuracy tracking
-  const streak = 0; // Default until tracking implemented
+  
+  const statsRow = await db.prepare(`
+    SELECT
+      COUNT(*) as total_graded,
+      SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as total_approved
+    FROM responses
+    WHERE validator_id = ? AND status IN ('approved', 'rejected')
+  `).get(v.id);
+
+  let accuracy = 100;
+  if (statsRow && statsRow.total_graded > 0) {
+    accuracy = Math.round((Number(statsRow.total_approved) / Number(statsRow.total_graded)) * 100);
+  }
+  const streak = v.streak || 0;
   
   if (missionsDone >= 5 && accuracy >= 90) calcRole = "Tester";
   if (v.verified && v.occupation) calcRole = "Validator";
@@ -70,7 +82,7 @@ router.get("/", async (req, res) => {
   `).get(v.id);
 
   res.json({
-    name: v.name, handle: v.handle, level: v.level || 1, levelName: lvl.name,
+    name: v.name, handle: v.handle, level: lvl.n, levelName: lvl.name,
     rating: v.rating, ratingCount: v.reviews_count || 0, accuracy: accuracy, streak: streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
     acceptRate: 100, completed: missionsDone, lifetime: earningsAgg?.lifetime || 0,
@@ -78,8 +90,9 @@ router.get("/", async (req, res) => {
     levels: LEVELS, badges: dynamicBadges, expertise: dynamicExpertise,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     payoutVpa: v.payout_vpa || null,
-    role: v.role, occupation: v.occupation, industry: v.industry,
-    location: v.location, bio: v.bio,
+    role: v.role, occupation: v.occupation, 
+    industry: v.industry || (v.industry_json && v.industry_json !== '[]' ? JSON.parse(v.industry_json).join(", ") : ""),
+    location: v.location || v.city, bio: v.bio,
     address: {
       line1: v.address_line1 || "", line2: v.address_line2 || "",
       city: v.address_city || "", state: v.address_state || "",

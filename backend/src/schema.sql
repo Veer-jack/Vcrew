@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS builders (
   persona TEXT DEFAULT 'founder',
   profile_json TEXT,
   verified_at TIMESTAMPTZ,
+  status TEXT DEFAULT 'active',
   preferred_language TEXT DEFAULT 'en',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -108,6 +109,16 @@ CREATE TABLE IF NOT EXISTS participants (
   joined_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS mission_invitations (
+  id SERIAL PRIMARY KEY,
+  builder_id INTEGER REFERENCES builders(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
+  mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(mission_id, validator_id)
+);
+
 CREATE TABLE IF NOT EXISTS responses (
   id SERIAL PRIMARY KEY,
   mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
@@ -174,6 +185,7 @@ CREATE TABLE IF NOT EXISTS payment_methods (
 CREATE TABLE IF NOT EXISTS notifications (
   id SERIAL PRIMARY KEY,
   builder_id INTEGER REFERENCES builders(id) ON DELETE CASCADE,
+  cat TEXT,
   type TEXT,
   icon TEXT,
   tone TEXT,
@@ -188,6 +200,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE TABLE IF NOT EXISTS threads (
   id SERIAL PRIMARY KEY,
   builder_id INTEGER REFERENCES builders(id) ON DELETE CASCADE,
+  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
   mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL,
   subject TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -199,6 +212,8 @@ CREATE TABLE IF NOT EXISTS thread_messages (
   sender_role TEXT NOT NULL,
   sender_id INTEGER,
   body TEXT,
+  attachment_path TEXT,
+  attachment_name TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -361,24 +376,26 @@ CREATE TABLE IF NOT EXISTS v_notifications (
   time_label TEXT,
   unread INTEGER DEFAULT 1,
   read INTEGER DEFAULT 0,
+  target_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS v_threads (
-  id SERIAL PRIMARY KEY,
-  validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
-  mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL,
-  subject TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
 
-CREATE TABLE IF NOT EXISTS v_thread_messages (
+
+-- Local mirror of support tickets created via /support and /v/support. Always written to,
+-- regardless of whether Freshdesk is configured, so a ticket never silently vanishes if
+-- FRESHDESK_DOMAIN/FRESHDESK_API_KEY are unset or the Freshdesk API call fails.
+CREATE TABLE IF NOT EXISTS support_tickets (
   id SERIAL PRIMARY KEY,
-  thread_id INTEGER REFERENCES v_threads(id) ON DELETE CASCADE,
-  sender_role TEXT NOT NULL,
-  sender_id INTEGER,
-  body TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  role TEXT NOT NULL, -- 'builder' | 'validator'
+  email TEXT NOT NULL,
+  name TEXT,
+  subject TEXT NOT NULL,
+  description TEXT,
+  status TEXT DEFAULT 'open',
+  freshdesk_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS b_tickets (
@@ -468,6 +485,7 @@ CREATE TABLE IF NOT EXISTS interview_schedules (
   status TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'accepted', 'declined', 'completed')),
   scheduled_at TIMESTAMPTZ,
   meeting_link TEXT,
+  validator_notes TEXT,
   responded_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),

@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import { recalcMissionStats } from "../stats.js";
+import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -34,11 +35,10 @@ const upload = multer({
 router.use(validatorAuthMiddleware);
 
 function serializeRow(row) {
-  const t = row;
   return {
     id: row.mm_id,
     taskId: row.id,
-    type: VTYPES[row.type] ? row.type : "mvp", product: row.product, tagline: row.tagline, company: row.company,
+    type: row.category ? row.type : (VTYPES[row.type] ? row.type : "mvp"), category: row.category, product: row.product, tagline: row.tagline, company: row.company,
     reward: row.reward, minutes: row.minutes, match: row.match_pct,
     deadline: row.deadline_label,
     status: row.status, progress: row.progress, quality: row.quality, reason: row.reason,
@@ -53,9 +53,9 @@ router.get("/", async (req, res) => {
     SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, mm.created_at, mm.updated_at,
            t.* FROM v_my_missions mm 
     JOIN (
-      SELECT id::text, type::text, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text FROM vtasks
+      SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text FROM vtasks
       UNION ALL
-      SELECT id::text, ptype::text as type, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief FROM missions
+      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief FROM missions
     ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ?`;
   const params = [req.validator.id];
@@ -68,6 +68,24 @@ router.get("/", async (req, res) => {
   sql += ` ORDER BY mm.updated_at DESC`;
   const rows = await db.prepare(sql).all(...params);
 
+  const interviewMissions = rows.filter(r => r.type === "interview").map(r => r.id);
+  if (interviewMissions.length > 0) {
+    const schedules = await db.prepare(`SELECT mission_id, status FROM interview_schedules WHERE validator_id = ? AND mission_id IN (${interviewMissions.map(()=>'?').join(',')})`)
+      .all(req.validator.id, ...interviewMissions);
+    const scheduleMap = {};
+    for (const s of schedules) scheduleMap[s.mission_id] = s.status;
+    for (const r of rows) {
+      if (r.type === "interview") {
+        const st = scheduleMap[r.id];
+        let boost = 0;
+        if (st === "proposed") boost = 10;
+        else if (st === "accepted") boost = 30;
+        else if (st === "completed") boost = 50;
+        r.progress = boost + Math.floor((r.progress || 0) * 0.5);
+      }
+    }
+  }
+
   const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
@@ -76,6 +94,22 @@ router.get("/", async (req, res) => {
   }
 
   res.json({ missions: rows.map(serializeRow), counts });
+});
+
+// GET /api/v/missions/invitations
+// Must be registered before the /:taskId catch-all below, or Express matches
+// "invitations" as a taskId and this route is never reached.
+router.get("/invitations", async (req, res) => {
+  const invites = await db.prepare(`
+    SELECT i.id as invite_id, i.status as invite_status, i.created_at, m.*, b.name as builder_name, b.org as builder_org
+    FROM mission_invitations i
+    JOIN missions m ON m.id = i.mission_id
+    JOIN builders b ON b.id = i.builder_id
+    WHERE i.validator_id = ? AND i.status = 'pending'
+    ORDER BY i.created_at DESC
+  `).all(req.validator.id);
+
+  res.json({ invitations: invites });
 });
 
 // GET /api/v/missions/:taskId — workspace context (task + rubric + my mission state)
@@ -98,9 +132,22 @@ router.get("/:taskId", async (req, res) => {
     ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", ptype: t.ptype || null, category: t.category || null, product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
     : { id: t.id, type: t.type, ptype: null, category: null, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
 
+  let scheduleStatus = null;
+  if (isRealMission && t.ptype === "interview") {
+    const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(t.id, req.validator.id);
+    if (s) scheduleStatus = s.status;
+  } else if (isRealMission && t.ptype === "focus") {
+    const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(t.id);
+    if (poll) {
+      const resp = await db.prepare(`SELECT slot_id FROM focus_group_responses WHERE poll_id = ? AND validator_id = ? AND slot_id = ?`).get(poll.id, req.validator.id, poll.locked_slot_id);
+      if (resp) scheduleStatus = poll.status;
+    }
+  }
+
   res.json({
     task: taskData,
     rubric: VTYPES[taskData.type],
+    scheduleStatus,
     myMission: mm ? {
       status: mm.status, progress: mm.progress, score: mm.score,
       ratings: mm.ratings_json ? JSON.parse(mm.ratings_json) : {},
@@ -177,11 +224,24 @@ router.get("/:id/workspace", async (req, res) => {
     isDraft = response.status === "draft" || response.status === "revision";
   }
 
+  let scheduleStatus = null;
+  if (m.ptype === "interview") {
+    const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+    if (s) scheduleStatus = s.status;
+  } else if (m.ptype === "focus") {
+    const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(req.params.id);
+    if (poll) {
+      const resp = await db.prepare(`SELECT slot_id FROM focus_group_responses WHERE poll_id = ? AND validator_id = ? AND slot_id = ?`).get(poll.id, req.validator.id, poll.locked_slot_id);
+      if (resp) scheduleStatus = poll.status;
+    }
+  }
+
   res.json({
     mission: { id: m.id, name: m.name, brand: m.brand || m.builder_name, ptype: m.ptype },
     tasks,
     responses,
     isDraft,
+    scheduleStatus,
   });
 });
 
@@ -320,9 +380,10 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   const existing = await db.prepare(`SELECT id, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (existing) {
     if (existing.status === 'revision') {
+      // Notify Builder
       await db.prepare(`
-        INSERT INTO notifications (builder_id, type, icon, tone, title, body, time_label, unread)
-        VALUES (?, 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
+        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+        VALUES (?, 'application', 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
       `).run(m.builder_id, `A validator has updated their response for ${m.name} and is ready for your review.`);
     }
     await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
@@ -330,6 +391,12 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   } else {
     await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'pending', NOW())`)
       .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
+    
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+      VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1)
+    `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`);
+    
     await recalcMissionStats(req.params.id, db);
   }
 
@@ -375,16 +442,27 @@ router.get("/:id/checkin-status", async (req, res) => {
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "trial") return res.status(400).json({ error: "This mission does not use daily check-ins" });
 
+  const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!p) return res.status(403).json({ error: "Not participating" });
+
+  const totalDays = m.duration_days || 7;
   const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
-  const last = checkins[checkins.length - 1];
-  const hoursSinceLast = last ? (Date.now() - new Date(last.submitted_at).getTime()) / 3600000 : 999;
-  const locked = hoursSinceLast < 20;
+  const { currentCalendarDay, completedDays, alreadySubmittedToday, skippedDays, lockedOut } = computeCheckinStatus(p.accepted_at, checkins);
+
+  const remainingExtraDays = TRIAL_EXTRA_DAYS - skippedDays;
+  const currentDay = completedDays + (alreadySubmittedToday ? 0 : 1);
+  const isFinished = completedDays >= totalDays;
 
   res.json({
-    mission: { name: m.name, brand: m.brand, total_days: m.duration_days || 7, reward_total: m.reward_amount || 0 },
-    checkins: Array.from({ length: m.duration_days || 7 }).map((_, i) => !!checkins[i]),
-    locked,
-    hoursUntilNext: locked ? Math.max(0, 20 - hoursSinceLast) : 0,
+    mission: { name: m.name, brand: m.brand, total_days: totalDays, reward_total: m.reward_amount || 0 },
+    currentCalendarDay,
+    currentDay: Math.min(currentDay, totalDays),
+    completedDays,
+    skippedDays,
+    remainingExtraDays,
+    lockedOut,
+    isFinished,
+    canSubmitToday: !lockedOut && !isFinished && !alreadySubmittedToday,
   });
 });
 
@@ -413,6 +491,9 @@ router.post("/:id/shipment/received", async (req, res) => {
   const updateRes = await db.prepare(`UPDATE sample_shipments SET status = 'received', received_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'shipped'`)
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This sample hasn't been marked as shipped yet" });
+
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shipment_received', 'package', 'success', ?, ?, 'Just now', 1)`)
+    .run(m.builder_id, "Sample Received", `${req.validator.name} has received the sample for ${m.name}.`);
 
   res.json({ ok: true });
 });
@@ -443,18 +524,30 @@ router.post("/:id/schedule/accept", async (req, res) => {
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to accept" });
 
+  const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+  await db.prepare(`
+    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+    VALUES (?, 'application', 'schedule_accepted', 'calendar', 'success', 'Interview Accepted', ?, 'Just now', 1)
+  `).run(m.builder_id, `${val ? val.name : 'A validator'} has accepted the interview time for "${m.name}".`);
+
   res.json({ ok: true });
 });
 
 // POST /api/v/missions/:id/schedule/decline — validator declines the proposed interview time
 router.post("/:id/schedule/decline", async (req, res) => {
+  const { reason, timeRange } = req.body || {};
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "interview") return res.status(400).json({ error: "This mission does not use scheduled interviews" });
 
-  const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'declined', responded_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'proposed'`)
-    .run(req.params.id, req.validator.id);
+  const notes = JSON.stringify({ reason: reason || "", timeRange: timeRange || "" });
+
+  const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'declined', validator_notes = ?, responded_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'proposed'`)
+    .run(notes, req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to decline" });
+
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'schedule_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
+    .run(m.builder_id, "Interview Declined", `${req.validator.name} declined the proposed interview time for ${m.name}.`);
 
   res.json({ ok: true });
 });
@@ -530,19 +623,117 @@ router.post("/:id/checkin", async (req, res) => {
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm || mm.status !== "active") return res.status(400).json({ error: "Mission not active or not accepted" });
 
-  // Time gate — must be 20h since last checkin
-  const last = await db.prepare(`SELECT submitted_at FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(req.params.id, req.validator.id).catch(() => null);
-  if (last) {
-    const hours = (Date.now() - new Date(last.submitted_at).getTime()) / 3600000;
-    if (hours < 20) return res.status(400).json({ error: "Too early — come back in " + Math.ceil(20 - hours) + " hours" });
+  const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!p) return res.status(403).json({ error: "Not participating" });
+
+  const totalDays = m.duration_days || 7;
+  const checkins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? AND validator_id = ? ORDER BY day_number ASC`).all(req.params.id, req.validator.id).catch(() => []);
+  const { completedDays, alreadySubmittedToday, lockedOut } = computeCheckinStatus(p.accepted_at, checkins);
+
+  if (lockedOut) {
+    await db.prepare(`UPDATE v_my_missions SET status = 'failed', status_label = 'Failed (Missed Check-ins)', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await db.prepare(`UPDATE participants SET stage = 'failed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+      VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1)
+    `).run(m.builder_id, `A validator failed the mission "${m.name}" due to missed check-ins.`);
+
+    await db.prepare(`
+      INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'system', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1, ?)
+    `).run(req.validator.id, `You failed the mission "${m.name}" because you missed too many daily check-ins.`, req.params.id);
+
+    return res.status(400).json({ error: "Mission failed due to too many missed check-ins." });
   }
+  if (completedDays >= totalDays) return res.status(400).json({ error: "All required check-ins are already complete." });
+  if (alreadySubmittedToday) return res.status(400).json({ error: "Already submitted for today." });
+
+  // In the elastic model, the day_number recorded is simply the sequential day (completedDays + 1)
+  const sequentialDay = completedDays + 1;
 
   await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, screenshot_path, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())`)
-    .run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}), screenshot_path || null).catch(async () => {
+    .run(req.params.id, req.validator.id, sequentialDay, JSON.stringify(answers || {}), screenshot_path || null).catch(async () => {
       // table might not exist yet — create it
       await db.exec(`CREATE TABLE IF NOT EXISTS checkins (id SERIAL PRIMARY KEY, mission_id TEXT, validator_id INTEGER, day_number INTEGER, answers_json TEXT DEFAULT '{}', screenshot_path TEXT, submitted_at TIMESTAMPTZ DEFAULT NOW())`);
       await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, screenshot_path, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())`).run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}), screenshot_path || null);
     });
+
+  const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+  await db.prepare(`
+    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+    VALUES (?, 'application', 'checkin', 'check', 'accent', 'Review Completed', ?, 'Just now', 1)
+  `).run(m.builder_id, `Day ${sequentialDay} review completed by ${val ? val.name : 'a validator'} for mission "${m.name}".`);
+
+  res.json({ ok: true });
+});
+
+// POST /api/v/missions/invitations/:id/accept
+router.post("/invitations/:id/accept", async (req, res) => {
+  const invite = await db.prepare(`SELECT * FROM mission_invitations WHERE id = ? AND validator_id = ? AND status = 'pending'`).get(req.params.id, req.validator.id);
+  if (!invite) return res.status(404).json({ error: "Invite not found or already processed" });
+
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(invite.mission_id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  // Join logic
+  try {
+    await db.transaction(async (tx) => {
+      // Lock the mission row to prevent concurrent acceptances exceeding the slot limit
+      const m = await tx.prepare(`SELECT * FROM missions WHERE id = ? FOR UPDATE`).get(invite.mission_id);
+      if (!m) throw new Error("Mission not found");
+      if (m.joined >= m.target) {
+        throw new Error("MISSION_FULL");
+      }
+
+      await tx.prepare(`UPDATE mission_invitations SET status = 'accepted' WHERE id = ?`).run(invite.id);
+      await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
+        .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
+      await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status) VALUES (?, ?, 'active')`)
+        .run(req.validator.id, m.id);
+      
+      const newJoined = m.joined + 1;
+      await tx.prepare(`UPDATE missions SET joined = ? WHERE id = ?`).run(newJoined, m.id);
+      
+      // Notify Builder
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
+        .run(m.builder_id, "Invite Accepted", `${req.validator.name} has accepted your invitation and joined ${m.name}.`);
+
+      // If the mission is now completely full, notify all other pending invitees
+      if (newJoined >= m.target) {
+        const pending = await tx.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND status = 'pending'`).all(m.id);
+        for (const p of pending) {
+          // Close their invitation so they can no longer accept it
+          await tx.prepare(`UPDATE mission_invitations SET status = 'closed' WHERE id = ?`).run(p.id);
+          // Send notification prompting them to click and save
+          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'mission_full', 'alertCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+            .run(p.validator_id, "Mission Slots Full", `The mission "${m.name}" has reached its maximum participants. Click here to save it for future updates.`, m.id);
+        }
+      }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.message === "MISSION_FULL") {
+      return res.status(400).json({ error: "Sorry, this mission has just filled all available slots." });
+    }
+    throw err;
+  }
+});
+
+// POST /api/v/missions/invitations/:id/decline
+router.post("/invitations/:id/decline", async (req, res) => {
+  const invite = await db.prepare(`SELECT * FROM mission_invitations WHERE id = ? AND validator_id = ? AND status = 'pending'`).get(req.params.id, req.validator.id);
+  if (!invite) return res.status(404).json({ error: "Invite not found or already processed" });
+
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(invite.mission_id);
+
+  await db.transaction(async (tx) => {
+    await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
+    if (m) {
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
+        .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`);
+    }
+  });
 
   res.json({ ok: true });
 });

@@ -2,24 +2,29 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { sendValidatorWelcome } from "../email.js";
-import { LEVELS } from "../vmeta.js";
+import { levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 
 function publicValidator(v) {
-  const lvl = LEVELS.find(l => l.n === v.level) || LEVELS[0];
+  const lvl = levelForCompleted(v.missions_done);
   return {
     id: v.id, name: v.name, handle: v.handle, email: v.email,
-    level: v.level, levelName: lvl.name,
-    rating: v.rating, ratingCount: v.rating_count, accuracy: v.accuracy, streak: v.streak,
+    level: lvl.n, levelName: lvl.name,
+    rating: v.rating, ratingCount: v.reviews_count, accuracy: v.accuracy, streak: v.streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
     languages: JSON.parse(v.languages_json || "[]"),
-    weekEarnings: v.week_earnings, weekTarget: v.week_target,
-    pending: v.pending, available: v.available, lifetime: v.lifetime,
-    completed: v.completed, acceptRate: v.accept_rate,
+    pending: v.earnings_pending, available: v.balance, lifetime: v.earnings_total,
+    completed: v.missions_done,
     phone: v.phone_verified ? v.phone : null, phoneVerified: !!v.phone_verified,
     preferredLanguage: v.preferred_language || "en",
     oauthProvider: v.oauth_provider || null,
+    validator_type: v.validator_type,
+    tester_status: v.tester_status,
+    role: v.role,
+    avatar: v.avatar,
+    bio: v.bio,
+    city: v.city
   };
 }
 
@@ -171,76 +176,82 @@ router.patch("/language", validatorAuthMiddleware, async (req, res) => {
 // PATCH /api/v/profile — update validator profile after onboarding
 router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
   const b = req.body || {};
-  await db.prepare(`
-    UPDATE validators SET
-      name = COALESCE($1, name),
-      email = COALESCE($2, email),
-      handle = COALESCE($3, handle),
-      bio = COALESCE($4, bio),
-      city = COALESCE($5, city),
-      city_type = COALESCE($6, city_type),
-      languages_json = COALESCE($7, languages_json),
-      validator_type = COALESCE($8, validator_type),
-      tester_status = COALESCE($9, tester_status),
-      age_group = COALESCE($10, age_group),
-      gender = COALESCE($11, gender),
-      marital_status = COALESCE($12, marital_status),
-      has_kids = COALESCE($13, has_kids),
-      income_bracket = COALESCE($14, income_bracket),
-      height = COALESCE($15, height),
-      weight = COALESCE($16, weight),
-      skin_tone = COALESCE($17, skin_tone),
-      hair_type = COALESCE($18, hair_type),
-      hair_length = COALESCE($19, hair_length),
-      body_type = COALESCE($20, body_type),
-      occupation = COALESCE($21, occupation),
-      food_preference = COALESCE($22, food_preference),
-      lifestyle_json = COALESCE($23, lifestyle_json),
-      shopping_preference = COALESCE($24, shopping_preference),
-      devices_json = COALESCE($25, devices_json),
-      hours_per_week = COALESCE($26, hours_per_week),
-      role = COALESCE($27, role),
-      experience_years = COALESCE($28, experience_years),
-      industry_json = COALESCE($29, industry_json),
-      company = COALESCE($30, company),
-      product_types_json = COALESCE($31, product_types_json),
-      tech_tools_json = COALESCE($32, tech_tools_json),
-      testing_domains_json = COALESCE($33, testing_domains_json),
-      certifications_json = COALESCE($34, certifications_json),
-      linkedin_url = COALESCE($35, linkedin_url),
-      portfolio_url = COALESCE($36, portfolio_url),
-      testing_bio = COALESCE($37, testing_bio),
-      specialties_json = COALESCE($38, specialties_json),
-      updated_at = NOW()
-    WHERE id = $39
-  `).run(
-    b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
-    b.handle || null, b.bio || null, b.city || null, b.city_type || null,
-    b.language ? JSON.stringify(b.language) : null,
-    b.validator_type || null,
-    b.validator_type === 'tester' ? 'pending_review' : null,
-    b.age_group || null, b.gender || null, b.marital || null, b.has_kids || null,
-    b.income || null, b.height || null, b.weight || null, b.skin_tone || null,
-    b.hair_type || null, b.hair_length || null, b.body_type || null,
-    b.occupation || null, b.food_pref || null,
-    b.lifestyle ? JSON.stringify(b.lifestyle) : null,
-    b.shopping_pref || null,
-    b.devices ? JSON.stringify(b.devices) : null,
-    b.hours || null, b.role || null, b.experience || null,
-    b.industry ? JSON.stringify(b.industry) : null,
-    b.company || null,
-    b.product_types ? JSON.stringify(b.product_types) : null,
-    b.tech_tools ? JSON.stringify(b.tech_tools) : null,
-    b.domains ? JSON.stringify(b.domains) : null,
-    b.certifications ? JSON.stringify(b.certifications) : null,
-    b.linkedin_url || null, b.portfolio_url || null, b.testing_bio || null,
-    b.specialties_json || null,
-    req.validator.id
-  );
+  try {
+    await db.prepare(`
+      UPDATE validators SET
+        name = COALESCE($1, name),
+        email = COALESCE($2, email),
+        handle = COALESCE($3, handle),
+        bio = COALESCE($4, bio),
+        city = COALESCE($5, city),
+        city_type = COALESCE($6, city_type),
+        languages_json = COALESCE($7, languages_json),
+        validator_type = COALESCE($8, validator_type),
+        tester_status = COALESCE($9, tester_status),
+        age_group = COALESCE($10, age_group),
+        gender = COALESCE($11, gender),
+        marital_status = COALESCE($12, marital_status),
+        has_kids = COALESCE($13, has_kids),
+        income_bracket = COALESCE($14, income_bracket),
+        height = COALESCE($15, height),
+        weight = COALESCE($16, weight),
+        skin_tone = COALESCE($17, skin_tone),
+        hair_type = COALESCE($18, hair_type),
+        hair_length = COALESCE($19, hair_length),
+        body_type = COALESCE($20, body_type),
+        occupation = COALESCE($21, occupation),
+        food_preference = COALESCE($22, food_preference),
+        lifestyle_json = COALESCE($23, lifestyle_json),
+        shopping_preference = COALESCE($24, shopping_preference),
+        devices_json = COALESCE($25, devices_json),
+        hours_per_week = COALESCE($26, hours_per_week),
+        role = COALESCE($27, role),
+        experience_years = COALESCE($28, experience_years),
+        industry_json = COALESCE($29, industry_json),
+        company = COALESCE($30, company),
+        product_types_json = COALESCE($31, product_types_json),
+        tech_tools_json = COALESCE($32, tech_tools_json),
+        testing_domains_json = COALESCE($33, testing_domains_json),
+        certifications_json = COALESCE($34, certifications_json),
+        linkedin_url = COALESCE($35, linkedin_url),
+        portfolio_url = COALESCE($36, portfolio_url),
+        testing_bio = COALESCE($37, testing_bio),
+        specialties_json = COALESCE($38, specialties_json)
+      WHERE id = $39
+    `).run(
+      b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
+      b.handle || null, b.bio || null, b.city || null, b.city_type || null,
+      b.language ? JSON.stringify(b.language) : null,
+      b.validator_type || null,
+      b.validator_type === 'tester' ? 'pending_review' : null,
+      b.age_group || null, b.gender || null, b.marital || null, b.has_kids || null,
+      b.income || null, b.height || null, b.weight || null, b.skin_tone || null,
+      b.hair_type || null, b.hair_length || null, b.body_type || null,
+      b.occupation || null, b.food_pref || null,
+      b.lifestyle ? JSON.stringify(b.lifestyle) : null,
+      b.shopping_pref || null,
+      b.devices ? JSON.stringify(b.devices) : null,
+      b.hours || null, b.role || null, b.experience || null,
+      b.industry ? JSON.stringify(b.industry) : null,
+      b.company || null,
+      b.product_types ? JSON.stringify(b.product_types) : null,
+      b.tech_tools ? JSON.stringify(b.tech_tools) : null,
+      b.domains ? JSON.stringify(b.domains) : null,
+      b.certifications ? JSON.stringify(b.certifications) : null,
+      b.linkedin_url || null, b.portfolio_url || null, b.testing_bio || null,
+      b.specialties_json || null,
+      req.validator.id
+    );
+  } catch (err) {
+    if (err.message.includes("unique constraint") && err.message.includes("handle")) {
+      return res.status(400).json({ error: "That handle is already taken. Please choose another one." });
+    }
+    throw err;
+  }
 
   // Notify admin if tester application
   if (b.validator_type === 'tester') {
-    await db.prepare(`INSERT INTO notifications (builder_id, type, icon, tone, title, body, time_label, unread) VALUES (1, 'tester_application', 'star', 'accent', 'New Tester Application', $1, 'Just now', 1)`)
+    await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (1, 'application', 'tester_application', 'star', 'accent', 'New Tester Application', $1, 'Just now', 1)`)
       .run(`${b.name || 'A validator'} has applied for Verified Tester status. Review within 72 hours.`).catch(() => {});
   }
 

@@ -7,7 +7,7 @@ export function VMetaProvider({ children }) {
   const [meta, setMeta] = useState(null);
 
   useEffect(() => {
-    vapi.meta().then(setMeta).catch(() => setMeta({ vtypes: {}, typeOrder: [], levels: [], badges: [], expertise: [], notifCats: [], helpArticles: [], rewardBands: [], timeBands: [], sorts: [] }));
+    vapi.meta().then(setMeta).catch(() => setMeta({ vtypes: {}, typeOrder: [], levels: [], badges: [], expertise: [], notifCats: [], helpArticles: [], rewardBands: [], timeBands: [], sorts: [], ptypes: [] }));
   }, []);
 
   if (!meta) return null;

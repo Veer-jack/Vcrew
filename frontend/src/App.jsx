@@ -115,6 +115,11 @@ function RequireVAuth({ children }) {
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
   if (!validator) return <Navigate to="/validator/login" state={{ from: location.pathname }} replace />;
+  
+  if ((!validator.validator_type || !validator.city) && !location.pathname.includes("/validator/onboarding")) {
+    return <Navigate to="/validator/onboarding" replace />;
+  }
+  
   return children;
 }
 
@@ -125,7 +130,7 @@ function ValidatorRoutes() {
   return (
     <Routes>
       <Route path="login" element={<VLogin />} />
-        <Route path="onboarding" element={<VOnboarding />} />
+        <Route path="onboarding" element={<RequireVAuth><VOnboarding /></RequireVAuth>} />
 
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
@@ -188,6 +193,13 @@ function RouteTracker() {
   const location = useLocation();
   useEffect(() => {
     trackPageview(location.pathname + location.search);
+    if (location.pathname.startsWith("/validator")) {
+      document.title = "ValidationCrew — Validator";
+    } else if (location.pathname.startsWith("/admin")) {
+      document.title = "ValidationCrew — Admin";
+    } else {
+      document.title = "ValidationCrew — Builder";
+    }
   }, [location.pathname, location.search]);
   return null;
 }

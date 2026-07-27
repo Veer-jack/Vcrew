@@ -71,6 +71,49 @@ function RaiseTicket({ onClose, onCreated }) {
   );
 }
 
+function ViewTicket({ ticket, onClose }) {
+  const [convos, setConvos] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    vapi.getTicket(ticket.id)
+      .then(res => setConvos(res.conversations))
+      .catch(err => setError(err.message || "Failed to load ticket"));
+  }, [ticket.id]);
+
+  return (
+    <div style={{ display: "contents" }}>
+      <div className="notif-overlay" onClick={onClose} />
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 61, background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+        <div className="row between" style={{ padding: "18px 22px", borderBottom: "var(--hairline) solid var(--border)", flex: "none" }}>
+          <div>
+            <div className="faint mono" style={{ fontSize: 11 }}>{ticket.id}</div>
+            <b style={{ fontSize: 16 }}>{ticket.subject}</b>
+          </div>
+          <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+        <div style={{ padding: 22, overflow: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+          {error && <div className="err-banner">{error}</div>}
+          {!convos && !error && <div className="muted" style={{ textAlign: "center", padding: 40 }}>Loading conversation...</div>}
+          {convos && convos.length === 0 && <div className="muted" style={{ textAlign: "center", padding: 40 }}>No replies yet.</div>}
+          {convos && convos.map(c => (
+            <div key={c.id} style={{ alignSelf: c.fromAdmin ? "flex-start" : "flex-end", maxWidth: "85%", background: c.fromAdmin ? "var(--panel-inset)" : "var(--accent-weak)", padding: "12px 16px", borderRadius: 12 }}>
+              <div className="row between gap-3" style={{ marginBottom: 6, fontSize: 12 }}>
+                <b style={{ color: c.fromAdmin ? "var(--text)" : "var(--accent)" }}>{c.fromAdmin ? "Support Agent" : "You"}</b>
+                <span className="faint">{c.created_at}</span>
+              </div>
+              <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.5, color: c.fromAdmin ? "var(--text-muted)" : "var(--accent-strong)" }}>{c.body}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ padding: "16px 22px", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel-inset)", fontSize: 13, textAlign: "center", color: "var(--text-faint)" }}>
+          To reply to this ticket, please reply to the email sent to your inbox.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const TICKET_STATUS = {
   open: { l: "Open", c: "var(--warning)", bg: "var(--warning-weak)" },
   answered: { l: "Answered", c: "var(--accent)", bg: "var(--accent-weak)" },
@@ -82,6 +125,7 @@ export default function Support() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(null);
   const [raising, setRaising] = useState(false);
+  const [viewingTicket, setViewingTicket] = useState(null);
   const [data, setData] = useState(null);
 
   useEffect(() => { vapi.support().then(setData).catch(() => {}); }, []);
@@ -132,11 +176,11 @@ export default function Support() {
         {data.tickets.length === 0 ? <div className="card"><VEmpty icon="life" title="No tickets yet" body="When you raise a support ticket it'll appear here." cta={<button className="btn btn-primary" onClick={() => setRaising(true)}>Raise a ticket</button>} /></div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             {data.tickets.map((t, i) => {
-              const st = TICKET_STATUS[t.status];
+              const st = TICKET_STATUS[t.status] || TICKET_STATUS.open;
               return (
-                <div key={t.id} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }}>
+                <div key={t.id} onClick={() => setViewingTicket(t)} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="row gap-2 wrap"><b style={{ fontSize: 14.5 }}>{t.subject}</b>{t.priority === "high" && <span className="tag" style={{ background: "var(--danger-weak)", color: "var(--danger)" }}>High</span>}</div>
+                    <div className="row gap-2 wrap"><b style={{ fontSize: 14.5 }}>{t.subject}</b>{t.priority === "urgent" && <span className="tag" style={{ background: "var(--danger-weak)", color: "var(--danger)" }}>Urgent</span>}</div>
                     <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{t.id} · {t.cat} · updated {t.updated}</div>
                     {t.reply && <p className="muted" style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, padding: "10px 12px", background: "var(--panel-inset)", borderRadius: "var(--radius-sm, 8px)" }}><b style={{ color: "var(--text)" }}>Support reply:</b> {t.reply}</p>}
                   </div>
@@ -150,6 +194,7 @@ export default function Support() {
       </div>}
 
       {raising && <RaiseTicket onClose={() => setRaising(false)} onCreated={(t) => setData(d => ({ ...d, tickets: [{ ...t, updated: "Just now" }, ...d.tickets] }))} />}
+      {viewingTicket && <ViewTicket ticket={viewingTicket} onClose={() => setViewingTicket(null)} />}
     </div>
   );
 }

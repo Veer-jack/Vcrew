@@ -31,12 +31,13 @@ import { router as missionsRouter } from "./routes/missions.js";
 import { router as audienceRouter } from "./routes/audience.js";
 import { router as analyticsRouter } from "./routes/analytics.js";
 import { router as walletRouter } from "./routes/wallet.js";
-import { router as supportRouter } from "./routes/support.js";
+import { router as supportRouter, buildSupportRouter } from "./routes/support.js";
 import { router as adminRouter } from "./routes/admin.js";
 import { router as paymentsRouter } from "./routes/payments.js";
 import { router as notificationsRouter } from "./routes/notifications.js";
 import { router as messagesRouter } from "./routes/messages.js";
 import { router as metaRouter } from "./routes/meta.js";
+import { router as freshdeskWebhookRouter } from "./routes/freshdeskWebhook.js";
 
 import { router as vAuthRouter, publicValidator } from "./routes/vauth.js";
 import { router as vOAuthRouter } from "./routes/voauth.js";
@@ -48,7 +49,7 @@ import { router as vPayoutsRouter } from "./routes/vpayouts.js";
 import { router as vProfileRouter } from "./routes/vprofile.js";
 import { router as vNotificationsRouter } from "./routes/vnotifications.js";
 import { router as vMessagesRouter } from "./routes/vmessages.js";
-import { router as vSupportRouter } from "./routes/vsupport.js";
+import { HELP_ARTICLES as V_HELP_ARTICLES } from "./vmeta.js";
 
 import { authMiddleware, validatorAuthMiddleware, createSession, createValidatorSession, hashPassword } from "./auth.js";
 import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
@@ -162,7 +163,7 @@ app.use("/api/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
     await db.prepare(`INSERT INTO builders (name, org, email, password_hash, phone, phone_verified) VALUES (?,?,?,?,?,1)`)
       .run("New Builder", "My workspace", email, randomPassword, phone);
     const builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(email);
-    await db.prepare(`INSERT INTO notifications (builder_id, icon, tone, title, body, time_label, unread) VALUES (?,'shield','green',?,?, 'Just now', 1)`)
+    await db.prepare(`INSERT INTO notifications (builder_id, cat, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shield','green',?,?, 'Just now', 1)`)
       .run(builder.id, "Welcome to ValidationCrew", "Your account was created via phone sign-in. Update your workspace name and email in Settings any time.");
     return builder;
   },
@@ -177,7 +178,10 @@ app.use("/api/analytics", analyticsRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/support", supportRouter);
-app.use("/api/admin", adminLimiter, adminRouter);
+app.use("/api/freshdesk/webhook", freshdeskWebhookRouter);
+app.use("/api/admin/login", adminLimiter);
+app.use("/api/admin/totp", adminLimiter);
+app.use("/api/admin", adminRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/messages", messagesRouter);
 app.use("/api/meta", metaRouter);
@@ -209,7 +213,7 @@ app.use("/api/v/payouts", vPayoutsRouter);
 app.use("/api/v/profile", vProfileRouter);
 app.use("/api/v/notifications", vNotificationsRouter);
 app.use("/api/v/messages", vMessagesRouter);
-app.use("/api/v/support", vSupportRouter);
+app.use("/api/v/support", buildSupportRouter({ authMiddleware: validatorAuthMiddleware, userKey: "validator", helpArticles: V_HELP_ARTICLES, isValidator: true }));
 
 // ---- serve the built frontend (if present) ----
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

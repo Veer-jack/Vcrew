@@ -4,6 +4,7 @@ import Icon from "../components/Icon";
 import { Btn, inr } from "../components/ui";
 import { api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { exportCSV } from "../exportUtils";
 
 const TABS = [
   { k: "all", l: "All" },
@@ -360,10 +361,15 @@ export default function MissionReview() {
         <button className="btn btn-ghost" style={{ padding: "8px 10px" }} onClick={() => navigate(`/missions/${id}`)}>
           <Icon name="arrowLeft" size={16} />
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <div style={{ fontSize: 22, fontWeight: 800 }}>Submission Review</div>
           <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{mission?.name} · {subs.length} of {mission?.target} submissions received</div>
         </div>
+        <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV(
+          "submissions.csv",
+          ["Name", "City", "Trust", "Date", "Minutes", "Tasks", "Quality", "Status"],
+          visible.map(s => [s.name, s.city, (s.trust / 10).toFixed(1), s.date, s.mins, s.tasks, s.quality, s.status])
+        )}>Export</Btn>
       </div>
 
       {/* Insights panel */}

@@ -17,6 +17,11 @@ router.post("/read-all", async (req, res) => {
   res.json({ ok: true });
 });
 
+router.post("/clear-all", async (req, res) => {
+  await db.prepare(`DELETE FROM v_notifications WHERE validator_id = ?`).run(req.validator.id);
+  res.json({ ok: true });
+});
+
 router.patch("/:id", async (req, res) => {
   const n = await db.prepare(`SELECT * FROM v_notifications WHERE id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!n) return res.status(404).json({ error: "Not found" });

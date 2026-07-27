@@ -13,7 +13,7 @@ const resolveType = (typeStr) => {
   return found ? found.key : "mvp";
 };
 
-async function serializeTask(t, savedIds, myContext) {
+async function serializeTask(t, savedIds, myContext, inviteContext) {
   const normType = resolveType(t.ptype || t.type || t.raw_type);
   const product = t.product || t.name || "";
   const tagline = t.tagline || (t.description ? t.description.slice(0, 100) : "");
@@ -48,6 +48,7 @@ async function serializeTask(t, savedIds, myContext) {
     myStatus: myContext[t.id]?.status || null,
     myScore: myContext[t.id]?.score || null,
     myReason: myContext[t.id]?.reason || null,
+    inviteId: inviteContext ? inviteContext[t.id] : null,
   };
 }
 
@@ -56,12 +57,14 @@ async function loadContext(validatorId) {
   const savedIds = new Set(savedRows.map(r => r.task_id));
   const myRows = await db.prepare(`SELECT task_id, mission_id, status, score, reason FROM v_my_missions WHERE validator_id = ?`).all(validatorId);
   const myContext = Object.fromEntries(myRows.map(r => [r.mission_id || r.task_id, { status: r.status, score: r.score, reason: r.reason }]));
-  return { savedIds, myContext };
+  const inviteRows = await db.prepare(`SELECT id, mission_id FROM mission_invitations WHERE validator_id = ? AND status = 'pending'`).all(validatorId);
+  const inviteContext = Object.fromEntries(inviteRows.map(r => [r.mission_id, r.id]));
+  return { savedIds, myContext, inviteContext };
 }
 
 router.get("/", async (req, res) => {
   const { q, types, reward, time, verified, minMatch, sort } = req.query;
-  const { savedIds, myContext } = await loadContext(req.validator.id);
+  const { savedIds, myContext, inviteContext } = await loadContext(req.validator.id);
 
   // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
   const baseCTE = `
@@ -81,7 +84,7 @@ router.get("/", async (req, res) => {
 
   // Normalization logic in JS is safer for mapping the exact strings, but filtering is pushed down where possible.
   const rawRows = await db.prepare(baseCTE + ` SELECT * FROM base_tasks`).all();
-  let tasks = await Promise.all(rawRows.map(t => serializeTask(t, savedIds, myContext)));
+  let tasks = await Promise.all(rawRows.map(t => serializeTask(t, savedIds, myContext, inviteContext)));
 
   // Calculate un-filtered totals for categories (normalized)
   const categories = TYPE_ORDER.map(k => ({
@@ -125,8 +128,8 @@ router.get("/:id", async (req, res) => {
   }
   if (!t) return res.status(404).json({ error: "Mission not found" });
   
-  const { savedIds, myContext } = await loadContext(req.validator.id);
-  const serialized = await serializeTask(t, savedIds, myContext);
+  const { savedIds, myContext, inviteContext } = await loadContext(req.validator.id);
+  const serialized = await serializeTask(t, savedIds, myContext, inviteContext);
   res.json({ task: serialized, rubric: VTYPES[serialized.type] });
 });
 
@@ -182,18 +185,27 @@ router.post("/:id/apply", async (req, res) => {
       const doubleCheck = await db.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id);
       if (doubleCheck) throw new Error("Duplicate");
 
-      await db.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
-        .run(req.validator.id, t.id);
-      
       const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
-      await db.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
-        .run(t.id, req.validator.id, val ? val.name : "New Validator");
+      const missionCategory = await db.prepare(`SELECT name, category FROM missions WHERE id = ?`).get(t.id);
 
-      const missionCategory = await db.prepare(`SELECT category FROM missions WHERE id = ?`).get(t.id);
-      if (missionCategory?.category === "sample") {
-        await db.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
-          .run(t.id, req.validator.id);
-      }
+      await db.transaction(async (tx) => {
+        await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
+          .run(req.validator.id, t.id);
+
+        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
+          .run(t.id, req.validator.id, val ? val.name : "New Validator");
+
+        if (missionCategory?.category === "sample") {
+          await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
+            .run(t.id, req.validator.id);
+        }
+
+        await tx.prepare(`
+          INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+          VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1)
+        `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionCategory?.name || 'Unknown'}".`);
+      });
+
     } catch (err) {
       // Revert the increment if the insertion failed for any reason (duplicate/race condition)
       await db.prepare(`UPDATE missions SET joined = joined - 1 WHERE id = ?`).run(t.id);
@@ -210,11 +222,8 @@ router.post("/:id/apply", async (req, res) => {
   // Velocity check
   const dailyCount = Number((await db.prepare(`SELECT COUNT(*) AS n FROM v_my_missions WHERE validator_id = ? AND created_at > NOW() - INTERVAL '24 hours'`).get(req.validator.id)).n);
   if (dailyCount >= 15) {
-    const { flagFraud } = await import("../admin.js"); // Ensure this is imported properly if used
-    if (typeof flagFraud === 'function') {
-      flagFraud("high_velocity_applications", "validator", req.validator.id,
-        `${dailyCount} mission applications in the last 24 hours`, "medium");
-    }
+    flagFraud("high_velocity_applications", "validator", req.validator.id,
+      `${dailyCount} mission applications in the last 24 hours`, "medium");
   }
 
   let myMission;

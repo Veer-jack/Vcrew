@@ -17,23 +17,23 @@ export const router = Router();
 router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
-  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
+  if (!(await checkAdminCredentials(email, password))) return res.status(401).json({ error: "Invalid email or password" });
 
-  if (!adminHasTotp()) {
+  if (!(await adminHasTotp())) {
     // First-ever login: no 2FA configured yet -- caller must complete setup before a session is issued.
-    return res.json({ needsTotpSetup: true, usingDefaultPassword: isAdminUsingDefaultPassword() });
+    return res.json({ needsTotpSetup: true, usingDefaultPassword: await isAdminUsingDefaultPassword() });
   }
 
-  const pendingToken = createPending2fa();
+  const pendingToken = await createPending2fa();
   res.json({ needsTotpCode: true, pendingToken });
 });
 
 router.post("/totp/setup/start", async (req, res) => {
   const { email, password } = req.body || {};
-  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
-  if (adminHasTotp()) return res.status(400).json({ error: "Two-factor authentication is already configured" });
+  if (!(await checkAdminCredentials(email, password))) return res.status(401).json({ error: "Invalid email or password" });
+  if (await adminHasTotp()) return res.status(400).json({ error: "Two-factor authentication is already configured" });
 
-  const { uri } = generateTotpSecret();
+  const { uri } = await generateTotpSecret();
   QRCode.toDataURL(uri, (err, dataUrl) => {
     if (err) return res.status(500).json({ error: "Could not generate QR code" });
     res.json({ uri, qrCode: dataUrl });
@@ -42,21 +42,21 @@ router.post("/totp/setup/start", async (req, res) => {
 
 router.post("/totp/setup/confirm", async (req, res) => {
   const { email, password, code } = req.body || {};
-  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
+  if (!(await checkAdminCredentials(email, password))) return res.status(401).json({ error: "Invalid email or password" });
   const backupCodes = await confirmTotpSetup(code);
   if (!backupCodes) return res.status(400).json({ error: "Incorrect code, please try again" });
 
-  const token = createAdminSession();
+  const token = await createAdminSession();
   // Backup codes returned in plaintext once only — admin must save them now
-  res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword(), backupCodes });
+  res.json({ token, usingDefaultPassword: await isAdminUsingDefaultPassword(), backupCodes });
 });
 
 // Reset TOTP using a backup code — allows admin to re-scan a fresh QR if
 // they've lost access to their authenticator app.
 router.post("/totp/reset", async (req, res) => {
   const { email, password, backupCode } = req.body || {};
-  if (!checkAdminCredentials(email, password)) return res.status(401).json({ error: "Invalid email or password" });
-  if (!consumeBackupCode(backupCode)) return res.status(401).json({ error: "Invalid or already-used backup code" });
+  if (!(await checkAdminCredentials(email, password))) return res.status(401).json({ error: "Invalid email or password" });
+  if (!(await consumeBackupCode(backupCode))) return res.status(401).json({ error: "Invalid or already-used backup code" });
 
   // Wipe the existing TOTP secret — next login will trigger setup flow again
   await db.prepare(`DELETE FROM admin_settings WHERE key IN ('totp_secret', 'totp_secret_pending')`).run();
@@ -65,14 +65,14 @@ router.post("/totp/reset", async (req, res) => {
 
 router.post("/totp/verify", async (req, res) => {
   const { pendingToken, code } = req.body || {};
-  if (!checkPending2fa(pendingToken)) {
+  if (!(await checkPending2fa(pendingToken))) {
     return res.status(401).json({ error: "That code expired, please sign in again" });
   }
   if (!(await verifyTotpCode(code))) return res.status(401).json({ error: "Incorrect code" });
 
-  consumePending2fa(pendingToken);
-  const token = createAdminSession();
-  res.json({ token, usingDefaultPassword: isAdminUsingDefaultPassword() });
+  await consumePending2fa(pendingToken);
+  const token = await createAdminSession();
+  res.json({ token, usingDefaultPassword: await isAdminUsingDefaultPassword() });
 });
 
 router.post("/logout", adminAuthMiddleware, async (req, res) => {
@@ -82,6 +82,27 @@ router.post("/logout", adminAuthMiddleware, async (req, res) => {
 
 router.get("/me", adminAuthMiddleware, async (req, res) => {
   res.json({ ok: true, usingDefaultPassword: isAdminUsingDefaultPassword() });
+});
+
+// ---- Cron Jobs (Requires CRON_SECRET) ----
+import { runSweepFailures } from "../jobs/sweepFailures.js";
+
+router.post("/cron/sweep-failures", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!process.env.CRON_SECRET) {
+    return res.status(500).json({ error: "CRON_SECRET not configured" });
+  }
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ error: "Unauthorized cron request" });
+  }
+
+  try {
+    const result = await runSweepFailures();
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    console.error("Cron sweepFailures error:", error);
+    res.status(500).json({ error: "Sweep failed", detail: error.message });
+  }
 });
 
 router.use(adminAuthMiddleware);
@@ -167,6 +188,20 @@ router.patch("/members/:type/:id", async (req, res) => {
   res.json({ ok: true, status });
 });
 
+// PATCH /api/admin/members/validator/:id/verify
+router.patch("/members/validator/:id/verify", async (req, res) => {
+  const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(req.params.id);
+  if (!v) return res.status(404).json({ error: "Validator not found" });
+
+  await db.prepare(`UPDATE validators SET verified = 1, verification_status = 'verified' WHERE id = ?`).run(v.id);
+  
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'verified', 'shield', 'success', ?, ?, 'Just now', 1)`)
+    .run(v.id, "Account Verified", "Congratulations! Your account has been manually verified by our team. You can now access Verified missions.");
+
+  audit(`validator.verify`, "validator", v.id, `Manually verified validator #${v.id}`);
+  res.json({ ok: true });
+});
+
 /* ============ Support tickets ============ */
 
 router.get("/tickets", async (req, res) => {
@@ -202,10 +237,16 @@ router.patch("/tickets/:type/:id", async (req, res) => {
   if (status && !["open", "answered", "resolved"].includes(status)) return res.status(400).json({ error: "Invalid status" });
 
   if (status) await db.prepare(`UPDATE ${table} SET status = ?, updated_at = NOW() WHERE id = ?`).run(status, id);
-  if (reply !== undefined) await db.prepare(`UPDATE ${table} SET body = CONCAT(body, '
+  if (reply !== undefined) await db.prepare(`UPDATE ${table} SET body = CONCAT(body, '\n\n---\nAdmin reply: ', ?), status = 'answered', updated_at = NOW() WHERE id = ?`).run(reply, id);
 
----
-Admin reply: ', ?), status = 'answered', updated_at = NOW() WHERE id = ?`).run(reply, id);
+  if (reply !== undefined || status) {
+    const notifyTable = type === "builder" ? "notifications" : "v_notifications";
+    const userIdCol = type === "builder" ? "builder_id" : "validator_id";
+    const userId = type === "builder" ? row.builder_id : row.validator_id;
+    if (userId) {
+      await db.prepare(`INSERT INTO ${notifyTable} (${userIdCol}, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'ticket_update', 'life', 'primary', 'Support Update', 'Your support ticket has been updated by the admin team.', 'Just now', 1)`).run(userId);
+    }
+  }
 
   res.json({ ok: true });
 });
@@ -240,9 +281,19 @@ router.patch("/withdrawals/:id", async (req, res) => {
     await db.prepare(`UPDATE validators SET available = available + ? WHERE id = ?`).run(row.amount, row.validator_id);
   }
 
-  // Email the validator about their withdrawal status
+  // Notify the validator about their withdrawal status
   const v = await db.prepare(`SELECT name, email FROM validators WHERE id = ?`).get(row.validator_id);
   if (v && ["processed", "failed", "rejected"].includes(status)) {
+    const tone = status === "processed" ? "success" : "warning";
+    const icon = status === "processed" ? "checkCircle" : "xCircle";
+    const title = status === "processed" ? "Withdrawal Processed" : "Withdrawal Failed";
+    const body = status === "processed" 
+      ? `Your withdrawal of ₹${row.amount} has been successfully processed.` 
+      : `Your withdrawal of ₹${row.amount} failed or was rejected. The amount has been refunded to your wallet.`;
+      
+    await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'payout', ?, ?, ?, ?, 'Just now', 1)`)
+      .run(row.validator_id, icon, tone, title, body);
+
     sendWithdrawalUpdate({
       validatorName: v.name, validatorEmail: v.email,
       amount: row.amount, status, failureReason: req.body?.failureReason || null,
@@ -282,6 +333,17 @@ router.patch("/verifications/:id", async (req, res) => {
   if (status === "approved" && row.kind === "website") {
     await db.prepare(`UPDATE builders SET verified_at = NOW() WHERE id = ? AND verified_at IS NULL`).run(row.builder_id);
   }
+
+  // Notify builder
+  const title = status === "approved" ? "Verification Approved" : "Verification Declined";
+  const body = status === "approved" 
+    ? `Your ${row.kind} verification claim has been approved by our team.`
+    : `Your ${row.kind} verification claim was declined. Please try again with different proof.`;
+  const tone = status === "approved" ? "success" : "warning";
+  const icon = status === "approved" ? "checkCircle" : "xCircle";
+  
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'verification', ?, ?, ?, ?, 'Just now', 1)`)
+    .run(row.builder_id, icon, tone, title, body);
 
   audit(`verification.${status}`, "verification", req.params.id, `${row.kind} claim for builder #${row.builder_id} ${status}`);
   res.json({ ok: true, status });
