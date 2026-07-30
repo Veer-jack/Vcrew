@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
@@ -66,8 +66,14 @@ function MyMissionRow({ m, vtypes, ptypes, navigate }) {
 
 export default function MyMissions() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { vtypes, ptypes } = useVMeta();
-  const [tab, setTab] = useState("active");
+  
+  // Use the search param tab if it exists and is valid, otherwise default to "active"
+  const urlTab = searchParams.get("tab");
+  const initialTab = (urlTab && TABS.some(t => t.k === urlTab)) ? urlTab : "active";
+  
+  const [tab, setTab] = useState(initialTab);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);

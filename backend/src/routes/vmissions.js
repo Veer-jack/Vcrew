@@ -278,6 +278,10 @@ router.patch("/:id/workspace/draft", async (req, res) => {
   await db.prepare(`UPDATE v_my_missions SET progress = ?, updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(progressPercent, req.params.id, req.validator.id);
 
+  // Update participant stage to started if it's currently accepted
+  await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
+    .run(req.params.id, req.validator.id);
+
   res.json({ ok: true, progress: progressPercent });
 });
 
@@ -449,6 +453,11 @@ router.patch("/:id/workspace/submit", async (req, res) => {
         INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
         VALUES (?, 'application', 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
       `).run(m.builder_id, `A validator has updated their response for ${m.name} and is ready for your review.`);
+    } else if (existing.status === 'draft') {
+      await db.prepare(`
+        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
+        VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1)
+      `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`);
     }
     await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
       .run(JSON.stringify(answers || {}), existing.id);

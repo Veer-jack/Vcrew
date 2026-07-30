@@ -114,7 +114,7 @@ router.get("/", async (req, res) => {
   const { status, category, q } = req.query;
   let sql = `
     SELECT m.*, 
-      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
     FROM missions m 
     WHERE m.builder_id = ?
@@ -133,7 +133,7 @@ router.get("/:id", async (req, res) => {
   await recalcMissionStats(req.params.id);
   const m = await db.prepare(`
     SELECT m.*, 
-      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
     FROM missions m 
     WHERE m.id = ? AND m.builder_id = ?
@@ -146,7 +146,7 @@ router.get("/:id", async (req, res) => {
     FROM responses r 
     LEFT JOIN participants p ON p.validator_id = r.validator_id AND p.mission_id = r.mission_id
     LEFT JOIN validators v ON v.id = r.validator_id
-    WHERE r.mission_id = ? ORDER BY r.id DESC
+    WHERE r.mission_id = ? AND r.status != 'draft' ORDER BY r.id DESC
   `).all(m.id);
   
   const responses = responsesRaw.map(r => {
@@ -896,7 +896,25 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
       } catch {}
       
       const breakdown = data.map((ans, i) => {
-        if (!ans) return null;
+        let taskTitle = `Task ${i + 1}`;
+        if (missionTasks[i] && missionTasks[i].title) {
+          taskTitle = missionTasks[i].title;
+        } else if (missionTasks[i] && missionTasks[i].prompt) {
+          taskTitle = missionTasks[i].prompt;
+        } else if (typeof missionTasks[i] === "string") {
+          taskTitle = missionTasks[i];
+        }
+
+        if (typeof ans === 'string') {
+          return {
+            t: taskTitle,
+            rating: 0,
+            ans,
+            details: [],
+            attachments: [],
+          };
+        }
+
         let attachments = [];
         let details = [];
         for (const [key, val] of Object.entries(ans)) {
@@ -929,15 +947,6 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
           }
           
           details.push({ label: displayLabel, value: displayValue });
-        }
-        
-        let taskTitle = `Task ${i + 1}`;
-        if (missionTasks[i] && missionTasks[i].title) {
-          taskTitle = missionTasks[i].title;
-        } else if (missionTasks[i] && missionTasks[i].prompt) {
-          taskTitle = missionTasks[i].prompt;
-        } else if (typeof missionTasks[i] === "string") {
-          taskTitle = missionTasks[i];
         }
 
         return {
@@ -1027,8 +1036,8 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
       }
     }
     
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "reward", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now");
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
+      .run(response.validator_id, "reward", "submission_approved", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now");
 
     // Log Activity for Builder
     await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
@@ -1085,8 +1094,8 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
         .run(newRating, count + 1, response.validator_id);
     }
     
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "alert", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
+      .run(response.validator_id, "alert", "submission_rejected", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
 
     await recalcMissionStats(req.params.id, tx);
   }).catch(err => {
@@ -1107,8 +1116,8 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
-  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
-    .run(response.validator_id, "alert", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
+    .run(response.validator_id, "alert", "submission_revision", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
 
   await recalcMissionStats(req.params.id);
 

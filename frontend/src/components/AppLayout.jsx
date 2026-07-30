@@ -7,74 +7,9 @@ import { api } from "../api/client";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "../i18n/index.jsx";
 import { BrandMark, BrandLogoFull } from "./BrandMark";
+import NotificationsSidebar from "./NotificationsSidebar";
 
-function NotifPanel({ onClose, items, setItems }) {
-  const [cat, setCat] = useState("all");
 
-  const rows = cat === "all" ? items : items.filter(n => n.cat === cat);
-  const cats = [
-    { k: "all", l: "All" }, { k: "application", l: "Applications" }, 
-    { k: "message", l: "Messages" }, { k: "system", l: "System" }
-  ];
-
-  const navigate = useNavigate();
-
-  const markAll = async () => {
-    await api.markAllRead();
-    setItems(its => its.map(i => ({ ...i, unread: false })));
-  };
-  const clearAll = async () => {
-    await api.clearAllNotifications();
-    setItems([]);
-  };
-  const open = async (n) => {
-    if (n.unread) {
-      await api.markRead(n.id);
-      setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i));
-    }
-    onClose();
-    if (n.type === "application" || n.title.includes("Accepted")) {
-      navigate("/missions"); // We don't have mission_id in notifications yet, so go to missions list
-    } else if (n.title.includes("Submission") || n.type === "submission") {
-      navigate("/missions");
-    }
-  };
-
-  return (
-    <div style={{ display: "contents" }}>
-      <div className="notif-overlay" onClick={onClose} />
-      <div className="notif-panel">
-        <div className="notif-h">
-          <b>Notifications</b>
-          <div className="row gap-2">
-            <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>Mark all read</button>
-            <button className="backlink" style={{ margin: 0, fontSize: 12.5, color: "var(--danger, #ff4d4f)" }} onClick={clearAll}>Clear all</button>
-            <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 6, padding: "12px 16px", borderBottom: "var(--hairline) solid var(--border)", overflowX: "auto" }}>
-          {cats.map(c => (
-            <button key={c.k} className="pill" onClick={() => setCat(c.k)} style={{ cursor: "pointer", whiteSpace: "nowrap", flex: "none",
-              background: cat === c.k ? "var(--accent)" : "var(--panel)", borderColor: cat === c.k ? "var(--accent)" : "var(--border)", color: cat === c.k ? "#fff" : "var(--text-muted)" }}>{c.l}</button>
-          ))}
-        </div>
-        <div className="notif-list">
-          {rows.length === 0 && <div className="muted" style={{ padding: 24, textAlign: "center" }}>No notifications here.</div>}
-          {rows.map(n => (
-            <div key={n.id} className={`notif-item ${n.unread ? "unread" : ""}`} onClick={() => open(n)}>
-              <span className="notif-dot" />
-              <span className={`feed-ic ${n.tone}`} style={{ width: 34, height: 34 }}><Icon name={n.icon} size={16} /></span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="row between" style={{ gap: 8 }}><b style={{ fontSize: 13.5 }}>{n.title}</b><span className="feed-time">{n.time}</span></div>
-                <p className="muted" style={{ margin: "3px 0 0", fontSize: 13, lineHeight: 1.45 }}>{n.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const NAV_GROUPS = [
   { label: "Workspace", items: [
@@ -113,7 +48,7 @@ function Sidebar({ mobOpen, closeMobile, builder }) {
           <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span style={{ fontWeight: 700, fontSize: 13 }}>Wallet</span><span className="mono faint" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
           <div className="lvl-meter"><i style={{ width: "68%" }} /></div>
         </div>
-        <NavLink to="/wallet" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}>
+        <NavLink to="/settings" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}>
           <Avatar name={builder?.name || ""} size={30} color={builder?.color} />
           <div style={{ textAlign: "left", lineHeight: 1.2 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{builder?.name}</div>
@@ -219,7 +154,14 @@ export default function AppLayout() {
         </header>
         <Outlet />
       </div>
-      {bell && <NotifPanel onClose={() => setBell(false)} items={notifs} setItems={setNotifs} />}
+      {bell && <NotificationsSidebar 
+            onClose={() => setBell(false)} 
+            items={notifs} 
+            setItems={setNotifs}
+            onMarkAllRead={() => api.markAllRead()}
+            onClearAll={() => api.clearAllNotifications()}
+            onRead={(id) => api.markRead(id)}
+          />}
     </div>
   );
 }

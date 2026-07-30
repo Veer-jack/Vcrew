@@ -1,17 +1,61 @@
+import { useEffect, useRef, useState } from "react";
 import {
   Field, TextInput, Textarea, SelectInput, FSection, Chips, SelCards,
   ReachMeter, LocationFields, DemographicsRow, ProfileChips, VerifyRow, PersonalFields,
 } from "../components/OnboardingFields";
 import {
-  DESIGNATIONS, COMPANY_SIZES, COMPANY_STAGES, INDUSTRIES, VALIDATION_TYPES,
-  AGE_BANDS, GENDERS, OCCUPATIONS, EDUCATIONS, INTERESTS, INCOME_BANDS,
-  COMPANY_INDUSTRIES, EMP_SIZES, COMPANY_LOOKING, PRODUCT_STAGES, VOLUME_COMPANY,
+  COMPANY_SIZES, COMPANY_STAGES, INDUSTRIES, VALIDATION_TYPES,
+  COMPANY_INDUSTRIES, EMP_SIZES, COMPANY_LOOKING, PRODUCT_STAGES,
   RES_DESIGNATIONS, QUALIFICATIONS, RESEARCH_AREAS, SUPPORT_TYPES, ETHICS_OPTIONS,
   ADDITIONAL_FILTERS, SAMPLE_SIZES, ORG_TYPES, ORG_LEARN, GEO_AREA, ORG_TARGET, ORG_SCALE,
-  OCC_SIMPLE, FREQUENCY, PREFERRED_METHODS, foReach, foLabelList,
+  FREQUENCY, PREFERRED_METHODS, foLabelList,
 } from "./onboarding";
+import { useMeta } from "../context/MetaContext";
+import { api } from "../api/client";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Builds the same {Geography, Demographics, Professional, Interests} shape the real
+// Audience Explorer uses, from whatever subset of onboarding fields the current persona
+// step collects. Geography stays free-text (city/state/country as typed) — the backend
+// does a real substring match against actual validator location data.
+export function buildAudienceQuery(d) {
+  return {
+    Geography: [d.district, d.state, d.country].filter(Boolean),
+    Demographics: [...(d.ageBands || []), ...(d.genders || []).filter(g => g !== "Any"), ...(d.incomeBands || [])],
+    Professional: (d.occupations || []),
+    Interests: (d.interests || []),
+  };
+}
+
+// Real, live match count against the actual validators table — replaces the old
+// hardcoded-pool formula (foReach) that never touched real data. `base` is the true
+// total (no filters) so the meter's fill percentage means something real too.
+// `reach` deliberately keeps showing the last known number while a refetch is in
+// flight (never drops to 0/blank mid-typing) — `loading` tells the caller a fetch
+// is running so it can show a subtle "Updating…" cue instead of a jarring reset.
+function useAudienceReach(d) {
+  const [reach, setReach] = useState(null);
+  const [base, setBase] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    api.audienceMatchCount({}).then(r => { setBase(r.count); setReach(r.count); }).catch(() => { setBase(0); setReach(0); }).finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    setLoading(true);
+    debounceRef.current = setTimeout(() => {
+      api.audienceMatchCount(buildAudienceQuery(d)).then(r => setReach(r.count)).catch(() => {}).finally(() => setLoading(false));
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify([d.ageBands, d.genders, d.incomeBands, d.occupations, d.interests, d.country, d.state, d.district])]);
+
+  return { reach: reach ?? 0, base: base ?? 1, firstLoad: reach === null, updating: loading && reach !== null };
+}
 
 function StepHead({ step, title, sub }) {
   return (
@@ -76,17 +120,20 @@ function FoValidate({ d, set }) {
   );
 }
 function GenericAudience({ d, set, region, title, sub }) {
-  const base = region === "india" ? 184000 : 246000;
+  const { filters } = useMeta();
+  const { reach, base, firstLoad, updating } = useAudienceReach(d);
+  const interestOptions = [...(filters.Interests?.Lifestyle || []), ...(filters.Interests?.Industry || []), ...(filters.Interests?.["Product Types"] || [])];
   return (
     <div className="rise">
       <StepHead step="Audience" title={title} sub={sub} />
-      <ReachMeter reach={foReach(d, region)} base={base} />
+      <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <FSection label="Demographics" />
-      <DemographicsRow d={d} set={set} />
+      <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
       <FSection label="Location" />
       <LocationFields region={region} d={d} set={set} withCity />
       <FSection label="Profile" />
-      <ProfileChips d={d} set={set} region={region} occOptions={OCCUPATIONS}
+      <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional}
+        incomeOptions={filters.Demographics?.["Income Bracket"]} interestOptions={interestOptions}
         show={{ occupation: true, education: true, income: true, languages: true, interests: true }} />
     </div>
   );
@@ -230,18 +277,19 @@ function ResResearch({ d, set }) {
   );
 }
 function ResParticipants({ d, set, region }) {
-  const base = region === "india" ? 184000 : 246000;
+  const { filters } = useMeta();
+  const { reach, base, firstLoad, updating } = useAudienceReach(d);
   return (
     <div className="rise">
       <StepHead step="Step 4 · Participants" title="Who should take part?" sub="Define your sample — we match you to participants who fit your criteria." />
-      <ReachMeter reach={foReach(d, region)} base={base} />
+      <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <FSection label="Sample size needed" />
       <Field label="How many participants?"><Chips options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} /></Field>
       <FSection label="Location" />
       <LocationFields region={region} d={d} set={set} />
       <FSection label="Demographics" />
-      <DemographicsRow d={d} set={set} />
-      <ProfileChips d={d} set={set} region={region} occOptions={OCC_SIMPLE} show={{ occupation: true, education: true, income: true }} />
+      <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+      <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} />
       <FSection label="Additional filters" />
       <Chips options={ADDITIONAL_FILTERS} value={d.filters} onChange={(v) => set("filters", v)} />
     </div>
@@ -318,18 +366,19 @@ function OrgGoals({ d, set }) {
 }
 function OrgAudience(props) {
   const { d, set, region } = props;
-  const base = region === "india" ? 184000 : 246000;
+  const { filters } = useMeta();
+  const { reach, base, firstLoad, updating } = useAudienceReach(d);
   return (
     <div className="rise">
       <StepHead step="Step 4 · Audience" title="Who would you like to hear from?" sub="Define the community you want feedback from." />
-      <ReachMeter reach={foReach(d, region)} base={base} />
+      <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <FSection label="Location" />
       <LocationFields region={region} d={d} set={set} withCity />
       <FSection label="Target audience" count={(d.targetGroups || []).length ? `${d.targetGroups.length} selected` : null} />
       <Chips options={ORG_TARGET} value={d.targetGroups} onChange={(v) => set("targetGroups", v)} />
       <FSection label="Demographic filters" />
-      <DemographicsRow d={d} set={set} />
-      <ProfileChips d={d} set={set} region={region} show={{ income: true, languages: true }} />
+      <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+      <ProfileChips d={d} set={set} region={region} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ income: true, languages: true }} />
       <FSection label="Scale requirements" />
       <Field label="How many participants are typically needed?"><Chips options={ORG_SCALE} value={d.scale} onChange={(v) => set("scale", v)} multi={false} /></Field>
     </div>
@@ -376,10 +425,10 @@ export const PERSONA_CONFIG = {
     validate: foValid,
     workspace: (d) => d.companyName || "Your workspace",
     noun: "campaign",
-    summary: (d, region) => [
+    matchedNoun: "validators",
+    summary: (d) => [
       { label: "Company", value: d.companyName || "—" },
       { label: "Validating", value: foLabelList(VALIDATION_TYPES, d.vTypes) },
-      { label: "Matched audience", value: foReach(d, region).toLocaleString("en-US") + " validators" },
     ],
   },
   company: {
@@ -396,10 +445,10 @@ export const PERSONA_CONFIG = {
     validate: coValid,
     workspace: (d) => d.companyName || "Your workspace",
     noun: "campaign",
-    summary: (d, region) => [
+    matchedNoun: "people",
+    summary: (d) => [
       { label: "Company", value: d.companyName || "—" },
       { label: "Looking for", value: foLabelList(COMPANY_LOOKING, d.looking) },
-      { label: "Matched audience", value: foReach(d, region).toLocaleString("en-US") + " people" },
     ],
   },
   researcher: {
@@ -436,10 +485,10 @@ export const PERSONA_CONFIG = {
     validate: orgValid,
     workspace: (d) => d.orgName || "Your workspace",
     noun: "initiative",
-    summary: (d, region) => [
+    matchedNoun: "people",
+    summary: (d) => [
       { label: "Organization", value: d.orgName || "—" },
       { label: "Learning", value: foLabelList(ORG_LEARN, d.learn) },
-      { label: "Matched audience", value: foReach(d, region).toLocaleString("en-US") + " people" },
     ],
   },
 };

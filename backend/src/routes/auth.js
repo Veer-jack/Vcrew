@@ -304,3 +304,19 @@ router.patch("/language", authMiddleware, async (req, res) => {
   await db.prepare(`UPDATE builders SET preferred_language = ? WHERE id = ?`).run(lang, req.builder.id);
   res.json({ ok: true, lang });
 });
+
+// POST /api/auth/reapply-verification
+router.post("/reapply-verification", authMiddleware, async (req, res) => {
+  // Find rejected verifications and reset them to pending
+  const result = await db.prepare(`
+    UPDATE verifications 
+    SET status = 'pending', submitted_at = NOW(), reviewer_note = NULL 
+    WHERE builder_id = ? AND status = 'rejected'
+  `).run(req.builder.id);
+
+  if (result.changes > 0) {
+    await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('system', 'verification', 'shield', 'warning', 'Verification Re-applied', ?, 'Just now', 1)`).run(`Builder ${req.builder.email} re-applied for verification.`);
+  }
+
+  res.json({ ok: true });
+});

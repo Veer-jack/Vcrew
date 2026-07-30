@@ -1,17 +1,18 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+
 import { BrandLogoFull } from "../components/BrandMark";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
+import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 
 function useDraft(key, defaultState) {
   const [val, setVal] = useState(() => {
     try {
       const stored = localStorage.getItem(key);
       if (stored) return JSON.parse(stored);
-    } catch (e) {}
+    } catch { /* ignore */ }
     return defaultState;
   });
   useEffect(() => {
@@ -223,23 +224,14 @@ function PendingScreen({ onContinue }) {
 }
 
 export default function VOnboarding() {
-  const navigate = useNavigate();
   const { validator, refresh } = useVAuth();
   const [validatorType, setValidatorType] = useDraft(`VC_V_TYPE_${validator?.id}`, null);
   const [showPending, setShowPending] = useState(false);
   const [error, setError] = useState("");
   const type = TYPES.find(t => t.key === validatorType);
 
-  useEffect(() => {
-    if (!validatorType || showPending) return;
-    const handleBeforeUnload = (e) => {
-      if (window.__bypassUnload) return;
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [validatorType, showPending]);
+  const isDirty = !!validatorType && !showPending;
+  useUnsavedChangesWarning(isDirty, "You're still setting up your account. Are you sure you want to leave and lose your progress?");
 
   const handleDone = async (data, vtype) => {
     setError("");

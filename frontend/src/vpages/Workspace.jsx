@@ -5,7 +5,7 @@ import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 
-function Timer({ secs, onDone, taskKey }) {
+function Timer({ secs, onDone, taskKey, isDone }) {
   const getInitialRem = () => {
     if (!taskKey) return secs;
     const startStr = localStorage.getItem("timer_start_" + taskKey);
@@ -22,10 +22,13 @@ function Timer({ secs, onDone, taskKey }) {
   const [rem, setRem] = useState(getInitialRem);
   const done = rem <= 0 || rem === 9999;
   useEffect(() => {
-    if (done) { onDoneRef.current?.(); return; }
+    if (done) { 
+      if (!isDone) onDoneRef.current?.(); 
+      return; 
+    }
     const id = setInterval(() => setRem(r => r - 1), 1000);
     return () => clearInterval(id);
-  }, [done]);
+  }, [done, isDone]);
   const m = Math.floor(Math.abs(rem) / 60), s = Math.abs(rem) % 60;
   const cls = done ? "done" : rem < 30 ? "warn" : "";
   return (
@@ -332,7 +335,7 @@ export default function Workspace() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
           <span style={{ flex: 1 }} />
-          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} onDone={() => setTimerDone(p => { 
+          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} isDone={timerDone[curIdx]} onDone={() => setTimerDone(p => { 
             if (p[curIdx] === true) return p;
             const a = [...p]; a[curIdx] = true; return a; 
           })} />

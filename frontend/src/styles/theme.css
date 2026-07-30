@@ -458,3 +458,26 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
     --pad-card: 16px;
   }
 }
+
+/* Notifications Bell Dot */
+.bell-unread-dot {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background-color: var(--danger, #ef4444);
+  border-radius: 50%;
+  border: 2px solid var(--panel, #fff);
+  pointer-events: none;
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.blink {
+  animation: blink 1.5s infinite ease-in-out;
+}

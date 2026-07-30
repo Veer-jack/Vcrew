@@ -48,6 +48,10 @@ export const api = {
   me: () => request("/auth/me"),
   oauthProviders: () => request("/auth/oauth/providers"),
   updateProfile: (body) => request("/auth/profile", { method: "PATCH", body }),
+  phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
+  phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
+  phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
+  reapplyVerification: () => request("/auth/reapply-verification", { method: "POST" }),
   support: () => request("/support"),
   raiseTicket: (payload) => request("/support/tickets", { method: "POST", body: payload }),
   getTicket: (id) => request(`/support/tickets/${id}`),
@@ -88,6 +92,7 @@ export const api = {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
     return request(`/audience${qs.toString() ? `?${qs}` : ""}`);
   },
+  audienceMatchCount: (audience) => request("/audience/match-count", { method: "POST", body: audience }),
 
   analytics: () => request("/analytics"),
 

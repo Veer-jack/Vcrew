@@ -141,9 +141,9 @@ router.get("/dashboard", async (req, res) => {
   const flaggedMissions = (await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get()).n;
 
   res.json({
-    builders, validators, totalUsers: builders + validators,
-    activeMissions, totalMissions, gmv, spend,
-    openTickets, suspended,
+    builders: Number(builders), validators: Number(validators), totalUsers: Number(builders) + Number(validators),
+    activeMissions: Number(activeMissions), totalMissions: Number(totalMissions), gmv: Number(gmv), spend: Number(spend),
+    openTickets: Number(openTickets), suspended: Number(suspended),
     withdrawalQueue: Number(withdrawalQueue.n), withdrawalQueueAmount: Number(withdrawalQueue.amt),
     pendingVerifications, pendingTesterApplications, flaggedMissions,
   });
@@ -178,6 +178,7 @@ router.patch("/notifications/:id/read", async (req, res) => {
 router.get("/members", async (req, res) => {
   const q = String(req.query.q || "").trim();
   const type = req.query.type; // 'builder' | 'validator' | undefined
+  const filterStatus = req.query.status; // 'suspended' | undefined
   const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
   const offset = Math.max(0, Number(req.query.offset) || 0);
 
@@ -190,8 +191,16 @@ router.get("/members", async (req, res) => {
   }
   const union = branches.join(" UNION ALL ");
 
-  const where = q ? `WHERE (name ILIKE ? OR email ILIKE ? OR org ILIKE ?)` : "";
-  const whereParams = q ? [`%${q}%`, `%${q}%`, `%${q}%`] : [];
+  const conditions = [];
+  const whereParams = [];
+  if (q) {
+    conditions.push(`(name ILIKE ? OR email ILIKE ? OR org ILIKE ?)`);
+    whereParams.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  if (filterStatus === "suspended") {
+    conditions.push(`status = 'suspended'`);
+  }
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countRow = await db.prepare(`SELECT COUNT(*) as c FROM (${union}) t ${where}`).get(...whereParams);
   const rows = await db.prepare(`SELECT * FROM (${union}) t ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`).all(...whereParams, limit, offset);
@@ -334,11 +343,17 @@ router.patch("/withdrawals/:id", async (req, res) => {
 
 router.get("/verifications", async (req, res) => {
   const status = req.query.status || "pending";
-  const rows = await db.prepare(`
+  let query = `
     SELECT v.*, b.name AS builder_name, b.org, b.email, b.persona
     FROM verifications v JOIN builders b ON b.id = v.builder_id
-    WHERE v.status = ? ORDER BY v.submitted_at ASC
-  `).all(status);
+  `;
+  const params = [];
+  if (status !== "all") {
+    query += ` WHERE v.status = ?`;
+    params.push(status);
+  }
+  query += ` ORDER BY v.submitted_at DESC`;
+  const rows = await db.prepare(query).all(...params);
   res.json({ verifications: rows.map(v => ({
     id: v.id, builderId: v.builder_id, builderName: v.builder_name, org: v.org, email: v.email,
     persona: v.persona, kind: v.kind, subject: v.subject, status: v.status, note: v.note,
@@ -348,12 +363,13 @@ router.get("/verifications", async (req, res) => {
 
 router.patch("/verifications/:id", async (req, res) => {
   const status = String(req.body?.status || "");
+  const note = req.body?.note ? String(req.body.note).trim() : null;
   if (!["approved", "rejected"].includes(status)) return res.status(400).json({ error: "status must be 'approved' or 'rejected'" });
 
   const row = await db.prepare(`SELECT * FROM verifications WHERE id = ?`).get(req.params.id);
   if (!row) return res.status(404).json({ error: "Not found" });
 
-  await db.prepare(`UPDATE verifications SET status = ?, reviewed_at = NOW() WHERE id = ?`).run(status, req.params.id);
+  await db.prepare(`UPDATE verifications SET status = ?, reviewer_note = ?, reviewed_at = NOW() WHERE id = ?`).run(status, note, req.params.id);
 
   // If a verification is approved, mark the builder as verified
   if (status === "approved") {
@@ -364,7 +380,7 @@ router.patch("/verifications/:id", async (req, res) => {
   const title = status === "approved" ? "Verification Approved" : "Verification Declined";
   const body = status === "approved" 
     ? `Your ${row.kind} verification claim has been approved by our team.`
-    : `Your ${row.kind} verification claim was declined. Please try again with different proof.`;
+    : `Your ${row.kind} verification claim was declined. Reason: ${note || 'Please try again with different proof.'}`;
   const tone = status === "approved" ? "success" : "warning";
   const icon = status === "approved" ? "checkCircle" : "xCircle";
   
@@ -381,15 +397,15 @@ router.patch("/verifications/:id", async (req, res) => {
 router.get("/tester-applications", async (req, res) => {
   const rows = await db.prepare(`
     SELECT id, name, email, city, occupation, experience_years, industry_json, company,
-           linkedin_url, portfolio_url, testing_bio, resume_path, resume_filename, created_at
-    FROM validators WHERE tester_status = 'pending_review' ORDER BY created_at ASC
+           linkedin_url, portfolio_url, testing_bio, resume_path, resume_filename, created_at, tester_status
+    FROM validators WHERE tester_status != 'none' ORDER BY created_at DESC
   `).all();
   res.json({ applications: rows.map(v => ({
     id: v.id, name: v.name, email: v.email, city: v.city, occupation: v.occupation,
     experience: v.experience_years, industry: JSON.parse(v.industry_json || "[]"), company: v.company,
     linkedinUrl: v.linkedin_url, portfolioUrl: v.portfolio_url, testingBio: v.testing_bio,
     resumeUrl: v.resume_path ? `/api/uploads/${v.resume_path}` : null, resumeFilename: v.resume_filename,
-    createdAt: v.created_at,
+    createdAt: v.created_at, status: v.tester_status,
   })) });
 });
 

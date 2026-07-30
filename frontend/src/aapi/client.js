@@ -61,7 +61,7 @@ export const aapi = {
   updateWithdrawal: (id, body) => request(`/withdrawals/${id}`, { method: "PATCH", body }),
 
   verifications: (status) => request("/verifications", { query: { status } }),
-  updateVerification: (id, status) => request(`/verifications/${id}`, { method: "PATCH", body: { status } }),
+  updateVerification: (id, status, note) => request(`/verifications/${id}`, { method: "PATCH", body: { status, note } }),
 
   testerApplications: () => request("/tester-applications"),
   updateTesterApplication: (id, body) => request(`/tester-applications/${id}`, { method: "PATCH", body }),

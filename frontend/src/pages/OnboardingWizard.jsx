@@ -4,7 +4,9 @@ import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG } from "../data/personaConfig";
+import { PERSONA_CONFIG, buildAudienceQuery } from "../data/personaConfig";
+import { api } from "../api/client";
+import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 
 const REGION = "india"; // ValidationCrew's primary market today; no region switcher yet.
 
@@ -41,6 +43,18 @@ function StepRail({ steps, current, maxReached, onJump }) {
 
 function SuccessScreen({ persona, d, builder, onFinish }) {
   const items = persona.summary(d, REGION);
+  const [matched, setMatched] = useState(null);
+
+  useEffect(() => {
+    if (!persona.matchedNoun) return;
+    api.audienceMatchCount(buildAudienceQuery(d)).then(r => setMatched(r.count)).catch(() => setMatched(0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const allItems = persona.matchedNoun
+    ? [...items, { label: "Matched audience", value: matched === null ? "Counting…" : `${matched.toLocaleString("en-US")} ${persona.matchedNoun}` }]
+    : items;
+
   return (
     <div className="rise" style={{ textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
       <div className="brand-mark" style={{ margin: "0 auto 18px", background: "var(--success-weak)", color: "var(--success)" }}>
@@ -51,7 +65,7 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
         {persona.workspace(d)} is ready. We're already lining up {persona.noun === "study" ? "participants" : "validators"} who match your audience.
       </p>
       <div className="card" style={{ padding: 18, textAlign: "left", marginBottom: 22 }}>
-        {items.map((it, i) => (
+        {allItems.map((it, i) => (
           <div key={i} className="row between" style={{ padding: "9px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
             <span className="faint" style={{ fontSize: 13 }}>{it.label}</span>
             <b style={{ fontSize: 13 }}>{it.value}</b>
@@ -97,6 +111,10 @@ export default function OnboardingWizard() {
   });
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
+
+  // Prevent accidental reload or back button if they've made progress
+  const isDirty = !done && (step > 0 || Object.keys(d).length > 0);
+  useUnsavedChangesWarning(isDirty, "You're still setting up your account. Are you sure you want to leave and lose your progress?");
 
   const saveDraft = (newStep, newMaxReached, currentD) => {
     if (done) return;
@@ -182,6 +200,7 @@ export default function OnboardingWizard() {
         <div style={{ flex: 1 }} />
         <button 
           onClick={() => {
+            window.__bypassUnload = true;
             localStorage.removeItem(DRAFT_KEY);
             window.location.reload();
           }}
@@ -190,7 +209,7 @@ export default function OnboardingWizard() {
         >
           Start over
         </button>
-        <a href="/" className="faint" style={{ fontSize: 13 }}>Skip for now</a>
+        <a href="/" onClick={() => { window.__bypassUnload = true; }} className="faint" style={{ fontSize: 13 }}>Skip for now</a>
       </header>
 
       <div className="wiz-body-grid">

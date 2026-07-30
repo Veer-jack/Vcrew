@@ -133,6 +133,8 @@ router.get("/", async (req, res) => {
     };
   });
 
+  const latestVerif = await db.prepare(`SELECT status, reviewer_note FROM verifications WHERE builder_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(bId);
+
   res.json({
     builder: {
       name: req.builder.name, org: req.builder.org, role: req.builder.role,
@@ -141,5 +143,6 @@ router.get("/", async (req, res) => {
     kpi,
     activity,
     recentMissions: recent,
+    latestVerification: latestVerif || null,
   });
 });
