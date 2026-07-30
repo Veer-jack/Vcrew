@@ -22,11 +22,12 @@ router.use(authMiddleware);
 router.get("/", async (req, res) => {
   const bId = req.builder.id;
   
-  // Auto-heal active missions to ensure KPI stats are 100% accurate
+  // Auto-heal active missions to ensure KPI stats are 100% accurate — run in parallel
+  // (not a sequential await-loop) to avoid N+1 blocking, but still awaited: the KPI
+  // query right below reads these same columns, so it must wait for the recalc to
+  // land or it can serve stale numbers on the very request meant to fix them.
   const activeMissions = await db.prepare(`SELECT id FROM missions WHERE builder_id = ? AND status = 'active'`).all(bId);
-  for (const m of activeMissions) {
-    await recalcMissionStats(m.id);
-  }
+  await Promise.all(activeMissions.map(m => recalcMissionStats(m.id)));
 
   const kpiRow = await db.prepare(`
     SELECT

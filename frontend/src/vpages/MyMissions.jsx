@@ -70,10 +70,12 @@ export default function MyMissions() {
   const [tab, setTab] = useState("active");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setVisibleCount(20);
     vapi.myMissions(tab).then(d => {
       if (active) { setData(d); setLoading(false); }
     }).catch(() => {
@@ -109,7 +111,16 @@ export default function MyMissions() {
               body={tab === "applied" ? "Missions you apply to will wait here for a decision." : tab === "completed" ? "Approved, paid missions will collect here." : "When you take on a mission it'll show up here."}
               cta={tab !== "completed" && tab !== "rejected" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>Discover missions</button> : null} />
           </div>
-        : <div className="rise-3" style={{ display: "grid", gap: 12 }}>{data.missions.map(m => <MyMissionRow key={m.id} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} />)}</div>}
+        : (
+            <div className="rise-3" style={{ display: "grid", gap: 12 }}>
+              {data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} />)}
+              {visibleCount < data.missions.length && (
+                <div style={{ textAlign: "center", marginTop: 12, paddingBottom: 24 }}>
+                  <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>Load more missions</button>
+                </div>
+              )}
+            </div>
+          )}
     </div>
   );
 }

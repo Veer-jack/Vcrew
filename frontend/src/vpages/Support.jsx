@@ -127,6 +127,10 @@ export default function Support() {
   const [raising, setRaising] = useState(false);
   const [viewingTicket, setViewingTicket] = useState(null);
   const [data, setData] = useState(null);
+  const [visibleHelpCount, setVisibleHelpCount] = useState(20);
+  const [visibleTicketsCount, setVisibleTicketsCount] = useState(20);
+
+  useEffect(() => { setVisibleHelpCount(20); }, [q]);
 
   useEffect(() => { vapi.support().then(setData).catch(() => {}); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
@@ -154,7 +158,7 @@ export default function Support() {
       {tab === "help" && <div className="rise-3">
         <div className="search" style={{ maxWidth: "100%", marginBottom: 16 }}><Icon name="search" size={16} /><input placeholder="Search help articles…" value={q} onChange={e => setQ(e.target.value)} /></div>
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          {help.length === 0 ? <div style={{ padding: 32 }} className="faint">No articles match "{q}".</div> : help.map((h, i) => (
+          {help.length === 0 ? <div style={{ padding: 32 }} className="faint">No articles match "{q}".</div> : help.slice(0, visibleHelpCount).map((h, i) => (
             <div key={i} style={{ borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
               <button onClick={() => setOpen(open === i ? null : i)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "16px var(--pad-card)", background: "none", border: "none", cursor: "pointer" }}>
                 <span className="tag" style={{ flex: "none", background: "var(--panel-inset)", color: "var(--text-muted)" }}>{h.cat}</span>
@@ -164,6 +168,11 @@ export default function Support() {
               {open === i && <p className="muted" style={{ margin: 0, padding: "0 var(--pad-card) 18px 64px", fontSize: 14, lineHeight: 1.6 }}>{h.a}</p>}
             </div>
           ))}
+          {visibleHelpCount < help.length && (
+            <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
+              <button className="btn btn-ghost" onClick={() => setVisibleHelpCount(c => c + 20)}>Load more articles</button>
+            </div>
+          )}
         </div>
         <div className="card" style={{ padding: "var(--pad-card)", marginTop: 16, display: "flex", alignItems: "center", gap: 14 }}>
           <span style={{ width: 44, height: 44, borderRadius: 12, flex: "none", display: "grid", placeItems: "center", background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="life" size={22} /></span>
@@ -175,7 +184,7 @@ export default function Support() {
       {tab === "tickets" && <div className="rise-3">
         {data.tickets.length === 0 ? <div className="card"><VEmpty icon="life" title="No tickets yet" body="When you raise a support ticket it'll appear here." cta={<button className="btn btn-primary" onClick={() => setRaising(true)}>Raise a ticket</button>} /></div> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {data.tickets.map((t, i) => {
+            {data.tickets.slice(0, visibleTicketsCount).map((t, i) => {
               const st = TICKET_STATUS[t.status] || TICKET_STATUS.open;
               return (
                 <div key={t.id} onClick={() => setViewingTicket(t)} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }}>
@@ -189,6 +198,11 @@ export default function Support() {
                 </div>
               );
             })}
+            {visibleTicketsCount < data.tickets.length && (
+              <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
+                <button className="btn btn-ghost" onClick={() => setVisibleTicketsCount(c => c + 20)}>Load more tickets</button>
+              </div>
+            )}
           </div>
         )}
       </div>}

@@ -23,6 +23,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { db, initDb } from "./db.js";
+import { runPeriodicSweeps } from "./jobs/sweepFailures.js";
 
 import { router as authRouter, publicBuilder } from "./routes/auth.js";
 import { router as bOAuthRouter } from "./routes/boauth.js";
@@ -247,3 +248,12 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`ValidationCrew API listening on :${PORT}`));
+
+// Periodic maintenance: fails trial missions whose validators went silent past the
+// check-in grace period, and expires invitations nobody ever responded to. Runs
+// in-process so it works with zero extra infra (no external cron / CRON_SECRET
+// needed) — the previous cron-only wiring meant this never actually ran in practice.
+const SWEEP_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+setInterval(() => {
+  runPeriodicSweeps().catch((err) => console.error("Periodic sweep error:", err));
+}, SWEEP_INTERVAL_MS);

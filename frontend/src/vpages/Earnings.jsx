@@ -17,6 +17,8 @@ export default function Earnings() {
   const [errorCode, setErrorCode] = useState("");
   const [stepUp, setStepUp] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [visibleWithdrawalsCount, setVisibleWithdrawalsCount] = useState(20);
+  const [visibleHistoryCount, setVisibleHistoryCount] = useState(20);
 
   const load = () => vapi.earnings().then(d => { setData(d); setLoadError(""); }).catch((err) => { setLoadError(err.message || "Failed to load earnings"); setData(null); });
   const loadWithdrawals = () => vapi.payoutHistory().then(d => setWithdrawals(d.withdrawals)).catch(() => {});
@@ -114,7 +116,7 @@ export default function Earnings() {
         <div className="rise-3" style={{ marginBottom: 26 }}>
           <div className="eyebrow" style={{ marginBottom: 12 }}>Recent withdrawals</div>
           <div className="card" style={{ overflow: "hidden" }}>
-            {withdrawals.map((w, i) => (
+            {withdrawals.slice(0, visibleWithdrawalsCount).map((w, i) => (
               <div key={w.id} className="row between" style={{ padding: "14px 18px", borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
                 <div className="row gap-3" style={{ minWidth: 0 }}>
                   <span style={{ fontWeight: 700 }}>₹{w.amount.toLocaleString("en-IN")}</span>
@@ -127,6 +129,11 @@ export default function Earnings() {
                 }}>{w.status}</span>
               </div>
             ))}
+            {visibleWithdrawalsCount < withdrawals.length && (
+              <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
+                <button className="btn btn-ghost" onClick={() => setVisibleWithdrawalsCount(c => c + 20)}>Load more</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -134,7 +141,7 @@ export default function Earnings() {
       <div className="rise-3">
         <div className="eyebrow" style={{ marginBottom: 12 }}>Recent validations</div>
         <div className="card" style={{ overflow: "hidden" }}>
-          {(!data.history || data.history.length === 0) ? <div className="muted" style={{ padding: 24 }}>No validations yet.</div> : data.history.map((h, i) => (
+          {(!data.history || data.history.length === 0) ? <div className="muted" style={{ padding: 24 }}>No validations yet.</div> : data.history.slice(0, visibleHistoryCount).map((h, i) => (
             <div key={h.id} className="row between" style={{ padding: "14px 18px", borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
               <div className="row gap-3" style={{ minWidth: 0 }}>
                 <VTypeTag type={h.type} vtypes={vtypes} />
@@ -148,6 +155,11 @@ export default function Earnings() {
               </div>
             </div>
           ))}
+          {data.history && visibleHistoryCount < data.history.length && (
+            <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
+              <button className="btn btn-ghost" onClick={() => setVisibleHistoryCount(c => c + 20)}>Load more validations</button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -132,6 +132,7 @@ export default function Discover() {
   const [sort, setSort] = useState("match");
   const [showFilters, setShowFilters] = useState(false);
   const [data, setData] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const toggleType = (k) => setTypes(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setTime("any"); setVerifiedOnly(false); setMinMatch(0); };
@@ -145,6 +146,7 @@ export default function Discover() {
   }, []);
 
   useEffect(() => {
+    setVisibleCount(20);
     vapi.marketplace({ q, types: [...types].join(","), reward, time, verified: verifiedOnly, minMatch, sort })
       .then(setData)
       .catch(() => {});
@@ -250,7 +252,16 @@ export default function Discover() {
         <div style={{ minWidth: 0 }}>
           {data.tasks.length === 0
             ? <div className="card"><VEmpty icon="search" title="No missions match" body="Try widening your filters or clearing your search — new missions are posted throughout the day." cta={<button className="btn btn-primary" onClick={clearAll}>Clear filters</button>} /></div>
-            : <div className="mkt-grid rise-3">{data.tasks.map(t => <MktCard key={t.id} task={t} vtypes={vtypes} onSave={onSave} onOpen={onOpen} />)}</div>}
+            : (
+              <div>
+                <div className="mkt-grid rise-3">{data.tasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} onSave={onSave} onOpen={onOpen} />)}</div>
+                {visibleCount < data.tasks.length && (
+                  <div style={{ textAlign: "center", marginTop: 24, paddingBottom: 24 }}>
+                    <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>Load more missions</button>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
       </div>
     </div>

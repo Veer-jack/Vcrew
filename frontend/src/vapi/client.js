@@ -103,6 +103,20 @@ export const vapi = {
     if (!res.ok) throw new Error((data && data.error) || "Upload failed");
     return data;
   },
+  uploadResume: async (file) => {
+    const token = getVToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/v/auth/profile/resume`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    let data;
+    try { data = await res.json(); } catch {}
+    if (!res.ok) throw new Error((data && data.error) || "Resume upload failed");
+    return data;
+  },
 
   earnings: () => request("/earnings"),
   withdraw: (amount, stepUpToken) => request("/earnings/withdraw", { method: "POST", body: { amount, stepUpToken } }),

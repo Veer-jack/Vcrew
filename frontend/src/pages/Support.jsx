@@ -127,6 +127,7 @@ export default function Support() {
   const [raising, setRaising] = useState(false);
   const [viewingTicket, setViewingTicket] = useState(null);
   const [data, setData] = useState(null);
+  const [visibleTicketsCount, setVisibleTicketsCount] = useState(20);
 
   useEffect(() => { api.support().then(setData); }, []);
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
@@ -175,7 +176,7 @@ export default function Support() {
       {tab === "tickets" && <div className="rise-3">
         {data.tickets.length === 0 ? <Empty icon="life" title="No tickets yet" action={<button className="btn btn-primary" onClick={() => setRaising(true)}>Raise a ticket</button>}>When you raise a support ticket it'll appear here.</Empty> : (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-            {data.tickets.map((t, i) => {
+            {data.tickets.slice(0, visibleTicketsCount).map((t, i) => {
               const st = TICKET_STATUS[t.status] || TICKET_STATUS.open;
               return (
                 <div key={t.id} onClick={() => setViewingTicket(t)} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }}>
@@ -189,6 +190,11 @@ export default function Support() {
                 </div>
               );
             })}
+            {visibleTicketsCount < data.tickets.length && (
+              <div style={{ textAlign: "center", padding: 16 }}>
+                <button className="btn btn-ghost" onClick={() => setVisibleTicketsCount(c => c + 20)}>Load more tickets</button>
+              </div>
+            )}
           </div>
         )}
       </div>}

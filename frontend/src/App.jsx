@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import { trackPageview } from "./analytics";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { I18nProvider } from "./i18n/index.jsx";
@@ -54,6 +55,7 @@ import ALogin from "./apages/ALogin";
 import ADashboard from "./apages/ADashboard";
 import AMembers from "./apages/AMembers";
 import AVerification from "./apages/AVerification";
+import ATesterApplications from "./apages/ATesterApplications";
 import AMissionReview from "./apages/AMissionReview";
 import ASupport from "./apages/ASupport";
 import AWithdrawals from "./apages/AWithdrawals";
@@ -177,6 +179,7 @@ function AdminRoutes() {
         <Route index element={<ADashboard />} />
         <Route path="members" element={<AMembers />} />
         <Route path="verification" element={<AVerification />} />
+        <Route path="tester-applications" element={<ATesterApplications />} />
         <Route path="mission-review" element={<AMissionReview />} />
         <Route path="support" element={<ASupport />} />
         <Route path="withdrawals" element={<AWithdrawals />} />
@@ -214,6 +217,7 @@ export default function App() {
       <BrowserRouter>
         <SkipLink />
         <RouteTracker />
+        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         <Routes>
           <Route path="/validator/*" element={
             <VAuthProvider><VMetaProvider><ValidatorRoutes /></VMetaProvider></VAuthProvider>

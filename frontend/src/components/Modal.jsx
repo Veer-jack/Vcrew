@@ -1,7 +1,7 @@
   import React, { useEffect } from "react";
 import Icon from "./Icon";
 
-export function Modal({ title, children, onClose, width = 500, hideHeader = false }) {
+export function Modal({ title, children, onClose, width = 500, hideHeader = false, align = "center" }) {
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") onClose();
@@ -10,10 +10,16 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
+  // align="top" anchors near the top of the viewport instead of dead-center — opt-in,
+  // so every other modal in the app keeps its existing centered position by default.
+  const position = align === "top"
+    ? { top: 80, left: "50%", transform: "translateX(-50%)" }
+    : { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
+
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} style={{ zIndex: 60 }} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: width, maxWidth: "92vw", zIndex: 61, maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ position: "fixed", ...position, width: width, maxWidth: "92vw", zIndex: 61, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="rise" style={{ background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", width: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           {!hideHeader && (
             <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)", flexShrink: 0 }}>

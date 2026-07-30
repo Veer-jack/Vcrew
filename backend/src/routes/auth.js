@@ -79,11 +79,16 @@ router.post("/signup", async (req, res) => {
     const insertVerif = db.prepare(`
       INSERT INTO verifications (builder_id, kind, subject, note) VALUES (?, ?, ?, ?)
     `);
+    let addedClaim = false;
     for (const { field, kind } of claims) {
       const value = profile[field];
       if (value && String(value).trim()) {
         insertVerif.run(builder.id, kind, String(value).trim(), `Submitted at signup (${personaKey})`);
+        addedClaim = true;
       }
+    }
+    if (addedClaim) {
+      await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('system', 'verification', 'shield', 'warning', 'New Verification Claim', ?, 'Just now', 1)`).run(`Builder ${builder.email} submitted verification claims.`);
     }
   }
 
@@ -108,6 +113,9 @@ router.post("/signup", async (req, res) => {
   }
 
   sendBuilderWelcome({ name: builder.name, email: builder.email, org: builder.org }).catch(() => {});
+  
+  await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('system', 'registration', 'userPlus', 'info', 'New Builder Registered', ?, 'Just now', 1)`).run(`${builder.name} (${builder.email}) from ${builder.org}`);
+
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });
 
@@ -207,11 +215,16 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
     const insertVerif = db.prepare(`
       INSERT INTO verifications (builder_id, kind, subject, note) VALUES (?, ?, ?, ?)
     `);
+    let addedClaim = false;
     for (const { field, kind } of claims) {
       const value = profile[field];
       if (value && String(value).trim()) {
         insertVerif.run(req.builder.id, kind, String(value).trim(), `Submitted at onboarding (${personaKey})`);
+        addedClaim = true;
       }
+    }
+    if (addedClaim) {
+      await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('system', 'verification', 'shield', 'warning', 'New Verification Claim', ?, 'Just now', 1)`).run(`Builder ${req.builder.email} submitted verification claims.`);
     }
   }
 

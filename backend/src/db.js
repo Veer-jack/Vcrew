@@ -155,6 +155,7 @@ export async function initDb() {
       ['linkedin_url', 'TEXT'],
       ['portfolio_url', 'TEXT'],
       ['resume_path', 'TEXT'],
+      ['resume_filename', 'TEXT'],
       ['testing_bio', 'TEXT'],
       // From HEAD branch (stats and escrow)
       ['payout_vpa', 'TEXT'],
@@ -172,7 +173,8 @@ export async function initDb() {
       ['address_country', 'TEXT'],
       ['status', "TEXT DEFAULT 'active'"],
       ['streak', 'INTEGER DEFAULT 0'],
-      ['last_active_date', 'DATE']
+      ['last_active_date', 'DATE'],
+      ['profile_completion', 'INTEGER DEFAULT 60']
     ];
     for (const [col, def] of newVCols) {
       if (!vColNames.includes(col)) {
@@ -210,6 +212,22 @@ export async function initDb() {
     if (!bColNames.includes('status')) {
       await client.query(`ALTER TABLE builders ADD COLUMN status TEXT DEFAULT 'active'`);
     }
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admin_notifications (
+        id SERIAL PRIMARY KEY,
+        cat TEXT,
+        type TEXT,
+        icon TEXT,
+        tone TEXT,
+        title TEXT,
+        body TEXT,
+        time_label TEXT,
+        unread INTEGER DEFAULT 1,
+        read INTEGER DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
 
     const vnCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='v_notifications'");
     const vnColNames = vnCols.rows.map(r => r.column_name);

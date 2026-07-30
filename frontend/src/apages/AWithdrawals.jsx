@@ -17,6 +17,7 @@ export default function AWithdrawals() {
   const [withdrawals, setWithdrawals] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => { aapi.withdrawals().then(d => setWithdrawals(d.withdrawals)); }, []);
   if (withdrawals === null) return <div className="page rise"><div className="muted">Loading…</div></div>;
@@ -44,7 +45,7 @@ export default function AWithdrawals() {
           <table className="tbl">
             <thead><tr><th>Validator</th><th>UPI ID</th><th style={{ textAlign: "right" }}>Amount</th><th>Status</th><th>Date</th><th style={{ width: 220 }}></th></tr></thead>
             <tbody>
-              {withdrawals.map(w => {
+              {withdrawals.slice(0, visibleCount).map(w => {
                 const st = STATUS_STYLES[w.status] || STATUS_STYLES.queued;
                 return (
                   <tr key={w.id}>
@@ -62,6 +63,13 @@ export default function AWithdrawals() {
                   </tr>
                 );
               })}
+              {visibleCount < withdrawals.length && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "16px 0" }}>
+                    <button className="btn btn-ghost" onClick={() => setVisibleCount(c => c + 20)}>Load more withdrawals</button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -90,6 +90,13 @@ export default function MissionDetails() {
     <div className="page" style={{ maxWidth: 920, margin: "0 auto" }}>
       <button className="btn btn-quiet rise" onClick={() => navigate("/validator")} style={{ marginBottom: 16, marginLeft: -8 }}><Icon name="arrowLeft" />All missions</button>
 
+      {task.status !== "active" && task.status !== "live" && task.status !== "published" && (
+        <div className="card rise" style={{ padding: "16px var(--pad-card)", marginBottom: 16, background: "var(--warning-weak)", color: "var(--warning)", border: "1px solid var(--warning)", display: "flex", alignItems: "center", gap: 12 }}>
+          <Icon name="alertTriangle" size={20} />
+          <div style={{ fontWeight: 600 }}>This mission is no longer accepting participants.</div>
+        </div>
+      )}
+
       <div className="card rise" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "26px var(--pad-card)", borderBottom: "var(--hairline) solid var(--border)",
           background: `linear-gradient(180deg, color-mix(in srgb, var(${t.accentVar}) 8%, var(--panel)), var(--panel))` }}>
@@ -221,8 +228,8 @@ export default function MissionDetails() {
               opacity: task.myStatus === "rejected" ? 0.8 : 1
             }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} />{task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Accepted · Start now" : "View reason"}</button>
         ) : (
-          <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : apply}>
-            {busy ? "Applying…" : task.spotsLeft <= 0 ? "Out of slots" : "Apply to this mission"} {task.spotsLeft > 0 && <Icon name="arrowRight" />}
+          <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
+            {busy ? "Applying…" : (task.status !== "active" && task.status !== "live" && task.status !== "published") ? "Mission Closed" : task.spotsLeft <= 0 ? "Out of slots" : "Apply to this mission"} {task.spotsLeft > 0 && (task.status === "active" || task.status === "live" || task.status === "published") && <Icon name="arrowRight" />}
           </button>
         )}
       </div>

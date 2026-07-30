@@ -76,8 +76,13 @@ const PATHS = {
   external: "M14 4h6v6M20 4l-9 9M18 13v6H5V6h6",
   trash: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6",
   user: "M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+  userCheck: "M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M8.5 11.5a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM17 11l2 2 4-4",
   xCircle: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM15 9l-6 6M9 9l6 6",
   alertCircle: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM12 8v4M12 16h.01",
+  moreVertical: "M12 12h.01M12 19h.01M12 5h.01",
+  externalLink: "M14 4h6v6M20 4l-9 9M18 13v6H5V6h6",
+  lock: "M19 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2Z M7 11V7a5 5 0 0 1 10 0v4",
+  alertTriangle: "M10.29 3.86L1.82 18.55A2 2 0 0 0 3.55 21.5h16.9a2 2 0 0 0 1.73-2.95L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
 };
 
 export default function Icon({ name, size = 18, style, className, strokeWidth = 1.9 }) {

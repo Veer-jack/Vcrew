@@ -24,6 +24,9 @@ export default function Missions() {
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => { setVisibleCount(20); }, [tab, q]);
 
   useEffect(() => {
     api.missions({ status: tab, q }).then(d => { setMissions(d.missions); setLoading(false); });
@@ -85,7 +88,16 @@ export default function Missions() {
       {loading ? <div className="muted" style={{ padding: 24 }}>Loading…</div>
         : missions.length === 0
           ? <Empty icon="layers" title={`No ${tab} missions`} action={tab === "draft" || tab === "active" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>Create your first mission</Btn> : null}>{tab === "completed" ? "Completed missions will appear here once they wrap." : "Nothing here yet."}</Empty>
-          : <MissionsTable rows={missions} nav={navigate} categories={categories} onDelete={handleDelete} />}
+          : (
+            <div style={{ paddingBottom: 32 }}>
+              <MissionsTable rows={missions.slice(0, visibleCount)} nav={navigate} categories={categories} onDelete={handleDelete} />
+              {visibleCount < missions.length && (
+                <div style={{ textAlign: "center", marginTop: 16 }}>
+                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>Load more missions</Btn>
+                </div>
+              )}
+            </div>
+          )}
     </div>
   );
 }

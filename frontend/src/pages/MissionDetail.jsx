@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, inr, inrK } from "../components/ui";
@@ -8,6 +9,27 @@ import { InviteValidatorModal } from "../components/InviteValidatorModal";
 import { Modal } from "../components/Modal";
 import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
+
+function timeAgo(dateString) {
+  if (!dateString) return 'recently';
+  const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+  
+  let interval = seconds / 31536000;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' year' : ' years');
+  interval = seconds / 2592000;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' month' : ' months');
+  interval = seconds / 604800;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' week' : ' weeks');
+  interval = seconds / 86400;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' day' : ' days');
+  interval = seconds / 3600;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' hour' : ' hours');
+  interval = seconds / 60;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' minute' : ' minutes');
+  
+  if (seconds < 10) return 'just now';
+  return Math.floor(seconds) + ' seconds';
+}
 
 const TABS = [
   { k: "overview", l: "Overview", ic: "target" },
@@ -51,8 +73,64 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
     </div>
   );
 }
+function Toast({ message, type, onClose }) {
+  const [exiting, setExiting] = useState(false);
 
-function ParticipantKanban({ missionId, participants, setParticipants, onInvite }) {
+  useEffect(() => {
+    if (!message) {
+      setExiting(false);
+      return;
+    }
+
+    const mountTime = Date.now();
+    
+    const startExit = () => {
+      setExiting(true);
+      setTimeout(onClose, 300);
+    };
+
+    // Auto-dismiss after 1.5 seconds
+    const autoTimer = setTimeout(startExit, 1500);
+
+    // Close on clicking anywhere, but only if it's been visible for at least 800ms
+    // so accidental clicks while dropping don't instantly hide it before they can read it.
+    const handleGlobalClick = () => {
+      if (Date.now() - mountTime > 800 && !exiting) {
+        startExit();
+      }
+    };
+
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => {
+      clearTimeout(autoTimer);
+      document.removeEventListener("mousedown", handleGlobalClick);
+    };
+  }, [message, onClose, exiting]);
+
+  if (!message) return null;
+  const colors = { success: "var(--success)", error: "var(--danger)", warning: "var(--warning)" };
+  const icons = { success: "checkCircle", error: "alertTriangle", warning: "edit" };
+  
+  return createPortal(
+    <div style={{
+      position: "fixed", top: 80, right: 24, zIndex: 999999,
+      background: "var(--bg)", boxShadow: "0 8px 24px rgba(0,0,0,0.12)", borderRadius: 8,
+      padding: "14px 18px", display: "flex", alignItems: "center", gap: 12,
+      borderLeft: `4px solid ${colors[type] || colors.success}`,
+      maxWidth: 350,
+      opacity: exiting ? 0 : 1,
+      transform: exiting ? "translateY(-10px) scale(0.98)" : "translateY(0) scale(1)",
+      transition: "opacity 0.3s ease, transform 0.3s ease",
+    }}>
+      <Icon name={icons[type] || "info"} size={20} style={{ color: colors[type] || colors.success }} />
+      <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "var(--text)" }}>{message}</div>
+      <button className="btn btn-ghost" style={{ padding: 4, margin: "-4px -4px -4px 4px" }} onClick={() => { setExiting(true); setTimeout(onClose, 300); }}><Icon name="x" size={14} /></button>
+    </div>,
+    document.body
+  );
+}
+
+function ParticipantKanban({ mission, participants, setParticipants, onInvite, navigate, showToast }) {
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
 
@@ -64,7 +142,7 @@ function ParticipantKanban({ missionId, participants, setParticipants, onInvite 
       return { ...p, stage };
     }));
     try {
-      await api.moveParticipant(missionId, id, stage);
+      await api.moveParticipant(mission.id, id, stage);
     } catch {
       // Roll back the optimistic move — e.g. the backend rejected a stage it doesn't allow.
       setParticipants(ps => ps.map(p => p.id === id ? { ...p, stage: prevStage } : p));
@@ -82,24 +160,82 @@ function ParticipantKanban({ missionId, participants, setParticipants, onInvite 
           const col = participants.filter(p => p.stage === st.id);
           const droppable = st.id !== "rewarded";
           return (
-            <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""}`}
-              onDragOver={e => { if (droppable) { e.preventDefault(); setOver(st.id); } }}
+            <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
+              onDragOver={e => { e.preventDefault(); if (droppable) setOver(st.id); }}
               onDragLeave={() => setOver(o => o === st.id ? null : o)}
-              onDrop={e => { e.preventDefault(); if (droppable && drag != null) move(drag, st.id); setOver(null); setDrag(null); }}>
-              <div className="kcol-h"><span className="kdot" style={{ background: st.color }} /><b>{st.label}</b><span className="cnt">{col.length}</span></div>
+              onDrop={e => { 
+                e.preventDefault(); 
+                if (st.id === "rewarded" && drag != null) {
+                  showToast("Please approve their submission first to reward them.", "error");
+                } else if (droppable && drag != null) {
+                  move(drag, st.id); 
+                }
+                setOver(null); 
+                setDrag(null); 
+              }}
+              style={drag && !droppable ? { cursor: "not-allowed" } : {}}>
+              <div className="kcol-h">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className="kdot" style={{ background: st.color }} />
+                  <b>{st.label}</b>
+                  {drag && !droppable && <Icon name="lock" size={13} style={{ color: "var(--warning)" }} title="Review submission to reward" />}
+                </div>
+                <span className="cnt">{col.length}</span>
+              </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""}`} draggable
-                    onDragStart={() => setDrag(p.id)} onDragEnd={() => { setDrag(null); setOver(null); }}>
-                    <div className="kcard-top"><Avatar name={p.name} size={30} /><div style={{ minWidth: 0 }}><div className="kn">{p.name}</div><div className="kl">{p.role} · {p.city}</div></div></div>
-                    <div className="kcard-foot"><span className="mtag" style={{ fontSize: 10 }}><Icon name="award" size={10} style={{ verticalAlign: -2, marginRight: 2 }} />{p.trust}</span><span className="kreward">{inr(p.reward)}</span></div>
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${p.stage === "rewarded" ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded"}
+                    onDragStart={(e) => {
+                      if (p.stage === "rewarded") {
+                        e.preventDefault();
+                        return;
+                      }
+                      setDrag(p.id);
+                    }} 
+                    onDragEnd={() => { setDrag(null); setOver(null); }}
+                    style={p.stage === "rewarded" ? { cursor: "default", opacity: 0.85 } : {}}>
+                    <div className="kcard-top">
+                      <Avatar name={p.name} size={32} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="row between">
+                          <div className="kn">{p.name}</div>
+                        </div>
+                        <div className="kl row gap-2" style={{ margin: "2px 0 0" }}>
+                          {p.role} 
+                          {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>Rewarded</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="kcard-foot" style={{ marginTop: 12 }}>
+                      <div className="faint" style={{ fontSize: 10 }}>
+                        <span style={{ color: "var(--warning)", fontWeight: 700, marginRight: 2 }}>★ {p.trust}</span><br/>
+                        Joined {p.joined_at ? (timeAgo(p.joined_at) === 'just now' ? 'just now' : timeAgo(p.joined_at) + ' ago') : (p.time_label || 'recently')}
+                      </div>
+                      <span className="kreward" style={{ fontSize: 13, color: "var(--text)" }}>{inr(p.reward || mission.reward.amount)}</span>
+                    </div>
                   </div>
                 ))}
-                {col.length === 0 && <div className="faint" style={{ fontSize: 12, textAlign: "center", padding: "14px 0" }}>Drop here</div>}
+                {col.length === 0 && (
+                  <div className="empty-kcol">
+                    <div className="ec-ic" style={{ color: st.color, background: `color-mix(in srgb, ${st.color} 10%, transparent)` }}>
+                      <Icon name={st.id === "invited" ? "mail" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : st.id === "rewarded" ? "lock" : "fileText"} size={20} />
+                    </div>
+                    <b>{st.id === "rewarded" ? "Review to reward" : "No participants yet"}</b>
+                    <p>{st.id === "invited" ? "Invite users to grow your pipeline." : st.id === "accepted" ? "Participants who accept will appear here." : st.id === "started" ? "Participants who start will appear here." : st.id === "rewarded" ? "Approve submissions to move participants here and pay them." : "Submitted participants will appear here."}</p>
+                    {st.id === "rewarded" && (
+                      <Btn variant="quiet" size="sm" onClick={() => navigate(`/missions/${mission.id}/submissions`)} style={{ marginTop: 8 }}>Review submissions</Btn>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );
         })}
+      </div>
+      <div className="faint" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 24, padding: "12px 16px", background: "var(--accent-weak)", borderRadius: "var(--radius)", color: "var(--accent)" }}>
+        <div style={{ background: "var(--accent)", color: "#fff", borderRadius: "50%", padding: 4, display: 'flex' }}><Icon name="zap" size={12} /></div>
+        <b>Tip:</b> Drag and drop participants between stages to update their progress.
+        <a href="#" style={{ marginLeft: 'auto', fontWeight: 600, color: "var(--accent)" }}>Learn more about participant pipeline <Icon name="externalLink" size={12} style={{ verticalAlign: -2 }} /></a>
       </div>
     </div>
   );
@@ -673,6 +809,23 @@ export default function MissionDetail() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showEditAudience, setShowEditAudience] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    // Toast component handles its own timeout and exit animations now!
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (!window.confirm(`Are you sure you want to change the status to ${newStatus}?`)) return;
+    try {
+      const { mission: updated } = await api.updateMission(mission.id, { status: newStatus });
+      setData(d => ({ ...d, mission: updated }));
+      showToast(`Mission marked as ${newStatus}`);
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
 
   useEffect(() => {
     setData(null);
@@ -706,6 +859,7 @@ export default function MissionDetail() {
 
   return (
     <div className="page rise">
+      <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
       <div className="crumbs"><a onClick={() => navigate("/missions")} style={{ cursor: "pointer" }}>Missions</a><Icon name="chevronRight" size={13} /><span>{mission.name}</span></div>
       <div className="ph" style={{ marginBottom: 18 }}>
         <div className="row gap-3" style={{ alignItems: "flex-start" }}>
@@ -715,11 +869,18 @@ export default function MissionDetail() {
             <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> Closes {mission.deadline}</span></div>
           </div>
         </div>
-        <div className="ph-actions" style={{ flexWrap: "wrap" }}><Btn variant="ghost" icon="edit" onClick={() => setShowEditModal(true)}>Edit</Btn><Btn variant="ghost" icon="download" onClick={() => exportCSV(
-          `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
-          ["Name", "Role", "City", "Stage", "Trust", "Reward"],
-          participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
-        )}>Export</Btn><Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>Invite</Btn></div>
+        <div className="ph-actions" style={{ flexWrap: "wrap" }}>
+          {mission.status === "active" && <Btn variant="ghost" icon="xCircle" onClick={() => handleStatusChange("closed")}>Close</Btn>}
+          {mission.status === "closed" && <Btn variant="ghost" icon="checkCircle" onClick={() => handleStatusChange("completed")}>Complete</Btn>}
+          {(mission.status === "completed" || mission.status === "draft") && <Btn variant="ghost" icon="archive" onClick={() => handleStatusChange("archived")}>Archive</Btn>}
+          <Btn variant="ghost" icon="edit" onClick={() => setShowEditModal(true)}>Edit</Btn>
+          <Btn variant="ghost" icon="download" onClick={() => exportCSV(
+            `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
+            ["Name", "Role", "City", "Stage", "Trust", "Reward"],
+            participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
+          )}>Export</Btn>
+          {mission.status === "active" && <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>Invite</Btn>}
+        </div>
       </div>
 
       <div className="kpis sec">
@@ -733,7 +894,7 @@ export default function MissionDetail() {
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={setTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => setShowEditAudience(true)} />}
-      {tab === "participants" && <ParticipantKanban missionId={id} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} />}
+      {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
       {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} navigate={navigate} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
