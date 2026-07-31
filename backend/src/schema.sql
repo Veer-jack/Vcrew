@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   time_label TEXT,
   unread INTEGER DEFAULT 1,
   read INTEGER DEFAULT 0,
+  target_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -234,14 +235,18 @@ CREATE TABLE IF NOT EXISTS thread_messages (
 CREATE TABLE IF NOT EXISTS mission_files (
   id SERIAL PRIMARY KEY,
   mission_id TEXT REFERENCES missions(id) ON DELETE CASCADE,
+  section TEXT DEFAULT 'brief',
   uploader_role TEXT,
   uploader_id INTEGER,
   filename TEXT,
   name TEXT,
+  kind TEXT,
   file_path TEXT,
   mime_type TEXT,
   url TEXT,
-  size INTEGER DEFAULT 0,
+  size TEXT,
+  "by" TEXT,
+  when_label TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
+import { toast } from "react-hot-toast";
 import { vapi } from "../vapi/client";
 
 export default function FocusGroupPoll() {
@@ -50,6 +51,7 @@ export default function FocusGroupPoll() {
     try {
       await vapi.post(`/missions/${id}/poll/respond`, { slotIds: [...selected] });
       setPoll(p => ({ ...p, mySlotIds: [...selected] }));
+      toast.success("Availability saved! You can update this until the builder confirms a time.");
     } catch (err) {
       setError(err.message || "Couldn't save your availability — try again.");
     } finally {
@@ -87,7 +89,9 @@ export default function FocusGroupPoll() {
               ))}
             </div>
             {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-            <Btn variant="primary" block disabled={busy} onClick={submit}>{busy ? "Saving…" : "Save my availability"}</Btn>
+            <Btn variant="primary" block disabled={busy} onClick={submit}>
+              {busy ? "Saving…" : (poll.mySlotIds && poll.mySlotIds.length > 0) ? "Update availability" : "Save my availability"}
+            </Btn>
           </>
         )}
 

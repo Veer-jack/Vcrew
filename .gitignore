@@ -6,3 +6,7 @@ backend/data/
 validator_role_definitions.md
 team_lead_notes.md
 docs/superpowers/
+
+# Maintenance scripts
+scripts/
+**/scripts/

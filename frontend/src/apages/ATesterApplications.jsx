@@ -219,7 +219,12 @@ export default function ATesterApplications() {
                 
                 {/* Actions */}
                 <div style={{ display: "flex", alignItems: "center", gap: 12, height: "100%", alignSelf: "center", paddingTop: 16 }}>
-                  {!isFinished && (
+                  {isFinished ? (
+                    <div style={{ color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: 14, marginBottom: 4 }}>—</div>
+                      <div style={{ fontSize: 11.5 }}>No actions required</div>
+                    </div>
+                  ) : (
                     <>
                       <button style={{ background: "#fff", border: "1px solid #fda4af", color: "#ef4444", padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, transition: "0.2s" }} onClick={() => decide(item, "rejected")}>
                         <Icon name="xCircle" size={16} strokeWidth={2.5} /> Reject

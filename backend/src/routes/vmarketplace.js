@@ -205,9 +205,9 @@ router.post("/:id/apply", async (req, res) => {
         }
 
         await tx.prepare(`
-          INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-          VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1)
-        `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionCategory?.name || 'Unknown'}".`);
+          INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+          VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
+        `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionCategory?.name || 'Unknown'}".`, t.id);
       });
 
     } catch (err) {

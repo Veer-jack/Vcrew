@@ -5,8 +5,7 @@ import { Avatar, Btn, inrK } from "./ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import LanguageSwitcher from "./LanguageSwitcher";
-import { useTranslation } from "../i18n/index.jsx";
-import { BrandMark, BrandLogoFull } from "./BrandMark";
+import { BrandLogoFull } from "./BrandMark";
 import NotificationsSidebar from "./NotificationsSidebar";
 
 
@@ -26,7 +25,7 @@ const NAV_GROUPS = [
   ] },
 ];
 
-function Sidebar({ mobOpen, closeMobile, builder }) {
+function Sidebar({ closeMobile, builder }) {
   const navigate = useNavigate();
   return (
     <aside className="side">
@@ -92,7 +91,10 @@ export default function AppLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    api.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
+    const fetchNotifs = () => api.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const unreadCount = notifs.filter(n => n.unread).length;

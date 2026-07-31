@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
-import { BrandMark, BrandLogoFull } from "../components/BrandMark";
+import { BrandLogoFull } from "../components/BrandMark";
 import { VAvatar } from "./vui";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
@@ -38,18 +38,21 @@ function VNotifPanel({ onClose, items, setItems }) {
   const navigate = useNavigate();
   const open = async (n) => {
     if (n.unread) { await vapi.markRead(n.id); setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i)); }
-    if ((n.type === 'mission_full' || n.type === 'new_mission') && n.target_id) {
+    if ((n.type === 'mission_full' || n.type === 'new_mission' || n.type === 'slot_available') && n.target_id) {
       onClose();
-      navigate(`/validator/missions/${n.target_id}`);
+      navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
     } else if (n.type === 'submission_approved' || n.type === 'mission_completed') {
       onClose();
-      navigate(`/validator/missions?tab=completed`);
+      navigate(`/validator/missions?tab=completed`, { state: { refresh: Date.now() } });
     } else if (n.type === 'submission_rejected') {
       onClose();
-      navigate(`/validator/missions?tab=rejected`);
+      navigate(`/validator/missions?tab=rejected`, { state: { refresh: Date.now() } });
     } else if (n.type === 'submission_revision') {
       onClose();
-      navigate(`/validator/missions?tab=active`);
+      navigate(`/validator/missions?tab=active`, { state: { refresh: Date.now() } });
+    } else if (n.target_id) {
+      onClose();
+      navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
     }
   };
 
@@ -117,7 +120,10 @@ export default function VLayout() {
   const location = useLocation();
 
   useEffect(() => {
-    vapi.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
+    const fetchNotifs = () => vapi.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const unreadCount = notifs.filter(n => n.unread).length;
@@ -130,7 +136,7 @@ export default function VLayout() {
           <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
         </div>
         {NAV.map(it => {
-          let customActive = false;
+          let customActive;
           if (it.to === "/validator") {
             customActive = location.pathname === "/validator" || (location.pathname.startsWith("/validator/missions/") && location.state?.fromDiscover);
           } else if (it.to === "/validator/missions") {

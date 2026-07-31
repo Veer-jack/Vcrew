@@ -26,7 +26,10 @@ export default function Missions() {
   const [toast, setToast] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
 
-  useEffect(() => { setVisibleCount(20); }, [tab, q]);
+  useEffect(() => {
+    const t = setTimeout(() => setVisibleCount(20), 0);
+    return () => clearTimeout(t);
+  }, [tab, q]);
 
   useEffect(() => {
     api.missions({ status: tab, q }).then(d => { setMissions(d.missions); setLoading(false); });

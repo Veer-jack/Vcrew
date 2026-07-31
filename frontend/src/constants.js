@@ -4,6 +4,7 @@ export const STAGES = [
   { id: "started",  label: "Started",  color: "var(--t-app)" },
   { id: "submitted",label: "Submitted",color: "var(--warning)" },
   { id: "rewarded", label: "Rewarded", color: "var(--success)" },
+  { id: "rejected", label: "Rejected", color: "var(--danger)" },
 ];
 
 export const FILE_KIND = {
