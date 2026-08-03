@@ -1223,3 +1223,24 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
 
   res.json({ ok: true, invited: true });
 });
+
+// DELETE /api/missions/:id/invite/:validatorId — withdraw a pending invite
+router.delete("/:id/invite/:validatorId", async (req, res) => {
+  const invite = await db.prepare(`
+    SELECT * FROM mission_invitations
+    WHERE mission_id = ? AND validator_id = ? AND builder_id = ? AND status = 'pending'
+  `).get(req.params.id, req.params.validatorId, req.builder.id);
+  if (!invite) return res.status(404).json({ error: "Pending invite not found" });
+
+  const mission = await db.prepare(`SELECT name FROM missions WHERE id = ?`).get(req.params.id);
+
+  await db.transaction(async (tx) => {
+    await tx.prepare(`UPDATE mission_invitations SET status = 'cancelled' WHERE id = ?`).run(invite.id);
+    await tx.prepare(`
+      INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'invite', 'invite_cancelled', 'xCircle', 'muted', ?, ?, 'Just now', 1, ?)
+    `).run(req.params.validatorId, "Invitation Withdrawn", `${req.builder.org || req.builder.name} withdrew your invitation to "${mission?.name || "a mission"}".`, req.params.id);
+  });
+
+  res.json({ ok: true, cancelled: true });
+});
