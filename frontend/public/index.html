@@ -1,0 +1,14 @@
+<!-- Freshdesk Web Chat Widget -->
+<script>
+function initFreshdesk() {
+  window.fdWidget.init({
+    token: "01KXK6H94MCB29AVCQZMN1GB7E",
+    host: "https://validationcrew.freshdesk.com",
+    widgetId: "01KXK6HB6K658D27PNV31HWBE3"
+  });
+}
+function initialize(i,t){var 
+e;i.getElementById(t)?initFreshdesk():((e=i.createElement("script")).id=t,e.async=!0,e.src="https://validationcrew.freshdesk.com/webchat/js/widget.js",e.onload=initFreshdesk,i.head.appendChild(e))}function 
+initiateCall(){initialize(document,"Freshdesk-js-sdk")}window.addEventListener?window.addEventListener("load",initiateCall,!1):window.attachEvent("load",initiateCall,!1);
+</script>
+</body>
