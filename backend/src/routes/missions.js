@@ -111,7 +111,7 @@ function serializeMission(m) {
 
 // GET /api/missions?status=&category=&q=
 router.get("/", async (req, res) => {
-  const { status, category, q } = req.query;
+  const { status, category, q, excludeValidatorId } = req.query;
   let sql = `
     SELECT m.*, 
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
@@ -123,9 +123,41 @@ router.get("/", async (req, res) => {
   if (status) { sql += ` AND status = ?`; params.push(status); }
   if (category) { sql += ` AND category = ?`; params.push(category); }
   if (q) { sql += ` AND name ILIKE ?`; params.push(`%${q}%`); }
+  if (excludeValidatorId) { 
+    sql += ` AND m.id NOT IN (SELECT mission_id FROM participants WHERE validator_id = ?)`; 
+    params.push(excludeValidatorId); 
+  }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
   res.json({ missions: rows.map(serializeMission) });
+});
+
+// GET /api/missions/invitations — every invite this builder has sent, newest first
+router.get("/invitations", async (req, res) => {
+  const { status } = req.query;
+  let sql = `
+    SELECT mi.id, mi.status, mi.created_at,
+      mi.mission_id, m.name AS mission_name, m.status AS mission_status,
+      mi.validator_id, v.name AS validator_name, v.city AS validator_city
+    FROM mission_invitations mi
+    JOIN missions m ON m.id = mi.mission_id
+    JOIN validators v ON v.id = mi.validator_id
+    WHERE mi.builder_id = ?
+  `;
+  const params = [req.builder.id];
+  if (status) { sql += ` AND mi.status = ?`; params.push(status); }
+  sql += ` ORDER BY mi.created_at DESC`;
+
+  const rows = await db.prepare(sql).all(...params);
+  res.json({
+    invitations: rows.map(r => ({
+      id: r.id,
+      status: r.status,
+      createdAt: r.created_at,
+      mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status },
+      validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city },
+    })),
+  });
 });
 
 // GET /api/missions/:id
