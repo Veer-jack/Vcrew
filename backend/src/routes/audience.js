@@ -7,7 +7,7 @@ export const router = Router();
 router.use(authMiddleware);
 
 router.get("/", async (req, res) => {
-  const { q, city, verified } = req.query;
+  const { q, city, verified, missionId } = req.query;
   let sql = `SELECT * FROM validators WHERE 1=1`;
   const params = [];
   
@@ -27,7 +27,16 @@ router.get("/", async (req, res) => {
   sql += ` ORDER BY rating DESC`;
 
   const rows = await db.prepare(sql).all(...params);
-  
+
+  let invitedMap = {};
+  if (missionId) {
+    const owns = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(missionId, req.builder.id);
+    if (owns) {
+      const invites = await db.prepare(`SELECT validator_id, status FROM mission_invitations WHERE mission_id = ? AND status != 'cancelled'`).all(missionId);
+      invitedMap = Object.fromEntries(invites.map(i => [i.validator_id, i.status]));
+    }
+  }
+
   const mapped = rows.map(v => {
     let expertise = [];
     try { expertise = JSON.parse(v.specialties_json || "[]"); } catch (e) {}
@@ -60,6 +69,7 @@ router.get("/", async (req, res) => {
       marital: v.marital_status,
       has_kids: v.has_kids,
       profileCompletion: v.profile_completion || 60,
+      invitedStatus: invitedMap[v.id] || null,
     };
   });
 
