@@ -87,6 +87,11 @@ export const api = {
   completeMissionPoll: (missionId) => request(`/missions/${missionId}/poll/complete`, { method: "POST" }),
   flagResponse: (missionId, responseId, flagged) =>
     request(`/missions/${missionId}/responses/${responseId}`, { method: "PATCH", body: { flagged } }),
+  missionInvitations: (params = {}) => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
+    return request(`/missions/invitations${qs.toString() ? `?${qs}` : ""}`);
+  },
+  cancelInvite: (missionId, validatorId) => request(`/missions/${missionId}/invite/${validatorId}`, { method: "DELETE" }),
 
   audience: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v));

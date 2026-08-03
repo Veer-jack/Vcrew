@@ -5,6 +5,7 @@ import { Avatar, Btn, inrK } from "./ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from "../i18n/index.jsx";
 import { BrandLogoFull } from "./BrandMark";
 import NotificationsSidebar from "./NotificationsSidebar";
 
@@ -14,6 +15,7 @@ const NAV_GROUPS = [
   { label: "Workspace", items: [
     { to: "/", label: "Dashboard", icon: "home", end: true },
     { to: "/missions", label: "Missions", icon: "layers" },
+    { to: "/invitations", label: "Invitations", icon: "send" },
     { to: "/audience", label: "Audience", icon: "compass" },
     { to: "/messages", label: "Messages", icon: "inbox" },
   ] },
@@ -26,25 +28,26 @@ const NAV_GROUPS = [
 ];
 
 function Sidebar({ closeMobile, builder }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <aside className="side">
       <div className="brand">
         <a href="/" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
       </div>
-      <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>Create Mission</Btn>
+      <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>{t("builder.createMission", null, "Create Mission")}</Btn>
       {NAV_GROUPS.flatMap(g => [
-        <div key={g.label} className="nav-group-label">{g.label}</div>,
+        <div key={g.label} className="nav-group-label">{t("nav." + g.label.toLowerCase(), null, g.label)}</div>,
         ...g.items.map(it => (
           <NavLink key={it.to} to={it.to} end={it.end} onClick={closeMobile}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-            <Icon name={it.icon} />{it.label}
+            <Icon name={it.icon} />{t("nav." + it.label.toLowerCase(), null, it.label)}
           </NavLink>
         )),
       ])}
       <div className="side-foot">
         <div className="lvl-card" style={{ marginBottom: 8 }}>
-          <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span style={{ fontWeight: 700, fontSize: 13 }}>Wallet</span><span className="mono faint" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
+          <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span style={{ fontWeight: 700, fontSize: 13 }}>{t("nav.wallet", null, "Wallet")}</span><span className="mono faint" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
           <div className="lvl-meter"><i style={{ width: "68%" }} /></div>
         </div>
         <NavLink to="/settings" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}>
@@ -81,6 +84,7 @@ function pageTitle(pathname) {
 }
 
 export default function AppLayout() {
+  const { t } = useTranslation();
   const { builder, logout } = useAuth();
   const [bell, setBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -106,11 +110,11 @@ export default function AppLayout() {
       <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          <h1>{pageTitle(location.pathname)}</h1>
+          <h1>{t("nav." + pageTitle(location.pathname).toLowerCase(), null, pageTitle(location.pathname))}</h1>
           <div className="search" style={{ marginLeft: 18 }}>
             <Icon name="search" size={16} />
             <input
-              placeholder="Search missions…"
+              placeholder={t("actions.search", null, "Search missions…")}
               value={topbarQ}
               onChange={e => setTopbarQ(e.target.value)}
               onKeyDown={e => {
@@ -144,10 +148,10 @@ export default function AppLayout() {
                 </div>
                 <div style={{ padding: "6px 0" }}>
                   <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0 }} onClick={() => { setShowProfile(false); navigate("/settings"); }}>
-                    <Icon name="settings" size={15} /> Settings
+                    <Icon name="settings" size={15} /> {t("nav.settings", null, "Settings")}
                   </button>
                   <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0, color: "var(--danger)" }} onClick={async () => { setShowProfile(false); await logout(); navigate("/login"); }}>
-                    <Icon name="logout" size={15} /> Sign out
+                    <Icon name="logout" size={15} /> {t("nav.logout", null, "Sign out")}
                   </button>
                 </div>
               </div>
