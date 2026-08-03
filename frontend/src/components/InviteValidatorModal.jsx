@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Btn, Avatar } from "./ui";
 import { Modal } from "./Modal";
 import { api } from "../api/client";
 import { toast } from "react-hot-toast";
 import Icon from "./Icon";
+import { useTranslation } from "../i18n/index.jsx";
 
 export function InviteValidatorModal({ mission, onClose }) {
+  const { t } = useTranslation();
   const [validators, setValidators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
@@ -17,15 +19,15 @@ export function InviteValidatorModal({ mission, onClose }) {
   const [viewOnlySelected, setViewOnlySelected] = useState(false);
 
   useEffect(() => {
-    api.audience()
+    api.audience({ missionId: mission.id })
       .then(res => {
         const reqRole = mission.ptype === 'trial' ? 'Tester' : 'Validator';
         const filtered = (res.members || []).filter(v => v.role === reqRole || v.role === 'Validator');
         setValidators(filtered);
       })
-      .catch(() => toast.error("Failed to load audience"))
+      .catch(() => toast.error(t("invite.failedToLoadAudience", null, "Failed to load audience")))
       .finally(() => setLoading(false));
-  }, [mission]);
+  }, [mission, t]);
 
   // Derived state for skills to show in filter pills
   const availableSkills = useMemo(() => {
@@ -68,10 +70,10 @@ export function InviteValidatorModal({ mission, onClose }) {
       );
     }
     
-    if (activeFilters.has("Recommended")) {
+    if (activeFilters.has(t("invite.recommended", null, "Recommended"))) {
       list = [...list].sort((a, b) => b.match - a.match);
     }
-    if (activeFilters.has("Trust 90+")) {
+    if (activeFilters.has(t("invite.trust90", null, "Trust 90+"))) {
       list = list.filter(v => v.trust >= 90);
     }
     
@@ -82,7 +84,7 @@ export function InviteValidatorModal({ mission, onClose }) {
     });
 
     return list;
-  }, [validators, search, activeFilters, viewOnlySelected, selectedIds, availableSkills]);
+  }, [validators, search, activeFilters, viewOnlySelected, selectedIds, availableSkills, t]);
 
   const handleBulkInvite = async () => {
     if (selectedIds.size === 0) return;
@@ -91,10 +93,10 @@ export function InviteValidatorModal({ mission, onClose }) {
       await Promise.all(
         Array.from(selectedIds).map(id => api.inviteValidator(mission.id, id))
       );
-      toast.success(`Invited ${selectedIds.size} members to mission!`);
+      toast.success(t("invite.invitedMembersSuccess", { count: selectedIds.size }, `Invited ${selectedIds.size} members to mission!`));
       onClose();
     } catch (err) {
-      toast.error(err.message || "Failed to send some invites");
+      toast.error(err.message || t("invite.failedToSendInvites", null, "Failed to send some invites"));
       setInviting(false);
     }
   };
@@ -133,9 +135,9 @@ export function InviteValidatorModal({ mission, onClose }) {
                 <Icon name="send" size={20} />
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Invite Participants</h2>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{t("invite.inviteParticipants", null, "Invite Participants")}</h2>
                 <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
-                  {validators.length} members match your mission requirements.
+                  {validators.length} {t("invite.membersMatchReqs", null, "members match your mission requirements.")}
                 </p>
               </div>
             </div>
@@ -148,7 +150,7 @@ export function InviteValidatorModal({ mission, onClose }) {
             <Icon name="search" size={16} color="var(--text-muted)" style={{ marginRight: 10 }} />
             <input 
               type="text" 
-              placeholder="Search by name, role, skills, city..." 
+              placeholder={t("invite.searchPlaceholder", null, "Search by name, role, skills, city...")} 
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="fin"
@@ -160,20 +162,20 @@ export function InviteValidatorModal({ mission, onClose }) {
           <div className="row ac" style={{ flexWrap: "wrap", paddingBottom: 4, gap: 8 }}>
             <div className="row ac gap-2" style={{ flexWrap: "wrap", flex: 1 }}>
               <Btn 
-                variant={activeFilters.has("Recommended") ? "primary" : "ghost"} 
+                variant={activeFilters.has(t("invite.recommended", null, "Recommended")) ? "primary" : "ghost"} 
                 size="sm" 
                 icon="zap"
-                onClick={() => toggleFilter("Recommended")}
-                style={{ borderRadius: 20, border: activeFilters.has("Recommended") ? "none" : "1px solid var(--border)", background: activeFilters.has("Recommended") ? "var(--accent-weak)" : "transparent", color: activeFilters.has("Recommended") ? "var(--accent)" : "inherit" }}
+                onClick={() => toggleFilter(t("invite.recommended", null, "Recommended"))}
+                style={{ borderRadius: 20, border: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "none" : "1px solid var(--border)", background: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "var(--accent-weak)" : "transparent", color: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "var(--accent)" : "inherit" }}
               >
                 Recommended
               </Btn>
               <Btn 
-                variant={activeFilters.has("Trust 90+") ? "primary" : "ghost"} 
+                variant={activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "primary" : "ghost"} 
                 size="sm" 
                 icon="award"
-                onClick={() => toggleFilter("Trust 90+")}
-                style={{ borderRadius: 20, border: activeFilters.has("Trust 90+") ? "none" : "1px solid var(--border)" }}
+                onClick={() => toggleFilter(t("invite.trust90", null, "Trust 90+"))}
+                style={{ borderRadius: 20, border: activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "none" : "1px solid var(--border)" }}
               >
                 Trust 90+
               </Btn>
@@ -204,7 +206,7 @@ export function InviteValidatorModal({ mission, onClose }) {
                     padding: "4px 8px"
                   }}
                 >
-                  Clear all
+                  {t("actions.clearAll", null, "Clear all")}
                 </button>
               </div>
             )}
@@ -215,9 +217,9 @@ export function InviteValidatorModal({ mission, onClose }) {
         <div className="modal-scroll" style={{ flex: 1, overflowY: "scroll", minHeight: 0 }}>
           <div style={{ padding: "0 24px 16px" }}>
           {loading ? (
-            <div className="muted" style={{ padding: 20, textAlign: "center" }}>Loading perfect matches...</div>
+            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.loadingMatches", null, "Loading perfect matches...")}</div>
           ) : displayList.length === 0 ? (
-            <div className="muted" style={{ padding: 20, textAlign: "center" }}>No matches found for these filters.</div>
+            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noMatchesFound", null, "No matches found for these filters.")}</div>
           ) : (
             <div className="col gap-0">
               {displayList.map(v => {
@@ -232,7 +234,7 @@ export function InviteValidatorModal({ mission, onClose }) {
                           {v.verified && <Icon name="checkCircle" size={14} color="var(--success)" />}
                         </div>
                         <div className="muted" style={{ fontSize: 12, marginTop: 4, display: "flex", alignItems: "center" }}>
-                          {v.occ || 'Member'} <span style={{ margin: "0 8px", fontSize: 16, color: "var(--border)" }}>•</span> {v.city || 'Remote'}
+                          {v.occ || t("roles.member", null, "Member")} <span style={{ margin: "0 8px", fontSize: 16, color: "var(--border)" }}>•</span> {v.city || t("locations.remote", null, "Remote")}
                         </div>
                         <div className="row gap-2" style={{ marginTop: 8, flexWrap: "wrap" }}>
                           {(v.expertise || []).slice(0, 3).map(e => (
@@ -245,32 +247,38 @@ export function InviteValidatorModal({ mission, onClose }) {
                     <div className="modal-list-actions">
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 50 }}>
                         <span style={{ fontWeight: 700, color: "var(--accent)", fontSize: 16 }}>{v.match}%</span>
-                        <span className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: 500 }}>Match</span>
+                        <span className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: 500 }}>{t("invite.matchLabel", null, "Match")}</span>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 70 }}>
                         <span style={{ fontWeight: 700, color: "var(--success)", fontSize: 16, display: "flex", alignItems: "center", gap: 4 }}>
                           <Icon name="shieldCheck" size={14} />
                           {v.trust}
                         </span>
-                        <span className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: 500 }}>Trust Score</span>
+                        <span className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: 500 }}>{t("metrics.trustScore", null, "Trust Score")}</span>
                       </div>
                       <div style={{ width: 100, textAlign: "right" }}>
-                        <Btn 
-                          variant={isSelected ? "primary" : "ghost"} 
-                          size="sm"
-                          icon={isSelected ? "check" : "plus"}
-                          onClick={() => toggleSelection(v.id)}
-                          style={{ 
-                            border: isSelected ? "none" : "1px solid var(--accent)", 
-                            color: isSelected ? "#fff" : "var(--accent)",
-                            background: isSelected ? "var(--accent)" : "transparent",
-                            fontWeight: 600,
-                            padding: "6px 16px",
-                            borderRadius: 6
-                          }}
-                        >
-                          {isSelected ? "Selected" : "Invite"}
-                        </Btn>
+                        {v.invitedStatus ? (
+                          <span className="faint" style={{ fontSize: 12.5, fontWeight: 600 }}>
+                            {v.invitedStatus === "accepted" ? t("invite.alreadyJoined", null, "Already joined") : t("invite.alreadyInvited", null, "Already invited")}
+                          </span>
+                        ) : (
+                          <Btn
+                            variant={isSelected ? "primary" : "ghost"}
+                            size="sm"
+                            icon={isSelected ? "check" : "plus"}
+                            onClick={() => toggleSelection(v.id)}
+                            style={{
+                              border: isSelected ? "none" : "1px solid var(--accent)",
+                              color: isSelected ? "#fff" : "var(--accent)",
+                              background: isSelected ? "var(--accent)" : "transparent",
+                              fontWeight: 600,
+                              padding: "6px 16px",
+                              borderRadius: 6
+                            }}
+                          >
+                            {isSelected ? t("actions.selected", null, "Selected") : t("actions.invite", null, "Invite")}
+                          </Btn>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -303,20 +311,20 @@ export function InviteValidatorModal({ mission, onClose }) {
             )}
             
             <div className="row ac gap-3" style={{ fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>{selectedIds.size} members selected</span>
+              <span style={{ fontWeight: 600 }}>{t("invite.membersSelected", { count: selectedIds.size }, `${selectedIds.size} members selected`)}</span>
               {selectedIds.size > 0 && (
                 <span 
                   style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 600 }} 
                   onClick={() => setViewOnlySelected(!viewOnlySelected)}
                 >
-                  {viewOnlySelected ? "View all" : "View selected"}
+                  {viewOnlySelected ? t("actions.viewAll", null, "View all") : t("actions.viewSelected", null, "View selected")}
                 </span>
               )}
             </div>
           </div>
           
           <div className="row gap-3">
-            <Btn variant="ghost" onClick={onClose} style={{ fontWeight: 600, border: "1px solid var(--border)", background: "#fff", padding: "8px 16px", borderRadius: 6, color: "var(--text)" }}>Cancel</Btn>
+            <Btn variant="ghost" onClick={onClose} style={{ fontWeight: 600, border: "1px solid var(--border)", background: "#fff", padding: "8px 16px", borderRadius: 6, color: "var(--text)" }}>{t("actions.cancel", null, "Cancel")}</Btn>
             <Btn 
               variant="primary" 
               onClick={handleBulkInvite} 
@@ -324,7 +332,7 @@ export function InviteValidatorModal({ mission, onClose }) {
               disabled={selectedIds.size === 0 || inviting}
               style={{ fontWeight: 600, padding: "8px 20px", borderRadius: 6 }}
             >
-              Invite {selectedIds.size > 0 ? `${selectedIds.size} Members` : ""}
+              {t("actions.inviteMembers", { count: selectedIds.size > 0 ? selectedIds.size : "" }, `Invite ${selectedIds.size > 0 ? `${selectedIds.size} Members` : ""}`)}
             </Btn>
           </div>
         </div>
