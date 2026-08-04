@@ -207,22 +207,66 @@ function RouteTracker() {
 function SkipLink() {
   return <a href="#main-content" className="skip-link">Skip to main content</a>;
 }
+function FreshDeskWidget() {
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 
+'https://validationcrew.freshdesk.com/webchat/js/widget.js';
+    script.async = true;
+    script.onload = () => {
+      if (window.fdWidget) {
+        window.fdWidget.init({
+          token: "01KXK6H94MCB29AVCQZMN1GB7E",
+          host: "https://validationcrew.freshdesk.com",
+          widgetId: "01KXK6HB6K658D27PNV31HWBE3"
+        });
+      }
+    };
+    document.body.appendChild(script);
+  }, []);
+  
+  return null;
+}
+
+function FreshDeskWidget() {
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 
+'https://validationcrew.freshdesk.com/webchat/js/widget.js';
+    script.async = true;
+    script.onload = () => {
+      if (window.fdWidget) {
+        window.fdWidget.init({
+          token: "01KXK6H94MCB29AVCQZMN1GB7E",
+          host: "https://validationcrew.freshdesk.com",
+          widgetId: "01KXK6HB6K658D27PNV31HWBE3"
+        });
+      }
+    };
+    document.body.appendChild(script);
+  }, []);
+  
+  return null;
+}
 
 export default function App() {
   return (
     <I18nProvider>
       <BrowserRouter>
         <SkipLink />
+        <FreshDeskWidget />
         <RouteTracker />
         <Routes>
           <Route path="/validator/*" element={
-            <VAuthProvider><VMetaProvider><ValidatorRoutes /></VMetaProvider></VAuthProvider>
+            <VAuthProvider><VMetaProvider><ValidatorRoutes 
+/></VMetaProvider></VAuthProvider>
           } />
           <Route path="/admin/*" element={
             <AAuthProvider><AdminRoutes /></AAuthProvider>
           } />
           <Route path="/*" element={
-            <AuthProvider><MetaProvider><BuilderRoutes /></MetaProvider></AuthProvider>
+            <AuthProvider><MetaProvider><BuilderRoutes 
+/></MetaProvider></AuthProvider>
           } />
         </Routes>
       </BrowserRouter>
