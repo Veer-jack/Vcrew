@@ -115,6 +115,7 @@ const app = express();
 // #9 — Tighten CORS: allow only the production domain and localhost in dev
 const ALLOWED_ORIGINS = [
   "https://vcrew-production.up.railway.app",
+   "https://www.validationcrew.com",
   ...(process.env.NODE_ENV !== "production" ? ["http://localhost:5173", "http://localhost:4000"] : []),
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map(s => s.trim()) : []),
 ];
