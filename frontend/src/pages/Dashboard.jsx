@@ -8,6 +8,7 @@ import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { PERSONA_CONFIG } from "../data/personaConfig";
 import { useTranslation } from "../i18n/index.jsx";
+import { activityWho, activityText } from "../bi18n";
 
 function ProfileCompletionBanner({ builder, nav }) {
   const { t } = useTranslation();
@@ -209,7 +210,7 @@ function ActivityFeed({ rows }) {
         <div className="feed-row" key={a.id} style={{ alignItems: "center", padding: "16px 12px" }}>
           <span className={`feed-ic ${a.tone}`}><Icon name={a.icon} size={16} /></span>
           <div className="feed-body" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-            <p style={{ fontSize: "14.5px" }}><b>{a.who}</b> {a.text} <b>{a.mission_name}</b></p>
+            <p style={{ fontSize: "14.5px" }}><b>{activityWho(t, a)}</b> {activityText(t, a)} <b>{a.mission_name}</b></p>
           </div>
           <div className="feed-time" style={{ marginTop: 0, fontSize: "13px" }}>{a.time_label}</div>
         </div>

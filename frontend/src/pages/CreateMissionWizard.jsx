@@ -10,6 +10,7 @@ import { api } from "../api/client";
 import StepTestCases from "../components/StepTestCases";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { categoryLabel, categoryDesc, ptypeLabel, ptypeDesc, rewardLabel, rewardDesc } from "../bi18n";
 
 function wzSteps(t) {
   return [
@@ -43,7 +44,7 @@ function StepInfo({ d, set, categories }) {
           <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} onClick={() => set({ cat: c.id })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={c.icon} size={20} /></span>
-            <b>{c.label}</b><p>{c.desc}</p>
+            <b>{categoryLabel(t, c)}</b><p>{categoryDesc(t, c)}</p>
           </button>
         ))}
       </div>
@@ -120,7 +121,7 @@ function StepParticipation({ d, set, ptypes }) {
           <button key={p.id} className={`optcard ${d.ptype === p.id ? "on" : ""}`} onClick={() => set({ ptype: p.id })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
-            <b>{p.label}</b><p>{p.desc}</p>
+            <b>{ptypeLabel(t, p)}</b><p>{ptypeDesc(t, p)}</p>
             <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`) : p.est}</span>
           </button>
         ))}
@@ -155,7 +156,7 @@ function StepReward({ d, set, rewards }) {
           <button key={r.id} className={`optcard ${d.reward.type === r.id ? "on" : ""}`} onClick={() => set({ reward: { ...d.reward, type: r.id } })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={r.icon} size={20} /></span>
-            <b>{r.label}</b><p>{r.desc}</p>
+            <b>{rewardLabel(t, r)}</b><p>{rewardDesc(t, r)}</p>
           </button>
         ))}
       </div>
@@ -228,10 +229,10 @@ function StepReview({ d, categories, ptypes, rewards, liveCount }) {
     <div className="rise">
       <div className="card" style={{ padding: "4px 20px 14px" }}>
         <ReviewRow icon="edit" label={t("createMission.missionTitleReviewLabel", null, "Mission title")}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
-        <ReviewRow icon={cat?.icon || "layers"} label={t("createMission.categoryLabel", null, "Category")}>{cat?.label}</ReviewRow>
+        <ReviewRow icon={cat?.icon || "layers"} label={t("createMission.categoryLabel", null, "Category")}>{cat && categoryLabel(t, cat)}</ReviewRow>
         <ReviewRow icon="users" label={t("createMission.audienceLabel", null, "Audience")}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
-        <ReviewRow icon={pt?.icon || "list"} label={t("createMission.participationTypeLabel", null, "Participation type")}>{pt?.label} · ~{pt?.est}</ReviewRow>
-        <ReviewRow icon={rw?.icon || "coins"} label={t("createMission.rewardLabel", null, "Reward")}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : rw?.label} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
+        <ReviewRow icon={pt?.icon || "list"} label={t("createMission.participationTypeLabel", null, "Participation type")}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
+        <ReviewRow icon={rw?.icon || "coins"} label={t("createMission.rewardLabel", null, "Reward")}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
       </div>
       {d.desc && <div className="card" style={{ padding: 18, marginTop: 14 }}><span className="eyebrow">{t("createMission.descriptionEyebrow", null, "Description")}</span><p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.6 }}>{d.desc}</p></div>}
       {allFilters.length > 0 && (

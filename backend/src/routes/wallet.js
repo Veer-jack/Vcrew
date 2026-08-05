@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { consumeStepUpToken } from "../firebaseRoutes.js";
+import { translateBatch } from "../translate.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -12,12 +13,22 @@ router.get("/", async (req, res) => {
   const invoices = await db.prepare(`SELECT * FROM invoices WHERE builder_id = ? ORDER BY id DESC`).all(bId);
   const paymentMethods = await db.prepare(`SELECT * FROM payment_methods WHERE builder_id = ? ORDER BY is_default DESC, id ASC`).all(bId);
 
+  const lang = req.builder.preferred_language;
+  let descByTxnId = new Map();
+  if (lang && lang !== "en" && transactions.length) {
+    const translated = await translateBatch(
+      transactions.filter(t => t.detail).map(t => ({ entityType: "transaction", entityId: t.id, field: "detail", text: t.detail })),
+      lang
+    );
+    for (const t of transactions) descByTxnId.set(t.id, translated.get(`transaction:${t.id}:detail`) ?? t.detail);
+  }
+
   res.json({
     balance: req.builder.balance,
     pending: req.builder.pending,
     monthSpend: req.builder.month_spend,
     transactions: transactions.map(t => ({
-      id: t.id, date: t.created_at, description: t.detail, type: t.type, amount: t.amount, missionId: null,
+      id: t.id, date: t.created_at, description: descByTxnId.get(t.id) ?? t.detail, type: t.type, amount: t.amount, missionId: null,
     })),
     invoices: invoices.map(i => ({ id: i.id, date: i.created_at, amount: i.amount, status: i.status })),
     paymentMethods: paymentMethods.map(p => ({ id: p.id, brand: p.brand, last4: p.last4, exp: null, primary: !!p.is_default })),

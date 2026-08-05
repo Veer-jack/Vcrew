@@ -7,6 +7,7 @@ import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { exportCSV, exportXls } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
+import { categoryLabel } from "../bi18n";
 
 export default function Analytics() {
   const { t } = useTranslation();
@@ -74,7 +75,7 @@ export default function Analytics() {
           <div className="chart-card">
             <div className="sec-head"><h3 className="h-md">{t("analytics.spendByCategory", null, "Spend by category")}</h3></div>
             {data.categoryBreakdown.length === 0 ? <div className="muted" style={{ padding: "12px 0" }}>{t("analytics.noSpend", null, "No spend recorded yet.")}</div> : data.categoryBreakdown.map(c => (
-              <div className="geo-row" key={c.category}><span className="gn">{c.label}</span><span className="gbar"><i style={{ width: (c.spend / maxSpend) * 100 + "%" }} /></span><span className="gv">₹{c.spend.toLocaleString("en-IN")}</span></div>
+              <div className="geo-row" key={c.category}><span className="gn">{categoryLabel(t, { id: c.category, label: c.label })}</span><span className="gbar"><i style={{ width: (c.spend / maxSpend) * 100 + "%" }} /></span><span className="gv">₹{c.spend.toLocaleString("en-IN")}</span></div>
             ))}
           </div>
           <div className="chart-card">

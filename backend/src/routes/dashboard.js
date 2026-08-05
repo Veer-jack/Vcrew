@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { catOf } from "../meta.js";
 import { recalcMissionStats } from "../stats.js";
+import { translateBatch } from "../translate.js";
 
 // Basic helper to convert timestamps to relative time labels
 function timeAgo(dateStr) {
@@ -89,9 +90,9 @@ router.get("/", async (req, res) => {
   };
 
   const rawActivity = await db.prepare(`SELECT * FROM activity WHERE builder_id = ? ORDER BY id DESC LIMIT 12`).all(bId);
-  const activity = rawActivity.map(row => {
+  let activity = rawActivity.map(row => {
     let who = "System", icon = "activity", tone = "gray", text = "did something with", mission_name = row.title;
-    
+
     if (row.type === "mission_published") {
       icon = "check"; tone = "green"; text = "published mission";
     } else if (row.type === "submission_received") {
@@ -108,10 +109,28 @@ router.get("/", async (req, res) => {
       icon,
       tone,
       text,
+      // Small closed set of template fragments -- translated client-side by key
+      // (see frontend/src/bi18n.js) rather than through the Translation API below.
+      type: row.type,
+      amount: row.amount ?? 0,
+      validatorName: row.type === "submission_received" ? (row.detail || null) : null,
       mission_name,
       time_label: timeAgo(row.created_at)
     };
   });
+
+  const lang = req.builder.preferred_language;
+  if (lang && lang !== "en") {
+    if (activity.length) {
+      // mission_name here mirrors an actual mission's name -- keyed the same way
+      // missions.js keys it ("mission"/id/"name") so both share the translation cache.
+      const translated = await translateBatch(
+        activity.filter(a => a.mission_name).map(a => ({ entityType: "activity_title", entityId: a.id, field: "title", text: a.mission_name })),
+        lang
+      );
+      activity = activity.map(a => ({ ...a, mission_name: translated.get(`activity_title:${a.id}:title`) ?? a.mission_name }));
+    }
+  }
 
   const recentRaw = await db.prepare(`
     SELECT m.*, 
@@ -119,12 +138,12 @@ router.get("/", async (req, res) => {
     FROM missions m WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6
   `).all(bId);
   
-  const recent = recentRaw.map(m => {
+  let recent = recentRaw.map(m => {
     const realSub = m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted;
-    const realComp = m.real_submitted !== undefined 
-      ? Math.min(100, Math.round((Number(m.real_submitted) / Math.max(m.target || 1, 1)) * 100)) 
+    const realComp = m.real_submitted !== undefined
+      ? Math.min(100, Math.round((Number(m.real_submitted) / Math.max(m.target || 1, 1)) * 100))
       : m.completion;
-      
+
     return {
       id: m.id, name: m.name, category: m.category, categoryLabel: catOf(m.category).label,
       status: m.status, region: m.region, completion: realComp,
@@ -132,6 +151,15 @@ router.get("/", async (req, res) => {
       reward: { type: m.reward_type, amount: m.reward_amount },
     };
   });
+
+  if (lang && lang !== "en" && recent.length) {
+    // Same entityType/field as missions.js's mission list, so this shares that cache.
+    const translated = await translateBatch(
+      recent.map(m => ({ entityType: "mission", entityId: m.id, field: "name", text: m.name })),
+      lang
+    );
+    recent = recent.map(m => ({ ...m, name: translated.get(`mission:${m.id}:name`) ?? m.name }));
+  }
 
   const latestVerif = await db.prepare(`SELECT status, reviewer_note FROM verifications WHERE builder_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(bId);
 

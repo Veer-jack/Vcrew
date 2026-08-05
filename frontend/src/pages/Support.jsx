@@ -3,6 +3,7 @@ import Icon from "../components/Icon";
 import { Empty } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { helpCatLabel, builderHelpArticleField } from "../bi18n";
 
 function RaiseTicket({ onClose, onCreated }) {
   const { t } = useTranslation();
@@ -142,7 +143,9 @@ export default function Support() {
   useEffect(() => { api.support().then(setData); }, []);
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
-  const help = data.helpArticles.filter(h => !q || (h.q + h.a + h.cat).toLowerCase().includes(q.toLowerCase()));
+  const help = data.helpArticles
+    .map((h, i) => ({ ...h, _idx: i }))
+    .filter(h => !q || (h.q + h.a + h.cat).toLowerCase().includes(q.toLowerCase()));
 
   return (
     <div className="page" style={{ maxWidth: 880, margin: "0 auto" }}>
@@ -168,11 +171,11 @@ export default function Support() {
           {help.length === 0 ? <div style={{ padding: 32 }} className="faint">{t("support.noArticlesMatch", null, "No articles match")} "{q}".</div> : help.map((h, i) => (
             <div key={i} style={{ borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
               <button onClick={() => setOpen(open === i ? null : i)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", textAlign: "left", padding: "16px var(--pad-card)", background: "none", border: "none", cursor: "pointer" }}>
-                <span className="tag" style={{ flex: "none", background: "var(--panel-inset)", color: "var(--text-muted)" }}>{h.cat}</span>
-                <b style={{ flex: 1, fontSize: 14.5 }}>{h.q}</b>
+                <span className="tag" style={{ flex: "none", background: "var(--panel-inset)", color: "var(--text-muted)" }}>{helpCatLabel(t, h.cat)}</span>
+                <b style={{ flex: 1, fontSize: 14.5 }}>{builderHelpArticleField(t, h._idx, "q", h.q)}</b>
                 <Icon name="chevronDown" size={18} style={{ color: "var(--text-faint)", transform: open === i ? "rotate(180deg)" : "none", transition: "transform .2s", flex: "none" }} />
               </button>
-              {open === i && <p className="muted" style={{ margin: 0, padding: "0 var(--pad-card) 18px 64px", fontSize: 14, lineHeight: 1.6 }}>{h.a}</p>}
+              {open === i && <p className="muted" style={{ margin: 0, padding: "0 var(--pad-card) 18px 64px", fontSize: 14, lineHeight: 1.6 }}>{builderHelpArticleField(t, h._idx, "a", h.a)}</p>}
             </div>
           ))}
         </div>
@@ -194,7 +197,7 @@ export default function Support() {
                 <div key={tObj.id} onClick={() => setViewingTicket(tObj)} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="row gap-2 wrap"><b style={{ fontSize: 14.5 }}>{tObj.subject}</b>{tObj.priority === "urgent" && <span className="tag" style={{ background: "var(--danger-weak)", color: "var(--danger)" }}>{t("status.urgent", null, "Urgent")}</span>}</div>
-                    <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{tObj.id} · {tObj.cat} · {t("support.updated", null, "updated")} {tObj.updated}</div>
+                    <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{tObj.id} · {helpCatLabel(t, tObj.cat)} · {t("support.updated", null, "updated")} {tObj.updated}</div>
                     {tObj.reply && <p className="muted" style={{ margin: "8px 0 0", fontSize: 13, lineHeight: 1.5, padding: "10px 12px", background: "var(--panel-inset)", borderRadius: "var(--radius-sm, 8px)" }}><b style={{ color: "var(--text)" }}>{t("support.supportReply", null, "Support reply:")}</b> {tObj.reply}</p>}
                   </div>
                   <span className="tag" style={{ background: st.bg, color: st.c, flex: "none" }}>{st.l}</span>

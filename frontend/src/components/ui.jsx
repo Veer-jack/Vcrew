@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "./Icon";
 import { useTranslation } from "../i18n/index.jsx";
+import { categoryLabel } from "../bi18n";
 
 const AV_COLORS = ["#4f46e5","#0ea5a4","#d6336c","#c2410c","#2563eb","#7c3aed","#16a34a","#0891b2","#b45309","#db2777"];
 export const avColor = (s = "") => AV_COLORS[(s.charCodeAt(0) + s.length) % AV_COLORS.length];
@@ -71,8 +72,9 @@ export function StatusTag({ status }) {
 }
 
 export function TypeTag({ cat, categories }) {
-  const c = categories.find(c => c.id === cat) || categories[0] || { label: cat };
-  return <span className="ttag" style={{ "--tc": `var(--t-${cat})` }}><span className="dot" />{c.label}</span>;
+  const { t } = useTranslation();
+  const c = categories.find(c => c.id === cat) || categories[0] || { id: cat, label: cat };
+  return <span className="ttag" style={{ "--tc": `var(--t-${cat})` }}><span className="dot" />{categoryLabel(t, c)}</span>;
 }
 
 export function MissionLogo({ name, cat, size = 40 }) {
