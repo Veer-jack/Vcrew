@@ -112,6 +112,10 @@ if (builderCount === 0) {
 }
 
 const app = express();
+// Railway sits in front of the app behind a reverse proxy; without this, Express
+// can't see the real client IP (X-Forwarded-For), so express-rate-limit below
+// ends up treating every visitor as the same IP and rate-limits everyone at once.
+app.set("trust proxy", 1);
 // #9 — Tighten CORS: allow only the production domain and localhost in dev
 const ALLOWED_ORIGINS = [
   "https://vcrew-production.up.railway.app",
