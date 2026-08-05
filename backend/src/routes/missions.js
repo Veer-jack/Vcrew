@@ -52,6 +52,14 @@ const upload = multer({
   },
 });
 
+// Escrow is tracked per-slot (not as one aggregate rounded number) so each
+// approval/rejection can release its own exact share from `pending` — the
+// old aggregate rounding meant per-slot releases never summed back to zero.
+function perSlotEscrow(rewardAmount) {
+  const fee = Math.round((rewardAmount || 0) * PLATFORM_FEE_PCT);
+  return { fee, cost: (rewardAmount || 0) + fee };
+}
+
 function kindFromMime(mime) {
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
@@ -287,8 +295,7 @@ router.post("/", async (req, res) => {
     await db.transaction(async (tx) => {
       let spend = 0;
       if (status === "active" && rewardType !== "free" && rewardAmount > 0 && target > 0) {
-        const platformFee = Math.round((target * rewardAmount) * PLATFORM_FEE_PCT);
-        const totalCost = (target * rewardAmount) + platformFee;
+        const totalCost = perSlotEscrow(rewardAmount).cost * target;
 
         const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
         if (updateRes.changes === 0) {
@@ -339,19 +346,29 @@ router.patch("/:id", async (req, res) => {
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
-  // Gate publishing (draft → active) the same way as creating an active mission
-  if (req.body.status === "active" && m.status !== "active") {
+  const newStatus = req.body.status !== undefined ? req.body.status : m.status;
+  const newTarget = req.body.target !== undefined ? Number(req.body.target) : m.target;
+
+  // Gate publishing (draft → active) AND any target increase on an already-active
+  // mission the same way as creating an active mission — gated on the REQUESTED
+  // target, not the stale pre-update one, so a single publish+upsize request (or a
+  // later upsize) can't dodge the unverified-account participant cap.
+  const isPublishing = newStatus === "active" && m.status !== "active";
+  const isUpsizingActive = m.status === "active" && newStatus === "active" && newTarget > m.target;
+  if (isPublishing || isUpsizingActive) {
     const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
     const isVerified = !!(builder && builder.verified_at);
     if (!isVerified) {
-      const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
-      if (activeMissions >= 3) {
-        return res.status(403).json({
-          error: "Unverified accounts can run a maximum of 3 active missions. Verify your website to unlock unlimited campaigns.",
-          code: "VERIFICATION_REQUIRED", limit: "missions",
-        });
+      if (isPublishing) {
+        const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
+        if (activeMissions >= 3) {
+          return res.status(403).json({
+            error: "Unverified accounts can run a maximum of 3 active missions. Verify your website to unlock unlimited campaigns.",
+            code: "VERIFICATION_REQUIRED", limit: "missions",
+          });
+        }
       }
-      if (m.target > 25) {
+      if (newTarget > 25) {
         return res.status(403).json({
           error: "Unverified accounts can target a maximum of 25 participants per mission. Reduce the target or verify your website.",
           code: "VERIFICATION_REQUIRED", limit: "participants",
@@ -363,17 +380,13 @@ router.patch("/:id", async (req, res) => {
   const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
   const updates = [];
   const params = [];
-  
-  const newStatus = req.body.status !== undefined ? req.body.status : m.status;
-  const newTarget = req.body.target !== undefined ? Number(req.body.target) : m.target;
   let spendDelta = 0;
   
   try {
     await db.transaction(async (tx) => {
       // If moving from draft to active, we need to charge them
       if (newStatus === "active" && m.status === "draft" && m.reward_type !== "free" && m.reward_amount > 0 && newTarget > 0) {
-        const platformFee = Math.round((newTarget * m.reward_amount) * PLATFORM_FEE_PCT);
-        const totalCost = (newTarget * m.reward_amount) + platformFee;
+        const totalCost = perSlotEscrow(m.reward_amount).cost * newTarget;
 
         const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(totalCost, totalCost, req.builder.id, totalCost);
         if (updateRes.changes === 0) {
@@ -383,6 +396,36 @@ router.patch("/:id", async (req, res) => {
 
         const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, totalCost);
         await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, ?, ?, 'completed', ?, ?)`).run(req.builder.id, "debit", totalCost, `INV-${invRes.id}`, `Mission escrow for ${m.name} (incl. ${Math.round(PLATFORM_FEE_PCT * 100)}% fee)`);
+      } else if (m.status === "active" && newStatus === "active" && req.body.target !== undefined && newTarget !== m.target) {
+        // Rescaling target on an already-active mission. Upscaling must charge escrow
+        // for the new slots right now — publish-time escrow only ever covered the
+        // target that existed at that moment. Downscaling can only remove capacity
+        // nobody has joined yet (never touches an approved/rejected slot's escrow),
+        // and refunds exactly that — using the same perSlotEscrow() the approve/reject
+        // routes use, so this can't drift into a second, disagreeing accounting rule.
+        if (newTarget < m.joined) {
+          throw new Error(`Cannot reduce target below ${m.joined} — that many validators have already joined this mission.`);
+        }
+        if (m.reward_type !== "free" && m.reward_amount > 0) {
+          const perSlot = perSlotEscrow(m.reward_amount).cost;
+          const costDelta = perSlot * (newTarget - m.target);
+
+          if (costDelta > 0) {
+            const updateRes = await tx.prepare(`UPDATE builders SET balance = balance - ?, pending = pending + ? WHERE id = ? AND balance >= ?`).run(costDelta, costDelta, req.builder.id, costDelta);
+            if (updateRes.changes === 0) {
+              throw new Error(`Insufficient funds to add ${newTarget - m.target} slot(s). Additional escrow needed: ₹${costDelta}. Please top up your wallet.`);
+            }
+            const invRes = await tx.prepare(`INSERT INTO invoices (builder_id, amount, status, due_at, paid_at) VALUES (?, ?, 'paid', NOW(), NOW()) RETURNING id`).get(req.builder.id, costDelta);
+            await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, 'debit', ?, 'completed', ?, ?)`)
+              .run(req.builder.id, costDelta, `INV-${invRes.id}`, `Escrow top-up for ${newTarget - m.target} additional slot(s) on ${m.name}`);
+          } else {
+            const refund = -costDelta;
+            await tx.prepare(`UPDATE builders SET balance = balance + ?, pending = pending - ? WHERE id = ?`).run(refund, refund, req.builder.id);
+            await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, 'credit', ?, 'completed', ?, ?)`)
+              .run(req.builder.id, refund, null, `Escrow refund for ${m.target - newTarget} removed slot(s) on ${m.name}`);
+          }
+          spendDelta = costDelta;
+        }
       }
 
       for (const key of allowed) {
@@ -398,7 +441,7 @@ router.patch("/:id", async (req, res) => {
           }
         }
       }
-      if (spendDelta > 0) {
+      if (spendDelta !== 0) {
         updates.push(`spend = spend + ?`);
         params.push(spendDelta);
       }
@@ -411,15 +454,48 @@ router.patch("/:id", async (req, res) => {
         await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail) VALUES (?,?,?,?)`)
           .run(req.builder.id, "mission_published", m.name, "Mission published and live");
       }
+
+      // Escrow Refund Logic for terminating missions
+      const terminalStates = ["closed", "completed", "archived"];
+      if (terminalStates.includes(newStatus) && !terminalStates.includes(m.status)) {
+        // Approved slots already released their own escrow share (reward + fee) at
+        // approval time (see the approve route) — everything else (never submitted,
+        // still pending review, or rejected and not yet refilled) still owes a refund,
+        // since a rejected slot's escrow stays parked in pending in case it gets refilled.
+        const approved = await tx.prepare(`SELECT COUNT(*) as c FROM responses WHERE mission_id = ? AND status = 'approved'`).get(m.id);
+        const alreadyReleased = (parseInt(approved.c, 10) || 0) * perSlotEscrow(m.reward_amount).cost;
+        const refund = Math.max(0, (m.spend || 0) - alreadyReleased);
+        if (refund > 0) {
+          await tx.prepare(`UPDATE builders SET balance = balance + ?, pending = pending - ? WHERE id = ?`).run(refund, refund, req.builder.id);
+          await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, 'credit', ?, 'completed', ?, ?)`)
+            .run(req.builder.id, refund, null, `Escrow refund for closed mission ${m.name}`);
+          
+          // Set spend to exactly what was released so future transitions don't double refund
+          await tx.prepare(`UPDATE missions SET spend = ? WHERE id = ?`).run(alreadyReleased, m.id);
+        }
+      }
       
-      // Notify saved users when mission completes
-      if (newStatus === "completed" && m.status !== "completed") {
+      // Notify saved users when mission completes or closes
+      if ((newStatus === "completed" && m.status !== "completed") || (newStatus === "closed" && m.status !== "closed")) {
         // Find everyone who saved it
         const savedValidators = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(m.id);
         for (const sv of savedValidators) {
           // Send polite notification
           await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'mission_completed', 'flag', 'muted', ?, ?, 'Just now', 1)`)
-            .run(sv.validator_id, "Mission Closed", `The mission "${m.name}" you saved has been completed by the builder. We'll meet you in another mission!`);
+            .run(sv.validator_id, "Mission Closed", `The mission "${m.name}" you saved has been closed by the builder. We'll meet you in another mission!`);
+        }
+      }
+
+      // Notify active validators if mission details change
+      if (m.status === "active" && newStatus === "active" && updates.length > 0) {
+        // Skip if only audience changed
+        const onlyAudience = updates.length === 1 && updates[0].includes("audience_json");
+        if (!onlyAudience) {
+          const activeValidators = await tx.prepare(`SELECT validator_id FROM v_my_missions WHERE mission_id = ? AND status IN ('active', 'revision')`).all(m.id);
+          for (const av of activeValidators) {
+            await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'mission_updated', 'info', 'primary', ?, ?, 'Just now', 1, ?)`)
+              .run(av.validator_id, "Mission Updated", `The builder has updated the requirements or details for "${m.name}". Please review them.`, m.id);
+          }
         }
       }
     });
@@ -650,12 +726,15 @@ router.post("/:id/schedules/:validatorId/propose", authMiddleware, async (req, r
 
 // POST /api/missions/:id/schedules/:validatorId/complete — builder marks the interview as having happened
 router.post("/:id/schedules/:validatorId/complete", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'completed', completed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'accepted'`)
     .run(req.params.id, req.params.validatorId);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This interview is not in an accepted state" });
+
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'interview_completed', 'checkCircle', 'success', 'Interview Marked Complete', ?, 'Just now', 1, ?)`)
+    .run(req.params.validatorId, `Your interview for "${mission.name}" is marked as done — submit your debrief in the workspace to get paid.`, req.params.id);
 
   res.json({ ok: true });
 });
@@ -689,7 +768,7 @@ router.get("/:id/poll", authMiddleware, async (req, res) => {
 
 // POST /api/missions/:id/poll — builder creates the poll (once per mission)
 router.post("/:id/poll", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const { meetingLink, slots } = req.body || {};
@@ -703,6 +782,13 @@ router.post("/:id/poll", authMiddleware, async (req, res) => {
       for (const scheduledAt of slots) {
         await tx.prepare(`INSERT INTO focus_group_slots (poll_id, scheduled_at) VALUES (?, ?)`).run(pollId, scheduledAt);
       }
+
+      // Notify all active validators to select their availability
+      const activeValidators = await tx.prepare(`SELECT validator_id FROM v_my_missions WHERE mission_id = ? AND status = 'active'`).all(mission.id);
+      for (const av of activeValidators) {
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'poll_created', 'calendar', 'primary', ?, ?, 'Just now', 1, ?)`)
+          .run(av.validator_id, "Focus Group Scheduling", `Please select your availability for the focus group: "${mission.name}".`, mission.id);
+      }
     });
   } catch {
     return res.status(400).json({ error: "A poll already exists for this mission" });
@@ -713,36 +799,63 @@ router.post("/:id/poll", authMiddleware, async (req, res) => {
 
 // POST /api/missions/:id/poll/lock — builder locks in a candidate slot
 router.post("/:id/poll/lock", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const { slotId } = req.body || {};
   if (!slotId) return res.status(400).json({ error: "slotId is required" });
 
-  const updateRes = await db.prepare(`
-    UPDATE focus_group_polls SET status = 'locked', locked_slot_id = ?
-    WHERE mission_id = ? AND status = 'open'
-      AND EXISTS (SELECT 1 FROM focus_group_slots WHERE id = ? AND poll_id = focus_group_polls.id)
-  `).run(slotId, req.params.id, slotId);
-  if (updateRes.changes === 0) return res.status(400).json({ error: "Cannot lock this poll (already locked, or the slot doesn't belong to this poll)" });
+  let updateRes;
+  await db.transaction(async (tx) => {
+    updateRes = await tx.prepare(`
+      UPDATE focus_group_polls SET status = 'locked', locked_slot_id = ?
+      WHERE mission_id = ? AND status = 'open'
+        AND EXISTS (SELECT 1 FROM focus_group_slots WHERE id = ? AND poll_id = focus_group_polls.id)
+    `).run(slotId, req.params.id, slotId);
+    
+    if (updateRes.changes > 0) {
+      const poll = await tx.prepare(`SELECT id FROM focus_group_polls WHERE mission_id = ?`).get(req.params.id);
+      const activeValidators = await tx.prepare(`SELECT validator_id FROM v_my_missions WHERE mission_id = ? AND status = 'active'`).all(mission.id);
+      const selectedValidators = await tx.prepare(`SELECT validator_id FROM focus_group_responses WHERE poll_id = ? AND slot_id = ?`).all(poll.id, slotId);
+      const selectedSet = new Set(selectedValidators.map(v => v.validator_id));
+
+      for (const av of activeValidators) {
+        if (selectedSet.has(av.validator_id)) {
+          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'poll_locked', 'calendar', 'success', ?, ?, 'Just now', 1, ?)`)
+            .run(av.validator_id, "Focus Group Scheduled", `You have been selected for the focus group: "${mission.name}". Check the time and meeting link!`, mission.id);
+        } else {
+          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'poll_locked', 'info', 'muted', ?, ?, 'Just now', 1, ?)`)
+            .run(av.validator_id, "Focus Group Scheduled", `The focus group for "${mission.name}" has been scheduled, but your availability was not a match this time.`, mission.id);
+        }
+      }
+    }
+  });
+
+  if (!updateRes || updateRes.changes === 0) return res.status(400).json({ error: "Cannot lock this poll (already locked, or the slot doesn't belong to this poll)" });
 
   res.json({ ok: true });
 });
 
 // POST /api/missions/:id/poll/complete — builder marks the focus group session as having happened
 router.post("/:id/poll/complete", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
-  const updateRes = await db.prepare(`UPDATE focus_group_polls SET status = 'completed', completed_at = NOW() WHERE mission_id = ? AND status = 'locked'`)
-    .run(req.params.id);
-  if (updateRes.changes === 0) return res.status(400).json({ error: "This poll is not in a locked state" });
+  const poll = await db.prepare(`UPDATE focus_group_polls SET status = 'completed', completed_at = NOW() WHERE mission_id = ? AND status = 'locked' RETURNING id, locked_slot_id`)
+    .get(req.params.id);
+  if (!poll) return res.status(400).json({ error: "This poll is not in a locked state" });
+
+  const attendees = await db.prepare(`SELECT validator_id FROM focus_group_responses WHERE poll_id = ? AND slot_id = ?`).all(poll.id, poll.locked_slot_id);
+  for (const a of attendees) {
+    await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'focus_completed', 'checkCircle', 'success', 'Focus Group Marked Complete', ?, 'Just now', 1, ?)`)
+      .run(a.validator_id, `Your focus group session for "${mission.name}" is marked as done — submit your debrief in the workspace to get paid.`, req.params.id);
+  }
 
   res.json({ ok: true });
 });
 
 // GET /api/missions/:id/submissions — founder reviews submissions
-router.get("/:id/submissions", authMiddleware, async (req, res) => { console.log("HITTING SUBMISSIONS ROUTE FOR", req.params.id);
+router.get("/:id/submissions", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
@@ -867,10 +980,13 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
     if (response.status === 'approved') throw new Error("Submission already approved");
 
     let reward = mission.reward_amount || 0;
+    const slotCost = perSlotEscrow(reward).cost; // reward + this slot's share of the platform fee
 
     if (reward > 0) {
-      // Deduct reward ONLY from pending escrow (balance was already deducted at publish)
-      const updateRes = await tx.prepare(`UPDATE builders SET pending = pending - ? WHERE id = ? AND pending >= ?`).run(reward, req.builder.id, reward);
+      // Release this slot's full escrow (reward + fee) from pending — the fee is
+      // realized as platform revenue here, not left sitting in pending until the
+      // mission is eventually closed (balance was already deducted at publish).
+      const updateRes = await tx.prepare(`UPDATE builders SET pending = pending - ? WHERE id = ? AND pending >= ?`).run(slotCost, req.builder.id, slotCost);
       if (updateRes.changes === 0) {
         // Fallback for missions that were already active before this escrow system was implemented
         const legacyRes = await tx.prepare(`UPDATE builders SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(reward, req.builder.id, reward);
@@ -1005,9 +1121,9 @@ router.delete("/:id", authMiddleware, async (req, res) => {
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   await db.transaction(async (tx) => {
-    // Refund whatever escrow wasn't already paid out to validators via approvals
+    // Refund whatever escrow wasn't already released (as reward + fee) via approvals
     const approved = await tx.prepare(`SELECT COUNT(*) as c FROM responses WHERE mission_id = ? AND status = 'approved'`).get(mission.id);
-    const alreadyReleased = (parseInt(approved.c, 10) || 0) * (mission.reward_amount || 0);
+    const alreadyReleased = (parseInt(approved.c, 10) || 0) * perSlotEscrow(mission.reward_amount).cost;
     const refund = Math.max(0, (mission.spend || 0) - alreadyReleased);
 
     if (refund > 0) {

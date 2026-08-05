@@ -11,6 +11,11 @@ export default function Messages() {
   const [q, setQ] = useState("");
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
+  const [visibleThreadsCount, setVisibleThreadsCount] = useState(30);
+  const [visibleMessagesCount, setVisibleMessagesCount] = useState(50);
+
+  useEffect(() => { setVisibleThreadsCount(30); }, [q]);
+  useEffect(() => { setVisibleMessagesCount(50); }, [activeId]);
 
   useEffect(() => {
     vapi.threads().then(d => { setThreads(d.threads); if (d.threads.length) setActiveId(d.threads[0].id); });
@@ -50,7 +55,7 @@ export default function Messages() {
         </div>
         <div style={{ overflowY: "auto", flex: 1 }}>
           {visibleThreads.length === 0 && <div className="muted" style={{ padding: 18, fontSize: 13.5 }}>No conversations match "{q}".</div>}
-          {visibleThreads.map(t => (
+          {visibleThreads.slice(0, visibleThreadsCount).map(t => (
             <button key={t.id} onClick={() => setActiveId(t.id)} style={{ display: "flex", gap: 12, width: "100%", textAlign: "left", padding: "14px var(--pad-card)",
               border: "none", borderBottom: "var(--hairline) solid var(--border)", background: t.id === activeId ? "var(--accent-weak)" : "transparent", cursor: "pointer" }}>
               <VAvatar name={t.name} size={42} />
@@ -61,6 +66,11 @@ export default function Messages() {
               </div>
             </button>
           ))}
+          {visibleThreadsCount < visibleThreads.length && (
+            <div style={{ textAlign: "center", padding: 16 }}>
+              <button className="backlink" onClick={() => setVisibleThreadsCount(c => c + 30)}>Load more threads</button>
+            </div>
+          )}
         </div>
       </div>
       {active && (
@@ -72,7 +82,12 @@ export default function Messages() {
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "var(--pad-page)", display: "flex", flexDirection: "column", gap: 12, background: "var(--bg)" }}>
             <div style={{ textAlign: "center", margin: "4px 0 8px" }}><span className="pill" style={{ fontSize: 11.5 }}>{active.mission}</span></div>
-            {active.messages.map((m, i) => (
+            {visibleMessagesCount < active.messages.length && (
+              <div style={{ textAlign: "center" }}>
+                <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setVisibleMessagesCount(c => c + 50)}>Load previous</button>
+              </div>
+            )}
+            {active.messages.slice(-visibleMessagesCount).map((m, i) => (
               <div key={i} style={{ display: "flex", justifyContent: m.from === "me" ? "flex-end" : "flex-start" }}>
                 <div style={{ maxWidth: "68%" }}>
                   <div style={{ padding: "10px 14px", borderRadius: 14, fontSize: 14, lineHeight: 1.5,

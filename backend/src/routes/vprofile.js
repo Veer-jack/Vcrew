@@ -32,6 +32,9 @@ router.get("/", async (req, res) => {
   
   if (missionsDone >= 5 && accuracy >= 90) calcRole = "Tester";
   if (v.verified && v.occupation) calcRole = "Validator";
+  // Admin-approved Tester status is a permanent lock — checked last so it can't be
+  // silently overwritten by the auto-promotion rules above on a later profile fetch.
+  if (v.tester_status === "approved") calcRole = "Tester";
 
   if (calcRole !== v.role) {
     await db.prepare(`UPDATE validators SET role = ? WHERE id = ?`).run(calcRole, v.id);

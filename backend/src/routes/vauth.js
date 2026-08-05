@@ -3,8 +3,30 @@ import { db } from "../db.js";
 import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { sendValidatorWelcome } from "../email.js";
 import { levelForCompleted } from "../vmeta.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { randomUUID } from "crypto";
 
 export const router = Router();
+
+// Same uploads dir + unguessable-UUID-filename convention as the mission proof uploads
+// (vmissions.js) and the generic /api/uploads/:filename server, just with a document
+// mimetype allowlist instead of image/video — a resume is a different kind of file.
+const RESUME_UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
+fs.mkdirSync(RESUME_UPLOADS_DIR, { recursive: true });
+
+const resumeUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, RESUME_UPLOADS_DIR),
+    filename: (req, file, cb) => cb(null, `${randomUUID()}${path.extname(file.originalname) || ""}`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB, matches the onboarding UI's stated limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === "application/pdf") cb(null, true);
+    else cb(new Error("Invalid file type. Only PDF is allowed."));
+  },
+});
 
 function publicValidator(v) {
   const lvl = levelForCompleted(v.missions_done);
@@ -70,6 +92,9 @@ router.post("/signup", async (req, res) => {
   }
 
   sendValidatorWelcome({ name: v.name, email: v.email }).catch(() => {});
+
+  await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('system', 'registration', 'userPlus', 'info', 'New Validator Registered', ?, 'Just now', 1)`).run(`${v.name} (${v.email}) joined as a validator.`);
+
   res.status(201).json({ token, validator: publicValidator(v) });
 });
 
@@ -222,7 +247,10 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
       b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
       b.handle || null, b.bio || null, b.city || null, b.city_type || null,
       b.language ? JSON.stringify(b.language) : null,
-      b.validator_type || null,
+      // Applying as a tester is a claim, not a grant — stay "validator" (full validator
+      // access, as the onboarding copy promises) until an admin approves the application.
+      // /admin/tester-applications flips this to 'tester' on approval.
+      b.validator_type === 'tester' ? 'validator' : (b.validator_type || null),
       b.validator_type === 'tester' ? 'pending_review' : null,
       b.age_group || null, b.gender || null, b.marital || null, b.has_kids || null,
       b.income || null, b.height || null, b.weight || null, b.skin_tone || null,
@@ -249,12 +277,29 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
     throw err;
   }
 
-  // Notify admin if tester application
+  // Notify admin if tester application. (Previously this also inserted into the regular
+  // `notifications` table with builder_id hardcoded to 1 — a real builder's inbox, not any
+  // admin channel. admin_notifications is the only correct destination for this.)
   if (b.validator_type === 'tester') {
-    await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (1, 'application', 'tester_application', 'star', 'accent', 'New Tester Application', $1, 'Just now', 1)`)
+    await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('application', 'tester_application', 'star', 'accent', 'New Tester Application', ?, 'Just now', 1)`)
       .run(`${b.name || 'A validator'} has applied for Verified Tester status. Review within 72 hours.`).catch(() => {});
   }
 
   const v = await db.prepare(`SELECT * FROM validators WHERE id = $1`).get(req.validator.id);
   res.json({ validator: v });
+});
+
+// POST /api/v/auth/profile/resume — upload the tester-application resume (PDF only)
+router.post("/profile/resume", validatorAuthMiddleware, (req, res, next) => {
+  resumeUpload.single("file")(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}, async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  await db.prepare(`UPDATE validators SET resume_path = ?, resume_filename = ? WHERE id = ?`)
+    .run(req.file.filename, req.file.originalname, req.validator.id);
+
+  res.status(201).json({ ok: true, resume_filename: req.file.originalname });
 });

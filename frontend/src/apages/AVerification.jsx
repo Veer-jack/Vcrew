@@ -14,6 +14,7 @@ export default function AVerification() {
   const [items, setItems] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => { aapi.verifications("pending").then(d => setItems(d.verifications)); }, []);
   if (items === null) return <div className="page rise"><div className="muted">Loading…</div></div>;
@@ -45,7 +46,7 @@ export default function AVerification() {
         <div className="card rise-2"><Empty icon="shield" title="Queue is empty">Submitted verification claims will appear here for review.</Empty></div>
       ) : (
         <div className="col gap-3 rise-2">
-          {items.map(item => {
+          {items.slice(0, visibleCount).map(item => {
             const kind = KIND_LABELS[item.kind] || { label: item.kind, icon: "fileText" };
             return (
               <div key={item.id} className="card" style={{ padding: 16, display: "flex", gap: 14, alignItems: "flex-start" }}>
@@ -70,6 +71,11 @@ export default function AVerification() {
               </div>
             );
           })}
+          {visibleCount < items.length && (
+            <div style={{ textAlign: "center", padding: "16px 0" }}>
+              <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>Load more items</button>
+            </div>
+          )}
         </div>
       )}
     </div>

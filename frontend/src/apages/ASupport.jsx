@@ -10,19 +10,16 @@ const STATUS = {
 };
 
 function TicketDrawer({ ticket, onClose, onSave }) {
-  const [reply, setReply] = useState(ticket.reply || "");
   const [status, setStatus] = useState(ticket.status);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const save = async () => {
+    if (status === ticket.status) { onClose(); return; }
     setBusy(true); setError("");
     try {
-      const body = {};
-      if (status !== ticket.status) body.status = status;
-      if (reply !== (ticket.reply || "")) body.reply = reply;
-      await aapi.updateTicket(ticket.userType, ticket.id, body);
-      onSave({ ...ticket, status: body.reply !== undefined ? "answered" : status, reply: reply || ticket.reply });
+      await aapi.updateTicket(ticket.id, { status });
+      onSave({ ...ticket, status });
     } catch (err) {
       setError(err.message || "Couldn't save");
     } finally { setBusy(false); }
@@ -42,11 +39,15 @@ function TicketDrawer({ ticket, onClose, onSave }) {
         </div>
         <div style={{ padding: 22, display: "grid", gap: 16 }}>
           {error && <div className="err-banner">{error}</div>}
-          <div>
-            <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)", marginRight: 8 }}>{ticket.category}</span>
-            {ticket.priority === "high" && <span className="tag" style={{ background: "var(--danger-weak)", color: "var(--danger)" }}>High priority</span>}
-          </div>
           {ticket.details && <div className="card" style={{ padding: 14, background: "var(--panel-inset)" }}><p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{ticket.details}</p></div>}
+
+          <div className="card" style={{ padding: 14, background: "var(--panel-inset)" }}>
+            {ticket.freshdeskId ? (
+              <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>Reply from Freshdesk — ticket #{ticket.freshdeskId}. The user gets notified in-app automatically once you reply there.</p>
+            ) : (
+              <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>This ticket never synced to Freshdesk — reply directly by email to {ticket.userEmail}.</p>
+            )}
+          </div>
 
           <div>
             <label style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 8 }}>Status</label>
@@ -56,11 +57,6 @@ function TicketDrawer({ ticket, onClose, onSave }) {
                   background: status === k ? "var(--accent)" : "var(--panel)", borderColor: status === k ? "var(--accent)" : "var(--border)", color: status === k ? "#fff" : "var(--text-muted)" }}>{s.l}</button>
               ))}
             </div>
-          </div>
-
-          <div className="fld">
-            <label>Reply to {ticket.userType === "builder" ? "builder" : "validator"}</label>
-            <textarea className="field" placeholder="Write a response…" value={reply} onChange={e => setReply(e.target.value)} />
           </div>
 
           <div className="row gap-2" style={{ justifyContent: "flex-end" }}>
@@ -77,14 +73,16 @@ export default function ASupport() {
   const [tickets, setTickets] = useState(null);
   const [open, setOpen] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [visibleCount, setVisibleCount] = useState(20);
 
+  useEffect(() => { setVisibleCount(20); }, [filter]);
   useEffect(() => { aapi.tickets().then(d => setTickets(d.tickets)); }, []);
   if (tickets === null) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const rows = filter === "all" ? tickets : tickets.filter(t => t.status === filter);
 
   const handleSave = (updated) => {
-    setTickets(ts => ts.map(t => (t.id === updated.id && t.userType === updated.userType) ? updated : t));
+    setTickets(ts => ts.map(t => t.id === updated.id ? updated : t));
     setOpen(null);
   };
 
@@ -103,22 +101,26 @@ export default function ASupport() {
 
       {rows.length === 0 ? <div className="card rise-3"><Empty icon="life" title="No tickets here">Nothing matches this filter right now.</Empty></div> : (
         <div className="card rise-3" style={{ padding: 0, overflow: "hidden" }}>
-          {rows.map((t, i) => {
+          {rows.slice(0, visibleCount).map((t, i) => {
             const st = STATUS[t.status];
             return (
-              <div key={`${t.userType}-${t.id}`} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }} onClick={() => setOpen(t)}>
+              <div key={t.id} className="row gap-3" style={{ padding: "15px var(--pad-card)", borderTop: i ? "var(--hairline) solid var(--border)" : "none", cursor: "pointer" }} onClick={() => setOpen(t)}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="row gap-2 wrap">
                     <b style={{ fontSize: 14.5 }}>{t.subject}</b>
-                    {t.priority === "high" && <span className="tag" style={{ background: "var(--danger-weak)", color: "var(--danger)" }}>High</span>}
                   </div>
-                  <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{t.id} · {t.userType === "builder" ? "Builder" : "Validator"} · {t.userName} · {t.category} · updated {t.updated}</div>
+                  <div className="faint mono" style={{ fontSize: 11.5, marginTop: 4 }}>{t.id} · {t.userType === "builder" ? "Builder" : "Validator"} · {t.userName} · updated {t.updated ? new Date(t.updated).toLocaleDateString("en-IN") : "—"}</div>
                 </div>
                 <span className="tag" style={{ background: st.bg, color: st.c, flex: "none" }}>{st.l}</span>
                 <Icon name="chevronRight" size={18} style={{ color: "var(--text-faint)", flex: "none" }} />
               </div>
             );
           })}
+          {visibleCount < rows.length && (
+            <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
+              <button className="btn btn-ghost" onClick={() => setVisibleCount(c => c + 20)}>Load more tickets</button>
+            </div>
+          )}
         </div>
       )}
 

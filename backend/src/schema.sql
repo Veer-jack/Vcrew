@@ -197,6 +197,20 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS admin_notifications (
+  id SERIAL PRIMARY KEY,
+  cat TEXT,
+  type TEXT,
+  icon TEXT,
+  tone TEXT,
+  title TEXT,
+  body TEXT,
+  time_label TEXT,
+  unread INTEGER DEFAULT 1,
+  read INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS threads (
   id SERIAL PRIMARY KEY,
   builder_id INTEGER REFERENCES builders(id) ON DELETE CASCADE,
@@ -258,6 +272,8 @@ CREATE TABLE IF NOT EXISTS validators (
   validator_type TEXT DEFAULT 'validator', -- user | validator | tester
   tester_status TEXT DEFAULT 'none', -- none | pending_review | approved | rejected
   tester_tier TEXT, -- junior | senior
+  tester_proof_url TEXT,
+  tester_proof_name TEXT,
   city TEXT,
   city_type TEXT,
   languages_json TEXT DEFAULT '[]',
@@ -518,3 +534,16 @@ CREATE TABLE IF NOT EXISTS focus_group_responses (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (poll_id, validator_id, slot_id)
 );
+
+-- ==============================================
+-- PERFORMANCE INDEXES (O(log N) Lookups)
+-- ==============================================
+CREATE INDEX IF NOT EXISTS idx_missions_builder_id ON missions(builder_id);
+CREATE INDEX IF NOT EXISTS idx_participants_mission_id ON participants(mission_id);
+CREATE INDEX IF NOT EXISTS idx_participants_validator_id ON participants(validator_id);
+CREATE INDEX IF NOT EXISTS idx_responses_mission_id ON responses(mission_id);
+CREATE INDEX IF NOT EXISTS idx_responses_participant_id ON responses(participant_id);
+CREATE INDEX IF NOT EXISTS idx_v_my_missions_validator_id ON v_my_missions(validator_id);
+CREATE INDEX IF NOT EXISTS idx_v_my_missions_mission_id ON v_my_missions(mission_id);
+CREATE INDEX IF NOT EXISTS idx_activity_builder_id ON activity(builder_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_builder_id ON transactions(builder_id);

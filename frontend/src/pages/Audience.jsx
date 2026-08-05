@@ -41,6 +41,8 @@ export default function AudienceExplorer() {
   const [q, setQ] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [inviteModalValidator, setInviteModalValidator] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(50);
+  const [closedSub, setClosedSub] = useState(new Set());
 
   useEffect(() => {
     api.audience().then(d => { 
@@ -54,8 +56,6 @@ export default function AudienceExplorer() {
   const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
   const toggleGroup = (g) => setClosed(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
   const toggleSubgroup = (sub) => setClosedSub(p => { const s = new Set(p); s.has(sub) ? s.delete(sub) : s.add(sub); return s; });
-  
-  const [closedSub, setClosedSub] = useState(new Set());
   
   const activeFilters = Object.values(sel).reduce((a, s) => a + (s?.size || 0), 0);
 
@@ -83,6 +83,10 @@ export default function AudienceExplorer() {
       return geo && role && occ && int && demo && qq;
     }).sort((a, b) => b.match - a.match);
   }, [members, sel, q]);
+
+  useEffect(() => {
+    setVisibleCount(50);
+  }, [sel, q]);
 
   const exportPDF = () => {
     if (!results.length) return;
@@ -221,13 +225,14 @@ export default function AudienceExplorer() {
             <Empty icon="users" title="No members match these filters" action={<Btn variant="ghost" icon="refresh" onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); }}>Reset filters</Btn>}>Try widening your geography or removing an interest to grow the pool.</Empty>
           ) : (
             <div className="col gap-3">
-              {results.map((m) => (
+              {results.slice(0, visibleCount).map((m) => (
                 <div className="aud-card" key={m.id}>
                   <Avatar name={m.name} size={46} />
                   <div className="aud-meta">
                     <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={14} /> Verified</span>}</div>
                     <div className="aud-sub">{m.occ} · {m.city} · <span className="mono">{m.role}</span></div>
                     <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{e}</span>)}</div>
+                    <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>Profile {m.profileCompletion}% complete</div>
                   </div>
                   <div className="aud-right">
                     <MatchRing value={m.match} />
@@ -250,6 +255,11 @@ export default function AudienceExplorer() {
                   </div>
                 </div>
               ))}
+              {visibleCount < results.length && (
+                <div style={{ textAlign: "center", marginTop: 12, marginBottom: 24 }}>
+                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 50)}>Load more members ({results.length - visibleCount} remaining)</Btn>
+                </div>
+              )}
             </div>
           )}
         </div>

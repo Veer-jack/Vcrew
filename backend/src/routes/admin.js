@@ -1,6 +1,4 @@
 import { Router } from "express";
-import fs from "node:fs";
-import path from "node:path";
 import { db } from "../db.js";
 import { sendWithdrawalUpdate } from "../email.js";
 import {
@@ -9,6 +7,7 @@ import {
   createPending2fa, checkPending2fa, consumePending2fa, consumeBackupCode, getBackupCodeCount,
 } from "../auth.js";
 import QRCode from "qrcode";
+import { levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 
@@ -81,11 +80,13 @@ router.post("/logout", adminAuthMiddleware, async (req, res) => {
 });
 
 router.get("/me", adminAuthMiddleware, async (req, res) => {
-  res.json({ ok: true, usingDefaultPassword: isAdminUsingDefaultPassword() });
+  res.json({ ok: true, usingDefaultPassword: await isAdminUsingDefaultPassword() });
 });
 
 // ---- Cron Jobs (Requires CRON_SECRET) ----
-import { runSweepFailures } from "../jobs/sweepFailures.js";
+// Note: these sweeps also run on an in-process interval (see server.js) so they work
+// with zero external infra. This endpoint stays for manual/on-demand triggering.
+import { runPeriodicSweeps } from "../jobs/sweepFailures.js";
 
 router.post("/cron/sweep-failures", async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -97,10 +98,10 @@ router.post("/cron/sweep-failures", async (req, res) => {
   }
 
   try {
-    const result = await runSweepFailures();
+    const result = await runPeriodicSweeps();
     res.json({ ok: true, ...result });
   } catch (error) {
-    console.error("Cron sweepFailures error:", error);
+    console.error("Cron sweep error:", error);
     res.status(500).json({ error: "Sweep failed", detail: error.message });
   }
 });
@@ -127,9 +128,7 @@ router.get("/dashboard", async (req, res) => {
   const gmv = (await db.prepare(`SELECT COALESCE(SUM(amount),0) AS n FROM transactions WHERE type = 'credit'`).get()).n;
   const spend = (await db.prepare(`SELECT COALESCE(SUM(spend),0) AS n FROM missions`).get()).n;
 
-  const openTickets = (await db.prepare(`
-    SELECT (SELECT COUNT(*) FROM b_tickets WHERE status = 'open') + (SELECT COUNT(*) FROM v_tickets WHERE status = 'open') AS n
-  `).get()).n;
+  const openTickets = (await db.prepare(`SELECT COUNT(*) AS n FROM support_tickets WHERE status = 'open'`).get()).n;
 
   const withdrawalQueue = await db.prepare(`SELECT COUNT(*) AS n, COALESCE(SUM(amount),0) AS amt FROM withdrawals WHERE status IN ('queued','processing','pending')`).get();
 
@@ -138,6 +137,7 @@ router.get("/dashboard", async (req, res) => {
   `).get()).n;
 
   const pendingVerifications = (await db.prepare(`SELECT COUNT(*) AS n FROM verifications WHERE status = 'pending'`).get()).n;
+  const pendingTesterApplications = (await db.prepare(`SELECT COUNT(*) AS n FROM validators WHERE tester_status = 'pending_review'`).get()).n;
   const flaggedMissions = (await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE flagged = 1`).get()).n;
 
   res.json({
@@ -145,31 +145,64 @@ router.get("/dashboard", async (req, res) => {
     activeMissions, totalMissions, gmv, spend,
     openTickets, suspended,
     withdrawalQueue: Number(withdrawalQueue.n), withdrawalQueueAmount: Number(withdrawalQueue.amt),
-    pendingVerifications, flaggedMissions,
+    pendingVerifications, pendingTesterApplications, flaggedMissions,
   });
+});
+
+/* ============ Notifications ============ */
+
+router.get("/notifications", async (req, res) => {
+  const rows = await db.prepare(`SELECT * FROM admin_notifications ORDER BY created_at DESC LIMIT 50`).all();
+  res.json({ notifications: rows.map(r => ({
+    id: r.id, cat: r.cat, type: r.type, icon: r.icon, tone: r.tone,
+    title: r.title, body: r.body, timeLabel: r.time_label,
+    unread: !!r.unread, createdAt: r.created_at
+  })) });
+});
+
+router.patch("/notifications/:id/read", async (req, res) => {
+  if (req.params.id === "all") {
+    await db.prepare(`UPDATE admin_notifications SET unread = 0, read = 1 WHERE unread = 1`).run();
+  } else {
+    await db.prepare(`UPDATE admin_notifications SET unread = 0, read = 1 WHERE id = ?`).run(req.params.id);
+  }
+  res.json({ ok: true });
 });
 
 /* ============ Members ============ */
 
+// Server-side paginated + filtered, unlike the old load-everything-then-filter-in-JS
+// version — with 3000+ seeded validators, fetching every row on every keystroke was a
+// real cost. Sorted by created_at since builder/validator ids aren't comparable across
+// the two tables, so it's the only stable ordering once you're paginating across both.
 router.get("/members", async (req, res) => {
-  const q = String(req.query.q || "").toLowerCase().trim();
+  const q = String(req.query.q || "").trim();
   const type = req.query.type; // 'builder' | 'validator' | undefined
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+  const offset = Math.max(0, Number(req.query.offset) || 0);
 
-  const buildersRaw = type === "validator" ? [] : await db.prepare(`SELECT * FROM builders ORDER BY id`).all();
-  const builders = buildersRaw.map(b => ({
-    id: b.id, type: "builder", name: b.name, email: b.email, org: b.org, status: b.status || "active",
-    balance: b.balance, phoneVerified: !!b.phone_verified, createdAt: b.created_at,
+  const branches = [];
+  if (type !== "validator") {
+    branches.push(`SELECT id, 'builder' as type, name, email, org, COALESCE(status,'active') as status, balance, phone_verified, created_at, NULL::int as missions_done, NULL::int as lifetime, NULL::real as rating FROM builders`);
+  }
+  if (type !== "builder") {
+    branches.push(`SELECT id, 'validator' as type, name, email, COALESCE(handle,'—') as org, COALESCE(status,'active') as status, balance, phone_verified, created_at, missions_done, earnings_total as lifetime, rating FROM validators`);
+  }
+  const union = branches.join(" UNION ALL ");
+
+  const where = q ? `WHERE (name ILIKE ? OR email ILIKE ? OR org ILIKE ?)` : "";
+  const whereParams = q ? [`%${q}%`, `%${q}%`, `%${q}%`] : [];
+
+  const countRow = await db.prepare(`SELECT COUNT(*) as c FROM (${union}) t ${where}`).get(...whereParams);
+  const rows = await db.prepare(`SELECT * FROM (${union}) t ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`).all(...whereParams, limit, offset);
+
+  const members = rows.map(m => ({
+    id: m.id, type: m.type, name: m.name, email: m.email, org: m.org, status: m.status,
+    balance: m.balance, phoneVerified: !!m.phone_verified, createdAt: m.created_at,
+    ...(m.type === "validator" ? { level: levelForCompleted(m.missions_done).n, lifetime: m.lifetime, rating: m.rating } : {}),
   }));
-  const validatorsRaw = type === "builder" ? [] : await db.prepare(`SELECT * FROM validators ORDER BY id`).all();
-  const validators = validatorsRaw.map(v => ({
-    id: v.id, type: "validator", name: v.name, email: v.email, org: v.handle || "—", status: v.status || "active",
-    balance: v.available, level: v.level, lifetime: v.lifetime, rating: v.rating, phoneVerified: !!v.phone_verified, createdAt: v.created_at,
-  }));
 
-  let members = [...builders, ...validators];
-  if (q) members = members.filter(m => (m.name + m.email + m.org).toLowerCase().includes(q));
-
-  res.json({ members });
+  res.json({ members, total: parseInt(countRow.c, 10) || 0, offset, limit });
 });
 
 // PATCH /api/admin/members/:type/:id { status }
@@ -203,51 +236,40 @@ router.patch("/members/validator/:id/verify", async (req, res) => {
 });
 
 /* ============ Support tickets ============ */
+// Read-only mirror of support_tickets (real tickets live in Freshdesk once configured,
+// or locally-only when it isn't — see freshdesk.js/freshdeskWebhook.js). Admin can see
+// and triage status here; actual replies happen in Freshdesk, which notifies the user
+// in-app via the webhook receiver when an agent responds.
 
 router.get("/tickets", async (req, res) => {
-  const bRaw = await db.prepare(`SELECT t.*, b.name AS user_name, b.email AS user_email FROM b_tickets t JOIN builders b ON b.id = t.builder_id ORDER BY t.created_at DESC`).all();
-  const b = bRaw
-    .map(t => ({ ...t, userType: "builder" }));
-  const vRaw = await db.prepare(`SELECT t.*, v.name AS user_name, v.email AS user_email FROM v_tickets t JOIN validators v ON v.id = t.validator_id ORDER BY t.created_at DESC`).all();
-  const v = vRaw
-    .map(t => ({ ...t, userType: "validator" }));
-
-  const tickets = [...b, ...v]
-    .sort((a, c) => String(c.created_at).localeCompare(String(a.created_at)))
-    .map(t => ({
-      id: t.id, userType: t.userType, userName: t.user_name, userEmail: t.user_email,
-      subject: t.subject, category: t.category, details: t.details, status: t.status,
-      priority: t.priority, reply: t.reply, updated: t.updated_label, createdAt: t.created_at,
-    }));
-
-  res.json({ tickets });
+  const rows = await db.prepare(`SELECT * FROM support_tickets ORDER BY created_at DESC`).all();
+  res.json({ tickets: rows.map(t => ({
+    id: t.id, userType: t.role, userName: t.name, userEmail: t.email,
+    subject: t.subject, details: t.description, status: t.status,
+    freshdeskId: t.freshdesk_id, updated: t.updated_at, createdAt: t.created_at,
+  })) });
 });
 
-// PATCH /api/admin/tickets/:type/:id { status?, reply? }
-router.patch("/tickets/:type/:id", async (req, res) => {
-  const { type, id } = req.params;
-  const table = type === "builder" ? "b_tickets" : type === "validator" ? "v_tickets" : null;
-  if (!table) return res.status(400).json({ error: "type must be 'builder' or 'validator'" });
+// PATCH /api/admin/tickets/:id { status }
+router.patch("/tickets/:id", async (req, res) => {
+  const status = req.body?.status;
+  if (!status || !["open", "answered", "resolved"].includes(status)) return res.status(400).json({ error: "Invalid status" });
 
-  const row = await db.prepare(`SELECT id FROM ${table} WHERE id = ?`).get(id);
+  const row = await db.prepare(`SELECT * FROM support_tickets WHERE id = ?`).get(req.params.id);
   if (!row) return res.status(404).json({ error: "Not found" });
 
-  const status = req.body?.status;
-  const reply = req.body?.reply;
-  if (status && !["open", "answered", "resolved"].includes(status)) return res.status(400).json({ error: "Invalid status" });
+  await db.prepare(`UPDATE support_tickets SET status = ?, updated_at = NOW() WHERE id = ?`).run(status, req.params.id);
 
-  if (status) await db.prepare(`UPDATE ${table} SET status = ?, updated_at = NOW() WHERE id = ?`).run(status, id);
-  if (reply !== undefined) await db.prepare(`UPDATE ${table} SET body = CONCAT(body, '\n\n---\nAdmin reply: ', ?), status = 'answered', updated_at = NOW() WHERE id = ?`).run(reply, id);
-
-  if (reply !== undefined || status) {
-    const notifyTable = type === "builder" ? "notifications" : "v_notifications";
-    const userIdCol = type === "builder" ? "builder_id" : "validator_id";
-    const userId = type === "builder" ? row.builder_id : row.validator_id;
-    if (userId) {
-      await db.prepare(`INSERT INTO ${notifyTable} (${userIdCol}, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'ticket_update', 'life', 'primary', 'Support Update', 'Your support ticket has been updated by the admin team.', 'Just now', 1)`).run(userId);
-    }
+  const user = row.role === "builder"
+    ? await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(row.email)
+    : await db.prepare(`SELECT id FROM validators WHERE email = ?`).get(row.email);
+  if (user) {
+    const notifyTable = row.role === "builder" ? "notifications" : "v_notifications";
+    const userIdCol = row.role === "builder" ? "builder_id" : "validator_id";
+    await db.prepare(`INSERT INTO ${notifyTable} (${userIdCol}, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'ticket_update', 'life', 'primary', 'Support Update', 'Your support ticket status was updated by the admin team.', 'Just now', 1)`).run(user.id);
   }
 
+  audit(`ticket.${status}`, "ticket", req.params.id, `Ticket #${req.params.id} marked ${status}`);
   res.json({ ok: true });
 });
 
@@ -259,11 +281,15 @@ router.get("/withdrawals", async (req, res) => {
     FROM withdrawals w JOIN validators v ON v.id = w.validator_id
     ORDER BY w.id DESC LIMIT 100
   `).all();
-  res.json({ withdrawals: rows.map(w => ({
-    id: w.id, validatorName: w.validator_name, validatorEmail: w.validator_email,
-    amount: w.amount, vpa: w.vpa, razorpayPayoutId: w.razorpay_payout_id,
-    status: w.status, failureReason: w.failure_reason, createdAt: w.created_at,
-  })) });
+  res.json({ withdrawals: rows.map(w => {
+    let account = {};
+    try { account = JSON.parse(w.account_json || "{}"); } catch { /* ignore malformed json */ }
+    return {
+      id: w.id, validatorName: w.validator_name, validatorEmail: w.validator_email,
+      amount: w.amount, vpa: account.vpa || null, razorpayPayoutId: account.payout_id || null,
+      status: w.status, failureReason: w.note, createdAt: w.requested_at,
+    };
+  }) });
 });
 
 // PATCH /api/admin/withdrawals/:id { status, failureReason? }
@@ -275,10 +301,10 @@ router.patch("/withdrawals/:id", async (req, res) => {
   const row = await db.prepare(`SELECT * FROM withdrawals WHERE id = ?`).get(req.params.id);
   if (!row) return res.status(404).json({ error: "Not found" });
 
-  await db.prepare(`UPDATE withdrawals SET status = ?, failure_reason = ? WHERE id = ?`).run(status, req.body?.failureReason || null, req.params.id);
+  await db.prepare(`UPDATE withdrawals SET status = ?, note = ?, processed_at = NOW() WHERE id = ?`).run(status, req.body?.failureReason || row.note, req.params.id);
 
   if (["failed", "rejected", "reversed"].includes(status) && !["failed", "rejected", "reversed"].includes(row.status)) {
-    await db.prepare(`UPDATE validators SET available = available + ? WHERE id = ?`).run(row.amount, row.validator_id);
+    await db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(row.amount, row.validator_id);
   }
 
   // Notify the validator about their withdrawal status
@@ -300,7 +326,7 @@ router.patch("/withdrawals/:id", async (req, res) => {
     }).catch(() => {});
   }
 
-  audit(`withdrawal.${status}`, "withdrawal", req.params.id, `₹${row.amount / 100} withdrawal marked ${status}`);
+  audit(`withdrawal.${status}`, "withdrawal", req.params.id, `₹${row.amount} withdrawal marked ${status}`);
   res.json({ ok: true });
 });
 
@@ -311,12 +337,12 @@ router.get("/verifications", async (req, res) => {
   const rows = await db.prepare(`
     SELECT v.*, b.name AS builder_name, b.org, b.email, b.persona
     FROM verifications v JOIN builders b ON b.id = v.builder_id
-    WHERE v.status = ? ORDER BY v.created_at ASC
+    WHERE v.status = ? ORDER BY v.submitted_at ASC
   `).all(status);
   res.json({ verifications: rows.map(v => ({
     id: v.id, builderId: v.builder_id, builderName: v.builder_name, org: v.org, email: v.email,
     persona: v.persona, kind: v.kind, subject: v.subject, status: v.status, note: v.note,
-    createdAt: v.created_at, reviewedAt: v.reviewed_at,
+    createdAt: v.submitted_at, reviewedAt: v.reviewed_at,
   })) });
 });
 
@@ -329,8 +355,8 @@ router.patch("/verifications/:id", async (req, res) => {
 
   await db.prepare(`UPDATE verifications SET status = ?, reviewed_at = NOW() WHERE id = ?`).run(status, req.params.id);
 
-  // If a website verification is approved, mark the builder as verified
-  if (status === "approved" && row.kind === "website") {
+  // If a verification is approved, mark the builder as verified
+  if (status === "approved") {
     await db.prepare(`UPDATE builders SET verified_at = NOW() WHERE id = ? AND verified_at IS NULL`).run(row.builder_id);
   }
 
@@ -346,6 +372,56 @@ router.patch("/verifications/:id", async (req, res) => {
     .run(row.builder_id, icon, tone, title, body);
 
   audit(`verification.${status}`, "verification", req.params.id, `${row.kind} claim for builder #${row.builder_id} ${status}`);
+  res.json({ ok: true, status });
+});
+
+/* ============ Tester applications (separate queue from builder verifications above —
+   different data shape: resume/LinkedIn/testing bio, not website/registry claims) ============ */
+
+router.get("/tester-applications", async (req, res) => {
+  const rows = await db.prepare(`
+    SELECT id, name, email, city, occupation, experience_years, industry_json, company,
+           linkedin_url, portfolio_url, testing_bio, resume_path, resume_filename, created_at
+    FROM validators WHERE tester_status = 'pending_review' ORDER BY created_at ASC
+  `).all();
+  res.json({ applications: rows.map(v => ({
+    id: v.id, name: v.name, email: v.email, city: v.city, occupation: v.occupation,
+    experience: v.experience_years, industry: JSON.parse(v.industry_json || "[]"), company: v.company,
+    linkedinUrl: v.linkedin_url, portfolioUrl: v.portfolio_url, testingBio: v.testing_bio,
+    resumeUrl: v.resume_path ? `/api/uploads/${v.resume_path}` : null, resumeFilename: v.resume_filename,
+    createdAt: v.created_at,
+  })) });
+});
+
+router.patch("/tester-applications/:id", async (req, res) => {
+  const status = String(req.body?.status || "");
+  if (!["approved", "rejected"].includes(status)) return res.status(400).json({ error: "status must be 'approved' or 'rejected'" });
+  const tier = req.body?.tier;
+  if (status === "approved" && !["junior", "senior"].includes(tier)) {
+    return res.status(400).json({ error: "tier must be 'junior' or 'senior' when approving" });
+  }
+
+  const row = await db.prepare(`SELECT id, name FROM validators WHERE id = ? AND tester_status = 'pending_review'`).get(req.params.id);
+  if (!row) return res.status(404).json({ error: "No pending application found for this validator" });
+
+  if (status === "approved") {
+    await db.prepare(`UPDATE validators SET tester_status = 'approved', tester_tier = ?, validator_type = 'tester' WHERE id = ?`)
+      .run(tier, row.id);
+  } else {
+    // Rejected — validator_type was never changed off 'validator' on submission, stays as-is.
+    // No cooldown: nothing suggests reapply abuse is a real problem yet (YAGNI) — they can
+    // reapply immediately via the onboarding flow, same as today.
+    await db.prepare(`UPDATE validators SET tester_status = 'rejected' WHERE id = ?`).run(row.id);
+  }
+
+  const title = status === "approved" ? "Verified Tester Approved!" : "Tester Application Declined";
+  const body = status === "approved"
+    ? `Congratulations — you're now a Verified ${tier === "senior" ? "Senior" : "Junior"} Tester. Premium missions are unlocked.`
+    : "Your Verified Tester application wasn't approved this time. You can reapply anytime from Settings.";
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?, 'system', ?, ?, ?, ?, 'Just now', 1)`)
+    .run(row.id, status === "approved" ? "star" : "xCircle", status === "approved" ? "success" : "warning", title, body);
+
+  audit(`tester_application.${status}`, "validator", row.id, `Tester application ${status}${status === "approved" ? ` (${tier})` : ""} for ${row.name}`);
   res.json({ ok: true, status });
 });
 
@@ -412,7 +488,7 @@ router.get("/analytics", async (req, res) => {
 
   const byCategoryRaw = await db.prepare(`SELECT category, COUNT(*) AS n FROM missions GROUP BY category ORDER BY n DESC`).all();
   const byCategory = byCategoryRaw.map(r => ({ ...r, n: Number(r.n) }));
-  const byPersonaRaw = await db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY persona ORDER BY n DESC`).all();
+  const byPersonaRaw = await db.prepare(`SELECT COALESCE(persona,'founder') AS persona, COUNT(*) AS n FROM builders GROUP BY COALESCE(persona,'founder') ORDER BY n DESC`).all();
   const byPersona = byPersonaRaw.map(r => ({ ...r, n: Number(r.n) }));
 
   res.json({ months, userGrowth, missionGrowth, revenueByMonth, byCategory, byPersona });
@@ -422,37 +498,17 @@ router.get("/analytics", async (req, res) => {
 
 router.get("/audit-log", async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 100, 500);
-  const rows = db.prepare(
+  const rows = await db.prepare(
     `SELECT * FROM admin_audit_log ORDER BY created_at DESC LIMIT ?`
   ).all(limit);
   res.json({ log: rows });
-});
-
-/* ============ On-demand backup ============ */
-
-router.post("/backup", async (req, res) => {
-  try {
-    const dataDir = process.env.DB_DIR || path.join(process.cwd(), "backend", "data");
-    const dbPath = process.env.DB_PATH || path.join(dataDir, "vcrew.db");
-    const backupDir = path.join(dataDir, "backups");
-    if (!fs.existsSync(dbPath)) return res.status(503).json({ error: "Database file not found" });
-    fs.mkdirSync(backupDir, { recursive: true });
-    const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const destPath = path.join(backupDir, `vcrew-manual-${stamp}.db`);
-    db.exec(`VACUUM INTO '${destPath}'`);
-    const stats = fs.statSync(destPath);
-    audit("backup.created", "system", null, `Manual backup: vcrew-manual-${stamp}.db (${(stats.size / 1024).toFixed(0)} KB)`);
-    res.json({ ok: true, file: `vcrew-manual-${stamp}.db`, sizeKb: Math.round(stats.size / 1024) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
 /* ============ Fraud signals ============ */
 
 router.get("/fraud-signals", async (req, res) => {
   const reviewed = req.query.reviewed === "true" ? 1 : 0;
-  const rows = db.prepare(
+  const rows = await db.prepare(
     `SELECT * FROM fraud_signals WHERE reviewed = ? ORDER BY created_at DESC LIMIT 200`
   ).all(reviewed);
   res.json({ signals: rows });
@@ -537,7 +593,7 @@ export { runAutomod };
 router.post("/automod/run", async (req, res) => {
   const missions = await db.prepare(`SELECT id FROM missions WHERE status = 'active' AND flagged = 0`).all();
   let flagged = 0;
-  for (const { id } of missions) flagged += runAutomod(id);
+  for (const { id } of missions) flagged += await runAutomod(id);
   audit("automod.run", "system", null, `Scanned ${missions.length} missions, flagged ${flagged}`);
   res.json({ ok: true, scanned: missions.length, flagged });
 });

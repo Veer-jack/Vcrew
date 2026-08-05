@@ -9,19 +9,36 @@ const TABS = [
   { k: "validator", l: "Validators" },
 ];
 
+const PAGE_SIZE = 20;
+
 export default function AMembers() {
   const [members, setMembers] = useState(null);
+  const [total, setTotal] = useState(0);
   const [tab, setTab] = useState("all");
   const [q, setQ] = useState("");
   const [busyId, setBusyId] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
 
-  const load = (params) => aapi.members(params).then(d => setMembers(d.members));
+  // Server-side paginated — with 3000+ validators seeded, fetching every row up front
+  // isn't viable. "Load more" fetches the next page instead of slicing an already-fully-loaded array.
+  const load = (params) => aapi.members({ ...params, offset: 0, limit: PAGE_SIZE }).then(d => { setMembers(d.members); setTotal(d.total); });
   useEffect(() => { load({ q, type: tab === "all" ? undefined : tab }); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const search = (e) => {
     e.preventDefault();
     load({ q, type: tab === "all" ? undefined : tab });
+  };
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const d = await aapi.members({ q, type: tab === "all" ? undefined : tab, offset: members.length, limit: PAGE_SIZE });
+      setMembers(ms => [...ms, ...d.members]);
+      setTotal(d.total);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const toggleStatus = async (m) => {
@@ -63,25 +80,36 @@ export default function AMembers() {
               <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>Loading…</td></tr>
             ) : members.length === 0 ? (
               <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>No members match your search.</td></tr>
-            ) : members.map(m => (
-              <tr key={`${m.type}-${m.id}`}>
-                <td style={{ fontWeight: 600 }}>{m.name}<div className="faint" style={{ fontSize: 12 }}>{m.email}</div></td>
-                <td><span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{m.type === "builder" ? "Builder" : "Validator"}</span></td>
-                <td className="muted">{m.org}</td>
-                <td>
-                  <span className={`st ${m.status === "active" ? "st-active" : "st-draft"}`} style={m.status !== "active" ? { color: "var(--danger)" } : undefined}>
-                    <span className="d" />{m.status === "active" ? "Active" : "Suspended"}
-                  </span>
-                </td>
-                <td className="num">{inr(m.balance)}</td>
-                <td>
-                  <button className="btn btn-quiet" disabled={busyId === `${m.type}-${m.id}`}
-                    onClick={() => toggleStatus(m)} style={{ fontSize: 12.5, padding: "6px 10px", color: m.status === "active" ? "var(--danger)" : "var(--success)" }}>
-                    {m.status === "active" ? "Suspend" : "Reactivate"}
-                  </button>
-                </td>
-              </tr>
-            ))}
+            ) : (
+              <>
+                {members.map(m => (
+                  <tr key={`${m.type}-${m.id}`}>
+                    <td style={{ fontWeight: 600 }}>{m.name}<div className="faint" style={{ fontSize: 12 }}>{m.email}</div></td>
+                    <td><span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{m.type === "builder" ? "Builder" : "Validator"}</span></td>
+                    <td className="muted">{m.org}</td>
+                    <td>
+                      <span className={`st ${m.status === "active" ? "st-active" : "st-draft"}`} style={m.status !== "active" ? { color: "var(--danger)" } : undefined}>
+                        <span className="d" />{m.status === "active" ? "Active" : "Suspended"}
+                      </span>
+                    </td>
+                    <td className="num">{inr(m.balance)}</td>
+                    <td>
+                      <button className="btn btn-quiet" disabled={busyId === `${m.type}-${m.id}`}
+                        onClick={() => toggleStatus(m)} style={{ fontSize: 12.5, padding: "6px 10px", color: m.status === "active" ? "var(--danger)" : "var(--success)" }}>
+                        {m.status === "active" ? "Suspend" : "Reactivate"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {members.length < total && (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: "center", padding: "16px 0" }}>
+                      <button className="btn btn-ghost" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Loading…" : "Load more members"}</button>
+                    </td>
+                  </tr>
+                )}
+              </>
+            )}
           </tbody>
         </table>
       </div>

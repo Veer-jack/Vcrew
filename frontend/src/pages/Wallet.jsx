@@ -46,6 +46,9 @@ export default function Wallet() {
   const [info, setInfo] = useState("");
   const [cardsReady, setCardsReady] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => { setVisibleCount(20); }, [tab]);
 
   const load = () => { setLoadError(""); return api.wallet().then(setData).catch(err => setLoadError(err.message || "Couldn't load your wallet")); };
   useEffect(() => { load(); }, []);
@@ -214,7 +217,7 @@ export default function Wallet() {
           <table className="tbl">
             <thead><tr><th>Date</th><th>Description</th><th>Type</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
             <tbody>
-              {data.transactions.map((t) => (
+              {data.transactions.slice(0, visibleCount).map((t) => (
                 <tr key={t.id} className={t.missionId ? "click" : ""} onClick={() => t.missionId && navigate(`/missions/${t.missionId}`)}>
                   <td className="mono" style={{ color: "var(--text-muted)", fontSize: 12.5 }}>{t.date}</td>
                   <td style={{ fontWeight: 600 }}>{t.description}</td>
@@ -224,6 +227,11 @@ export default function Wallet() {
               ))}
             </tbody>
           </table>
+          {visibleCount < data.transactions.length && (
+            <div style={{ textAlign: "center", padding: 16 }}>
+              <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>Load more transactions</Btn>
+            </div>
+          )}
         </div>
       )}
 
@@ -232,7 +240,7 @@ export default function Wallet() {
           <table className="tbl">
             <thead><tr><th>Invoice</th><th>Date</th><th>Status</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ width: 60 }}></th></tr></thead>
             <tbody>
-              {data.invoices.map((v) => (
+              {data.invoices.slice(0, visibleCount).map((v) => (
                 <tr key={v.id}>
                   <td className="mono" style={{ fontWeight: 700 }}>{v.id}</td>
                   <td className="muted">{v.date}</td>
@@ -243,6 +251,11 @@ export default function Wallet() {
               ))}
             </tbody>
           </table>
+          {visibleCount < data.invoices.length && (
+            <div style={{ textAlign: "center", padding: 16 }}>
+              <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>Load more invoices</Btn>
+            </div>
+          )}
         </div>
       )}
 

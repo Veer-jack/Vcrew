@@ -17,6 +17,8 @@ function NotifPanel({ onClose, items, setItems }) {
     { k: "message", l: "Messages" }, { k: "system", l: "System" }
   ];
 
+  const navigate = useNavigate();
+
   const markAll = async () => {
     await api.markAllRead();
     setItems(its => its.map(i => ({ ...i, unread: false })));
@@ -29,6 +31,12 @@ function NotifPanel({ onClose, items, setItems }) {
     if (n.unread) {
       await api.markRead(n.id);
       setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i));
+    }
+    onClose();
+    if (n.type === "application" || n.title.includes("Accepted")) {
+      navigate("/missions"); // We don't have mission_id in notifications yet, so go to missions list
+    } else if (n.title.includes("Submission") || n.type === "submission") {
+      navigate("/missions");
     }
   };
 

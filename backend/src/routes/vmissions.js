@@ -281,6 +281,50 @@ router.patch("/:id/workspace/draft", async (req, res) => {
   res.json({ ok: true, progress: progressPercent });
 });
 
+// POST /api/v/missions/:id/withdraw — Validator gracefully drops out of a mission
+router.post("/:id/withdraw", async (req, res) => {
+  const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!m) return res.status(404).json({ error: "Mission not found" });
+
+  const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
+    return res.status(400).json({ error: "You can only withdraw from active missions" });
+  }
+
+  await db.transaction(async (tx) => {
+    // Lock mission to decrement safely
+    const mission = await tx.prepare(`SELECT joined, target, name, builder_id FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
+    
+    // Remove the validator's footprint completely
+    await tx.prepare(`DELETE FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await tx.prepare(`DELETE FROM responses WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await tx.prepare(`DELETE FROM sample_shipments WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await tx.prepare(`DELETE FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await tx.prepare(`DELETE FROM focus_group_responses WHERE validator_id = ? AND poll_id IN (SELECT id FROM focus_group_polls WHERE mission_id = ?)`).run(req.validator.id, req.params.id);
+    // Ignore checkins to keep historical logs, or delete them if desired.
+
+    // Decrement joined
+    const wasFull = mission.joined >= mission.target && mission.target > 0;
+    await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
+
+    // Notify Builder
+    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'user_minus', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
+      .run(mission.builder_id, "Validator Withdrew", `${req.validator.name} has gracefully withdrawn from "${mission.name}". Their slot is now open.`);
+
+    // If it was full and now isn't, notify waitlist
+    if (wasFull) {
+      const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
+      for (const sv of savedVals) {
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,1,?)`)
+          .run(sv.validator_id, "alert", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for "${mission.name}".`, "Just now", req.params.id);
+      }
+    }
+  });
+
+  res.json({ ok: true });
+});
+
 // POST /api/v/missions/:id/workspace/proof — upload a screenshot for a workspace task
 router.post("/:id/workspace/proof", (req, res, next) => {
   upload.single("file")(req, res, (err) => {
@@ -344,10 +388,30 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   const { answers } = req.body || {};
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
+  if (m.status !== "active" && m.status !== "live" && m.status !== "published") {
+    return res.status(400).json({ error: "This mission is closed and no longer accepting submissions." });
+  }
 
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm) return res.status(404).json({ error: "You haven't accepted this mission yet" });
   if (mm.status !== "active" && mm.status !== "revision") return res.status(400).json({ error: "Mission already submitted" });
+
+  // Interview/focus sessions must actually have happened before the debrief can be
+  // submitted for payout — otherwise a validator could get paid without attending.
+  if (m.ptype === "interview") {
+    const s = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+    if (!s || s.status !== "completed") {
+      return res.status(400).json({ error: "The builder hasn't marked your interview as completed yet." });
+    }
+  } else if (m.ptype === "focus") {
+    const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(req.params.id);
+    const attended = poll && poll.status === "completed"
+      ? await db.prepare(`SELECT 1 FROM focus_group_responses WHERE poll_id = ? AND validator_id = ? AND slot_id = ?`).get(poll.id, req.validator.id, poll.locked_slot_id)
+      : null;
+    if (!attended) {
+      return res.status(400).json({ error: "The builder hasn't marked your focus group session as completed yet." });
+    }
+  }
 
   // --- Deep Schema Validation (TC 024) ---
   let tasks = [];

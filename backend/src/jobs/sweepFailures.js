@@ -9,7 +9,7 @@ import { computeCheckinStatus } from "../checkinLogic.js";
 export async function runSweepFailures() {
   // 1. Get all active trial missions
   const activeTrials = await db.prepare(`
-    SELECT mm.id as mm_id, mm.validator_id, mm.mission_id, p.joined_at
+    SELECT mm.id as mm_id, mm.validator_id, mm.mission_id, p.joined_at, m.name as mission_name, m.builder_id
     FROM v_my_missions mm
     JOIN missions m ON m.id = mm.mission_id
     JOIN participants p ON p.mission_id = mm.mission_id AND p.validator_id = mm.validator_id
@@ -36,6 +36,11 @@ export async function runSweepFailures() {
 
         // 4. Notify the validator
         await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'alertTriangle', 'danger', 'Mission Failed', 'You have been removed from a trial mission due to inactivity (missing too many daily check-ins).', 'Just now', 1)`).run(trial.validator_id);
+
+        // 5. Notify the builder too — the inline (self-triggered) checkin-lockout path
+        // already does this; this sweep-triggered path was silently skipping it.
+        await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1)`)
+          .run(trial.builder_id, `A validator failed the mission "${trial.mission_name}" due to missed check-ins.`);
       });
 
       setImmediate(() => notifySavedValidators(trial.mission_id));
@@ -47,4 +52,36 @@ export async function runSweepFailures() {
   }
 
   return { scanned: activeTrials.length, failed: failedCount };
+}
+
+const INVITE_EXPIRY_DAYS = 7;
+
+/**
+ * Expires mission invitations nobody ever responded to, so they stop showing as
+ * "pending" forever and the builder finds out their invite went unanswered.
+ */
+export async function sweepStaleInvitations() {
+  const stale = await db.prepare(`
+    SELECT i.id, i.validator_id, m.name as mission_name, m.builder_id
+    FROM mission_invitations i
+    JOIN missions m ON m.id = i.mission_id
+    WHERE i.status = 'pending' AND i.created_at < NOW() - INTERVAL '${INVITE_EXPIRY_DAYS} days'
+  `).all();
+
+  for (const invite of stale) {
+    await db.transaction(async (tx) => {
+      await tx.prepare(`UPDATE mission_invitations SET status = 'expired' WHERE id = ? AND status = 'pending'`).run(invite.id);
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'invite_expired', 'clock', 'warning', 'Invite Expired', ?, 'Just now', 1)`)
+        .run(invite.builder_id, `Your invitation for "${invite.mission_name}" went unanswered for ${INVITE_EXPIRY_DAYS} days and has expired. Invite someone else to fill the slot.`);
+    });
+  }
+
+  return { expired: stale.length };
+}
+
+/** Runs every periodic maintenance sweep once. Called on an in-process interval from server.js. */
+export async function runPeriodicSweeps() {
+  const failures = await runSweepFailures();
+  const invites = await sweepStaleInvitations();
+  return { failures, invites };
 }

@@ -55,7 +55,7 @@ export const aapi = {
   setMemberStatus: (type, id, status) => request(`/members/${type}/${id}`, { method: "PATCH", body: { status } }),
 
   tickets: () => request("/tickets"),
-  updateTicket: (type, id, body) => request(`/tickets/${type}/${id}`, { method: "PATCH", body }),
+  updateTicket: (id, body) => request(`/tickets/${id}`, { method: "PATCH", body }),
 
   withdrawals: () => request("/withdrawals"),
   updateWithdrawal: (id, body) => request(`/withdrawals/${id}`, { method: "PATCH", body }),
@@ -63,8 +63,14 @@ export const aapi = {
   verifications: (status) => request("/verifications", { query: { status } }),
   updateVerification: (id, status) => request(`/verifications/${id}`, { method: "PATCH", body: { status } }),
 
+  testerApplications: () => request("/tester-applications"),
+  updateTesterApplication: (id, body) => request(`/tester-applications/${id}`, { method: "PATCH", body }),
+
   moderationMissions: (filter) => request("/missions", { query: { filter } }),
   updateMissionModeration: (id, body) => request(`/missions/${id}`, { method: "PATCH", body }),
 
   analytics: () => request("/analytics"),
+
+  notifications: () => request("/notifications"),
+  readNotification: (id) => request(`/notifications/${id}/read`, { method: "PATCH" }),
 };

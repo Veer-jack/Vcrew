@@ -59,6 +59,7 @@ router.get("/", async (req, res) => {
       income: v.income_bracket,
       marital: v.marital_status,
       has_kids: v.has_kids,
+      profileCompletion: v.profile_completion || 60,
     };
   });
 
