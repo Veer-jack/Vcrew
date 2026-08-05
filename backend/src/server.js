@@ -57,12 +57,19 @@ import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRout
 
 import { rateLimit } from "express-rate-limit";
 
-
 // ---- Rate limiters ----
+// Per-process, in-memory counters -- correct as long as this runs as a single
+// instance. If this app ever runs as more than one instance at once, these
+// limits need to move to a shared store (e.g. Redis) or each instance will
+// count separately and the effective limit multiplies silently.
+// Windows are per-minute (fast reset = forgiving to real users), but the caps
+// stay sized to "how many legitimate attempts could plausibly land close
+// together" (e.g. a shared office IP), not inflated just because the window
+// is short — a high per-IP cap here defeats the point of rate limiting.
 // Global API limiter — catches anything not covered by a specific limiter below
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,       // 1 minute
-  max: 200,
+  max: 400,                  // covers one active user's dashboard/polling traffic, or a busy shared IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please slow down" },
@@ -70,24 +77,24 @@ const globalLimiter = rateLimit({
 
 // Auth-specific limiters — tighter windows on endpoints that accept credentials
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 10,
+  windowMs: 60 * 1000,       // 1 minute
+  max: 30,                   // generous for a shared-IP office burst, still bounds brute-force to ~43k/day/IP
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many sign-in attempts, please try again in 15 minutes" },
+  message: { error: "Too many sign-in attempts, please try again in a minute" },
 });
 
 const signupLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,  // 1 hour
-  max: 5,
+  windowMs: 60 * 1000,       // 1 minute
+  max: 15,                   // fewer people sign up concurrently than log in, even in a shared-IP burst
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "Too many accounts created from this IP, please try again later" },
+  message: { error: "Too many accounts created from this IP, please try again in a minute" },
 });
 
 const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,  // 15 minutes
-  max: 5,
+  max: 20,                   // Allow for a few more admin login attempts per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many admin sign-in attempts, please try again in 15 minutes" },
@@ -95,7 +102,7 @@ const adminLimiter = rateLimit({
 
 const phoneLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,  // 10 minutes
-  max: 5,
+  max: 50,                   // 50 OTP requests per 10 mins (safeguards SMS budget but allows shared IPs)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many OTP requests, please try again in 10 minutes" },
@@ -112,16 +119,20 @@ if (builderCount === 0) {
 }
 
 const app = express();
+app.set("trust proxy", 1);
 // #9 — Tighten CORS: allow only the production domain and localhost in dev
 const ALLOWED_ORIGINS = [
   "https://vcrew-production.up.railway.app",
-   "https://www.validationcrew.com",
+  "https://www.validationcrew.com",
+  "https://validationcrew.com",
   ...(process.env.NODE_ENV !== "production" ? ["http://localhost:5173", "http://localhost:4000"] : []),
   ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(",").map(s => s.trim()) : []),
 ];
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+    if (!origin || ALLOWED_ORIGINS.includes(origin) || (process.env.NODE_ENV !== "production" && /^http:\/\/localhost:\d+$/.test(origin))) {
+      return cb(null, true);
+    }
     const err = new Error(`CORS: origin ${origin} not allowed`);
     err.status = 403;
     cb(err);

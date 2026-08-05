@@ -4,15 +4,18 @@ import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { api } from "../api/client";
 import { exportCSV } from "../exportUtils";
+import { useTranslation } from "../i18n/index.jsx";
+import { trFilterLabel } from "../data/audienceFilterLabels";
 
-const TABS = [
-  { k: "all", l: "All" },
-  { k: "pending", l: "Pending" },
-  { k: "approved", l: "Approved" },
-  { k: "flagged", l: "Flagged" },
-  { k: "rejected", l: "Rejected" },
-  { k: "revision", l: "Revision" },
+const getTabs = (t) => [
+  { k: "all", l: t("status.all", null, "All") },
+  { k: "pending", l: t("status.pending", null, "Pending") },
+  { k: "approved", l: t("status.approved", null, "Approved") },
+  { k: "flagged", l: t("status.flagged", null, "Flagged") },
+  { k: "rejected", l: t("status.rejected", null, "Rejected") },
+  { k: "revision", l: t("status.revision", null, "Revision") },
 ];
+
 
 function Toast({ message, type, onClose }) {
   if (!message) return null;
@@ -36,11 +39,12 @@ function Toast({ message, type, onClose }) {
 }
 
 function QualityBadge({ quality }) {
+  const { t } = useTranslation();
   const cfg = {
-    high: { label: "High quality", bg: "var(--success-weak)", color: "var(--success)" },
-    medium: { label: "Medium", bg: "var(--warning-weak)", color: "var(--warning)" },
-    low: { label: "Low effort", bg: "var(--danger-weak)", color: "var(--danger)" },
-    flagged: { label: "Flagged", bg: "var(--danger-weak)", color: "var(--danger)" },
+    high: { label: t("quality.high", null, "High quality"), bg: "var(--success-weak)", color: "var(--success)" },
+    medium: { label: t("quality.medium", null, "Medium"), bg: "var(--warning-weak)", color: "var(--warning)" },
+    low: { label: t("quality.low", null, "Low effort"), bg: "var(--danger-weak)", color: "var(--danger)" },
+    flagged: { label: t("quality.flagged", null, "Flagged"), bg: "var(--danger-weak)", color: "var(--danger)" },
   }[quality] || { label: quality, bg: "var(--panel-inset)", color: "var(--text-faint)" };
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: cfg.bg, color: cfg.color }}>
@@ -50,6 +54,7 @@ function QualityBadge({ quality }) {
 }
 
 function SlideOver({ sub, onClose, onAction }) {
+  const { t } = useTranslation();
   const [rejectReason, setRejectReason] = useState("");
   const [reviseNote, setReviseNote] = useState("");
   const [rating, setRating] = useState(0); // Add rating state
@@ -81,7 +86,7 @@ function SlideOver({ sub, onClose, onAction }) {
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{sub.name[0]}</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 15 }}>{sub.name}</div>
-            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{sub.city} · ★ {sub.trust / 10} trust score</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{trFilterLabel(t, sub.city)} · ★ {sub.trust / 10} {t("metrics.trustScore", null, "trust score")}</div>
           </div>
           <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
         </div>
@@ -89,19 +94,19 @@ function SlideOver({ sub, onClose, onAction }) {
         {/* Meta */}
         <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12, overflowX: "auto" }}>
           <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="calendar" size={12} style={{ color: "var(--accent)" }} /> Submitted</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="calendar" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.submitted", null, "Submitted")}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.date}</div>
           </div>
           <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="clock" size={12} style={{ color: "var(--accent)" }} /> Time Taken</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="clock" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.timeTaken", null, "Time Taken")}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.mins} min</div>
           </div>
           <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="checkCircle" size={12} style={{ color: "var(--accent)" }} /> Tasks</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="checkCircle" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.tasks", null, "Tasks")}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.tasks}</div>
           </div>
           <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> Quality</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
             <div><QualityBadge quality={sub.quality} /></div>
           </div>
         </div>
@@ -109,16 +114,16 @@ function SlideOver({ sub, onClose, onAction }) {
         {/* Check-in history (multi-day missions only) */}
         {sub.checkins && sub.checkins.length > 0 && (
           <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
-            <div className="eyebrow" style={{ marginBottom: 14 }}>Daily check-in history ({sub.checkins.length} days)</div>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>{t("review.dailyCheckinHistory", { days: sub.checkins.length }, `Daily check-in history (${sub.checkins.length} days)`)}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {sub.checkins.map((c, i) => (
                 <div key={i} style={{ display: "flex", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)", alignItems: "flex-start" }}>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: "var(--accent)", flexShrink: 0, paddingTop: 2 }}>Day {c.dayNumber}</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: "var(--accent)", flexShrink: 0, paddingTop: 2 }}>{t("missions.dayTitle", null, "Day")} {c.dayNumber}</span>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
-                    <div style={{ marginBottom: 4 }}><b>Used it:</b> {c.answers.used || "—"} · <b>Would return:</b> {c.answers.comeback || "—"}</div>
+                    <div style={{ marginBottom: 4 }}><b>{t("review.usedIt", null, "Used it:")}</b> {c.answers.used || "—"} · <b>{t("review.wouldReturn", null, "Would return:")}</b> {c.answers.comeback || "—"}</div>
                     {c.answers.what && <div style={{ color: "var(--text-muted)", marginBottom: c.answers.frustration === "yes" ? 4 : 0 }}>{c.answers.what}</div>}
                     {c.answers.frustration === "yes" && c.answers.frustrationDetail && (
-                      <div style={{ color: "var(--danger)" }}>Frustration: {c.answers.frustrationDetail}</div>
+                      <div style={{ color: "var(--danger)" }}>{t("review.frustration", null, "Frustration:")} {c.answers.frustrationDetail}</div>
                     )}
                   </div>
                   {c.screenshotUrl && (
@@ -134,11 +139,11 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {/* Task breakdown */}
         <div style={{ padding: "16px 24px", flex: 1 }}>
-          <div className="eyebrow" style={{ marginBottom: 14 }}>Task responses</div>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>{t("review.taskResponses", null, "Task responses")}</div>
           {(sub.breakdown || []).map((b, i) => (
             <div key={i} className="card rise" style={{ marginBottom: 12, overflow: "hidden", border: "1px solid var(--border)" }}>
               <div onClick={() => toggleTask(i)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", cursor: "pointer", userSelect: "none", background: "var(--panel)" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "2px 8px", borderRadius: 12, background: "var(--accent-weak)", color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>Task {i + 1}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "2px 8px", borderRadius: 12, background: "var(--accent-weak)", color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>{t("missions.taskNTitle", { n: i + 1 }, `Task ${i + 1}`)}</span>
                 <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{b.t}</span>
                 <div style={{ display: "flex", gap: 2, marginRight: 8, alignItems: "center" }}>
                   {[1, 2, 3, 4, 5].map(v => (
@@ -169,7 +174,7 @@ function SlideOver({ sub, onClose, onAction }) {
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
                           <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
                             <Icon name="image" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
-                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>Proof (Screenshot / Video)</div>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{t("review.proofLabel", null, "Proof (Screenshot / Video)")}</div>
                           </div>
                           <div style={{ padding: "12px 14px", background: "var(--bg)", display: "flex", gap: 8, flexWrap: "wrap" }}>
                             {b.attachments.map((src, idx) => {
@@ -187,7 +192,7 @@ function SlideOver({ sub, onClose, onAction }) {
                                     <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                                   )}
                                   <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
-                                    <Icon name="externalLink" size={12} /> View
+                                    <Icon name="externalLink" size={12} /> {t("actions.view", null, "View")}
                                   </a>
                                 </div>
                               );
@@ -208,23 +213,23 @@ function SlideOver({ sub, onClose, onAction }) {
         {view === "review" && sub.status === "pending" && (
           <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
             <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
-              <Icon name="messageSquare" size={14} /> Add Reviewer Notes...
+              <Icon name="messageSquare" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
             </button>
             <div style={{ flex: 1 }} />
             <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
-              <Icon name="x" size={14} /> Reject
+              <Icon name="x" size={14} /> {t("actions.reject", null, "Reject")}
             </button>
             <Btn variant="primary" style={{ padding: "8px 24px", background: "var(--success-weak)", color: "var(--success)", border: "1px solid color-mix(in srgb,var(--success) 40%,transparent)", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("approve")}>
-              <Icon name="check" size={14} /> Approve
+              <Icon name="check" size={14} /> {t("actions.approve", null, "Approve")}
             </Btn>
           </div>
         )}
         
         {view === "approve" && (
           <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Rate this submission</div>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{t("review.rateSubmission", null, "Rate this submission")}</div>
             <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
-              Your rating directly impacts the validator's Trust Score.
+              {t("review.ratingImpactDesc", null, "Your rating directly impacts the validator's Trust Score.")}
             </div>
             
             <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -247,7 +252,7 @@ function SlideOver({ sub, onClose, onAction }) {
             {rating > 0 && rating <= 2 && (
               <textarea 
                 className="fin" 
-                placeholder="What went wrong? (Required for low ratings)" 
+                placeholder={t("review.whatWentWrong", null, "What went wrong? (Required for low ratings)")} 
                 rows={2} 
                 value={rejectReason} 
                 onChange={e => setRejectReason(e.target.value)} 
@@ -256,14 +261,14 @@ function SlideOver({ sub, onClose, onAction }) {
             )}
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>Cancel</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
               <Btn 
                 variant="primary" 
                 style={{ flex: 1, justifyContent: "center", opacity: isProcessing ? 0.7 : 1 }} 
                 onClick={() => handleActionSubmit("approved", rejectReason, rating)} 
                 disabled={isProcessing || rating === 0 || (rating <= 2 && !rejectReason.trim())}
               >
-                {isProcessing ? "Approving..." : `Approve & Rate ${rating > 0 ? rating : ''} ★`}
+                {isProcessing ? t("actions.approving", null, "Approving...") : t("actions.approveAndRate", { rating: rating > 0 ? rating : '' }, `Approve & Rate ${rating > 0 ? rating : ''} ★`)}
               </Btn>
             </div>
           </div>
@@ -271,12 +276,12 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {view === "reject" && (
           <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Reason for rejection</div>
-            <textarea className="fin" placeholder="Explain why this submission doesn't meet the requirements…" rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{t("review.reasonForRejection", null, "Reason for rejection")}</div>
+            <textarea className="fin" placeholder={t("review.explainRejection", null, "Explain why this submission doesn't meet the requirements…")} rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>Cancel</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
               <button className="btn btn-danger" style={{ flex: 1, opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
-                {isProcessing ? "Rejecting..." : "Reject submission"}
+                {isProcessing ? t("actions.rejecting", null, "Rejecting...") : t("actions.rejectSubmission", null, "Reject submission")}
               </button>
             </div>
           </div>
@@ -284,12 +289,12 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {view === "revise" && (
           <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>What needs revision?</div>
-            <textarea className="fin" placeholder="e.g. Please re-test the checkout flow and describe what happened at step 3…" rows={3} value={reviseNote} onChange={e => setReviseNote(e.target.value)} style={{ marginBottom: 10 }} />
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{t("review.whatNeedsRevision", null, "What needs revision?")}</div>
+            <textarea className="fin" placeholder={t("review.revisePlaceholder", null, "e.g. Please re-test the checkout flow and describe what happened at step 3…")} rows={3} value={reviseNote} onChange={e => setReviseNote(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>Cancel</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
               <Btn variant="primary" style={{ flex: 1, justifyContent: "center", opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("revision", reviseNote)} disabled={isProcessing || !reviseNote.trim()}>
-                {isProcessing ? "Sending..." : "Send request"}
+                {isProcessing ? t("actions.sending", null, "Sending...") : t("actions.sendRequest", null, "Send request")}
               </Btn>
             </div>
           </div>
@@ -300,6 +305,7 @@ function SlideOver({ sub, onClose, onAction }) {
 }
 
 export default function MissionReview() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [tab, setTab] = useState("pending");
@@ -322,7 +328,7 @@ export default function MissionReview() {
         setSubs(data.submissions || []);
       } catch (err) {
         console.error("Failed to load submissions:", err);
-        showToast(err.message || "Failed to load submissions", "error");
+        showToast(err.message || t("review.failedToLoadSubmissions", null, "Failed to load submissions"), "error");
         setSubs([]);
       } finally {
         setLoading(false);
@@ -330,7 +336,7 @@ export default function MissionReview() {
     })();
   }, [id]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading submissions…</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("review.loadingSubmissions", null, "Loading submissions…")}</div></div>;
 
   const counts = { 
     all: subs.length, 
@@ -344,20 +350,20 @@ export default function MissionReview() {
   const selectedSub = selected ? subs.find(s => s.id === selected) : null;
 
   const handleAction = async (subId, action, reason, rating) => {
-    const subName = subs.find(s => s.id === subId)?.name || "Validator";
+    const subName = subs.find(s => s.id === subId)?.name || t("review.validatorFallbackName", null, "Validator");
     try {
       if (action === "approved") {
         await api.post(`/missions/${id}/submissions/${subId}/approved`, { rating });
-        showToast(`Approved submission from ${subName}`, "success");
+        showToast(`${t("review.approvedSubFrom", null, "Approved submission from")} ${subName}`, "success");
       } else if (action === "rejected") {
         await api.post(`/missions/${id}/submissions/${subId}/rejected`, { note: reason, rating });
-        showToast(`Rejected submission from ${subName}`, "error");
+        showToast(`${t("review.rejectedSubFrom", null, "Rejected submission from")} ${subName}`, "error");
       } else if (action === "revision") {
         await api.post(`/missions/${id}/submissions/${subId}/revision`, { note: reason });
-        showToast(`Revision request sent to ${subName}`, "warning");
+        showToast(`${t("review.revisionReqSentTo", null, "Revision request sent to")} ${subName}`, "warning");
       }
     } catch (err) {
-      alert(err.message || "An error occurred");
+      alert(err.message || t("review.anErrorOccurred", null, "An error occurred"));
       return; // Stop execution on error
     }
     setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: action === "approved" ? "approved" : action === "rejected" ? "rejected" : "revision" } : s));
@@ -378,23 +384,23 @@ export default function MissionReview() {
           <Icon name="arrowLeft" size={16} />
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 22, fontWeight: 800 }}>Submission Review</div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{mission?.name} · {subs.length} of {mission?.target} submissions received</div>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>{t("review.submissionReview", null, "Submission Review")}</div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{mission?.name} · {t("review.subsReceivedTotal", { count: subs.length, target: mission?.target }, `${subs.length} of ${mission?.target} submissions received`)}</div>
         </div>
         <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV(
           "submissions.csv",
           ["Name", "City", "Trust", "Date", "Minutes", "Tasks", "Quality", "Status"],
           visible.map(s => [s.name, s.city, (s.trust / 10).toFixed(1), s.date, s.mins, s.tasks, s.quality, s.status])
-        )}>Export</Btn>
+        )}>{t("actions.export", null, "Export")}</Btn>
       </div>
 
       {/* Insights panel */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 24 }}>
         {[
-          { label: "Total received", value: subs.length, icon: "users" },
-          { label: "Approved", value: approved.length, icon: "check", color: "var(--success)" },
-          { label: "Pending review", value: pending.length, icon: "clock", color: "var(--warning)" },
-          { label: "Avg time", value: `${avgMins} min`, icon: "timer" },
+          { label: t("review.totalReceived", null, "Total received"), value: subs.length, icon: "users" },
+          { label: t("status.approved", null, "Approved"), value: approved.length, icon: "check", color: "var(--success)" },
+          { label: t("review.pendingReview", null, "Pending review"), value: pending.length, icon: "clock", color: "var(--warning)" },
+          { label: t("metrics.avgTime", null, "Avg time"), value: `${avgMins} min`, icon: "timer" },
         ].map(({ label, value, icon, color }) => (
           <div key={label} className="card" style={{ padding: "16px 18px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -408,7 +414,7 @@ export default function MissionReview() {
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 3, background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: 30, padding: 3, width: "fit-content", marginBottom: 18 }}>
-        {TABS.map(t => (
+        {getTabs(t).map(t => (
           <button key={t.k} onClick={() => setTab(t.k)} style={{
             padding: "7px 16px", borderRadius: 30, fontWeight: 700, fontSize: 13, cursor: "pointer", transition: "all .14s",
             background: tab === t.k ? "var(--panel)" : "transparent",
@@ -425,7 +431,7 @@ export default function MissionReview() {
       {/* Submission list */}
       {visible.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: "center" }}>
-          <div style={{ color: "var(--text-faint)", fontSize: 14 }}>No submissions in this category yet.</div>
+          <div style={{ color: "var(--text-faint)", fontSize: 14 }}>{t("review.noSubsInCategory", null, "No submissions in this category yet.")}</div>
         </div>
       ) : visible.map(sub => (
         <div key={sub.id} className="card" onClick={() => setSelected(sub.id)} style={{ padding: "18px 20px", marginBottom: 12, cursor: "pointer", border: selected === sub.id ? "1.5px solid var(--accent)" : "1px solid var(--border)", transition: "all .13s" }}>
@@ -437,27 +443,27 @@ export default function MissionReview() {
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
                 <span style={{ fontWeight: 700, fontSize: 15 }}>{sub.name}</span>
-                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>{sub.city}</span>
+                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>{trFilterLabel(t, sub.city)}</span>
                 <span style={{ fontFamily: "var(--mono)", fontSize: 11, padding: "2px 7px", borderRadius: 20, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 800 }}>★ {(sub.trust / 10).toFixed(1)}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 12.5, color: "var(--text-muted)" }}>
                 <span>{sub.date}</span>
-                <span>{sub.mins} min</span>
-                <span>{sub.tasks} tasks</span>
+                <span>{sub.mins} {t("metrics.min", null, "min")}</span>
+                <span>{sub.tasks} {t("metrics.tasks", null, "tasks")}</span>
                 <QualityBadge quality={sub.quality} />
               </div>
             </div>
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ Approved</span>}
-              {sub.status === "flagged" && <span style={{ color: "var(--danger)", fontWeight: 700, fontSize: 13 }}>⚑ Flagged</span>}
-              {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ Rejected</span>}
-              {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ Revision Req</span>}
+              {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ {t("status.approved", null, "Approved")}</span>}
+              {sub.status === "flagged" && <span style={{ color: "var(--danger)", fontWeight: 700, fontSize: 13 }}>⚑ {t("status.flagged", null, "Flagged")}</span>}
+              {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ {t("status.rejected", null, "Rejected")}</span>}
+              {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ {t("status.revisionReq", null, "Revision Req")}</span>}
               {sub.status === "pending" && (
                 <>
-                  <button className="btn btn-ghost" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>Review</button>
-                  <button className="btn btn-success" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>✓ Approve</button>
+                  <button className="btn btn-ghost" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>{t("actions.review", null, "Review")}</button>
+                  <button className="btn btn-success" style={{ fontSize: 13, padding: "7px 14px" }} onClick={e => { e.stopPropagation(); setSelected(sub.id); }}>✓ {t("actions.approve", null, "Approve")}</button>
                 </>
               )}
             </div>

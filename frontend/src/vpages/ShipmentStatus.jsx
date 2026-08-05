@@ -3,14 +3,17 @@ import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
+import { useTranslation } from "../i18n/index.jsx";
 
-const STATUS_COPY = {
-  awaiting_shipment: { title: "Waiting for the builder to ship", desc: "You'll be notified here once your sample is on its way." },
-  shipped: { title: "Your sample is on its way", desc: "Once it arrives, confirm receipt below to unlock the review." },
-  received: { title: "Sample received", desc: "" },
-};
+const getStatusCopy = (t) => ({
+  awaiting_shipment: { title: t("missions.waitingForShipment", null, "Waiting for the builder to ship"), desc: t("missions.notifiedWhenShipped", null, "You'll be notified here once your sample is on its way.") },
+  shipped: { title: t("missions.sampleOnWay", null, "Your sample is on its way"), desc: t("missions.confirmReceiptDesc", null, "Once it arrives, confirm receipt below to unlock the review.") },
+  received: { title: t("missions.sampleReceived", null, "Sample received"), desc: "" },
+});
+
 
 export default function ShipmentStatus() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [mission, setMission] = useState(null);
@@ -30,14 +33,14 @@ export default function ShipmentStatus() {
         setMission(data.mission);
         setShipment(data.shipment);
       } catch {
-        setError("Couldn't load shipment status.");
+        setError(t("missions.couldntLoadShipmentStatus", null, "Couldn't load shipment status."));
       } finally {
         setLoading(false);
       }
     })();
   }, [id, navigate]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading shipment status…</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("missions.loadingShipmentStatus", null, "Loading shipment status…")}</div></div>;
   if (error) return <div className="page rise"><div className="muted">{error}</div></div>;
 
   const confirmReceived = async () => {
@@ -47,14 +50,14 @@ export default function ShipmentStatus() {
       await vapi.post(`/missions/${id}/shipment/received`, {});
       navigate(`/validator/missions/${id}/workspace`, { replace: true });
     } catch (err) {
-      setError(err.message || "Couldn't confirm receipt — try again.");
+      setError(err.message || t("missions.couldntConfirmReceipt", null, "Couldn't confirm receipt — try again."));
     } finally {
       setConfirming(false);
     }
   };
 
   const status = shipment?.status || "awaiting_shipment";
-  const copy = STATUS_COPY[status];
+  const copy = getStatusCopy(t)[status];
 
   return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--bg)" }}>
@@ -68,8 +71,8 @@ export default function ShipmentStatus() {
 
         {status === "shipped" && (shipment.tracking_number || shipment.carrier) && (
           <div className="card" style={{ padding: 16, marginBottom: 20, textAlign: "left" }}>
-            {shipment.carrier && <div style={{ fontSize: 13, marginBottom: 4 }}><b>Carrier:</b> {shipment.carrier}</div>}
-            {shipment.tracking_number && <div style={{ fontSize: 13 }}><b>Tracking number:</b> {shipment.tracking_number}</div>}
+            {shipment.carrier && <div style={{ fontSize: 13, marginBottom: 4 }}><b>{t("missions.carrier", null, "Carrier:")}</b> {shipment.carrier}</div>}
+            {shipment.tracking_number && <div style={{ fontSize: 13 }}><b>{t("missions.trackingNumber", null, "Tracking number:")}</b> {shipment.tracking_number}</div>}
           </div>
         )}
 
@@ -77,10 +80,10 @@ export default function ShipmentStatus() {
 
         {status === "shipped" ? (
           <Btn variant="primary" block disabled={confirming} onClick={confirmReceived}>
-            {confirming ? "Confirming…" : "I've received it — start reviewing"}
+            {confirming ? t("actions.confirming", null, "Confirming…") : t("actions.receivedStartReviewing", null, "I've received it — start reviewing")}
           </Btn>
         ) : (
-          <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+          <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
         )}
       </div>
     </div>

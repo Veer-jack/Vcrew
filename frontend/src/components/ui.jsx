@@ -1,11 +1,13 @@
 import { useState } from "react";
 import Icon from "./Icon";
+import { useTranslation } from "../i18n/index.jsx";
 
 const AV_COLORS = ["#4f46e5","#0ea5a4","#d6336c","#c2410c","#2563eb","#7c3aed","#16a34a","#0891b2","#b45309","#db2777"];
 export const avColor = (s = "") => AV_COLORS[(s.charCodeAt(0) + s.length) % AV_COLORS.length];
 export const initials = (n = "") => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 
 export function PasswordInput({ className, value, onChange, placeholder, required, style }) {
+  const { t } = useTranslation();
   const [show, setShow] = useState(false);
   return (
     <div style={{ position: "relative", ...style }}>
@@ -26,7 +28,7 @@ export function PasswordInput({ className, value, onChange, placeholder, require
           background: "none", border: "none", padding: 0, cursor: "pointer", 
           color: "var(--text-faint)", display: "flex", alignItems: "center", justifyContent: "center"
         }}
-        title={show ? "Hide password" : "Show password"}
+        title={show ? t("actions.hidePassword", null, "Hide password") : t("actions.showPassword", null, "Show password")}
       >
         <Icon name={show ? "eyeOff" : "eye"} size={16} />
       </button>
@@ -63,7 +65,8 @@ export function Avatar({ name, size = 34, color }) {
 }
 
 export function StatusTag({ status }) {
-  const label = { active: "Active", draft: "Draft", closed: "Closed", completed: "Completed", paused: "Paused", archived: "Archived" }[status] || status;
+  const { t } = useTranslation();
+  const label = { active: t("status.active", null, "Active"), draft: t("status.draft", null, "Draft"), closed: t("status.closed", null, "Closed"), completed: t("status.completed", null, "Completed"), paused: t("status.paused", null, "Paused"), archived: t("status.archived", null, "Archived") }[status] || status;
   return <span className={`st st-${status}`}><span className="d" />{label}</span>;
 }
 
@@ -124,7 +127,8 @@ export function Donut({ data, centerVal, centerLabel, size = 150 }) {
 }
 
 export function Trend({ data, height = 200 }) {
-  if (!data || data.length < 2) return <div className="muted" style={{ padding: 24, textAlign: "center" }}>Not enough data yet</div>;
+  const { t } = useTranslation();
+  if (!data || data.length < 2) return <div className="muted" style={{ padding: 24, textAlign: "center" }}>{t("trends.notEnoughData", null, "Not enough data yet")}</div>;
   const w = 600, h = height, pad = 8;
   const max = Math.max(...data) * 1.1 || 1, min = Math.min(...data) * 0.6;
   const x = i => pad + (i / (data.length - 1)) * (w - pad * 2);
@@ -160,6 +164,7 @@ export function Empty({ icon = "inbox", title, children, action }) {
 }
 
 export function KpiCard({ label, value, unit, icon, tone, delta, spark, footer, onClick }) {
+  const { t } = useTranslation();
   return (
     <div className={`kpi ${onClick ? "click" : ""}`} onClick={onClick}>
       <div className="kpi-top">
@@ -175,7 +180,7 @@ export function KpiCard({ label, value, unit, icon, tone, delta, spark, footer, 
         )}
         {spark
           ? <span className="spark">{spark.map((v, i) => <i key={i} className={i === spark.length - 1 ? "hot" : ""} style={{ height: `${(v / Math.max(...spark)) * 100}%` }} />)}</span>
-          : footer !== undefined ? <span>{footer}</span> : <span>vs last month</span>}
+          : footer !== undefined ? <span>{footer}</span> : <span>{t("metrics.vsLastMonth", null, "vs last month")}</span>}
       </div>
     </div>
   );

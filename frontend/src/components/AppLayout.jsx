@@ -57,8 +57,8 @@ function Sidebar({ closeMobile, builder }) {
             <div className="faint" style={{ fontSize: 11 }}>
               {builder?.role} · {builder?.plan}
               {builder?.verified
-                ? <span style={{ color: "var(--success)", marginLeft: 6 }}>✓ Verified</span>
-                : <span style={{ color: "var(--warning, #c2710c)", marginLeft: 6 }}>· Unverified</span>
+                ? <span style={{ color: "var(--success)", marginLeft: 6 }}>{t("appLayout.verified", null, "✓ Verified")}</span>
+                : <span style={{ color: "var(--warning, #c2710c)", marginLeft: 6 }}>{t("appLayout.unverified", null, "· Unverified")}</span>
               }
             </div>
           </div>
@@ -109,7 +109,7 @@ export default function AppLayout() {
       <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} />
       <div className="main" id="main-content">
         <header className="topbar">
-          <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
+          <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{t("nav." + pageTitle(location.pathname).toLowerCase(), null, pageTitle(location.pathname))}</h1>
           <div className="search" style={{ marginLeft: 18 }}>
             <Icon name="search" size={16} />
@@ -125,16 +125,16 @@ export default function AppLayout() {
             />
           </div>
           <span className="topbar-spacer" />
-          <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title="Notifications">
+          <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title={t("appLayout.notifications", null, "Notifications")}>
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
           </button>
-          <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title="Log out"><Icon name="logout" size={17} /></button>
+          <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title={t("appLayout.logOut", null, "Log out")}><Icon name="logout" size={17} /></button>
           <div style={{ position: "relative" }}>
             <button
               className="icon-btn"
               onClick={() => setShowProfile(p => !p)}
-              title="Profile"
+              title={t("appLayout.profile", null, "Profile")}
               style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}
             >
               {(builder?.name || "B")[0].toUpperCase()}

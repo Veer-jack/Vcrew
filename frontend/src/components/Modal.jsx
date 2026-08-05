@@ -1,8 +1,10 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./Icon";
+import { useTranslation } from "../i18n/index.jsx";
 
 export function Modal({ title, children, onClose, width = 500, hideHeader = false, align = "center" }) {
+  const { t } = useTranslation();
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === "Escape") onClose();
@@ -25,7 +27,7 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
           {!hideHeader && (
             <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)", flexShrink: 0 }}>
               <b style={{ fontSize: 16 }}>{title}</b>
-              <button className="icon-btn" aria-label="Close" style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
+              <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
             </div>
           )}
           {hideHeader ? (

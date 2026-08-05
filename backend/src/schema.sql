@@ -325,6 +325,7 @@ CREATE TABLE IF NOT EXISTS validators (
   address_state TEXT,
   address_postal_code TEXT,
   address_country TEXT,
+  preferred_language TEXT DEFAULT 'en',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -538,6 +539,23 @@ CREATE TABLE IF NOT EXISTS focus_group_responses (
   slot_id INTEGER REFERENCES focus_group_slots(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (poll_id, validator_id, slot_id)
+);
+
+-- Caches dynamic-content translations (mission text, notifications, etc) so
+-- the same (entity, field, language) combination is only ever sent to the
+-- translation API once. source_hash changes whenever the original text is
+-- edited, so an edit naturally invalidates the old cache entry without any
+-- explicit invalidation logic -- the new hash just won't have a match yet.
+CREATE TABLE IF NOT EXISTS translation_cache (
+  id SERIAL PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  field TEXT NOT NULL,
+  source_hash TEXT NOT NULL,
+  lang TEXT NOT NULL,
+  translated TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (entity_type, entity_id, field, lang, source_hash)
 );
 
 -- ==============================================

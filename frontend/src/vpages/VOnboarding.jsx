@@ -6,6 +6,8 @@ import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
+import { useTranslation } from "../i18n/index.jsx";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 function useDraft(key, defaultState) {
   const [val, setVal] = useState(() => {
@@ -51,16 +53,18 @@ const TECH_TOOLS = ["Figma","Sketch","Notion","JIRA","Postman","Selenium","VS Co
 const TESTER_DOMAINS = ["Mobile app testing","Web app testing","API testing","Performance testing","Security testing","Accessibility testing","UX research","AI product evaluation","Cross-browser testing","Regression testing","Exploratory testing","Physical product evaluation","Market research","Other"];
 const CERT = ["ISTQB Foundation","ISTQB Advanced","AWS Certified","Google UX Design","Scrum / Agile","Six Sigma","PMP","None","Other"];
 
-const Chips = ({ options, value, onChange, multi = true }) => (
+const optLabel = (t, ns) => (o, i) => t(`vOnboarding.options.${ns}.${i}`, null, o);
+
+const Chips = ({ options, value, onChange, multi = true, getLabel }) => (
   <div className="chips" style={{ marginTop: 8 }}>
-    {options.map(o => {
+    {options.map((o, i) => {
       const on = multi ? (Array.isArray(value) ? value.includes(o) : false) : value === o;
       return (
         <button key={o} type="button" className={"chip " + (on ? "on" : "")} onClick={() => {
           if (multi) { const arr = Array.isArray(value) ? value : []; onChange(on ? arr.filter(x => x !== o) : [...arr, o]); }
           else { onChange(on ? "" : o); }
         }}>
-          <span className="ck"><Icon name="check" size={10} /></span>{o}
+          <span className="ck"><Icon name="check" size={10} /></span>{getLabel ? getLabel(o, i) : o}
         </button>
       );
     })}
@@ -76,30 +80,31 @@ const Field = ({ label, required, hint, children }) => (
 );
 
 function TypeSelector({ onSelect }) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState(null);
   return (
     <div className="rise" style={{ maxWidth: 680, margin: "0 auto" }}>
       <div style={{ textAlign: "center", marginBottom: 36 }}>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>Welcome to ValidationCrew</div>
-        <h2 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 10px" }}>Which best describes you?</h2>
-        <p style={{ color: "var(--text-muted)", fontSize: 15, margin: 0 }}>Choose your type to see the right missions for you.</p>
+        <div className="eyebrow" style={{ marginBottom: 10 }}>{t("onboarding.welcome", null, "Welcome to ValidationCrew")}</div>
+        <h2 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 10px" }}>{t("onboarding.whichBestDescribesYou", null, "Which best describes you?")}</h2>
+        <p style={{ color: "var(--text-muted)", fontSize: 15, margin: 0 }}>{t("onboarding.chooseTypeDesc", null, "Choose your type to see the right missions for you.")}</p>
       </div>
       <div style={{ display: "grid", gap: 16 }}>
-        {TYPES.map(t => (
-          <button key={t.key} type="button" onClick={() => onSelect(t.key)}
-            onMouseEnter={() => setHovered(t.key)} onMouseLeave={() => setHovered(null)}
-            style={{ display: "grid", gridTemplateColumns: "56px 1fr auto", gap: 16, alignItems: "center", padding: "20px 22px", borderRadius: "var(--radius)", textAlign: "left", cursor: "pointer", border: "1.5px solid " + (hovered === t.key ? t.color : "var(--border)"), background: hovered === t.key ? t.bg : "var(--panel)", transition: "all .15s" }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: t.bg, display: "grid", placeItems: "center" }}>
-              <Icon name={t.icon} size={24} style={{ color: t.color }} />
+        {TYPES.map(ty => (
+          <button key={ty.key} type="button" onClick={() => onSelect(ty.key)}
+            onMouseEnter={() => setHovered(ty.key)} onMouseLeave={() => setHovered(null)}
+            style={{ display: "grid", gridTemplateColumns: "56px 1fr auto", gap: 16, alignItems: "center", padding: "20px 22px", borderRadius: "var(--radius)", textAlign: "left", cursor: "pointer", border: "1.5px solid " + (hovered === ty.key ? ty.color : "var(--border)"), background: hovered === ty.key ? ty.bg : "var(--panel)", transition: "all .15s" }}>
+            <div style={{ width: 56, height: 56, borderRadius: 14, background: ty.bg, display: "grid", placeItems: "center" }}>
+              <Icon name={ty.icon} size={24} style={{ color: ty.color }} />
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <span style={{ fontWeight: 800, fontSize: 16 }}>{t.title}</span>
-                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>· {t.tagline}</span>
-                {t.badge && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "var(--warning-weak)", color: "var(--warning)" }}>{t.badge}</span>}
+                <span style={{ fontWeight: 800, fontSize: 16 }}>{t(`vOnboarding.types.${ty.key}.title`, null, ty.title)}</span>
+                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>· {t(`vOnboarding.types.${ty.key}.tagline`, null, ty.tagline)}</span>
+                {ty.badge && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "var(--warning-weak)", color: "var(--warning)" }}>{t(`vOnboarding.types.${ty.key}.badge`, null, ty.badge)}</span>}
               </div>
-              <p style={{ margin: "0 0 6px", fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{t.desc}</p>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)" }}>Missions: {t.missions}</p>
+              <p style={{ margin: "0 0 6px", fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{t(`vOnboarding.types.${ty.key}.desc`, null, ty.desc)}</p>
+              <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)" }}>{t("onboarding.missions", null, "Missions:")} {t(`vOnboarding.types.${ty.key}.missions`, null, ty.missions)}</p>
             </div>
             <Icon name="chevRight" size={18} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
           </button>
@@ -110,53 +115,56 @@ function TypeSelector({ onSelect }) {
 }
 
 function UserOnboarding({ onDone, vid }) {
+  const { t } = useTranslation();
   const [step, setStep] = useDraft(`VC_V_STEP_USER_${vid}`, 0);
   const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { name: "", handle: "", city: "", language: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", food_pref: "", lifestyle: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.age_group && d.gender && d.income, d.height && d.weight && d.skin_tone && d.body_type, d.occupation && d.hours && d.devices.length > 0];
-  const steps = ["Basic info","Demographics","Physical profile","Lifestyle"];
+  const steps = [t("vOnboarding.steps.basicInfo", null, "Basic info"), t("vOnboarding.steps.demographics", null, "Demographics"), t("vOnboarding.steps.physicalProfile", null, "Physical profile"), t("vOnboarding.steps.lifestyle", null, "Lifestyle")];
   return (
     <div className="rise" style={{ maxWidth: 600, margin: "0 auto" }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
         {steps.map((s, i) => (<div key={i} style={{ flex: 1 }}><div style={{ height: 4, borderRadius: 20, background: i <= step ? "var(--success)" : "var(--border)" }} /><div style={{ fontSize: 11, fontWeight: 600, color: i === step ? "var(--success)" : "var(--text-faint)", marginTop: 4 }}>{s}</div></div>))}
       </div>
-      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Tell us about yourself</h2><Field label="Full name" required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder="Your full name" /></Field><Field label="Handle" required hint="Lowercase, no spaces"><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder="yourhandle" /></div></Field><Field label="City" required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder="e.g. Mumbai, Bengaluru" /></Field><Field label="Languages"><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} /></Field></>)}
-      {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>About you</h2><Field label="Age group" required><Chips options={AGE_GROUPS} value={d.age_group} onChange={v => set("age_group", v)} multi={false} /></Field><Field label="Gender" required><Chips options={GENDERS} value={d.gender} onChange={v => set("gender", v)} multi={false} /></Field><Field label="Marital status"><Chips options={["Single","Married","Divorced","Widowed","In a relationship"]} value={d.marital} onChange={v => set("marital", v)} multi={false} /></Field><Field label="Kids?"><Chips options={["Yes","No","Prefer not to say"]} value={d.has_kids} onChange={v => set("has_kids", v)} multi={false} /></Field><Field label="Income" required><Chips options={INCOME} value={d.income} onChange={v => set("income", v)} multi={false} /></Field></>)}
-      {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px" }}>Physical profile</h2><p style={{ color: "var(--text-muted)", fontSize: 13.5, margin: "0 0 22px" }}>Used to match you with physical product missions. Never shared without permission.</p><Field label="Height" required><Chips options={HEIGHT} value={d.height} onChange={v => set("height", v)} multi={false} /></Field><Field label="Weight" required><Chips options={WEIGHT} value={d.weight} onChange={v => set("weight", v)} multi={false} /></Field><Field label="Skin tone" required><Chips options={SKIN_TONE} value={d.skin_tone} onChange={v => set("skin_tone", v)} multi={false} /></Field><Field label="Hair type"><Chips options={HAIR_TYPE} value={d.hair_type} onChange={v => set("hair_type", v)} multi={false} /></Field><Field label="Hair length"><Chips options={HAIR_LENGTH} value={d.hair_length} onChange={v => set("hair_length", v)} multi={false} /></Field><Field label="Body type" required><Chips options={BODY_TYPE} value={d.body_type} onChange={v => set("body_type", v)} multi={false} /></Field></>)}
-      {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Lifestyle and availability</h2><Field label="Occupation" required><Chips options={OCCUPATIONS} value={d.occupation} onChange={v => set("occupation", v)} multi={false} /></Field><Field label="Food preference"><Chips options={FOOD_PREF} value={d.food_pref} onChange={v => set("food_pref", v)} multi={false} /></Field><Field label="Lifestyle interests"><Chips options={LIFESTYLE} value={d.lifestyle} onChange={v => set("lifestyle", v)} /></Field><Field label="Devices" required><Chips options={DEVICES} value={d.devices} onChange={v => set("devices", v)} /></Field><Field label="Time per week" required><Chips options={HOURS} value={d.hours} onChange={v => set("hours", v)} multi={false} /></Field></>)}
+      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.tellUsAboutYourself", null, "Tell us about yourself")}</h2><Field label={t("vOnboarding.fields.fullName", null, "Full name")} required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder={t("vOnboarding.placeholders.yourFullName", null, "Your full name")} /></Field><Field label={t("vOnboarding.fields.handle", null, "Handle")} required hint={t("vOnboarding.hints.lowercaseNoSpaces", null, "Lowercase, no spaces")}><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder={t("vOnboarding.placeholders.yourHandle", null, "yourhandle")} /></div></Field><Field label={t("vOnboarding.fields.city", null, "City")} required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder={t("vOnboarding.placeholders.cityMumbaiBengaluru", null, "e.g. Mumbai, Bengaluru")} /></Field><Field label={t("vOnboarding.fields.languages", null, "Languages")}><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} getLabel={optLabel(t, "languages")} /></Field></>)}
+      {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.aboutYou", null, "About you")}</h2><Field label={t("vOnboarding.fields.ageGroup", null, "Age group")} required><Chips options={AGE_GROUPS} value={d.age_group} onChange={v => set("age_group", v)} multi={false} getLabel={optLabel(t, "ageGroups")} /></Field><Field label={t("vOnboarding.fields.gender", null, "Gender")} required><Chips options={GENDERS} value={d.gender} onChange={v => set("gender", v)} multi={false} getLabel={optLabel(t, "genders")} /></Field><Field label={t("vOnboarding.fields.maritalStatus", null, "Marital status")}><Chips options={["Single","Married","Divorced","Widowed","In a relationship"]} value={d.marital} onChange={v => set("marital", v)} multi={false} getLabel={optLabel(t, "marital")} /></Field><Field label={t("vOnboarding.fields.kids", null, "Kids?")}><Chips options={["Yes","No","Prefer not to say"]} value={d.has_kids} onChange={v => set("has_kids", v)} multi={false} getLabel={optLabel(t, "kids")} /></Field><Field label={t("vOnboarding.fields.income", null, "Income")} required><Chips options={INCOME} value={d.income} onChange={v => set("income", v)} multi={false} getLabel={optLabel(t, "income")} /></Field></>)}
+      {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 6px" }}>{t("vOnboarding.headers.physicalProfile", null, "Physical profile")}</h2><p style={{ color: "var(--text-muted)", fontSize: 13.5, margin: "0 0 22px" }}>{t("vOnboarding.body.physicalProfileDesc", null, "Used to match you with physical product missions. Never shared without permission.")}</p><Field label={t("vOnboarding.fields.height", null, "Height")} required><Chips options={HEIGHT} value={d.height} onChange={v => set("height", v)} multi={false} getLabel={optLabel(t, "height")} /></Field><Field label={t("vOnboarding.fields.weight", null, "Weight")} required><Chips options={WEIGHT} value={d.weight} onChange={v => set("weight", v)} multi={false} getLabel={optLabel(t, "weight")} /></Field><Field label={t("vOnboarding.fields.skinTone", null, "Skin tone")} required><Chips options={SKIN_TONE} value={d.skin_tone} onChange={v => set("skin_tone", v)} multi={false} getLabel={optLabel(t, "skinTone")} /></Field><Field label={t("vOnboarding.fields.hairType", null, "Hair type")}><Chips options={HAIR_TYPE} value={d.hair_type} onChange={v => set("hair_type", v)} multi={false} getLabel={optLabel(t, "hairType")} /></Field><Field label={t("vOnboarding.fields.hairLength", null, "Hair length")}><Chips options={HAIR_LENGTH} value={d.hair_length} onChange={v => set("hair_length", v)} multi={false} getLabel={optLabel(t, "hairLength")} /></Field><Field label={t("vOnboarding.fields.bodyType", null, "Body type")} required><Chips options={BODY_TYPE} value={d.body_type} onChange={v => set("body_type", v)} multi={false} getLabel={optLabel(t, "bodyType")} /></Field></>)}
+      {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.lifestyleAndAvailability", null, "Lifestyle and availability")}</h2><Field label={t("vOnboarding.fields.occupation", null, "Occupation")} required><Chips options={OCCUPATIONS} value={d.occupation} onChange={v => set("occupation", v)} multi={false} getLabel={optLabel(t, "occupations")} /></Field><Field label={t("vOnboarding.fields.foodPreference", null, "Food preference")}><Chips options={FOOD_PREF} value={d.food_pref} onChange={v => set("food_pref", v)} multi={false} getLabel={optLabel(t, "foodPref")} /></Field><Field label={t("vOnboarding.fields.lifestyleInterests", null, "Lifestyle interests")}><Chips options={LIFESTYLE} value={d.lifestyle} onChange={v => set("lifestyle", v)} getLabel={optLabel(t, "lifestyle")} /></Field><Field label={t("vOnboarding.fields.devices", null, "Devices")} required><Chips options={DEVICES} value={d.devices} onChange={v => set("devices", v)} getLabel={optLabel(t, "devices")} /></Field><Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} required><Chips options={HOURS} value={d.hours} onChange={v => set("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field></>)}
       <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
-        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)} style={{ flex: 1 }}><Icon name="arrowLeft" size={15} /> Back</button>}
-        <Btn variant="primary" style={{ flex: 2, justifyContent: "center" }} disabled={!valid[step]} onClick={() => step < 3 ? setStep(s => s+1) : onDone(d, "user")}>{step === 3 ? "Complete setup" : "Continue"}</Btn>
+        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)} style={{ flex: 1 }}><Icon name="arrowLeft" size={15} /> {t("vOnboarding.actions.back", null, "Back")}</button>}
+        <Btn variant="primary" style={{ flex: 2, justifyContent: "center" }} disabled={!valid[step]} onClick={() => step < 3 ? setStep(s => s+1) : onDone(d, "user")}>{step === 3 ? t("vOnboarding.actions.completeSetup", null, "Complete setup") : t("vOnboarding.actions.continue", null, "Continue")}</Btn>
       </div>
     </div>
   );
 }
 
 function ValidatorOnboarding({ onDone, error, vid }) {
+  const { t } = useTranslation();
   const [step, setStep] = useDraft(`VC_V_STEP_VALIDATOR_${vid}`, 0);
   const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", language: [], bio: "", occupation: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0, d.product_types.length > 0, d.hours && d.devices.length > 0];
-  const steps = ["Basic info","Professional","Expertise","Availability"];
+  const steps = [t("vOnboarding.steps.basicInfo", null, "Basic info"), t("vOnboarding.steps.professional", null, "Professional"), t("vOnboarding.steps.expertise", null, "Expertise"), t("vOnboarding.steps.availability", null, "Availability")];
   return (
     <div className="rise" style={{ maxWidth: 600, margin: "0 auto" }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
         {steps.map((s, i) => (<div key={i} style={{ flex: 1 }}><div style={{ height: 4, borderRadius: 20, background: i <= step ? "var(--accent)" : "var(--border)" }} /><div style={{ fontSize: 11, fontWeight: 600, color: i === step ? "var(--accent)" : "var(--text-faint)", marginTop: 4 }}>{s}</div></div>))}
       </div>
-      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Tell us about yourself</h2><Field label="Full name" required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder="Your full name" /></Field><Field label="Handle" required><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder="yourhandle" /></div></Field><Field label="City" required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder="e.g. Bengaluru, Remote" /></Field><Field label="Languages"><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} /></Field><Field label="Short bio" hint="Tell builders what makes your feedback valuable"><textarea className="fin" rows={3} value={d.bio} onChange={e => set("bio", e.target.value)} placeholder="e.g. Product designer with 5 years at B2B SaaS companies." /></Field></>)}
-      {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Professional background</h2><Field label="Role" required><Chips options={ROLES} value={d.occupation || d.role} onChange={v => set("occupation", v)} multi={false} /></Field><Field label="Experience" required><Chips options={EXP} value={d.experience} onChange={v => set("experience", v)} multi={false} /></Field><Field label="Industry" required><Chips options={INDUSTRIES} value={d.industry} onChange={v => set("industry", v)} /></Field><Field label="Company" hint="Optional"><input className="fin" value={d.company} onChange={e => set("company", e.target.value)} placeholder="e.g. Razorpay, Freelance" /></Field></>)}
-      {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Your expertise</h2><Field label="Product types you test" required><Chips options={PRODUCT_TYPES} value={d.product_types} onChange={v => set("product_types", v)} /></Field><Field label="Tools you use"><Chips options={TECH_TOOLS} value={d.tech_tools} onChange={v => set("tech_tools", v)} /></Field></>)}
-      {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Availability</h2><Field label="Devices" required><Chips options={DEVICES} value={d.devices} onChange={v => set("devices", v)} /></Field><Field label="Time per week" required><Chips options={HOURS} value={d.hours} onChange={v => set("hours", v)} multi={false} /></Field></>)}
+      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.tellUsAboutYourself", null, "Tell us about yourself")}</h2><Field label={t("vOnboarding.fields.fullName", null, "Full name")} required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder={t("vOnboarding.placeholders.yourFullName", null, "Your full name")} /></Field><Field label={t("vOnboarding.fields.handle", null, "Handle")} required><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder={t("vOnboarding.placeholders.yourHandle", null, "yourhandle")} /></div></Field><Field label={t("vOnboarding.fields.city", null, "City")} required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder={t("vOnboarding.placeholders.cityBengaluruRemote", null, "e.g. Bengaluru, Remote")} /></Field><Field label={t("vOnboarding.fields.languages", null, "Languages")}><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} getLabel={optLabel(t, "languages")} /></Field><Field label={t("vOnboarding.fields.shortBio", null, "Short bio")} hint={t("vOnboarding.hints.bioHint", null, "Tell builders what makes your feedback valuable")}><textarea className="fin" rows={3} value={d.bio} onChange={e => set("bio", e.target.value)} placeholder={t("vOnboarding.placeholders.bioExample", null, "e.g. Product designer with 5 years at B2B SaaS companies.")} /></Field></>)}
+      {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.professionalBackground", null, "Professional background")}</h2><Field label={t("vOnboarding.fields.role", null, "Role")} required><Chips options={ROLES} value={d.occupation || d.role} onChange={v => set("occupation", v)} multi={false} getLabel={optLabel(t, "roles")} /></Field><Field label={t("vOnboarding.fields.experience", null, "Experience")} required><Chips options={EXP} value={d.experience} onChange={v => set("experience", v)} multi={false} getLabel={optLabel(t, "experience")} /></Field><Field label={t("vOnboarding.fields.industry", null, "Industry")} required><Chips options={INDUSTRIES} value={d.industry} onChange={v => set("industry", v)} getLabel={optLabel(t, "industries")} /></Field><Field label={t("vOnboarding.fields.company", null, "Company")} hint={t("vOnboarding.hints.companyOptional", null, "Optional")}><input className="fin" value={d.company} onChange={e => set("company", e.target.value)} placeholder={t("vOnboarding.placeholders.companyExample", null, "e.g. Razorpay, Freelance")} /></Field></>)}
+      {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.yourExpertise", null, "Your expertise")}</h2><Field label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} required><Chips options={PRODUCT_TYPES} value={d.product_types} onChange={v => set("product_types", v)} getLabel={optLabel(t, "productTypes")} /></Field><Field label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")}><Chips options={TECH_TOOLS} value={d.tech_tools} onChange={v => set("tech_tools", v)} getLabel={optLabel(t, "techTools")} /></Field></>)}
+      {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.availability", null, "Availability")}</h2><Field label={t("vOnboarding.fields.devices", null, "Devices")} required><Chips options={DEVICES} value={d.devices} onChange={v => set("devices", v)} getLabel={optLabel(t, "devices")} /></Field><Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} required><Chips options={HOURS} value={d.hours} onChange={v => set("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field></>)}
       {error && step === 3 && <div className="err-banner" style={{ marginTop: 16 }}>{error}</div>}
       <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
-        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)} style={{ flex: 1 }}><Icon name="arrowLeft" size={15} /> Back</button>}
-        <Btn variant="primary" style={{ flex: 2, justifyContent: "center" }} disabled={!valid[step]} onClick={() => step < 3 ? setStep(s => s+1) : onDone({ ...d, occupation: d.occupation || d.role }, "validator")}>{step === 3 ? "Complete setup" : "Continue"}</Btn>
+        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)} style={{ flex: 1 }}><Icon name="arrowLeft" size={15} /> {t("vOnboarding.actions.back", null, "Back")}</button>}
+        <Btn variant="primary" style={{ flex: 2, justifyContent: "center" }} disabled={!valid[step]} onClick={() => step < 3 ? setStep(s => s+1) : onDone({ ...d, occupation: d.occupation || d.role }, "validator")}>{step === 3 ? t("vOnboarding.actions.completeSetup", null, "Complete setup") : t("vOnboarding.actions.continue", null, "Continue")}</Btn>
       </div>
     </div>
   );
 }
 
 function TesterOnboarding({ onDone, error, vid }) {
+  const { t } = useTranslation();
   const [step, setStep] = useDraft(`VC_V_STEP_TESTER_${vid}`, 0);
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
@@ -171,11 +179,11 @@ function TesterOnboarding({ onDone, error, vid }) {
     setResumeError("");
     if (!f) return;
     if (f.type !== "application/pdf") {
-      setResumeError("Only PDF files are accepted.");
+      setResumeError(t("vOnboarding.errors.onlyPdfAccepted", null, "Only PDF files are accepted."));
       return;
     }
     if (f.size > 5 * 1024 * 1024) {
-      setResumeError("File is too large — max 5MB.");
+      setResumeError(t("vOnboarding.errors.fileTooLarge", null, "File is too large — max 5MB."));
       return;
     }
     setResumeFile(f);
@@ -185,45 +193,47 @@ function TesterOnboarding({ onDone, error, vid }) {
       set("resume_filename", f.name);
       setResumeUploaded(true);
     } catch (err) {
-      setResumeError(err.message || "Upload failed. Please try again.");
+      setResumeError(err.message || t("vOnboarding.errors.uploadFailed", null, "Upload failed. Please try again."));
       setResumeFile(null);
     } finally {
       setResumeUploading(false);
     }
   };
-  const steps = ["Basic info","Professional","Proof","Declaration"];
+  const steps = [t("vOnboarding.steps.basicInfo", null, "Basic info"), t("vOnboarding.steps.professional", null, "Professional"), t("vOnboarding.steps.proof", null, "Proof"), t("vOnboarding.steps.declaration", null, "Declaration")];
   return (
     <div className="rise" style={{ maxWidth: 600, margin: "0 auto" }}>
       <div style={{ display: "flex", gap: 6, marginBottom: 32 }}>
         {steps.map((s, i) => (<div key={i} style={{ flex: 1 }}><div style={{ height: 4, borderRadius: 20, background: i <= step ? "var(--warning)" : "var(--border)" }} /><div style={{ fontSize: 11, fontWeight: 600, color: i === step ? "var(--warning)" : "var(--text-faint)", marginTop: 4 }}>{s}</div></div>))}
       </div>
-      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Tell us about yourself</h2><div style={{ padding: "10px 14px", background: "var(--warning-weak)", borderRadius: "var(--radius-sm)", fontSize: 13, color: "var(--warning)", fontWeight: 600, marginBottom: 22 }}>Admin reviews your profile within 72 hours.</div><Field label="Full name" required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder="Your full name" /></Field><Field label="Handle" required><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder="yourhandle" /></div></Field><Field label="City" required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder="e.g. Bengaluru, Hyderabad" /></Field><Field label="Languages"><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} /></Field></>)}
-      {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>Professional background</h2><Field label="Role" required><Chips options={ROLES} value={d.occupation || d.role} onChange={v => set("occupation", v)} multi={false} /></Field><Field label="Experience" required><Chips options={EXP} value={d.experience} onChange={v => set("experience", v)} multi={false} /></Field><Field label="Current company" required hint="Required for verification"><input className="fin" value={d.company} onChange={e => set("company", e.target.value)} placeholder="e.g. Infosys, Freelance QA" /></Field><Field label="Industry" required><Chips options={INDUSTRIES} value={d.industry} onChange={v => set("industry", v)} /></Field><Field label="Testing domains"><Chips options={TESTER_DOMAINS} value={d.domains} onChange={v => set("domains", v)} /></Field><Field label="Certifications"><Chips options={CERT} value={d.certifications} onChange={v => set("certifications", v)} /></Field><Field label="Tools"><Chips options={TECH_TOOLS} value={d.tools} onChange={v => set("tools", v)} /></Field></>)}
-      {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Proof of experience</h2><Field label="LinkedIn URL" required><div className="inw has-pre"><span className="pre"><Icon name="link" size={14} /></span><input className="fin" value={d.linkedin_url} onChange={e => set("linkedin_url", e.target.value)} placeholder="https://linkedin.com/in/yourprofile" /></div></Field><Field label="Resume / CV" required>{resumeUploading ? (<div style={{ padding: "12px 14px", background: "var(--panel-inset)", borderRadius: "var(--radius-sm)", fontSize: 13.5 }}>Uploading…</div>) : resumeUploaded ? (<div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "var(--success-weak)", borderRadius: "var(--radius-sm)" }}><Icon name="check" size={16} style={{ color: "var(--success)" }} /><span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: "var(--success)" }}>{resumeFile?.name}</span><button className="btn btn-quiet" style={{ fontSize: 12 }} onClick={() => { setResumeFile(null); setResumeUploaded(false); set("resume_filename", ""); }}>Remove</button></div>) : (<label style={{ display: "block", border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: 24, textAlign: "center", cursor: "pointer", background: "var(--panel-2)" }}><input type="file" accept="application/pdf" style={{ display: "none" }} onChange={e => pickResume(e.target.files[0])} /><Icon name="upload" size={22} style={{ color: "var(--text-faint)", marginBottom: 8 }} /><div style={{ fontWeight: 600 }}>Click to upload resume</div><div style={{ fontSize: 12, color: "var(--text-faint)" }}>PDF only, max 5MB</div></label>)}{resumeError && <div className="err-banner" style={{ marginTop: 8 }}>{resumeError}</div>}</Field><Field label="Portfolio / GitHub" hint="Optional"><div className="inw has-pre"><span className="pre"><Icon name="link" size={14} /></span><input className="fin" value={d.portfolio_url} onChange={e => set("portfolio_url", e.target.value)} placeholder="https://github.com/yourprofile" /></div></Field><Field label="Describe your testing experience" required hint={wordCount + " words (min 30)"}><textarea className="fin" rows={5} value={d.testing_bio} onChange={e => set("testing_bio", e.target.value)} placeholder="Describe products tested, bugs found, and what makes your feedback valuable." /></Field></>)}
-      {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>Declaration</h2><p style={{ color: "var(--text-muted)", fontSize: 13.5, margin: "0 0 22px" }}>Admin will review within 72 hours. Until verified you have Validator access.</p><div className="card" style={{ padding: 20, marginBottom: 16 }}>{[["Name",d.name],["Handle","@"+d.handle],["Role",d.occupation || d.role],["LinkedIn",d.linkedin_url],["Resume",d.resume_filename]].map(([k,v]) => (<div key={k} style={{ display: "flex", gap: 10, padding: "8px 0", borderTop: "1px solid var(--border)", fontSize: 13.5 }}><span style={{ color: "var(--text-faint)", width: 80, flexShrink: 0 }}>{k}</span><span style={{ fontWeight: 600, wordBreak: "break-all" }}>{v||"-"}</span></div>))}</div><div style={{ padding: "14px 16px", background: "var(--warning-weak)", borderRadius: "var(--radius)", marginBottom: 20, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>Admin reviews within 72 hours. If approved: Verified Tester badge and premium missions. If rejected: Stay as Validator and reapply anytime.</div><div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer" }} onClick={() => set("agreed", !d.agreed)}><div style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: d.agreed ? "var(--warning)" : "var(--panel)", border: "1.5px solid " + (d.agreed ? "var(--warning)" : "var(--border-strong)") }}>{d.agreed && <Icon name="check" size={13} style={{ color: "#fff" }} />}</div><div style={{ fontSize: 13, color: "var(--text-muted)" }}>I confirm all information is accurate. False information may result in permanent removal.</div></div></>)}
+      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>{t("vOnboarding.headers.tellUsAboutYourself", null, "Tell us about yourself")}</h2><div style={{ padding: "10px 14px", background: "var(--warning-weak)", borderRadius: "var(--radius-sm)", fontSize: 13, color: "var(--warning)", fontWeight: 600, marginBottom: 22 }}>{t("vOnboarding.body.adminReviewsProfile72h", null, "Admin reviews your profile within 72 hours.")}</div><Field label={t("vOnboarding.fields.fullName", null, "Full name")} required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder={t("vOnboarding.placeholders.yourFullName", null, "Your full name")} /></Field><Field label={t("vOnboarding.fields.handle", null, "Handle")} required><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder={t("vOnboarding.placeholders.yourHandle", null, "yourhandle")} /></div></Field><Field label={t("vOnboarding.fields.city", null, "City")} required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder={t("vOnboarding.placeholders.cityBengaluruHyderabad", null, "e.g. Bengaluru, Hyderabad")} /></Field><Field label={t("vOnboarding.fields.languages", null, "Languages")}><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} getLabel={optLabel(t, "languages")} /></Field></>)}
+      {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.professionalBackground", null, "Professional background")}</h2><Field label={t("vOnboarding.fields.role", null, "Role")} required><Chips options={ROLES} value={d.occupation || d.role} onChange={v => set("occupation", v)} multi={false} getLabel={optLabel(t, "roles")} /></Field><Field label={t("vOnboarding.fields.experience", null, "Experience")} required><Chips options={EXP} value={d.experience} onChange={v => set("experience", v)} multi={false} getLabel={optLabel(t, "experience")} /></Field><Field label={t("vOnboarding.fields.currentCompany", null, "Current company")} required hint={t("vOnboarding.hints.companyRequiredVerification", null, "Required for verification")}><input className="fin" value={d.company} onChange={e => set("company", e.target.value)} placeholder={t("vOnboarding.placeholders.companyExampleTester", null, "e.g. Infosys, Freelance QA")} /></Field><Field label={t("vOnboarding.fields.industry", null, "Industry")} required><Chips options={INDUSTRIES} value={d.industry} onChange={v => set("industry", v)} getLabel={optLabel(t, "industries")} /></Field><Field label={t("vOnboarding.fields.testingDomains", null, "Testing domains")}><Chips options={TESTER_DOMAINS} value={d.domains} onChange={v => set("domains", v)} getLabel={optLabel(t, "testerDomains")} /></Field><Field label={t("vOnboarding.fields.certifications", null, "Certifications")}><Chips options={CERT} value={d.certifications} onChange={v => set("certifications", v)} getLabel={optLabel(t, "certifications")} /></Field><Field label={t("vOnboarding.fields.tools", null, "Tools")}><Chips options={TECH_TOOLS} value={d.tools} onChange={v => set("tools", v)} getLabel={optLabel(t, "techTools")} /></Field></>)}
+      {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>{t("vOnboarding.headers.proofOfExperience", null, "Proof of experience")}</h2><Field label={t("vOnboarding.fields.linkedinUrl", null, "LinkedIn URL")} required><div className="inw has-pre"><span className="pre"><Icon name="link" size={14} /></span><input className="fin" value={d.linkedin_url} onChange={e => set("linkedin_url", e.target.value)} placeholder={t("vOnboarding.placeholders.linkedinUrl", null, "https://linkedin.com/in/yourprofile")} /></div></Field><Field label={t("vOnboarding.fields.resumeCv", null, "Resume / CV")} required>{resumeUploading ? (<div style={{ padding: "12px 14px", background: "var(--panel-inset)", borderRadius: "var(--radius-sm)", fontSize: 13.5 }}>{t("vOnboarding.actions.uploading", null, "Uploading…")}</div>) : resumeUploaded ? (<div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "var(--success-weak)", borderRadius: "var(--radius-sm)" }}><Icon name="check" size={16} style={{ color: "var(--success)" }} /><span style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: "var(--success)" }}>{resumeFile?.name}</span><button className="btn btn-quiet" style={{ fontSize: 12 }} onClick={() => { setResumeFile(null); setResumeUploaded(false); set("resume_filename", ""); }}>{t("vOnboarding.actions.remove", null, "Remove")}</button></div>) : (<label style={{ display: "block", border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: 24, textAlign: "center", cursor: "pointer", background: "var(--panel-2)" }}><input type="file" accept="application/pdf" style={{ display: "none" }} onChange={e => pickResume(e.target.files[0])} /><Icon name="upload" size={22} style={{ color: "var(--text-faint)", marginBottom: 8 }} /><div style={{ fontWeight: 600 }}>{t("vOnboarding.actions.clickToUploadResume", null, "Click to upload resume")}</div><div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("vOnboarding.body.pdfOnlyMax5mb", null, "PDF only, max 5MB")}</div></label>)}{resumeError && <div className="err-banner" style={{ marginTop: 8 }}>{resumeError}</div>}</Field><Field label={t("vOnboarding.fields.portfolioGithub", null, "Portfolio / GitHub")} hint={t("vOnboarding.hints.companyOptional", null, "Optional")}><div className="inw has-pre"><span className="pre"><Icon name="link" size={14} /></span><input className="fin" value={d.portfolio_url} onChange={e => set("portfolio_url", e.target.value)} placeholder={t("vOnboarding.placeholders.portfolioUrl", null, "https://github.com/yourprofile")} /></div></Field><Field label={t("vOnboarding.fields.describeTestingExperience", null, "Describe your testing experience")} required hint={t("vOnboarding.hints.wordCount", { count: wordCount }, wordCount + " words (min 30)")}><textarea className="fin" rows={5} value={d.testing_bio} onChange={e => set("testing_bio", e.target.value)} placeholder={t("vOnboarding.placeholders.testingBio", null, "Describe products tested, bugs found, and what makes your feedback valuable.")} /></Field></>)}
+      {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 8px" }}>{t("vOnboarding.headers.declaration", null, "Declaration")}</h2><p style={{ color: "var(--text-muted)", fontSize: 13.5, margin: "0 0 22px" }}>{t("vOnboarding.body.adminWillReviewValidatorAccess", null, "Admin will review within 72 hours. Until verified you have Validator access.")}</p><div className="card" style={{ padding: 20, marginBottom: 16 }}>{[[t("vOnboarding.declaration.name", null, "Name"),d.name],[t("vOnboarding.fields.handle", null, "Handle"),"@"+d.handle],[t("vOnboarding.fields.role", null, "Role"),d.occupation || d.role],[t("vOnboarding.declaration.linkedin", null, "LinkedIn"),d.linkedin_url],[t("vOnboarding.declaration.resume", null, "Resume"),d.resume_filename]].map(([k,v]) => (<div key={k} style={{ display: "flex", gap: 10, padding: "8px 0", borderTop: "1px solid var(--border)", fontSize: 13.5 }}><span style={{ color: "var(--text-faint)", width: 80, flexShrink: 0 }}>{k}</span><span style={{ fontWeight: 600, wordBreak: "break-all" }}>{v||"-"}</span></div>))}</div><div style={{ padding: "14px 16px", background: "var(--warning-weak)", borderRadius: "var(--radius)", marginBottom: 20, fontSize: 13, color: "var(--text-muted)", lineHeight: 1.6 }}>{t("vOnboarding.body.adminReviewOutcome", null, "Admin reviews within 72 hours. If approved: Verified Tester badge and premium missions. If rejected: Stay as Validator and reapply anytime.")}</div><div style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", cursor: "pointer" }} onClick={() => set("agreed", !d.agreed)}><div style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, display: "grid", placeItems: "center", background: d.agreed ? "var(--warning)" : "var(--panel)", border: "1.5px solid " + (d.agreed ? "var(--warning)" : "var(--border-strong)") }}>{d.agreed && <Icon name="check" size={13} style={{ color: "#fff" }} />}</div><div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("vOnboarding.body.confirmAccuracy", null, "I confirm all information is accurate. False information may result in permanent removal.")}</div></div></>)}
       {error && step === 3 && <div className="err-banner" style={{ marginTop: 16 }}>{error}</div>}
       <div style={{ display: "flex", gap: 12, marginTop: 28 }}>
-        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)} style={{ flex: 1 }}><Icon name="arrowLeft" size={15} /> Back</button>}
-        <Btn variant="primary" style={{ flex: 2, justifyContent: "center" }} disabled={!valid[step]} onClick={() => step < 3 ? setStep(s => s+1) : onDone({ ...d, occupation: d.occupation || d.role }, "tester")}>{step === 3 ? "Submit for verification" : "Continue"}</Btn>
+        {step > 0 && <button className="btn btn-ghost" onClick={() => setStep(s => s-1)} style={{ flex: 1 }}><Icon name="arrowLeft" size={15} /> {t("vOnboarding.actions.back", null, "Back")}</button>}
+        <Btn variant="primary" style={{ flex: 2, justifyContent: "center" }} disabled={!valid[step]} onClick={() => step < 3 ? setStep(s => s+1) : onDone({ ...d, occupation: d.occupation || d.role }, "tester")}>{step === 3 ? t("vOnboarding.actions.submitForVerification", null, "Submit for verification") : t("vOnboarding.actions.continue", null, "Continue")}</Btn>
       </div>
     </div>
   );
 }
 
 function PendingScreen({ onContinue }) {
+  const { t } = useTranslation();
   return (
     <div className="rise" style={{ maxWidth: 480, margin: "0 auto", textAlign: "center" }}>
       <div style={{ width: 80, height: 80, borderRadius: 24, background: "var(--warning-weak)", display: "grid", placeItems: "center", margin: "0 auto 22px" }}>
         <Icon name="clock" size={36} style={{ color: "var(--warning)" }} />
       </div>
-      <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 10px" }}>Application submitted!</h2>
-      <p style={{ color: "var(--text-muted)", margin: "0 0 28px", fontSize: 15 }}>Our team will review your profile within 72 hours. In the meantime you have full Validator access.</p>
-      <Btn variant="primary" block onClick={onContinue} style={{ justifyContent: "center" }}>Start exploring missions</Btn>
+      <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 10px" }}>{t("onboarding.appSubmitted", null, "Application submitted!")}</h2>
+      <p style={{ color: "var(--text-muted)", margin: "0 0 28px", fontSize: 15 }}>{t("onboarding.appSubmittedDesc", null, "Our team will review your profile within 72 hours. In the meantime you have full Validator access.")}</p>
+      <Btn variant="primary" block onClick={onContinue} style={{ justifyContent: "center" }}>{t("actions.startExploringMissions", null, "Start exploring missions")}</Btn>
     </div>
   );
 }
 
 export default function VOnboarding() {
+  const { t } = useTranslation();
   const { validator, refresh } = useVAuth();
   const [validatorType, setValidatorType] = useDraft(`VC_V_TYPE_${validator?.id}`, null);
   const [showPending, setShowPending] = useState(false);
@@ -231,7 +241,7 @@ export default function VOnboarding() {
   const type = TYPES.find(t => t.key === validatorType);
 
   const isDirty = !!validatorType && !showPending;
-  useUnsavedChangesWarning(isDirty, "You're still setting up your account. Are you sure you want to leave and lose your progress?");
+  useUnsavedChangesWarning(isDirty, t("vOnboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
 
   const handleDone = async (data, vtype) => {
     setError("");
@@ -247,36 +257,37 @@ export default function VOnboarding() {
         window.location.href = "/validator";
       }
     } catch (err) {
-      setError(err.message || "Could not save profile. Please try again.");
+      setError(err.message || t("vOnboarding.errors.couldNotSaveProfile", null, "Could not save profile. Please try again."));
     }
   };
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", display: "grid", gridTemplateColumns: "260px 1fr" }}>
       <aside style={{ background: "var(--panel)", borderRight: "1px solid var(--border)", padding: "28px 20px", display: "flex", flexDirection: "column" }}>
-        <div style={{ marginBottom: 36 }}><BrandLogoFull height={48} /></div>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 8 }}>Setup</div>
+        <div style={{ marginBottom: 20 }}><BrandLogoFull height={48} /></div>
+        <div style={{ marginBottom: 16 }}><LanguageSwitcher /></div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 8 }}>{t("onboarding.setup", null, "Setup")}</div>
         <div style={{ display: "grid", gap: 6, marginBottom: 24 }}>
-          {[{ l: "Choose your type", done: !!validatorType }, { l: "Complete profile", done: false }].map((s, i) => (
+          {[{ l: t("onboarding.chooseYourType", null, "Choose your type"), done: !!validatorType }, { l: t("onboarding.completeProfile", null, "Complete profile"), done: false }].map((s, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: "var(--radius-sm)", background: (i === 0 && !validatorType) || (i === 1 && validatorType && !showPending) ? "var(--accent-weak)" : "transparent" }}>
               <span style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700, flexShrink: 0, background: s.done ? "var(--success)" : (i === 0 && !validatorType) || (i === 1 && validatorType) ? "var(--accent)" : "var(--panel-inset)", color: s.done || (i === 0 && !validatorType) || (i === 1 && validatorType) ? "#fff" : "var(--text-faint)" }}>{s.done ? <Icon name="check" size={12} /> : i + 1}</span>
               <span style={{ fontSize: 13, fontWeight: 600 }}>{s.l}</span>
             </div>
           ))}
         </div>
-        {type && <div style={{ padding: 14, background: type.bg, borderRadius: "var(--radius)", marginBottom: 16, border: "1px solid " + type.color + "44" }}><div style={{ fontWeight: 700, fontSize: 13, color: type.color, marginBottom: 4 }}>{type.title}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{type.missions}</div></div>}
+        {type && <div style={{ padding: 14, background: type.bg, borderRadius: "var(--radius)", marginBottom: 16, border: "1px solid " + type.color + "44" }}><div style={{ fontWeight: 700, fontSize: 13, color: type.color, marginBottom: 4 }}>{t(`vOnboarding.types.${type.key}.title`, null, type.title)}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(`vOnboarding.types.${type.key}.missions`, null, type.missions)}</div></div>}
         <div style={{ marginTop: "auto", padding: "14px 12px", background: "var(--success-weak)", borderRadius: "var(--radius)" }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--success)", marginBottom: 4 }}>Account created!</div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>Complete your profile to start getting matched to missions.</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--success)", marginBottom: 4 }}>{t("onboarding.accountCreated", null, "Account created!")}</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.5 }}>{t("onboarding.completeProfileDesc", null, "Complete your profile to start getting matched to missions.")}</div>
         </div>
         {validatorType && !showPending && (
           <button className="btn btn-ghost" style={{ marginTop: 12, justifyContent: "center", color: "var(--text-muted)" }} onClick={() => {
-            if (window.confirm("Are you sure you want to change your role? This will clear all your progress.")) {
+            if (window.confirm(t("vOnboarding.confirmChangeRole", null, "Are you sure you want to change your role? This will clear all your progress."))) {
               localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator?.id}`);
               localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}_${validator?.id}`);
               setValidatorType(null);
             }
-          }}>Change role (Start over)</button>
+          }}>{t("actions.changeRoleStartOver", null, "Change role (Start over)")}</button>
         )}
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>

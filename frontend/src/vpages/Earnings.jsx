@@ -5,8 +5,10 @@ import StepUpModal from "../components/StepUpModal";
 import { VAvatar, VStars, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function Earnings() {
+  const { t } = useTranslation();
   const { vtypes } = useVMeta();
   const [data, setData] = useState(null);
   const [withdrawals, setWithdrawals] = useState([]);
@@ -20,11 +22,11 @@ export default function Earnings() {
   const [visibleWithdrawalsCount, setVisibleWithdrawalsCount] = useState(20);
   const [visibleHistoryCount, setVisibleHistoryCount] = useState(20);
 
-  const load = () => vapi.earnings().then(d => { setData(d); setLoadError(""); }).catch((err) => { setLoadError(err.message || "Failed to load earnings"); setData(null); });
+  const load = () => vapi.earnings().then(d => { setData(d); setLoadError(""); }).catch((err) => { setLoadError(err.message || t("earnings.failedToLoad", null, "Failed to load earnings")); setData(null); });
   const loadWithdrawals = () => vapi.payoutHistory().then(d => setWithdrawals(d.withdrawals)).catch(() => {});
   useEffect(() => { load(); loadWithdrawals(); }, []);
   if (loadError) return <div className="page rise"><div className="err-banner m2">{loadError}</div></div>;
-  if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+  if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const weekPct = Math.round(((data.weekEarnings || 0) / (data.weekTarget || 1)) * 100);
 
@@ -36,7 +38,7 @@ export default function Earnings() {
       setWithdrawing(false); setAmount(""); setStepUp(false);
     } catch (err) {
       if (err.code === "STEP_UP_REQUIRED") { setStepUp(true); return; }
-      setError(err.message || "Couldn't withdraw");
+      setError(err.message || t("earnings.couldntWithdraw", null, "Couldn't withdraw"));
       setErrorCode(err.code || "");
       setStepUp(false);
     } finally { setBusy(false); }
@@ -47,45 +49,45 @@ export default function Earnings() {
   return (
     <div className="page">
       <div className="rise" style={{ marginBottom: 22 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>Earnings &amp; reputation</div>
-        <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.03em" }}>You've earned ₹{(data.lifetime || 0).toLocaleString("en-IN")} all-time</h2>
+        <div className="eyebrow" style={{ marginBottom: 6 }}>{t("earnings.title", null, "Earnings & reputation")}</div>
+        <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.03em" }}>{t("earnings.lifetime", null, "You've earned")} ₹{(data.lifetime || 0).toLocaleString("en-IN")} {t("earnings.allTime", null, "all-time")}</h2>
       </div>
 
       <div className="rise-2 m2" style={{ gridTemplateColumns: "1.4fr 1fr", gap: 14, marginBottom: 26 }}>
         <div className="card" style={{ padding: 22 }}>
           <div className="row between" style={{ marginBottom: 16 }}>
-            <div><div className="eyebrow">This week</div><div className="mono" style={{ fontSize: 30, fontWeight: 600, marginTop: 4 }}>₹{(data.weekEarnings || 0).toLocaleString("en-IN")}</div></div>
-            <div style={{ textAlign: "right" }}><div className="faint" style={{ fontSize: 12 }}>Goal</div><div className="mono" style={{ fontSize: 16 }}>₹{(data.weekTarget || 0).toLocaleString("en-IN")}</div></div>
+            <div><div className="eyebrow">{t("earnings.thisWeek", null, "This week")}</div><div className="mono" style={{ fontSize: 30, fontWeight: 600, marginTop: 4 }}>₹{(data.weekEarnings || 0).toLocaleString("en-IN")}</div></div>
+            <div style={{ textAlign: "right" }}><div className="faint" style={{ fontSize: 12 }}>{t("earnings.goal", null, "Goal")}</div><div className="mono" style={{ fontSize: 16 }}>₹{(data.weekTarget || 0).toLocaleString("en-IN")}</div></div>
           </div>
           <div className="lvl-meter" style={{ height: 10 }}><i style={{ width: `${weekPct}%` }} /></div>
-          <div className="row between faint" style={{ fontSize: 12, marginTop: 8 }}><span>{weekPct}% of weekly goal</span><span>₹{Math.max(0, (data.weekTarget || 0) - (data.weekEarnings || 0)).toLocaleString("en-IN")} to go</span></div>
+          <div className="row between faint" style={{ fontSize: 12, marginTop: 8 }}><span>{weekPct}% {t("earnings.ofWeeklyGoal", null, "of weekly goal")}</span><span>₹{Math.max(0, (data.weekTarget || 0) - (data.weekEarnings || 0)).toLocaleString("en-IN")} {t("earnings.toGo", null, "to go")}</span></div>
           <hr className="divider" style={{ margin: "18px 0" }} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-            <div><div className="faint" style={{ fontSize: 12 }}>Pending</div><div className="mono" style={{ fontSize: 18, color: "var(--warning)" }}>₹{(data.pending || 0).toLocaleString("en-IN")}</div></div>
-            <div><div className="faint" style={{ fontSize: 12 }}>Available</div><div className="mono" style={{ fontSize: 18, color: "var(--success)" }}>₹{(data.available || 0).toLocaleString("en-IN")}</div></div>
-            <div className="row" style={{ alignItems: "flex-end" }}><button className="btn btn-primary" style={{ width: "100%" }} onClick={() => setWithdrawing(true)}>Withdraw</button></div>
+            <div><div className="faint" style={{ fontSize: 12 }}>{t("earnings.pending", null, "Pending")}</div><div className="mono" style={{ fontSize: 18, color: "var(--warning)" }}>₹{(data.pending || 0).toLocaleString("en-IN")}</div></div>
+            <div><div className="faint" style={{ fontSize: 12 }}>{t("earnings.available", null, "Available")}</div><div className="mono" style={{ fontSize: 18, color: "var(--success)" }}>₹{(data.available || 0).toLocaleString("en-IN")}</div></div>
+            <div className="row" style={{ alignItems: "flex-end" }}><button className="btn btn-primary" style={{ width: "100%" }} onClick={() => setWithdrawing(true)}>{t("actions.withdraw", null, "Withdraw")}</button></div>
           </div>
           {withdrawing && (
             <div className="rise" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
               {error && (
                 <div className="err-banner" style={{ marginBottom: 10 }}>
                   {error}
-                  {errorCode === "PAYOUT_DETAILS_REQUIRED" && <> — <Link to="/validator/profile" style={{ textDecoration: "underline" }}>add one in your profile</Link>.</>}
+                  {errorCode === "PAYOUT_DETAILS_REQUIRED" && <> — <Link to="/validator/profile" style={{ textDecoration: "underline" }}>{t("earnings.addProfile", null, "add one in your profile")}</Link>.</>}
                 </div>
               )}
               <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
                 <div className="fld" style={{ flex: 1, minWidth: 160 }}>
-                  <label>Amount to withdraw</label>
-                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="200" max={data.available} value={amount} onChange={e => setAmount(e.target.value)} placeholder={`Up to ${data.available}`} /></div>
+                  <label>{t("earnings.amountWithdraw", null, "Amount to withdraw")}</label>
+                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="200" max={data.available} value={amount} onChange={e => setAmount(e.target.value)} placeholder={`${t("earnings.upTo", null, "Up to")} ${data.available}`} /></div>
                 </div>
-                <button className="btn btn-primary" disabled={busy} onClick={withdraw}>{busy ? "Processing…" : "Confirm withdrawal"}</button>
-                <button className="btn btn-quiet" onClick={() => { setWithdrawing(false); setError(""); }}>Cancel</button>
+                <button className="btn btn-primary" disabled={busy} onClick={withdraw}>{busy ? t("actions.processing", null, "Processing…") : t("actions.confirmWithdrawal", null, "Confirm withdrawal")}</button>
+                <button className="btn btn-quiet" onClick={() => { setWithdrawing(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</button>
               </div>
-              <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>Minimum withdrawal is ₹200. Funds land in your linked UPI/bank within 24h.</p>
+              <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>{t("earnings.disclaimer", null, "Minimum withdrawal is ₹200. Funds land in your linked UPI/bank within 24h.")}</p>
             </div>
           )}
           {stepUp && (
-            <StepUpModal client={vapi} phone={data.phone} title="Verify withdrawal"
+            <StepUpModal client={vapi} phone={data.phone} title={t("earnings.verifyTitle", null, "Verify withdrawal")}
               onVerified={(token) => doWithdraw(token)}
               onClose={() => { setStepUp(false); setBusy(false); }} />
           )}
@@ -93,18 +95,18 @@ export default function Earnings() {
 
         <div className="card" style={{ padding: 22 }}>
           <div className="row between" style={{ marginBottom: 14 }}>
-            <div className="eyebrow">Reputation</div>
-            <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="shield" size={12} />Level {data.level} · {data.levelName}</span>
+            <div className="eyebrow">{t("earnings.reputation", null, "Reputation")}</div>
+            <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="shield" size={12} />{t("badge.level", null, "Level")} {data.level} · {data.levelName}</span>
           </div>
           <div className="row gap-4">
             <VAvatar name={data.name} size={52} />
             <div>
               <div style={{ fontWeight: 800, fontSize: 16 }}>{data.name}</div>
-              <div className="row gap-2 faint" style={{ fontSize: 13 }}><VStars value={data.rating} /> {data.rating} · {data.accuracy}% accuracy</div>
+              <div className="row gap-2 faint" style={{ fontSize: 13 }}><VStars value={data.rating} /> {data.rating} · {data.accuracy}% {t("badge.accuracy", null, "accuracy")}</div>
             </div>
           </div>
           <hr className="divider" style={{ margin: "16px 0" }} />
-          {data.nextLevelName && <div className="faint" style={{ fontSize: 12, marginBottom: 8 }}>{data.toNextLevel || 0} validations to <b style={{ color: "var(--text)" }}>Level {(data.level || 1) + 1} · {data.nextLevelName}</b></div>}
+          {data.nextLevelName && <div className="faint" style={{ fontSize: 12, marginBottom: 8 }}>{data.toNextLevel || 0} {t("earnings.validationsTo", null, "validations to")} <b style={{ color: "var(--text)" }}>Level {(data.level || 1) + 1} · {data.nextLevelName}</b></div>}
           <div className="lvl-meter"><i style={{ width: (data.levelPct || 0) + "%" }} /></div>
           <div className="row gap-2 wrap" style={{ marginTop: 14 }}>
             {(data.specialties || []).map(s => <span key={s} className="pill" style={{ fontSize: 12 }}>{s}</span>)}
@@ -114,7 +116,7 @@ export default function Earnings() {
 
       {withdrawals.length > 0 && (
         <div className="rise-3" style={{ marginBottom: 26 }}>
-          <div className="eyebrow" style={{ marginBottom: 12 }}>Recent withdrawals</div>
+          <div className="eyebrow" style={{ marginBottom: 12 }}>{t("earnings.recentWithdrawals", null, "Recent withdrawals")}</div>
           <div className="card" style={{ overflow: "hidden" }}>
             {withdrawals.slice(0, visibleWithdrawalsCount).map((w, i) => (
               <div key={w.id} className="row between" style={{ padding: "14px 18px", borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
@@ -131,7 +133,7 @@ export default function Earnings() {
             ))}
             {visibleWithdrawalsCount < withdrawals.length && (
               <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
-                <button className="btn btn-ghost" onClick={() => setVisibleWithdrawalsCount(c => c + 20)}>Load more</button>
+                <button className="btn btn-ghost" onClick={() => setVisibleWithdrawalsCount(c => c + 20)}>{t("actions.loadMore", null, "Load more")}</button>
               </div>
             )}
           </div>
@@ -139,9 +141,9 @@ export default function Earnings() {
       )}
 
       <div className="rise-3">
-        <div className="eyebrow" style={{ marginBottom: 12 }}>Recent validations</div>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>{t("earnings.recentValidations", null, "Recent validations")}</div>
         <div className="card" style={{ overflow: "hidden" }}>
-          {(!data.history || data.history.length === 0) ? <div className="muted" style={{ padding: 24 }}>No validations yet.</div> : data.history.slice(0, visibleHistoryCount).map((h, i) => (
+          {(!data.history || data.history.length === 0) ? <div className="muted" style={{ padding: 24 }}>{t("earnings.noValidations", null, "No validations yet.")}</div> : data.history.slice(0, visibleHistoryCount).map((h, i) => (
             <div key={h.id} className="row between" style={{ padding: "14px 18px", borderTop: i ? "var(--hairline) solid var(--border)" : "none" }}>
               <div className="row gap-3" style={{ minWidth: 0 }}>
                 <VTypeTag type={h.type} vtypes={vtypes} />
@@ -157,7 +159,7 @@ export default function Earnings() {
           ))}
           {data.history && visibleHistoryCount < data.history.length && (
             <div style={{ textAlign: "center", padding: 16, borderTop: "var(--hairline) solid var(--border)" }}>
-              <button className="btn btn-ghost" onClick={() => setVisibleHistoryCount(c => c + 20)}>Load more validations</button>
+              <button className="btn btn-ghost" onClick={() => setVisibleHistoryCount(c => c + 20)}>{t("actions.loadMoreValidations", null, "Load more validations")}</button>
             </div>
           )}
         </div>

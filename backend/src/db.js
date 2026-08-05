@@ -8,7 +8,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
-  max: 10,
+  // The DB instance caps at 100 total connections shared across everything
+  // that talks to it (this app, admin tooling, etc.) -- 20 leaves generous
+  // headroom under that real ceiling. Node's async I/O means a modest pool
+  // handles high concurrency fine; the bottleneck is query time and the DB
+  // server's own CPU, not connection count. If real load testing shows this
+  // is actually the bottleneck, reach for PgBouncer before just raising this.
+  max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 30000,
 });
@@ -174,7 +180,8 @@ export async function initDb() {
       ['status', "TEXT DEFAULT 'active'"],
       ['streak', 'INTEGER DEFAULT 0'],
       ['last_active_date', 'DATE'],
-      ['profile_completion', 'INTEGER DEFAULT 60']
+      ['profile_completion', 'INTEGER DEFAULT 60'],
+      ['preferred_language', "TEXT DEFAULT 'en'"]
     ];
     for (const [col, def] of newVCols) {
       if (!vColNames.includes(col)) {

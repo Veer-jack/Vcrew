@@ -4,8 +4,10 @@ import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
+import { useTranslation } from "../i18n/index.jsx";
 
 function Timer({ secs, onDone, taskKey, isDone }) {
+  const { t } = useTranslation();
   const getInitialRem = () => {
     if (!taskKey) return secs;
     const startStr = localStorage.getItem("timer_start_" + taskKey);
@@ -41,7 +43,7 @@ function Timer({ secs, onDone, taskKey, isDone }) {
       transition: "all .3s",
     }}>
       <Icon name="clock" size={14} />
-      {done || rem === 9999 ? "✓ Completed" : `${m}:${String(s).padStart(2, "0")} remaining`}
+      {done || rem === 9999 ? `✓ ${t("status.completed", null, "Completed")}` : `${m}:${String(s).padStart(2, "0")} ${t("missions.remaining", null, "remaining")}`}
     </span>
   );
 }
@@ -84,6 +86,7 @@ function MCQ({ q, ans, setAns, readOnly }) {
 }
 
 function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
+  const { t } = useTranslation();
   return (
     <div>
       <div style={{ display: "flex", gap: 10, marginBottom: ans === "yes" ? 12 : 0 }}>
@@ -95,10 +98,10 @@ function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
             color: ans === v ? (v === "yes" ? "var(--success)" : "var(--danger)") : "var(--text-muted)",
             fontSize: 14, fontWeight: 700, cursor: readOnly ? "default" : "pointer", transition: "all .13s",
             opacity: readOnly && ans !== v ? 0.6 : 1,
-          }}>{v === "yes" ? "Yes" : "No"}</button>
+          }}>{v === "yes" ? t("actions.yes", null, "Yes") : t("actions.no", null, "No")}</button>
         ))}
       </div>
-      {ans === "yes" && <textarea className="field" placeholder="Tell us more — what was confusing or broken?" rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
+      {ans === "yes" && <textarea className="field" placeholder={t("missions.tellUsMoreBroken", null, "Tell us more — what was confusing or broken?")} rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
     </div>
   );
 }
@@ -110,6 +113,7 @@ const SEV = {
 };
 
 export default function Workspace() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { validator } = useVAuth();
@@ -179,14 +183,14 @@ export default function Workspace() {
     })();
   }, [id]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading workspace…</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("missions.loadingWorkspace", null, "Loading workspace…")}</div></div>;
 
   if (tasks.length === 0) return (
     <div className="page rise" style={{ textAlign: "center", paddingTop: 80 }}>
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
-      <h2 style={{ fontSize: 20, marginBottom: 8 }}>No tasks found</h2>
-      <p style={{ color: "var(--text-muted)" }}>This mission does not have any tasks generated yet.</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>Go Back</Btn>
+      <h2 style={{ fontSize: 20, marginBottom: 8 }}>{t("missions.noTasksFound", null, "No tasks found")}</h2>
+      <p style={{ color: "var(--text-muted)" }}>{t("missions.noTasksDesc", null, "This mission does not have any tasks generated yet.")}</p>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
@@ -194,6 +198,7 @@ export default function Workspace() {
   if (!task) return null;
 
   const sev = SEV[task.severity] || SEV.imp;
+  SEV.crit.l = t("missions.sevCrit", null, "Critical"); SEV.imp.l = t("missions.sevImp", null, "Important"); SEV.nice.l = t("missions.sevNice", null, "Nice to have");
   const stepsComplete = stepsDone[curIdx]?.size === task.steps.length;
   const allAnswered = task.questions.every(q => answers[curIdx]?.[q.id] !== undefined);
   const proofOk = !task.proof || proofUploaded[curIdx];
@@ -250,8 +255,8 @@ export default function Workspace() {
         <div style={{ width: 80, height: 80, borderRadius: 24, background: "var(--success-weak)", display: "grid", placeItems: "center", margin: "0 auto 22px" }}>
           <Icon name="check" size={40} style={{ color: "var(--success)" }} />
         </div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 10px" }}>All tasks complete</h1>
-        <p style={{ color: "var(--text-muted)", margin: "0 0 26px", fontSize: 15 }}>Your responses have been submitted and are being reviewed.</p>
+        <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 10px" }}>{t("missions.allTasksComplete", null, "All tasks complete")}</h1>
+        <p style={{ color: "var(--text-muted)", margin: "0 0 26px", fontSize: 15 }}>{t("missions.responsesSubmittedReview", null, "Your responses have been submitted and are being reviewed.")}</p>
         <div className="card" style={{ padding: "16px 20px", marginBottom: 22, textAlign: "left" }}>
           {tasks.map((t, i) => (
             <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
@@ -263,7 +268,7 @@ export default function Workspace() {
             </div>
           ))}
         </div>
-        <Btn variant="primary" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+        <Btn variant="primary" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
       </div>
     </div>
   );
@@ -273,8 +278,8 @@ export default function Workspace() {
       {/* Sidebar */}
       <aside style={{ background: "var(--panel)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh", overflowY: "auto" }}>
         <div style={{ padding: "20px 18px 14px", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2, marginBottom: 4 }}>{mission?.name || "Validation Mission"}</div>
-          <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{mission?.brand || "Mission brief"}</div>
+          <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.2, marginBottom: 4 }}>{mission?.name || t("missions.validationMission", null, "Validation Mission")}</div>
+          <div style={{ fontSize: 11.5, color: "var(--text-faint)" }}>{mission?.brand || t("missions.missionBrief", null, "Mission brief")}</div>
         </div>
         <div style={{ padding: "12px 0", flex: 1 }}>
           {(mission?.ptype === "interview" || mission?.ptype === "focus") && (
@@ -289,9 +294,9 @@ export default function Workspace() {
                   {scheduleStatus === "completed" ? <Icon name="check" size={12} /> : (mission?.ptype === "focus" ? <Icon name="users" size={11} /> : <Icon name="video" size={11} />)}
                 </span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: "var(--text)" }}>{mission?.ptype === "focus" ? "Focus Group" : "Live Interview"}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, lineHeight: 1.25, color: "var(--text)" }}>{mission?.ptype === "focus" ? t("missions.focusGroup", null, "Focus Group") : t("missions.liveInterview", null, "Live Interview")}</div>
                   <div style={{ fontSize: 11.5, color: scheduleStatus === "completed" ? "var(--success)" : "var(--warning)", marginTop: 2 }}>
-                    {scheduleStatus === "completed" ? "Completed" : scheduleStatus === "accepted" ? "Confirmed" : "Pending schedule"}
+                    {scheduleStatus === "completed" ? t("status.completed", null, "Completed") : scheduleStatus === "accepted" ? t("status.confirmed", null, "Confirmed") : t("missions.pendingSchedule", null, "Pending schedule")}
                   </div>
                 </div>
             </button>
@@ -320,7 +325,7 @@ export default function Workspace() {
         </div>
         <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>
-            <span>Progress</span>
+            <span>{t("missions.progress", null, "Progress")}</span>
             <span style={{ fontFamily: "var(--mono)", fontWeight: 600, color: "var(--text)" }}>{curIdx + 1}/{tasks.length}</span>
           </div>
           <div style={{ height: 6, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}>
@@ -333,14 +338,14 @@ export default function Workspace() {
       <div style={{ display: "flex", flexDirection: "column", background: "var(--bg)" }}>
         {/* Topbar */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
-          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>Task {curIdx + 1} of {tasks.length} {isReadOnly && "(Review Mode)"}</span>
+          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>{t("missions.taskNOfTotal", { n: curIdx + 1, total: tasks.length }, `Task ${curIdx + 1} of ${tasks.length}`)} {isReadOnly && t("missions.reviewMode", null, "(Review Mode)")}</span>
           <span style={{ flex: 1 }} />
           <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} isDone={timerDone[curIdx]} onDone={() => setTimerDone(p => { 
             if (p[curIdx] === true) return p;
             const a = [...p]; a[curIdx] = true; return a; 
           })} />
           <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
-            <Icon name="x" size={14} /> Exit
+            <Icon name="x" size={14} /> {t("actions.exit", null, "Exit")}
           </button>
         </div>
 
@@ -358,7 +363,7 @@ export default function Workspace() {
           {/* Steps */}
           <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-              Steps <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              {t("missions.steps", null, "Steps")} <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
             {task.steps.map((s, i) => (
               <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
@@ -378,7 +383,7 @@ export default function Workspace() {
           {/* Questions */}
           <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-              Questions <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              {t("missions.questions", null, "Questions")} <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
             {task.questions.map((q, i) => (
               <div key={q.id} style={{ paddingBottom: 20, marginBottom: 20, borderBottom: i < task.questions.length - 1 ? "1px solid var(--border)" : "none" }}>
@@ -389,7 +394,7 @@ export default function Workspace() {
                 {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
                 {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
                 {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} />}
-                {q.type === "text" && <textarea className="field" placeholder="Type your answer…" rows={3} disabled={isReadOnly} value={answers[curIdx]?.[q.id] || ""} onChange={e => setAns(q.id, e.target.value)} />}
+                {q.type === "text" && <textarea className="field" placeholder={t("missions.typeYourAnswer", null, "Type your answer…")} rows={3} disabled={isReadOnly} value={answers[curIdx]?.[q.id] || ""} onChange={e => setAns(q.id, e.target.value)} />}
               </div>
             ))}
           </div>
@@ -398,15 +403,15 @@ export default function Workspace() {
           {task.proof && (
             <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 14, display: "flex", alignItems: "center", gap: 10 }}>
-                Proof required — screenshot or video <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                {t("missions.proofRequired", null, "Proof required — screenshot or video")} <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
               </div>
               {proofUploaded[curIdx] ? (
                 <div style={{ border: "2px solid var(--success)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: "var(--success-weak)" }}>
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--success-weak)", display: "grid", placeItems: "center", marginBottom: 12 }}>
                     <Icon name="check" size={26} style={{ color: "var(--success)" }} />
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>File uploaded</div>
-                  {!isReadOnly && <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>Remove & re-upload</button>}
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "var(--success)" }}>{t("missions.fileUploaded", null, "File uploaded")}</div>
+                  {!isReadOnly && <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 12 }} onClick={() => setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; })}>{t("actions.removeReupload", null, "Remove & re-upload")}</button>}
                 </div>
               ) : (
                 <label style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "32px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: uploadingProof ? "not-allowed" : "pointer", background: "var(--panel-2)", opacity: uploadingProof ? 0.7 : 1, transition: "all .15s" }}>
@@ -418,7 +423,7 @@ export default function Workspace() {
                       const res = await vapi.uploadWorkspaceProof(id, file);
                       setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.filename; return a; });
                     } catch (err) {
-                      alert(err.message || "Failed to upload proof");
+                      alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));
                     } finally {
                       setUploadingProof(false);
                     }
@@ -426,8 +431,8 @@ export default function Workspace() {
                   <div style={{ width: 56, height: 56, borderRadius: 14, background: "var(--panel-inset)", display: "grid", placeItems: "center", marginBottom: 12 }}>
                     {uploadingProof ? <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} /> : <Icon name="upload" size={26} style={{ color: "var(--text-faint)" }} />}
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{uploadingProof ? "Uploading..." : "Drop file here"}</div>
-                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>or click to browse — PNG, JPG, WebP, MP4, WebM, MOV accepted</p>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{uploadingProof ? t("actions.uploading", null, "Uploading...") : t("actions.dropFileHere", null, "Drop file here")}</div>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--text-faint)" }}>{t("missions.acceptedFileTypes", null, "or click to browse — PNG, JPG, WebP, MP4, WebM, MOV accepted")}</p>
                 </label>
               )}
             </div>
@@ -436,13 +441,13 @@ export default function Workspace() {
           {/* Readiness checklist */}
           {!isReadOnly && !canNext && (
             <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb,var(--warning) 30%,transparent)", borderRadius: "var(--radius)", padding: "12px 16px", fontSize: 13, color: "var(--warning)" }}>
-              <b>Before continuing:</b>
+              <b>{t("missions.beforeContinuing", null, "Before continuing:")}</b>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
-                {!timerDone[curIdx] && <li>Wait for the timer to reach zero</li>}
-                {!stepsComplete && <li>Check off all steps above</li>}
-                {!allAnswered && <li>Answer all questions</li>}
-                {!proofOk && <li>Upload a screenshot as proof</li>}
-                {!liveSessionOk && <li>Wait for the builder to mark the {mission?.ptype === "focus" ? "focus group" : "live interview"} as completed</li>}
+                {!timerDone[curIdx] && <li>{t("missions.waitForTimer", null, "Wait for the timer to reach zero")}</li>}
+                {!stepsComplete && <li>{t("missions.checkOffSteps", null, "Check off all steps above")}</li>}
+                {!allAnswered && <li>{t("missions.answerAllQuestions", null, "Answer all questions")}</li>}
+                {!proofOk && <li>{t("missions.uploadProof", null, "Upload a screenshot as proof")}</li>}
+                {!liveSessionOk && <li>{t("missions.waitForLiveSessionCompletion", { session: mission?.ptype === "focus" ? t("missions.focusGroupText", null, "focus group") : t("missions.interviewText", null, "live interview") }, `Wait for the builder to mark the ${mission?.ptype === "focus" ? "focus group" : "live interview"} as completed`)}</li>}
               </ul>
             </div>
           )}
@@ -451,13 +456,13 @@ export default function Workspace() {
         {/* Bottom nav */}
         <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 36px", background: "color-mix(in srgb,var(--bg) 90%,transparent)", backdropFilter: "blur(12px)", borderTop: "1px solid var(--border)", zIndex: 30 }}>
           <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
-            <Icon name="arrowLeft" size={16} /> Previous
+            <Icon name="arrowLeft" size={16} /> {t("actions.previous", null, "Previous")}
           </button>
           <span style={{ flex: 1 }} />
           <span style={{ fontSize: 13, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>{curIdx + 1} / {tasks.length}</span>
           <span style={{ flex: 1 }} />
           <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate("/validator/missions") : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
-            {isReadOnly ? (curIdx === tasks.length - 1 ? "Back to Missions" : "Next task") : (submitting ? "Submitting…" : curIdx === tasks.length - 1 ? "Submit all responses" : "Next task")}
+            {isReadOnly ? (curIdx === tasks.length - 1 ? t("actions.backToMissions", null, "Back to Missions") : t("actions.nextTask", null, "Next task")) : (submitting ? t("actions.submitting", null, "Submitting…") : curIdx === tasks.length - 1 ? t("actions.submitAllResponses", null, "Submit all responses") : t("actions.nextTask", null, "Next task"))}
             {curIdx < tasks.length - 1 && <Icon name="arrowRight" size={16} />}
           </Btn>
         </div>

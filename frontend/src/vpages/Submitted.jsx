@@ -5,15 +5,17 @@ import { ScoreRing, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { deadlineLabel } from "../vutil";
+import { useTranslation } from "../i18n/index.jsx";
 
 function NextCard({ task, vtypes, onOpen }) {
-  const t = vtypes[task.type];
+  const { t } = useTranslation();
+  const vType = vtypes[task.type];
   return (
     <div className="card mkt-cardhover" style={{ padding: 18, display: "grid", gridTemplateColumns: "1fr auto", gap: 18, alignItems: "center", cursor: "pointer" }} onClick={() => onOpen(task)}>
       <div style={{ minWidth: 0 }}>
         <div className="row gap-2 wrap" style={{ marginBottom: 9 }}>
           <VTypeTag type={task.type} vtypes={vtypes} />
-          <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% match</span>
+          <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("missions.match", null, "match")}</span>
         </div>
         <div className="row gap-2" style={{ alignItems: "baseline" }}><h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: "-.02em" }}>{task.product}</h3><span className="muted" style={{ fontSize: 14 }}>· {task.tagline}</span></div>
         <div className="row gap-4 wrap faint" style={{ fontSize: 12.5, marginTop: 8 }}>
@@ -23,13 +25,14 @@ function NextCard({ task, vtypes, onOpen }) {
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10, textAlign: "right" }}>
         <VReward amount={task.reward} big />
-        <button className="btn btn-primary">Start validating <Icon name="arrowRight" /></button>
+        <button className="btn btn-primary">{t("actions.startValidating", null, "Start validating")} <Icon name="arrowRight" /></button>
       </div>
     </div>
   );
 }
 
 export default function Submitted() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -47,9 +50,9 @@ export default function Submitted() {
   if (!result) {
     return (
       <div className="page rise" style={{ maxWidth: 600, margin: "0 auto", textAlign: "center", paddingTop: 60 }}>
-        <h2>Validation submitted</h2>
-        <p className="muted">Your work is in review.</p>
-        <button className="btn btn-primary" onClick={() => navigate("/validator")}>Back to discover</button>
+        <h2>{t("missions.validationSubmitted", null, "Validation submitted")}</h2>
+        <p className="muted">{t("missions.workInReview", null, "Your work is in review.")}</p>
+        <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.backToDiscover", null, "Back to discover")}</button>
       </div>
     );
   }
@@ -62,8 +65,8 @@ export default function Submitted() {
         <div style={{ width: 72, height: 72, borderRadius: "50%", margin: "0 auto 18px", display: "grid", placeItems: "center", background: "var(--success-weak)", color: "var(--success)" }}>
           <Icon name="check" size={34} />
         </div>
-        <h2 style={{ margin: "0 0 8px", fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>Validation submitted</h2>
-        <p className="muted" style={{ margin: 0, fontSize: 15 }}>Nice work on <b style={{ color: "var(--text)" }}>{task.product}</b>. We're running a quality check — your reward clears once it passes.</p>
+        <h2 style={{ margin: "0 0 8px", fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{t("missions.validationSubmitted", null, "Validation submitted")}</h2>
+        <p className="muted" style={{ margin: 0, fontSize: 15 }}>{t("missions.qualityCheckNotice", { product: task.product }, `Nice work on ${task.product}. We're running a quality check — your reward clears once it passes.`)}</p>
       </div>
 
       <div className="card rise-2" style={{ padding: 24, marginBottom: 16 }}>
@@ -71,33 +74,33 @@ export default function Submitted() {
           <div className="row gap-4" style={{ alignItems: "center" }}>
             <ScoreRing value={score} size={72} stroke={7} />
             <div>
-              <div className="eyebrow">Your launch-readiness score</div>
-              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{score >= 75 ? "Strong signal" : score >= 50 ? "Mixed signal" : "Needs work"}</div>
-              <div className="faint" style={{ fontSize: 12.5 }}>{flags.length} issue{flags.length === 1 ? "" : "s"} flagged · {minutes} min spent</div>
+              <div className="eyebrow">{t("missions.launchReadinessScore", null, "Your launch-readiness score")}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{score >= 75 ? t("status.strongSignal", null, "Strong signal") : score >= 50 ? t("status.mixedSignal", null, "Mixed signal") : t("status.needsWork", null, "Needs work")}</div>
+              <div className="faint" style={{ fontSize: 12.5 }}>{t("missions.issuesFlaggedMinSpent", { issues: flags.length, min: minutes }, `${flags.length} issues flagged · ${minutes} min spent`)}</div>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="eyebrow">Reward</div>
+            <div className="eyebrow">{t("missions.reward", null, "Reward")}</div>
             <VReward amount={task.reward} big />
-            <div className="faint" style={{ fontSize: 11 }}>pending approval</div>
+            <div className="faint" style={{ fontSize: 11 }}>{t("missions.pendingApproval", null, "pending approval")}</div>
           </div>
         </div>
       </div>
 
       <div className="card rise-2" style={{ padding: 18, marginBottom: 28, display: "flex", gap: 12, alignItems: "center", background: "var(--panel-2)" }}>
         <Icon name="shield" size={22} style={{ color: "var(--success)", flex: "none" }} />
-        <div style={{ fontSize: 13.5 }} className="muted">High-signal, specific feedback raises your accuracy score and unlocks higher-paying tasks. Low-effort submissions get filtered before the founder ever sees them.</div>
+        <div style={{ fontSize: 13.5 }} className="muted">{t("missions.highSignalDesc", null, "High-signal, specific feedback raises your accuracy score and unlocks higher-paying tasks. Low-effort submissions get filtered before the founder ever sees them.")}</div>
       </div>
 
       {next && (
         <div className="rise-3">
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Up next for you</div>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>{t("missions.upNext", null, "Up next for you")}</div>
           <NextCard task={next} vtypes={vtypes} onOpen={(t) => navigate(`/validator/missions/${t.id}`)} />
         </div>
       )}
       <div className="row gap-3" style={{ marginTop: 22, justifyContent: "center" }}>
-        <button className="btn btn-ghost" onClick={() => navigate("/validator/earnings")}><Icon name="wallet" />View earnings</button>
-        <button className="btn btn-primary" onClick={() => navigate("/validator")}>Back to all missions <Icon name="arrowRight" /></button>
+        <button className="btn btn-ghost" onClick={() => navigate("/validator/earnings")}><Icon name="wallet" />{t("actions.viewEarnings", null, "View earnings")}</button>
+        <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.backToAllMissions", null, "Back to all missions")} <Icon name="arrowRight" /></button>
       </div>
     </div>
   );

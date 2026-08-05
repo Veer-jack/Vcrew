@@ -7,11 +7,13 @@ import multer from "multer";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE, PLATFORM_FEE_PCT } from "../meta.js";
+import { getRealMatchCount } from "./audience.js";
 import { fetchUrlContext } from "../urlContext.js";
 import { levelForCompleted } from "../vmeta.js";
 import { sendMissionPublished } from "../email.js";
 import { recalcMissionStats } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
+import { translateBatch } from "../translate.js";
 
 // Lazy import to avoid circular dependency — admin.js imports db.js,
 // missions.js imports admin.js only for the automod helper.
@@ -129,7 +131,22 @@ router.get("/", async (req, res) => {
   }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
-  res.json({ missions: rows.map(serializeMission) });
+  const missions = rows.map(serializeMission);
+
+  const lang = req.builder.preferred_language;
+  if (lang && lang !== "en") {
+    const items = missions.flatMap(m => [
+      { entityType: "mission", entityId: m.id, field: "name", text: m.name },
+      { entityType: "mission", entityId: m.id, field: "description", text: m.description },
+    ]);
+    const translated = await translateBatch(items, lang);
+    for (const m of missions) {
+      m.name = translated.get(`mission:${m.id}:name`) ?? m.name;
+      m.description = translated.get(`mission:${m.id}:description`) ?? m.description;
+    }
+  }
+
+  res.json({ missions });
 });
 
 // GET /api/missions/invitations — every invite this builder has sent, newest first
@@ -138,10 +155,12 @@ router.get("/invitations", async (req, res) => {
   let sql = `
     SELECT mi.id, mi.status, mi.created_at,
       mi.mission_id, m.name AS mission_name, m.status AS mission_status,
-      mi.validator_id, v.name AS validator_name, v.city AS validator_city
+      mi.validator_id, v.name AS validator_name, v.city AS validator_city,
+      (vs.validator_id IS NOT NULL) AS is_waitlist
     FROM mission_invitations mi
     JOIN missions m ON m.id = mi.mission_id
     JOIN validators v ON v.id = mi.validator_id
+    LEFT JOIN v_saved vs ON vs.task_id = mi.mission_id AND vs.validator_id = mi.validator_id
     WHERE mi.builder_id = ?
   `;
   const params = [req.builder.id];
@@ -154,6 +173,7 @@ router.get("/invitations", async (req, res) => {
       id: r.id,
       status: r.status,
       createdAt: r.created_at,
+      isWaitlist: r.is_waitlist,
       mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status },
       validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city },
     })),
@@ -234,9 +254,8 @@ router.get("/:id", async (req, res) => {
     l: role + "s", v: Math.round((n / roleTotal) * 100), c: roleColors[role] || "var(--t-research)",
   }));
   
-  // Real database count instead of dummy matchCount()
-  const realCountRaw = await db.prepare(`SELECT COUNT(*) as c FROM validators`).get();
-  const realCount = Number(realCountRaw.c) || 0;
+  // Real database count instead of dummy total count
+  const realCount = await getRealMatchCount(db, audienceFilters);
 
   const audience = {
     matched: realCount,
@@ -249,7 +268,7 @@ router.get("/:id", async (req, res) => {
   // Approving a submission (Review page) pays instantly and moves the participant
   // straight to "rewarded" — there is no separate hold/release step, so this only
   // ever distinguishes "already paid" (rewarded) from "awaiting review" (submitted).
-  const sumReward = (stage) => participants.filter(p => p.stage === stage).reduce((s, p) => s + (p.reward || 0), 0);
+  const sumReward = (stage) => participants.filter(p => p.stage === stage).reduce((s, p) => s + (p.reward || m.reward_amount || 0), 0);
   const released = sumReward("rewarded");
   const review = sumReward("submitted");
   const fallbackBudget = m.target * m.reward_amount;
@@ -260,20 +279,53 @@ router.get("/:id", async (req, res) => {
     .map(p => ({
       name: p.name,
       stage: p.stage.charAt(0).toUpperCase() + p.stage.slice(1),
-      amount: p.reward,
+      amount: p.reward || m.reward_amount || 0,
       status: p.stage === "rewarded" ? "paid" : "review",
     }));
   const payments = { held, released, pending: review, refundable, rows: paymentRows };
 
   // ---- Files ----
   const fileRows = await db.prepare(`SELECT * FROM mission_files WHERE mission_id = ?`).all(m.id);
+  
+  const allSubmissionsFiles = [];
+  for (const r of responses) {
+    for (const filepath of (r.attachments || [])) {
+      const basename = filepath.split('/').pop() || "submission_file";
+      const ext = basename.split('.').pop().toLowerCase();
+      let kind = "document";
+      if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) kind = "image";
+      else if (["mp4", "webm", "mov"].includes(ext)) kind = "video";
+      else if (["pdf"].includes(ext)) kind = "pdf";
+      
+      allSubmissionsFiles.push({
+        name: basename,
+        kind: kind,
+        size: "—",
+        by: r.name,
+        when: r.time_label,
+        filename: filepath
+      });
+    }
+  }
+
   const files = {
     brief: fileRows.filter(f => f.section === "brief").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label, filename: f.file_path })),
-    submissions: fileRows.filter(f => f.section === "submissions").map(f => ({ name: f.name, kind: f.kind, size: f.size, by: f.by, when: f.when_label, filename: f.file_path })),
+    submissions: allSubmissionsFiles,
   };
 
+  const mission = serializeMission(m);
+  const lang = req.builder.preferred_language;
+  if (lang && lang !== "en") {
+    const translated = await translateBatch([
+      { entityType: "mission", entityId: mission.id, field: "name", text: mission.name },
+      { entityType: "mission", entityId: mission.id, field: "description", text: mission.description },
+    ], lang);
+    mission.name = translated.get(`mission:${mission.id}:name`) ?? mission.name;
+    mission.description = translated.get(`mission:${mission.id}:description`) ?? mission.description;
+  }
+
   res.json({
-    mission: serializeMission(m),
+    mission,
     participants,
     responses,
     audience,
@@ -735,13 +787,26 @@ router.get("/:id/schedules", authMiddleware, async (req, res) => {
     ORDER BY p.joined_at ASC
   `).all(req.params.id);
 
-  res.json({
-    schedules: rows.map(r => ({
-      validatorId: r.validator_id, name: r.name,
-      status: r.status || null, scheduled_at: r.scheduled_at, meeting_link: r.meeting_link,
-      notes: r.validator_notes ? JSON.parse(r.validator_notes) : null
-    })),
-  });
+  const schedules = rows.map(r => ({
+    validatorId: r.validator_id, name: r.name,
+    status: r.status || null, scheduled_at: r.scheduled_at, meeting_link: r.meeting_link,
+    notes: r.validator_notes ? JSON.parse(r.validator_notes) : null
+  }));
+
+  const lang = req.builder.preferred_language;
+  const withReason = schedules.filter(s => s.notes?.reason);
+  if (lang && lang !== "en" && withReason.length) {
+    const idOf = (s) => `${req.params.id}_${s.validatorId}`;
+    const translated = await translateBatch(
+      withReason.map(s => ({ entityType: "interview_decline_reason", entityId: idOf(s), field: "reason", text: s.notes.reason })),
+      lang
+    );
+    for (const s of withReason) {
+      s.notes.reason = translated.get(`interview_decline_reason:${idOf(s)}:reason`) ?? s.notes.reason;
+    }
+  }
+
+  res.json({ schedules });
 });
 
 // POST /api/missions/:id/schedules/:validatorId/propose — builder proposes (or re-proposes) an interview time
@@ -786,6 +851,44 @@ router.post("/:id/schedules/:validatorId/complete", authMiddleware, async (req, 
   res.json({ ok: true });
 });
 
+// DELETE /api/missions/:id/participants/:validatorId — remove a participant from a mission
+router.delete("/:id/participants/:validatorId", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  try {
+    await db.transaction(async (tx) => {
+      const del = await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.params.validatorId);
+      if (del.changes === 0) throw new Error("Participant not found");
+
+      await tx.prepare(`UPDATE v_my_missions SET status = 'rejected', reason = 'Removed by builder due to inactivity' WHERE mission_id = ? AND validator_id = ?`)
+        .run(req.params.id, req.params.validatorId);
+
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'removed', 'xCircle', 'danger', 'Removed from Mission', ?, 'Just now', 1)`)
+        .run(req.params.validatorId, `You have been removed from the mission "${mission.name}" for not completing required steps (e.g. scheduling).`);
+
+      const m = await tx.prepare(`SELECT joined, target FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
+      if (m) {
+        const wasFull = m.joined >= m.target && m.target > 0;
+        await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
+
+        if (wasFull) {
+          const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
+          for (const sv of savedVals) {
+            await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+              .run(sv.validator_id, "alert", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for "${mission.name}".`, "Just now", req.params.id);
+          }
+        }
+      }
+
+      await recalcMissionStats(req.params.id, tx);
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // GET /api/missions/:id/poll — builder views the focus-group poll for their mission
 router.get("/:id/poll", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
@@ -795,20 +898,34 @@ router.get("/:id/poll", authMiddleware, async (req, res) => {
   if (!poll) return res.json({ poll: null });
 
   const slots = await db.prepare(`
-    SELECT s.id, s.scheduled_at, COUNT(r.id) as tally
+    SELECT s.id, s.scheduled_at, COUNT(r.id) as tally,
+           COALESCE(json_agg(json_build_object('id', v.id, 'name', v.name)) FILTER (WHERE v.id IS NOT NULL), '[]') as voters_json
     FROM focus_group_slots s
     LEFT JOIN focus_group_responses r ON r.slot_id = s.id
+    LEFT JOIN validators v ON r.validator_id = v.id
     WHERE s.poll_id = ?
     GROUP BY s.id, s.scheduled_at
     ORDER BY s.scheduled_at ASC
   `).all(poll.id);
+
+  const missingParticipants = await db.prepare(`
+    SELECT p.validator_id as id, p.name 
+    FROM participants p
+    LEFT JOIN focus_group_responses r ON r.validator_id = p.validator_id AND r.poll_id = ?
+    WHERE p.mission_id = ? AND p.stage != 'rejected' AND r.id IS NULL
+  `).all(poll.id, req.params.id);
 
   res.json({
     poll: {
       status: poll.status,
       meetingLink: poll.meeting_link,
       lockedSlotId: poll.locked_slot_id,
-      slots: slots.map(s => ({ id: s.id, scheduledAt: s.scheduled_at, tally: Number(s.tally) })),
+      missing: missingParticipants.map(p => ({ id: p.id, name: p.name })),
+      slots: slots.map(s => {
+        let parsed = [];
+        try { parsed = typeof s.voters_json === "string" ? JSON.parse(s.voters_json) : s.voters_json; } catch {}
+        return { id: s.id, scheduledAt: s.scheduled_at, tally: Number(s.tally), voters: parsed };
+      }),
     },
   });
 });
@@ -842,6 +959,15 @@ router.post("/:id/poll", authMiddleware, async (req, res) => {
   }
 
   res.json({ ok: true, pollId });
+});
+
+// DELETE /api/missions/:id/poll — builder deletes/restarts a focus group poll
+router.delete("/:id/poll", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  await db.prepare(`DELETE FROM focus_group_polls WHERE mission_id = ?`).run(req.params.id);
+  res.json({ ok: true });
 });
 
 // POST /api/missions/:id/poll/lock — builder locks in a candidate slot
@@ -1060,7 +1186,7 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
     const feedbackNote = req.body.note || "";
     const scoreVal = rating * 20; // convert 1-5 to 20-100
     await tx.prepare(`UPDATE v_my_missions SET status = 'completed', score = ?, reason = ? WHERE mission_id = ? AND validator_id = ?`).run(scoreVal, feedbackNote, req.params.id, response.validator_id);
-    await tx.prepare(`UPDATE participants SET stage = 'rewarded' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rewarded', reward = ? WHERE mission_id = ? AND validator_id = ?`).run(reward, req.params.id, response.validator_id);
 
     // Reputation Engine Update (O(1) Rolling Average)
     const v = await tx.prepare(`SELECT rating, reviews_count, missions_done FROM validators WHERE id = ?`).get(response.validator_id);
@@ -1213,15 +1339,43 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
   const participant = await db.prepare(`SELECT * FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
   if (participant) return res.status(400).json({ error: "Validator has already joined this mission." });
 
+  const isWaitlist = await db.prepare(`SELECT 1 FROM v_saved WHERE task_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
+
   await db.transaction(async (tx) => {
     await tx.prepare(`INSERT INTO mission_invitations (builder_id, validator_id, mission_id, status) VALUES (?, ?, ?, 'pending')`)
       .run(req.builder.id, req.params.validatorId, req.params.id);
 
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'invite', 'mission_invite', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
-      .run(req.params.validatorId, "New Mission Invitation", `${req.builder.org || req.builder.name} has invited you to their mission: ${mission.name}`);
+    if (isWaitlist) {
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'invite', 'waitlist_invite', 'star', 'accent', ?, ?, 'Just now', 1)`)
+        .run(req.params.validatorId, "Waitlist Slot Opened!", `A slot opened up! You've been invited to the mission you saved: ${mission.name}`);
+    } else {
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'invite', 'mission_invite', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
+        .run(req.params.validatorId, "New Mission Invitation", `${req.builder.org || req.builder.name} has invited you to their mission: ${mission.name}`);
+    }
   });
 
-  res.json({ ok: true, invited: true });
+  res.json({ ok: true, invited: true, isWaitlist: !!isWaitlist });
+});
+
+// GET /api/missions/:id/waitlist — get validators who saved this mission
+router.get("/:id/waitlist", authMiddleware, async (req, res) => {
+  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const waitlist = await db.prepare(`
+    SELECT v.id, v.name, v.avatar, v.rating, v.reviews_count, v.specialties_json,
+      COALESCE((SELECT trust FROM participants WHERE validator_id = v.id ORDER BY joined_at DESC LIMIT 1), 50) as trust
+    FROM v_saved vs
+    JOIN validators v ON v.id = vs.validator_id
+    WHERE vs.task_id = ?
+    AND NOT EXISTS (SELECT 1 FROM participants p WHERE p.mission_id = vs.task_id AND p.validator_id = v.id)
+    AND NOT EXISTS (SELECT 1 FROM mission_invitations i WHERE i.mission_id = vs.task_id AND i.validator_id = v.id AND i.status = 'pending')
+  `).all(req.params.id);
+
+  res.json({ waitlist: waitlist.map(w => ({
+    ...w,
+    specialties: w.specialties_json ? JSON.parse(w.specialties_json) : []
+  }))});
 });
 
 // DELETE /api/missions/:id/invite/:validatorId — withdraw a pending invite

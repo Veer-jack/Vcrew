@@ -7,8 +7,10 @@ import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { PERSONA_CONFIG } from "../data/personaConfig";
+import { useTranslation } from "../i18n/index.jsx";
 
 function ProfileCompletionBanner({ builder, nav }) {
+  const { t } = useTranslation();
   if (builder?.profile) return null; // already completed
 
   let activePersonaKey = builder?.persona;
@@ -44,30 +46,30 @@ function ProfileCompletionBanner({ builder, nav }) {
           <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
             <Icon name="user" size={26} />
           </div>
-          <h3 style={{ fontSize: 20, marginBottom: 8, color: "var(--heading)", fontWeight: 600 }}>Select your role and complete setup</h3>
+          <h3 style={{ fontSize: 20, marginBottom: 8, color: "var(--heading)", fontWeight: 600 }}>{t("dashboard.selectRole", null, "Select your role and complete setup")}</h3>
           <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.5 }}>
-            Choose the role that best describes you to personalize your workspace and begin the setup process.
+            {t("dashboard.selectRoleDesc", null, "Choose the role that best describes you to personalize your workspace and begin the setup process.")}
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text)" }}>
               <div style={{ color: "#3b82f6" }}><Icon name="alertCircle" size={16} /></div>
-              No role selected
+              {t("dashboard.noRoleSelected", null, "No role selected")}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-muted)" }}>
               <div style={{ color: "#9ca3af" }}><Icon name="xCircle" size={16} /></div>
-              Setup not started
+              {t("dashboard.setupNotStarted", null, "Setup not started")}
             </div>
           </div>
         </div>
         {/* Right Side */}
         <div style={{ flex: "1.5", padding: 32, background: "#f8fafc", borderLeft: "1px solid var(--border)" }}>
-          <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--heading)", marginBottom: 16 }}>Choose your role</h4>
+          <h4 style={{ fontSize: 13, fontWeight: 600, color: "var(--heading)", marginBottom: 16 }}>{t("dashboard.chooseRole", null, "Choose your role")}</h4>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
             {[
-              { icon: "rocket", name: "Founder / Startup", desc: "Validate your startup ideas, get feedback and grow faster.", color: "#4f46e5" },
-              { icon: "building", name: "Company", desc: "Test products, understand users and make data-driven decisions.", color: "#0891b2" },
-              { icon: "flask", name: "Researcher", desc: "Conduct research, collect insights and contribute to knowledge.", color: "#0d9488" },
-              { icon: "users", name: "Organization", desc: "Drive programs, measure impact and engage your community.", color: "#c2710c" }
+              { icon: "rocket", name: t("role.founder", null, "Founder / Startup"), desc: t("role.founderDesc", null, "Validate your startup ideas, get feedback and grow faster."), color: "#4f46e5" },
+              { icon: "building", name: t("role.company", null, "Company"), desc: t("role.companyDesc", null, "Test products, understand users and make data-driven decisions."), color: "#0891b2" },
+              { icon: "flask", name: t("role.researcher", null, "Researcher"), desc: t("role.researchDesc", null, "Conduct research, collect insights and contribute to knowledge."), color: "#0d9488" },
+              { icon: "users", name: t("role.organization", null, "Organization"), desc: t("role.orgDesc", null, "Drive programs, measure impact and engage your community."), color: "#c2710c" }
             ].map(r => (
               <div key={r.name} style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 8, padding: 16, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ color: r.color, marginBottom: 12 }}>
@@ -82,7 +84,7 @@ function ProfileCompletionBanner({ builder, nav }) {
             <Btn variant="primary" onClick={() => nav(`/get-started/feedback`)}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "0 12px" }}>
                 <Icon name="user" size={16} />
-                Select Role
+                {t("actions.selectRole", null, "Select Role")}
               </div>
             </Btn>
           </div>
@@ -120,25 +122,25 @@ function ProfileCompletionBanner({ builder, nav }) {
         }}>
           <Icon name={icName} size={26} />
         </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>{currentStepNum - 1} of {totalSteps} completed</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>{currentStepNum - 1} {t("dashboard.of", null, "of")} {totalSteps} {t("dashboard.completed", null, "completed")}</div>
         <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 10, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.3s" }} />
         </div>
-        <a href={`/signup?role=${activePersonaKey}`} className="faint" style={{ fontSize: 12, fontWeight: 500 }}>View all steps &rarr;</a>
+        <a href={`/signup?role=${activePersonaKey}`} className="faint" style={{ fontSize: 12, fontWeight: 500 }}>{t("actions.viewAllSteps", null, "View all steps &rarr;")}</a>
       </div>
 
       {/* Middle */}
       <div style={{ flex: 1 }}>
-        <h3 style={{ fontSize: 18, marginBottom: 4, color: "var(--heading)" }}>Complete your {title} profile</h3>
+        <h3 style={{ fontSize: 18, marginBottom: 4, color: "var(--heading)" }}>{t("dashboard.completeProfile", null, "Complete your")} {title} {t("dashboard.profile", null, "profile")}</h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 14 }}>{desc}</p>
-        <span className="pill" style={{ fontSize: 11, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 600 }}>Step {currentStepNum} of {totalSteps}</span>
+        <span className="pill" style={{ fontSize: 11, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 600 }}>{t("dashboard.step", null, "Step")} {currentStepNum} {t("dashboard.of", null, "of")} {totalSteps}</span>
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Next step</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("dashboard.nextStep", null, "Next step")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="layout" size={16} style={{ color: "var(--accent)" }} />
             <b style={{ fontSize: 14 }}>{nextStep?.label || "Details"}</b>
           </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginLeft: 24 }}>Continue filling out your {nextStep?.label?.toLowerCase() || "details"}.</div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginLeft: 24 }}>{t("dashboard.continueFilling", null, "Continue filling out your")} {nextStep?.label?.toLowerCase() || t("dashboard.details", null, "details")}.</div>
         </div>
       </div>
 
@@ -165,12 +167,12 @@ function ProfileCompletionBanner({ builder, nav }) {
           })}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>Continue Setup &rarr;</Btn>
+          <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>{t("actions.continueSetup", null, "Continue Setup &rarr;")}</Btn>
           {!builder?.persona && (
             <Btn variant="ghost" block onClick={() => {
               Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(`vc_onboarding_draft_${k}`); } catch { /* ignore */ } });
               nav(`/get-started/feedback`);
-            }}>Change role</Btn>
+            }}>{t("actions.changeRole", null, "Change role")}</Btn>
           )}
         </div>
       </div>
@@ -179,11 +181,12 @@ function ProfileCompletionBanner({ builder, nav }) {
 }
 
 function QuickActions({ nav, balance }) {
+  const { t } = useTranslation();
   const items = [
-    { ic: "plus", t: "Create Mission", s: "Launch a new study", go: () => nav("/missions/new") },
-    { ic: "compass", t: "Browse Audience", s: "Find the right members", go: () => nav("/audience") },
-    { ic: "chart", t: "View Reports", s: "Analytics & exports", go: () => nav("/analytics") },
-    { ic: "wallet", t: "Manage Wallet", s: `${inr(balance)} available`, go: () => nav("/wallet") },
+    { ic: "plus", t: t("actions.createMission", null, "Create Mission"), s: t("dashboard.qaLaunchNew", null, "Launch a new study"), go: () => nav("/missions/new") },
+    { ic: "compass", t: t("actions.browseAudience", null, "Browse Audience"), s: t("dashboard.qaFindMembers", null, "Find the right members"), go: () => nav("/audience") },
+    { ic: "chart", t: t("actions.viewReports", null, "View Reports"), s: t("dashboard.qaAnalytics", null, "Analytics & exports"), go: () => nav("/analytics") },
+    { ic: "wallet", t: t("actions.manageWallet", null, "Manage Wallet"), s: `${inr(balance)} ${t("dashboard.available", null, "available")}`, go: () => nav("/wallet") },
   ];
   return (
     <div className="qa-grid">
@@ -198,7 +201,8 @@ function QuickActions({ nav, balance }) {
 }
 
 function ActivityFeed({ rows }) {
-  if (!rows.length) return <div className="muted" style={{ padding: "12px 0" }}>No recent activity yet.</div>;
+  const { t } = useTranslation();
+  if (!rows.length) return <div className="muted" style={{ padding: "12px 0" }}>{t("dashboard.noActivity", null, "No recent activity yet.")}</div>;
   return (
     <div className="feed">
       {rows.map((a) => (
@@ -215,6 +219,7 @@ function ActivityFeed({ rows }) {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const { builder, refreshBuilder } = useAuth();
   const { categories } = useMeta();
   const navigate = useNavigate();
@@ -241,11 +246,11 @@ export default function Dashboard() {
 
   if (loadErr) return (
     <div className="page rise" style={{ textAlign: "center", paddingTop: 60 }}>
-      <div style={{ fontSize: 15, color: "var(--text-muted)", marginBottom: 14 }}>Couldn't load dashboard data.</div>
-      <button className="btn btn-ghost" onClick={() => { setLoadErr(false); api.dashboard().then(setData).catch(() => setLoadErr(true)); }}>Retry</button>
+      <div style={{ fontSize: 15, color: "var(--text-muted)", marginBottom: 14 }}>{t("dashboard.loadError", null, "Couldn't load dashboard data.")}</div>
+      <button className="btn btn-ghost" onClick={() => { setLoadErr(false); api.dashboard().then(setData).catch(() => setLoadErr(true)); }}>{t("actions.retry", null, "Retry")}</button>
     </div>
   );
-  if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+  if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const { kpi, activity, recentMissions } = data;
   const firstName = (builder?.name || "").split(" ")[0];
@@ -262,10 +267,10 @@ export default function Dashboard() {
             <div style={{ display: "flex", gap: 12 }}>
               <Icon name="xOctagon" size={18} style={{ color: "#ef4444", flex: "none", marginTop: 2 }} />
               <div>
-                <b style={{ fontSize: 13.5, color: "#991b1b" }}>Your account has been rejected</b>
+                <b style={{ fontSize: 13.5, color: "#991b1b" }}>{t("dashboard.accountRejected", null, "Your account has been rejected")}</b>
                 <p style={{ fontSize: 13, color: "#b91c1c", margin: "3px 0 0", lineHeight: 1.5 }}>
-                  Reason: {data.latestVerification?.reviewer_note || "The website provided could not be verified. Please ensure the link is correct."}
-                  <br />You can edit your details and apply for re-verification.
+                  {t("dashboard.reason", null, "Reason: ")}{data.latestVerification?.reviewer_note || t("dashboard.verificationFailed", null, "The website provided could not be verified. Please ensure the link is correct.")}
+                  <br />{t("dashboard.reapplyDesc", null, "You can edit your details and apply for re-verification.")}
                 </p>
               </div>
             </div>
@@ -279,13 +284,13 @@ export default function Dashboard() {
                   // Re-fetch dashboard to update banner back to pending
                   api.dashboard().then(setData).catch(() => setLoadErr(true));
                 } catch (e) {
-                  alert(e.message || "Failed to reapply");
+                  alert(e.message || t("dashboard.reapplyFailed", null, "Failed to reapply"));
                   setIsApplying(false);
                 }
               }}
               style={{ flexShrink: 0, fontSize: 13, borderColor: "#ef4444", color: "#ef4444" }}
             >
-              {isApplying ? "Applying..." : "Apply for Re-verification"}
+              {isApplying ? t("actions.applying", null, "Applying...") : t("actions.applyReverification", null, "Apply for Re-verification")}
             </button>
           </div>
         ) : (
@@ -297,58 +302,58 @@ export default function Dashboard() {
             <div style={{ display: "flex", gap: 12 }}>
               <Icon name="shield" size={18} style={{ color: "#c2710c", flex: "none", marginTop: 2 }} />
               <div>
-                <b style={{ fontSize: 13.5, color: "#92400e" }}>Your account is unverified</b>
+                <b style={{ fontSize: 13.5, color: "#92400e" }}>{t("dashboard.accountUnverified", null, "Your account is unverified")}</b>
                 <p style={{ fontSize: 13, color: "#92400e", margin: "3px 0 0", lineHeight: 1.5 }}>
-                  You can run up to 3 active missions with a maximum of 25 participants each.
-                  To unlock unlimited campaigns, verify your website through your profile settings — an admin will review it within 24 hours.
+                  {t("dashboard.unverifiedDesc1", null, "You can run up to 3 active missions with a maximum of 25 participants each.")}
+                  {t("dashboard.unverifiedDesc2", null, "To unlock unlimited campaigns, verify your website through your profile settings — an admin will review it within 24 hours.")}
                 </p>
               </div>
             </div>
-            <button className="btn btn-outline" onClick={() => navigate("/settings")} style={{ flexShrink: 0, fontSize: 13, borderColor: "#f59e0b", color: "#d97706" }}>View Profile</button>
+            <button className="btn btn-outline" onClick={() => navigate("/settings")} style={{ flexShrink: 0, fontSize: 13, borderColor: "#f59e0b", color: "#d97706" }}>{t("actions.viewProfile", null, "View Profile")}</button>
           </div>
         )
       )}
       <ProfileCompletionBanner builder={builder} nav={navigate} />
       <div className="ph">
         <div>
-          <span className="eyebrow">Builder workspace</span>
-          <h1>Welcome back, {firstName}</h1>
-          <p className="lead">Here's how {builder?.org}'s validation missions are tracking today.</p>
+          <span className="eyebrow">{t("dashboard.builderWorkspace", null, "Builder workspace")}</span>
+          <h1>{t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
+          <p className="lead">{t("dashboard.howMissionsTracking", { org: builder?.org }, `Here's how ${builder?.org || ""}'s validation missions are tracking today.`)}</p>
         </div>
         <div className="ph-actions">
-          <Btn variant="ghost" icon="compass" onClick={() => navigate("/audience")}>Browse audience</Btn>
-          <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>Create Mission</Btn>
+          <Btn variant="ghost" icon="compass" onClick={() => navigate("/audience")}>{t("actions.browseAudience", null, "Browse audience")}</Btn>
+          <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn>
         </div>
       </div>
 
       <div className="kpis sec">
-        <KpiCard label="Active Missions" value={kpi.activeMissions} icon="bolt" />
-        <KpiCard label="Completed Missions" value={kpi.completedMissions} icon="checkCircle" tone="green" />
-        <KpiCard label="Total Participants" value={kpi.totalParticipants.toLocaleString("en-IN")} icon="users" spark={kpi.spark.participants} />
-        <KpiCard label="Pending Participants" value={kpi.pendingParticipants} icon="clock" tone="amber" />
+        <KpiCard label={t("dashboard.activeMissions", null, "Active Missions")} value={kpi.activeMissions} icon="bolt" />
+        <KpiCard label={t("dashboard.completedMissions", null, "Completed Missions")} value={kpi.completedMissions} icon="checkCircle" tone="green" />
+        <KpiCard label={t("dashboard.totalParticipants", null, "Total Participants")} value={kpi.totalParticipants.toLocaleString("en-IN")} icon="users" spark={kpi.spark.participants} />
+        <KpiCard label={t("dashboard.pendingParticipants", null, "Pending Participants")} value={kpi.pendingParticipants} icon="clock" tone="amber" />
       </div>
       <div className="kpis sec" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-        <KpiCard label="Total Spend" value={inrK(kpi.totalSpend)} icon="wallet" spark={kpi.spark.spend} />
-        <KpiCard label="Avg Completion Rate" value={kpi.avgCompletion} unit="%" icon="target" tone="green" />
-        <KpiCard label="Wallet Balance" value={inrK(builder?.balance)} icon="coins" onClick={() => navigate("/wallet")} />
+        <KpiCard label={t("dashboard.totalSpend", null, "Total Spend")} value={inrK(kpi.totalSpend)} icon="wallet" spark={kpi.spark.spend} />
+        <KpiCard label={t("dashboard.avgCompletionRate", null, "Avg Completion Rate")} value={kpi.avgCompletion} unit="%" icon="target" tone="green" />
+        <KpiCard label={t("dashboard.walletBalance", null, "Wallet Balance")} value={inrK(builder?.balance)} icon="coins" onClick={() => navigate("/wallet")} />
       </div>
 
       <div className="sec">
-        <div className="sec-head"><h2 className="h-lg">Quick actions</h2></div>
+        <div className="sec-head"><h2 className="h-lg">{t("dashboard.quickActions", null, "Quick actions")}</h2></div>
         <QuickActions nav={navigate} balance={builder?.balance} />
       </div>
 
       <div className="sec" style={{ marginBottom: 40 }}>
         <div className="card" style={{ padding: "18px 0" }}>
           <div className="sec-head" style={{ marginBottom: 12, padding: "0 18px" }}>
-            <h3 className="h-md">Recent missions</h3>
+            <h3 className="h-md">{t("dashboard.recentMissions", null, "Recent missions")}</h3>
             <Btn 
               variant="quiet" 
               size="sm" 
               iconRight={showAllMissions ? "x" : "arrowRight"} 
               onClick={() => setShowAllMissions(!showAllMissions)}
             >
-              {showAllMissions ? "Close" : "View all missions"}
+              {showAllMissions ? t("actions.close", null, "Close") : t("actions.viewAllMissions", null, "View all missions")}
             </Btn>
           </div>
           <MissionsTable rows={showAllMissions ? recentMissions : recentMissions.slice(0, 3)} nav={navigate} categories={categories} />
@@ -358,14 +363,14 @@ export default function Dashboard() {
       <div className="sec">
         <div className="card" style={{ padding: 18 }}>
           <div className="sec-head" style={{ marginBottom: 6 }}>
-            <h3 className="h-md">Activity feed</h3>
+            <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
             <Btn 
               variant="quiet" 
               size="sm" 
               iconRight={showAllActivity ? "x" : "arrowRight"} 
               onClick={() => setShowAllActivity(!showAllActivity)}
             >
-              {showAllActivity ? "Close" : "View all"}
+              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAll", null, "View all")}
             </Btn>
           </div>
           <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />

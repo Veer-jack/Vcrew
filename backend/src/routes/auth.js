@@ -5,6 +5,8 @@ import { sendBuilderWelcome } from "../email.js";
 
 export const router = Router();
 
+const VALID_LANGS = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
+
 export function publicBuilder(b) {
   let profile = null;
   if (b.profile_json) {
@@ -26,7 +28,8 @@ export function publicBuilder(b) {
 const PERSONA_LABELS = { founder: "Founder", company: "Company", researcher: "Researcher", organization: "Organization" };
 
 router.post("/signup", async (req, res) => {
-  const { name, email, password, designation, org, website, persona, profile } = req.body || {};
+  const { name, email, password, designation, org, website, persona, profile, lang } = req.body || {};
+  const preferredLanguage = VALID_LANGS.includes(lang) ? lang : "en";
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
@@ -46,8 +49,8 @@ router.post("/signup", async (req, res) => {
   }
 
   const result = await db.prepare(`
-    INSERT INTO builders (name, org, email, password_hash, designation, website, role, persona, profile_json)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO builders (name, org, email, password_hash, designation, website, role, persona, profile_json, preferred_language)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     String(name).trim(),
     String(org || "").trim() || String(name).trim(),
@@ -58,6 +61,7 @@ router.post("/signup", async (req, res) => {
     dbRole,
     personaKey,
     profileJson,
+    preferredLanguage,
   );
 
   const builder = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(result.lastInsertRowid);
@@ -299,7 +303,7 @@ router.post("/change-password", authMiddleware, async (req, res) => {
 // PATCH /api/auth/language { lang } — save preferred language for builder
 router.patch("/language", authMiddleware, async (req, res) => {
   const { lang } = req.body || {};
-  const VALID = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
+  const VALID = VALID_LANGS;
   if (!VALID.includes(lang)) return res.status(400).json({ error: "Unsupported language code" });
   await db.prepare(`UPDATE builders SET preferred_language = ? WHERE id = ?`).run(lang, req.builder.id);
   res.json({ ok: true, lang });

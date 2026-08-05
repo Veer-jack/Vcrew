@@ -62,14 +62,14 @@ export function I18nProvider({ children, initialLang }) {
     loadStrings(code);
   };
 
-  // t(key, params?) — translate a dot-notated key with optional interpolation
-  // e.g. t("auth.welcomeBack") or t("auth.resetLinkSent", { email: "x@y.com" })
-  const t = (key, params) => {
-    if (!strings) return ""; // loading
+  // t(key, params?, defaultText?) — translate a dot-notated key with optional interpolation
+  // e.g. t("auth.welcomeBack") or t("missing.key", {}, "Fallback text")
+  const t = (key, params, defaultText) => {
+    if (!strings) return defaultText || ""; // loading
     const val = resolve(strings, key);
-    if (val === null) {
+    if (val === null || val === undefined) {
       console.warn(`[i18n] Missing key: ${key} (lang: ${lang})`);
-      return key; // return the key path as fallback so it's visible in UI
+      return defaultText ? interpolate(defaultText, params) : key;
     }
     return interpolate(val, params);
   };

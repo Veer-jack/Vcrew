@@ -4,8 +4,10 @@ import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { toast } from "react-hot-toast";
 import { vapi } from "../vapi/client";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function FocusGroupPoll() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [mission, setMission] = useState(null);
@@ -27,14 +29,14 @@ export default function FocusGroupPoll() {
         setPoll(data.poll);
         setSelected(new Set(data.poll?.mySlotIds || []));
       } catch {
-        setError("Couldn't load the focus group poll.");
+        setError(t("missions.couldntLoadFocusGroupPoll", null, "Couldn't load the focus group poll."));
       } finally {
         setLoading(false);
       }
     })();
   }, [id, navigate]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading focus group schedule…</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("missions.loadingFocusGroup", null, "Loading focus group schedule…")}</div></div>;
   if (error) return <div className="page rise"><div className="muted">{error}</div></div>;
 
   const toggleSlot = (slotId) => {
@@ -51,9 +53,9 @@ export default function FocusGroupPoll() {
     try {
       await vapi.post(`/missions/${id}/poll/respond`, { slotIds: [...selected] });
       setPoll(p => ({ ...p, mySlotIds: [...selected] }));
-      toast.success("Availability saved! You can update this until the builder confirms a time.");
+      toast.success(t("missions.availabilitySaved", null, "Availability saved! You can update this until the builder confirms a time."));
     } catch (err) {
-      setError(err.message || "Couldn't save your availability — try again.");
+      setError(err.message || t("missions.couldntSaveAvailability", null, "Couldn't save your availability — try again."));
     } finally {
       setBusy(false);
     }
@@ -71,15 +73,15 @@ export default function FocusGroupPoll() {
 
         {!poll && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>Waiting for times to be proposed</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>The builder hasn't set up the focus group schedule yet. You'll see it here once they do.</p>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.waitingForTimes", null, "Waiting for times to be proposed")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.noScheduleDesc", null, "The builder hasn't set up the focus group schedule yet. You'll see it here once they do.")}</p>
           </>
         )}
 
         {status === "open" && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>Mark your availability</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 16px", fontSize: 14 }}>Select every time you could make it — the builder will pick whichever works for the most people.</p>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.markYourAvailability", null, "Mark your availability")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 16px", fontSize: 14 }}>{t("missions.selectTimeDesc", null, "Select every time you could make it — the builder will pick whichever works for the most people.")}</p>
             <div className="col gap-2" style={{ marginBottom: 20, textAlign: "left" }}>
               {poll.slots.map(s => (
                 <label key={s.id} className="card" style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
@@ -90,30 +92,30 @@ export default function FocusGroupPoll() {
             </div>
             {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
             <Btn variant="primary" block disabled={busy} onClick={submit}>
-              {busy ? "Saving…" : (poll.mySlotIds && poll.mySlotIds.length > 0) ? "Update availability" : "Save my availability"}
+              {busy ? t("actions.saving", null, "Saving…") : (poll.mySlotIds && poll.mySlotIds.length > 0) ? t("actions.updateAvailability", null, "Update availability") : t("actions.saveAvailability", null, "Save my availability")}
             </Btn>
           </>
         )}
 
         {status === "locked" && poll.outcome === "confirmed" && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>You're confirmed</h2>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.youAreConfirmed", null, "You're confirmed")}</h2>
             <div className="card" style={{ padding: 16, marginBottom: 20, textAlign: "left" }}>
-              <div style={{ fontSize: 13, marginBottom: 4 }}><b>When:</b> {new Date(poll.slots.find(s => s.id === poll.lockedSlotId)?.scheduledAt).toLocaleString()}</div>
-              {poll.meetingLink && <div style={{ fontSize: 13 }}><b>Link:</b> <a href={poll.meetingLink} target="_blank" rel="noopener noreferrer">{poll.meetingLink}</a></div>}
+              <div style={{ fontSize: 13, marginBottom: 4 }}><b>{t("missions.when", null, "When:")}</b> {new Date(poll.slots.find(s => s.id === poll.lockedSlotId)?.scheduledAt).toLocaleString()}</div>
+              {poll.meetingLink && <div style={{ fontSize: 13 }}><b>{t("missions.link", null, "Link:")}</b> <a href={poll.meetingLink} target="_blank" rel="noopener noreferrer">{poll.meetingLink}</a></div>}
             </div>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>After the session, the builder will mark it complete and you'll be able to finish your review here.</p>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.afterSessionDesc", null, "After the session, the builder will mark it complete and you'll be able to finish your review here.")}</p>
           </>
         )}
 
         {(status === "locked" || status === "completed") && poll.outcome === "not_selected" && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>This session's time didn't match your availability</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>The confirmed time isn't one you marked as available, so you won't be part of this session.</p>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.timeNoMatch", null, "This session's time didn't match your availability")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.timeNoMatchDesc", null, "The confirmed time isn't one you marked as available, so you won't be part of this session.")}</p>
           </>
         )}
 
-        <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+        <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
       </div>
     </div>
   );

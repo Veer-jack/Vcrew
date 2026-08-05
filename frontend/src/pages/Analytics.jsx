@@ -6,10 +6,12 @@ import { Btn, KpiCard, MissionLogo, PBarRow, Trend } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { exportCSV, exportXls } from "../exportUtils";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function Analytics() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const { categories } = useMeta();
+  useMeta();
   const [data, setData] = useState(null);
   const [missions, setMissions] = useState([]);
 
@@ -18,21 +20,21 @@ export default function Analytics() {
     api.missions().then(d => setMissions(d.missions.filter(m => m.status !== "draft")));
   }, []);
 
-  if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+  if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const maxSpend = Math.max(...data.categoryBreakdown.map(c => c.spend), 1);
   const maxGeo = Math.max(...data.geo.map(g => g.v), 1);
 
-  const reportHeaders = ["Mission", "Responses", "Avg rating", "Completion %"];
+  const reportHeaders = [t("analytics.thMission", null, "Mission"), t("analytics.thResponses", null, "Responses"), t("analytics.thAvgRating", null, "Avg rating"), t("analytics.thCompletion", null, "Completion %")];
   const reportRows = missions.map(m => [m.name, m.participants.submitted, m.rating || "—", m.completion]);
 
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
-    doc.text("ValidationCrew — Analytics Report", 14, 22);
+    doc.text(t("analytics.reportTitle", null, "ValidationCrew — Analytics Report"), 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100, 100, 100);
-    doc.text(`Generated on ${new Date().toLocaleDateString()} · ${data.totalResponses} total responses · ${data.completionRate}% completion`, 14, 30);
+    doc.text(`${t("analytics.generatedOn", null, "Generated on")} ${new Date().toLocaleDateString()} · ${data.totalResponses} ${t("analytics.totalResponsesLower", null, "total responses")} · ${data.completionRate}% ${t("analytics.completionLower", null, "completion")}`, 14, 30);
     autoTable(doc, {
       head: [reportHeaders],
       body: reportRows,
@@ -48,37 +50,37 @@ export default function Analytics() {
   return (
     <div className="page rise">
       <div className="ph">
-        <div><span className="eyebrow">Reports</span><h1>Analytics &amp; Reports</h1><p className="lead">Aggregate insight across every mission you've run.</p></div>
+        <div><span className="eyebrow">{t("analytics.reports", null, "Reports")}</span><h1>{t("analytics.title", null, "Analytics & Reports")}</h1><p className="lead">{t("analytics.lead", null, "Aggregate insight across every mission you've run.")}</p></div>
         <div className="ph-actions">
-          <Btn variant="ghost" size="sm" icon="fileText" onClick={exportPDF}>PDF</Btn>
-          <Btn variant="ghost" size="sm" icon="download" onClick={() => exportXls("analytics_report.xls", reportHeaders, reportRows)}>Excel</Btn>
-          <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV("analytics_report.csv", reportHeaders, reportRows)}>CSV</Btn>
+          <Btn variant="ghost" size="sm" icon="fileText" onClick={exportPDF}>{t("actions.pdf", null, "PDF")}</Btn>
+          <Btn variant="ghost" size="sm" icon="download" onClick={() => exportXls("analytics_report.xls", reportHeaders, reportRows)}>{t("actions.excel", null, "Excel")}</Btn>
+          <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV("analytics_report.csv", reportHeaders, reportRows)}>{t("actions.csv", null, "CSV")}</Btn>
         </div>
       </div>
 
       <div className="col gap-5">
         <div className="kpis" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
-          <KpiCard label="Total Responses" value={data.totalResponses.toLocaleString("en-IN")} icon="message" />
-          <KpiCard label="Completion Rate" value={data.completionRate} unit="%" icon="target" tone="green" />
-          <KpiCard label="Average Rating" value={data.avgRating || "—"} unit="/5" icon="star" tone="amber" />
+          <KpiCard label={t("analytics.totalResponses", null, "Total Responses")} value={data.totalResponses.toLocaleString("en-IN")} icon="message" />
+          <KpiCard label={t("analytics.completionRate", null, "Completion Rate")} value={data.completionRate} unit="%" icon="target" tone="green" />
+          <KpiCard label={t("analytics.averageRating", null, "Average Rating")} value={data.avgRating || "—"} unit="/5" icon="star" tone="amber" />
         </div>
 
         <div className="chart-card">
-          <div className="sec-head"><h3 className="h-md">Completion across missions</h3><span className="pill" style={{ fontSize: 11 }}>Chronological</span></div>
+          <div className="sec-head"><h3 className="h-md">{t("analytics.completionAcross", null, "Completion across missions")}</h3><span className="pill" style={{ fontSize: 11 }}>{t("analytics.chronological", null, "Chronological")}</span></div>
           <Trend data={data.trend} />
         </div>
 
         <div className="m2">
           <div className="chart-card">
-            <div className="sec-head"><h3 className="h-md">Spend by category</h3></div>
-            {data.categoryBreakdown.length === 0 ? <div className="muted" style={{ padding: "12px 0" }}>No spend recorded yet.</div> : data.categoryBreakdown.map(c => (
+            <div className="sec-head"><h3 className="h-md">{t("analytics.spendByCategory", null, "Spend by category")}</h3></div>
+            {data.categoryBreakdown.length === 0 ? <div className="muted" style={{ padding: "12px 0" }}>{t("analytics.noSpend", null, "No spend recorded yet.")}</div> : data.categoryBreakdown.map(c => (
               <div className="geo-row" key={c.category}><span className="gn">{c.label}</span><span className="gbar"><i style={{ width: (c.spend / maxSpend) * 100 + "%" }} /></span><span className="gv">₹{c.spend.toLocaleString("en-IN")}</span></div>
             ))}
           </div>
           <div className="chart-card">
-            <div className="sec-head"><h3 className="h-md">Audience pool by city</h3></div>
+            <div className="sec-head"><h3 className="h-md">{t("analytics.audienceByCity", null, "Audience pool by city")}</h3></div>
             {data.geo.length === 0 ? (
-              <div className="muted" style={{ padding: "12px 0", fontSize: 14 }}>Not enough audience data yet.</div>
+              <div className="muted" style={{ padding: "12px 0", fontSize: 14 }}>{t("analytics.notEnoughData", null, "Not enough audience data yet.")}</div>
             ) : (
               data.geo.map(g => (
                 <div className="geo-row" key={g.l}><span className="gn">{g.l}</span><span className="gbar"><i style={{ width: (g.v / maxGeo) * 100 + "%" }} /></span><span className="gv">{g.v}</span></div>
@@ -89,10 +91,10 @@ export default function Analytics() {
       </div>
 
       <div className="sec" style={{ marginTop: 22 }}>
-        <div className="sec-head"><h2 className="h-lg">By mission</h2></div>
+        <div className="sec-head"><h2 className="h-lg">{t("analytics.byMission", null, "By mission")}</h2></div>
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Mission</th><th style={{ textAlign: "right" }}>Responses</th><th style={{ textAlign: "right" }}>Avg rating</th><th style={{ width: 150 }}>Completion</th></tr></thead>
+            <thead><tr><th>{t("analytics.thMission", null, "Mission")}</th><th style={{ textAlign: "right" }}>{t("analytics.thResponses", null, "Responses")}</th><th style={{ textAlign: "right" }}>{t("analytics.thAvgRating", null, "Avg rating")}</th><th style={{ width: 150 }}>{t("analytics.thCompletion", null, "Completion")}</th></tr></thead>
             <tbody>
               {missions.map(m => (
                 <tr className="click" key={m.id} onClick={() => navigate(`/missions/${m.id}`)}>

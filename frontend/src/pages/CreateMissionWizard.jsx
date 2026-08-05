@@ -8,31 +8,36 @@ import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import StepTestCases from "../components/StepTestCases";
+import { useTranslation } from "../i18n/index.jsx";
+import { trFilterLabel } from "../data/audienceFilterLabels";
 
-const WZ_STEPS = [
-  { t: "Mission Information", s: "Name & category", hint: "Give your mission a clear name and pick the kind of validation you need." },
-  { t: "Feedback Format", s: "How they engage", hint: "Choose how participants will engage with your product." },
-  { t: "Define the test", s: "AI-generated tasks", hint: "Describe your product and let AI generate structured test tasks tailored to this mission type." },
-  { t: "Audience Builder", s: "Who you'll reach", hint: "Layer filters to define exactly who you want to hear from. The count updates live." },
-  { t: "Reward Setup", s: "What they earn", hint: "Set the incentive and size your panel — costs update as you type." },
-  { t: "Review & Publish", s: "Confirm & launch", hint: "One last look before it goes live to your matched audience." },
-];
+function wzSteps(t) {
+  return [
+    { t: t("createMission.step1Title", null, "Mission Information"), s: t("createMission.step1Subtitle", null, "Name & category"), hint: t("createMission.step1Hint", null, "Give your mission a clear name and pick the kind of validation you need.") },
+    { t: t("createMission.step2Title", null, "Feedback Format"), s: t("createMission.step2Subtitle", null, "How they engage"), hint: t("createMission.step2Hint", null, "Choose how participants will engage with your product.") },
+    { t: t("createMission.step3Title", null, "Define the test"), s: t("createMission.step3Subtitle", null, "AI-generated tasks"), hint: t("createMission.step3Hint", null, "Describe your product and let AI generate structured test tasks tailored to this mission type.") },
+    { t: t("createMission.step4Title", null, "Audience Builder"), s: t("createMission.step4Subtitle", null, "Who you'll reach"), hint: t("createMission.step4Hint", null, "Layer filters to define exactly who you want to hear from. The count updates live.") },
+    { t: t("createMission.step5Title", null, "Reward Setup"), s: t("createMission.step5Subtitle", null, "What they earn"), hint: t("createMission.step5Hint", null, "Set the incentive and size your panel — costs update as you type.") },
+    { t: t("createMission.step6Title", null, "Review & Publish"), s: t("createMission.step6Subtitle", null, "Confirm & launch"), hint: t("createMission.step6Hint", null, "One last look before it goes live to your matched audience.") },
+  ];
+}
 
 
 
 function StepInfo({ d, set, categories }) {
+  const { t } = useTranslation();
   return (
     <div className="rise">
       <div className="fld" style={{ marginBottom: 18 }}>
-        <label>Mission Title</label>
-        <input className="fin" placeholder="e.g. Cold Brew Can — Taste Panel" value={d.title} onChange={e => set({ title: e.target.value })} />
-        <p className="fhint">Members see this first — make it specific and inviting.</p>
+        <label>{t("createMission.missionTitleLabel", null, "Mission Title")}</label>
+        <input className="fin" placeholder={t("createMission.missionTitlePlaceholder", null, "e.g. Cold Brew Can — Taste Panel")} value={d.title} onChange={e => set({ title: e.target.value })} />
+        <p className="fhint">{t("createMission.missionTitleHint", null, "Members see this first — make it specific and inviting.")}</p>
       </div>
       <div className="fld" style={{ marginBottom: 24 }}>
-        <label>Description</label>
-        <textarea className="field" placeholder="Describe what you're validating, what participants will do, and what a great submission looks like." value={d.desc} onChange={e => set({ desc: e.target.value })} />
+        <label>{t("createMission.descriptionLabel", null, "Description")}</label>
+        <textarea className="field" placeholder={t("createMission.descriptionPlaceholder", null, "Describe what you're validating, what participants will do, and what a great submission looks like.")} value={d.desc} onChange={e => set({ desc: e.target.value })} />
       </div>
-      <div className="fsec"><b>Mission Category</b><span className="line" /><span className="cnt">Pick one</span></div>
+      <div className="fsec"><b>{t("createMission.missionCategoryLabel", null, "Mission Category")}</b><span className="line" /><span className="cnt">{t("createMission.pickOne", null, "Pick one")}</span></div>
       <div className="optcards">
         {categories.map(c => (
           <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} onClick={() => set({ cat: c.id })}>
@@ -47,20 +52,21 @@ function StepInfo({ d, set, categories }) {
 }
 
 function FilterGroup({ title, options, sel, toggle }) {
+  const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const showSearch = options.length > 8;
   const filtered = q.trim() ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options;
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
       <div className="row between" style={{ marginBottom: 10 }}>
-        <b style={{ fontSize: 12.5 }}>{title}</b>
-        {sel.size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{sel.size} selected</span>}
+        <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
+        {sel.size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: sel.size }, `${sel.size} selected`)}</span>}
       </div>
       {showSearch && (
         <input
           className="fin"
           style={{ marginBottom: 10, fontSize: 13 }}
-          placeholder={`Search ${title.toLowerCase()}…`}
+          placeholder={t("createMission.searchGroupPlaceholder", { group: title.toLowerCase() }, `Search ${title.toLowerCase()}…`)}
           value={q}
           onChange={e => setQ(e.target.value)}
         />
@@ -68,15 +74,16 @@ function FilterGroup({ title, options, sel, toggle }) {
       <div className="chips">
         {filtered.map(o => (
           <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`} onClick={() => toggle(title, o)}>
-            <span className="ck"><Icon name="check" size={10} /></span>{o}
+            <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
           </button>
         ))}
-        {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>No matches for "{q}"</span>}
+        {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q }, `No matches for "${q}"`)}</span>}
       </div>
     </div>
   );
 }
 function StepAudience({ d, toggle, filters, liveCount, isFetchingCount }) {
+  const { t } = useTranslation();
   const count = liveCount;
   const pct = Math.min(100, Math.round((count / 1284000) * 100));
   return (
@@ -85,17 +92,17 @@ function StepAudience({ d, toggle, filters, liveCount, isFetchingCount }) {
         <div className="reach-top">
           <span className="r-ic"><Icon name="users" size={22} /></span>
           <div style={{ flex: 1, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>
-            <div className="r-num" key={count}>{count.toLocaleString("en-IN")} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 600 }}>matching members</span></div>
-            <div className="r-lab">available right now for this audience</div>
+            <div className="r-num" key={count}>{count.toLocaleString("en-IN")} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 600 }}>{t("createMission.matchingMembers", null, "matching members")}</span></div>
+            <div className="r-lab">{t("createMission.availableNow", null, "available right now for this audience")}</div>
           </div>
           {isFetchingCount ? (
-            <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> Updating...</span>
+            <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("createMission.updating", null, "Updating...")}</span>
           ) : (
-            <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> Live</span>
+            <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
           )}
         </div>
         <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
-        <div className="r-foot"><span>Narrower = higher quality</span><span>{pct}% of total pool</span></div>
+        <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
         <FilterGroup key={g} title={g} options={Array.isArray(opts) ? opts : Object.values(opts).flat()} sel={d.filters[g]} toggle={toggle} />
@@ -105,6 +112,7 @@ function StepAudience({ d, toggle, filters, liveCount, isFetchingCount }) {
 }
 
 function StepParticipation({ d, set, ptypes }) {
+  const { t } = useTranslation();
   return (
     <div className="rise">
       <div className="optcards">
@@ -113,13 +121,13 @@ function StepParticipation({ d, set, ptypes }) {
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
             <b>{p.label}</b><p>{p.desc}</p>
-            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? `${d.durationDays} days` : p.est}</span>
+            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`) : p.est}</span>
           </button>
         ))}
       </div>
       {d.ptype === "trial" && (
         <div className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
-          <label>How many days should this trial run?</label>
+          <label>{t("createMission.trialDurationLabel", null, "How many days should this trial run?")}</label>
           <input
             className="fin"
             type="number"
@@ -128,7 +136,7 @@ function StepParticipation({ d, set, ptypes }) {
             value={d.durationDays}
             onChange={e => set({ durationDays: Math.min(30, Math.max(2, +e.target.value || 7)) })}
           />
-          <p className="fhint">Validators check in once per day, then submit their final review at the end.</p>
+          <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end.")}</p>
         </div>
       )}
     </div>
@@ -136,11 +144,12 @@ function StepParticipation({ d, set, ptypes }) {
 }
 
 function StepReward({ d, set, rewards }) {
+  const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
   return (
     <div className="rise">
-      <div className="fsec"><b>Reward Type</b><span className="line" /></div>
+      <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")}</b><span className="line" /></div>
       <div className="optcards c2" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         {rewards.map(r => (
           <button key={r.id} className={`optcard ${d.reward.type === r.id ? "on" : ""}`} onClick={() => set({ reward: { ...d.reward, type: r.id } })}>
@@ -154,7 +163,7 @@ function StepReward({ d, set, rewards }) {
       <div className="fgrid c2" style={{ marginTop: 24 }}>
         {needsAmt && (
           <div className="fld">
-            <label>Reward Amount <span className="opt">per participant</span></label>
+            <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
               <input className="fin" type="number" min="0" value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: +e.target.value } })} />
@@ -162,9 +171,9 @@ function StepReward({ d, set, rewards }) {
           </div>
         )}
         <div className="fld">
-          <label>Number of Participants</label>
+          <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")}</label>
           <input className="fin" type="number" min="1" max="500" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: Math.min(500, Math.max(1, +e.target.value)) } })} />
-          <p className="fhint">We recommend 80–150 for statistically useful feedback. Maximum 500 participants.</p>
+          <p className="fhint">{t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}</p>
         </div>
       </div>
     </div>
@@ -172,6 +181,7 @@ function StepReward({ d, set, rewards }) {
 }
 
 function CostCard({ d, rewards, balance, platformFeePct }) {
+  const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const n = +d.reward.participants || 0;
   const per = rw?.needsAmt ? (+d.reward.amount || 0) : 0;
@@ -181,19 +191,19 @@ function CostCard({ d, rewards, balance, platformFeePct }) {
   const total = subtotal + fee + fulfil;
   return (
     <div className="estcard accent">
-      <span className="eyebrow">Live cost estimate</span>
+      <span className="eyebrow">{t("createMission.liveCostEstimate", null, "Live cost estimate")}</span>
       <div className="est-num" style={{ margin: "8px 0 14px" }}>{inr(total)}</div>
       <div>
-        {rw?.needsAmt && <div className="est-row"><span className="lab">{inr(per)} × {n} participants</span><span className="v">{inr(subtotal)}</span></div>}
-        {fulfil > 0 && <div className="est-row"><span className="lab">Sample fulfilment × {n}</span><span className="v">{inr(fulfil)}</span></div>}
-        <div className="est-row"><span className="lab">Platform fee ({Math.round(platformFeePct * 100)}%)</span><span className="v">{inr(fee)}</span></div>
-        <div className="est-total"><span className="lab" style={{ fontWeight: 700 }}>Total</span><span className="v">{inr(total)}</span></div>
+        {rw?.needsAmt && <div className="est-row"><span className="lab">{t("createMission.perParticipantsBreakdown", { per: inr(per), n }, `${inr(per)} × ${n} participants`)}</span><span className="v">{inr(subtotal)}</span></div>}
+        {fulfil > 0 && <div className="est-row"><span className="lab">{t("createMission.sampleFulfilmentBreakdown", { n }, `Sample fulfilment × ${n}`)}</span><span className="v">{inr(fulfil)}</span></div>}
+        <div className="est-row"><span className="lab">{t("createMission.platformFeeBreakdown", { pct: Math.round(platformFeePct * 100) }, `Platform fee (${Math.round(platformFeePct * 100)}%)`)}</span><span className="v">{inr(fee)}</span></div>
+        <div className="est-total"><span className="lab" style={{ fontWeight: 700 }}>{t("createMission.total", null, "Total")}</span><span className="v">{inr(total)}</span></div>
       </div>
       <div className="row gap-2" style={{ marginTop: 14, fontSize: 12, color: "var(--text-faint)" }}>
-        <Icon name="shield" size={14} /><span>Held in escrow · released only on approved submissions</span>
+        <Icon name="shield" size={14} /><span>{t("createMission.escrowNote", null, "Held in escrow · released only on approved submissions")}</span>
       </div>
       <div className="row between" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--border)", fontSize: 12.5 }}>
-        <span className="muted">Wallet balance</span><b className="mono">{inr(balance)}</b>
+        <span className="muted">{t("createMission.walletBalance", null, "Wallet balance")}</span><b className="mono">{inr(balance)}</b>
       </div>
     </div>
   );
@@ -208,6 +218,7 @@ function ReviewRow({ icon, label, children }) {
   );
 }
 function StepReview({ d, categories, ptypes, rewards, liveCount }) {
+  const { t } = useTranslation();
   const cat = categories.find(c => c.id === d.cat) || categories[0];
   const pt = ptypes.find(p => p.id === d.ptype);
   const rw = rewards.find(r => r.id === d.reward.type);
@@ -216,16 +227,16 @@ function StepReview({ d, categories, ptypes, rewards, liveCount }) {
   return (
     <div className="rise">
       <div className="card" style={{ padding: "4px 20px 14px" }}>
-        <ReviewRow icon="edit" label="Mission title">{d.title || <span className="faint">Untitled mission</span>}</ReviewRow>
-        <ReviewRow icon={cat?.icon || "layers"} label="Category">{cat?.label}</ReviewRow>
-        <ReviewRow icon="users" label="Audience">{count.toLocaleString("en-IN")} matching members · {allFilters.length || "no"} filters</ReviewRow>
-        <ReviewRow icon={pt?.icon || "list"} label="Participation type">{pt?.label} · ~{pt?.est}</ReviewRow>
-        <ReviewRow icon={rw?.icon || "coins"} label="Reward">{rw?.needsAmt ? `${inr(d.reward.amount)} each` : rw?.label} · {d.reward.participants} participants</ReviewRow>
+        <ReviewRow icon="edit" label={t("createMission.missionTitleReviewLabel", null, "Mission title")}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
+        <ReviewRow icon={cat?.icon || "layers"} label={t("createMission.categoryLabel", null, "Category")}>{cat?.label}</ReviewRow>
+        <ReviewRow icon="users" label={t("createMission.audienceLabel", null, "Audience")}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
+        <ReviewRow icon={pt?.icon || "list"} label={t("createMission.participationTypeLabel", null, "Participation type")}>{pt?.label} · ~{pt?.est}</ReviewRow>
+        <ReviewRow icon={rw?.icon || "coins"} label={t("createMission.rewardLabel", null, "Reward")}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : rw?.label} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
       </div>
-      {d.desc && <div className="card" style={{ padding: 18, marginTop: 14 }}><span className="eyebrow">Description</span><p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.6 }}>{d.desc}</p></div>}
+      {d.desc && <div className="card" style={{ padding: 18, marginTop: 14 }}><span className="eyebrow">{t("createMission.descriptionEyebrow", null, "Description")}</span><p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.6 }}>{d.desc}</p></div>}
       {allFilters.length > 0 && (
         <div style={{ marginTop: 16 }}>
-          <span className="eyebrow">Audience filters</span>
+          <span className="eyebrow">{t("createMission.audienceFiltersEyebrow", null, "Audience filters")}</span>
           <div className="chips" style={{ marginTop: 10 }}>{allFilters.map(f => <span key={f} className="chip on" style={{ pointerEvents: "none" }}>{f}</span>)}</div>
         </div>
       )}
@@ -261,9 +272,11 @@ function deserializeDraft(jsonStr, emptyF) {
 }
 
 export default function CreateMissionWizard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { builder, refreshBuilder } = useAuth();
   const { categories, ptypes, rewards, filters, platformFeePct } = useMeta();
+  const WZ_STEPS = wzSteps(t);
 
   const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [busy, setBusy] = useState(false);
@@ -347,7 +360,7 @@ export default function CreateMissionWizard() {
       const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
       const geo = [...d.filters.Geography];
       const { mission } = await api.createMission({
-        name: d.title || "Untitled mission",
+        name: d.title || t("createMission.untitledMission", null, "Untitled mission"),
         description: d.desc,
         category: d.cat,
         ptype: d.ptype,
@@ -365,7 +378,7 @@ export default function CreateMissionWizard() {
       await refreshBuilder();
       navigate(`/missions/${mission.id}`);
     } catch (err) {
-      setError(err.message || "Couldn't publish this mission");
+      setError(err.message || t("createMission.publishError", null, "Couldn't publish this mission"));
     } finally {
       setBusy(false);
     }
@@ -388,7 +401,7 @@ export default function CreateMissionWizard() {
       <aside className="wz-rail">
         <div className="wz-brand">
           <BrandMark size={52} />
-          <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">New mission</div></div>
+          <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{t("createMission.newMission", null, "New mission")}</div></div>
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
@@ -399,14 +412,14 @@ export default function CreateMissionWizard() {
           ))}
         </div>
         <div className="wz-rail-foot">
-          <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> Exit to dashboard</button>
+          <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> {t("createMission.exitToDashboard", null, "Exit to dashboard")}</button>
         </div>
       </aside>
 
       <div className="wz-main">
         <div className="wz-content">
           <div className="wz-head">
-            <span className="step-of">Step {step + 1} of {WZ_STEPS.length}</span>
+            <span className="step-of">{t("createMission.stepOfTotal", { current: step + 1, total: WZ_STEPS.length }, `Step ${step + 1} of ${WZ_STEPS.length}`)}</span>
             <h2>{WZ_STEPS[step].t}</h2>
             <p>{WZ_STEPS[step].hint}</p>
           </div>
@@ -422,30 +435,30 @@ export default function CreateMissionWizard() {
 
       <div className="wz-foot">
         <div className="wz-foot-inner">
-          <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> Back</button>
-          <span className="fprog">Step <b>{step + 1}</b> / {WZ_STEPS.length}</span>
+          <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
+          <span className="fprog">{t("createMission.stepLabel", null, "Step")} <b>{step + 1}</b> / {WZ_STEPS.length}</span>
           <span className="grow" />
-          {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{liveCount.toLocaleString("en-IN")} members</span>}
-          {step === 4 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.</span>}
+          {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{t("createMission.membersCount", { count: liveCount.toLocaleString("en-IN") }, `${liveCount.toLocaleString("en-IN")} members`)}</span>}
+          {step === 4 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{t("createMission.estCost", { amount: inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants) }, `${inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.`)}</span>}
           <Btn variant="primary" iconRight={last ? "bolt" : "arrowRight"} disabled={!canNext || busy} onClick={goNext}>
-            {busy ? "Publishing…" : last ? "Publish Mission" : "Continue"}
+            {busy ? t("createMission.publishing", null, "Publishing…") : last ? t("createMission.publishMission", null, "Publish Mission") : t("createMission.continue", null, "Continue")}
           </Btn>
         </div>
       </div>
-      
+
       {showExitWarning && (
         <div style={{ display: "contents" }}>
           <div className="notif-overlay" onClick={() => setShowExitWarning(false)} />
           <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 400, maxWidth: "92vw", zIndex: 61,
             background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
             <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
-              <b style={{ fontSize: 15 }}>Unsaved Changes</b>
+              <b style={{ fontSize: 15 }}>{t("createMission.unsavedChangesTitle", null, "Unsaved Changes")}</b>
             </div>
             <div style={{ padding: 20 }}>
-              <p style={{ margin: "0 0 14px", fontSize: 14 }}>Are you sure you want to leave? Your progress has been auto-saved as a draft, but the mission hasn't been created yet.</p>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress has been auto-saved as a draft, but the mission hasn't been created yet.")}</p>
               <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-                <button className="btn outline" onClick={() => navigate("/")}>Leave Page</button>
-                <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>Stay on Page</button>
+                <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
+                <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
               </div>
             </div>
           </div>

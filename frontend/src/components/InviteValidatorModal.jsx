@@ -1,10 +1,73 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Btn, Avatar } from "./ui";
 import { Modal } from "./Modal";
 import { api } from "../api/client";
 import { toast } from "react-hot-toast";
 import Icon from "./Icon";
 import { useTranslation } from "../i18n/index.jsx";
+import { trFilterLabel } from "../data/audienceFilterLabels";
+
+const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
+  return (
+    <div className={`modal-list-item ${isSelected ? 'selected' : ''}`}>
+      <div className="row ac gap-3">
+        <Avatar name={v.name} size={38} />
+        <div>
+          <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
+            {v.name}
+            {v.verified && <Icon name="checkCircle" size={13} color="var(--success)" />}
+          </div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 2, display: "flex", alignItems: "center" }}>
+            {v.occ ? trFilterLabel(t, v.occ) : t("roles.member", null, "Member")} <span style={{ margin: "0 6px", fontSize: 16, color: "var(--border)" }}>•</span> {v.city ? trFilterLabel(t, v.city) : t("locations.remote", null, "Remote")}
+          </div>
+          <div className="row gap-2" style={{ marginTop: 6, flexWrap: "wrap" }}>
+            {(v.expertise || []).slice(0, 3).map(e => (
+              <span key={e} style={{ fontSize: 10.5, background: "var(--panel-inset)", padding: "2px 8px", borderRadius: 12, color: "var(--text-muted)", border: "none", fontWeight: 500 }}>{trFilterLabel(t, e)}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      <div className="modal-list-actions">
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 45 }}>
+          <span style={{ fontWeight: 700, color: "var(--accent)", fontSize: 15 }}>{v.match}%</span>
+          <span className="muted" style={{ fontSize: 10.5, marginTop: 2, fontWeight: 500 }}>{t("invite.matchLabel", null, "Match")}</span>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 60 }}>
+          <span style={{ fontWeight: 700, color: "var(--success)", fontSize: 15, display: "flex", alignItems: "center", gap: 4 }}>
+            <Icon name="shieldCheck" size={13} />
+            {v.trust}
+          </span>
+          <span className="muted" style={{ fontSize: 10.5, marginTop: 2, fontWeight: 500 }}>{t("metrics.trustScore", null, "Trust Score")}</span>
+        </div>
+        <div style={{ width: 100, textAlign: "right" }}>
+          {v.invitedStatus ? (
+            <span className="faint" style={{ fontSize: 12.5, fontWeight: 600 }}>
+              {v.invitedStatus === "accepted" ? t("invite.alreadyJoined", null, "Already joined") : t("invite.alreadyInvited", null, "Already invited")}
+            </span>
+          ) : (
+            <Btn
+              variant={isSelected ? "primary" : "ghost"}
+              size="sm"
+              icon={isSelected ? "check" : "plus"}
+              onClick={() => toggleSelection(v.id)}
+              style={{
+                border: isSelected ? "none" : "1px solid var(--accent)",
+                color: isSelected ? "#fff" : "var(--accent)",
+                background: isSelected ? "var(--accent)" : "transparent",
+                fontWeight: 600,
+                padding: "6px 16px",
+                borderRadius: 6
+              }}
+            >
+              {isSelected ? t("actions.selected", null, "Selected") : t("actions.invite", null, "Invite")}
+            </Btn>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 export function InviteValidatorModal({ mission, onClose }) {
   const { t } = useTranslation();
@@ -17,6 +80,7 @@ export function InviteValidatorModal({ mission, onClose }) {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [activeFilters, setActiveFilters] = useState(new Set());
   const [viewOnlySelected, setViewOnlySelected] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(20);
 
   useEffect(() => {
     api.audience({ missionId: mission.id })
@@ -38,19 +102,33 @@ export function InviteValidatorModal({ mission, onClose }) {
     return Array.from(skills).slice(0, 5); // Take top 5 skills
   }, [validators]);
 
-  const toggleFilter = (f) => {
-    const next = new Set(activeFilters);
-    if (next.has(f)) next.delete(f);
-    else next.add(f);
-    setActiveFilters(next);
-  };
+  // Derived state for occupations to show in filter pills
+  const availableOccupations = useMemo(() => {
+    const occs = new Set();
+    validators.forEach(v => {
+      if (v.occ && v.occ !== "Unspecified") occs.add(v.occ);
+    });
+    return Array.from(occs); // Show all occupations
+  }, [validators]);
 
-  const toggleSelection = (id) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedIds(next);
-  };
+  const toggleFilter = useCallback((f) => {
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
+    setVisibleCount(20);
+  }, []);
+
+  const toggleSelection = useCallback((id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   // Filtered validators based on search, pills, and view toggle
   const displayList = useMemo(() => {
@@ -71,7 +149,7 @@ export function InviteValidatorModal({ mission, onClose }) {
     }
     
     if (activeFilters.has(t("invite.recommended", null, "Recommended"))) {
-      list = [...list].sort((a, b) => b.match - a.match);
+      list = list.filter(v => v.match >= 80).sort((a, b) => b.match - a.match);
     }
     if (activeFilters.has(t("invite.trust90", null, "Trust 90+"))) {
       list = list.filter(v => v.trust >= 90);
@@ -83,8 +161,14 @@ export function InviteValidatorModal({ mission, onClose }) {
       }
     });
 
+    availableOccupations.forEach(o => {
+      if (activeFilters.has(o)) {
+        list = list.filter(v => v.occ === o);
+      }
+    });
+
     return list;
-  }, [validators, search, activeFilters, viewOnlySelected, selectedIds, availableSkills, t]);
+  }, [validators, search, activeFilters, viewOnlySelected, selectedIds, availableSkills, availableOccupations, t]);
 
   const handleBulkInvite = async () => {
     if (selectedIds.size === 0) return;
@@ -102,11 +186,11 @@ export function InviteValidatorModal({ mission, onClose }) {
   };
 
   return (
-    <Modal hideHeader={true} onClose={onClose} width={700}>
-      <div className="col" style={{ height: "85vh", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
+    <Modal hideHeader={true} onClose={onClose} width={850}>
+      <div className="col" style={{ height: "92vh", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
         
         {/* Fixed Header Section */}
-        <div style={{ padding: "24px 24px 16px", flexShrink: 0 }}>
+        <div style={{ padding: "16px 24px 12px", flexShrink: 0 }}>
           
           <style>{`
             .modal-scroll::-webkit-scrollbar { width: 8px; }
@@ -114,10 +198,21 @@ export function InviteValidatorModal({ mission, onClose }) {
             .modal-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 10px; border: 2px solid #fff; }
             .modal-scroll::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
             
-            .modal-list-item { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px dashed var(--border); gap: 16px; }
-            .modal-list-actions { display: flex; align-items: center; gap: 40px; }
+            .pill-row-scroll::-webkit-scrollbar { height: 8px !important; display: block !important; -webkit-appearance: none !important; }
+            .pill-row-scroll::-webkit-scrollbar-track { background: #e2e8f0 !important; border-radius: 10px; margin: 0 4px; }
+            .pill-row-scroll::-webkit-scrollbar-thumb { background: var(--accent) !important; border-radius: 10px; border: 2px solid #e2e8f0; }
+            .pill-row-scroll > button { flex-shrink: 0; }
             
-            .modal-footer-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border); background: var(--panel); border-bottom-left-radius: var(--radius-lg); border-bottom-right-radius: var(--radius-lg); gap: 16px; }
+            .modal-list-item { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px dashed var(--border); gap: 12px; border-radius: 8px; transition: all 0.2s ease; margin-bottom: 4px; }
+            .modal-list-item:hover { background: var(--panel-inset); border-bottom-color: transparent; }
+            .modal-list-item.selected { background: var(--accent-weak); border-bottom-color: transparent; box-shadow: 0 0 0 1px var(--accent); }
+            
+            .modal-list-actions { display: flex; align-items: center; gap: 24px; }
+            
+            .search-wrapper { transition: all 0.2s ease; border: 1px solid var(--border) !important; }
+            .search-wrapper:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--accent-weak); }
+            
+            .modal-footer-bar { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; border-top: 1px solid var(--border); background: var(--panel); border-bottom-left-radius: var(--radius-lg); border-bottom-right-radius: var(--radius-lg); gap: 16px; }
             
             @media (max-width: 600px) {
               .modal-list-item { flex-direction: column; align-items: flex-start; }
@@ -137,30 +232,41 @@ export function InviteValidatorModal({ mission, onClose }) {
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{t("invite.inviteParticipants", null, "Invite Participants")}</h2>
                 <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
-                  {validators.length} {t("invite.membersMatchReqs", null, "members match your mission requirements.")}
+                  {displayList.length} {t("invite.membersMatchReqs", null, "members match your mission requirements.")}
                 </p>
               </div>
             </div>
-            <button className="icon-btn" aria-label="Close" style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+            <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
               <Icon name="x" size={15} />
             </button>
           </div>
           
-          <div className="row ac" style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", border: "1px solid var(--border)", marginBottom: 16 }}>
+          <div className="row ac search-wrapper" style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
             <Icon name="search" size={16} color="var(--text-muted)" style={{ marginRight: 10 }} />
             <input 
               type="text" 
               placeholder={t("invite.searchPlaceholder", null, "Search by name, role, skills, city...")} 
               value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="fin"
+              onChange={e => {
+                setSearch(e.target.value);
+                setVisibleCount(20);
+              }}
               style={{ border: "none", background: "transparent", padding: 0, width: "100%", outline: "none", fontSize: 14 }}
             />
           </div>
 
           {/* Filter Pills */}
-          <div className="row ac" style={{ flexWrap: "wrap", paddingBottom: 4, gap: 8 }}>
-            <div className="row ac gap-2" style={{ flexWrap: "wrap", flex: 1 }}>
+          <div className="row" style={{ paddingBottom: 8, gap: 8, alignItems: "flex-start", borderBottom: "1px solid var(--border)", marginBottom: 16 }}>
+            <div 
+              className="row ac gap-2 pill-row-scroll" 
+              style={{ 
+                flexWrap: "nowrap", 
+                flex: 1, 
+                overflowX: "auto", 
+                paddingBottom: 12,
+                WebkitOverflowScrolling: "touch"
+              }}
+            >
               <Btn 
                 variant={activeFilters.has(t("invite.recommended", null, "Recommended")) ? "primary" : "ghost"} 
                 size="sm" 
@@ -168,7 +274,7 @@ export function InviteValidatorModal({ mission, onClose }) {
                 onClick={() => toggleFilter(t("invite.recommended", null, "Recommended"))}
                 style={{ borderRadius: 20, border: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "none" : "1px solid var(--border)", background: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "var(--accent-weak)" : "transparent", color: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "var(--accent)" : "inherit" }}
               >
-                Recommended
+                {t("invite.recommended", null, "Recommended")}
               </Btn>
               <Btn 
                 variant={activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "primary" : "ghost"} 
@@ -177,17 +283,28 @@ export function InviteValidatorModal({ mission, onClose }) {
                 onClick={() => toggleFilter(t("invite.trust90", null, "Trust 90+"))}
                 style={{ borderRadius: 20, border: activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "none" : "1px solid var(--border)" }}
               >
-                Trust 90+
+                {t("invite.trust90", null, "Trust 90+")}
               </Btn>
-              {availableSkills.map(s => (
+              {availableOccupations.map(o => (
                 <Btn 
-                  key={s}
-                  variant={activeFilters.has(s) ? "primary" : "ghost"} 
+                  key={o}
+                  variant={activeFilters.has(o) ? "primary" : "ghost"} 
                   size="sm" 
+                  onClick={() => toggleFilter(o)}
+                  style={{ borderRadius: 20, border: activeFilters.has(o) ? "none" : "1px solid var(--border)" }}
+                >
+                  {trFilterLabel(t, o)}
+                </Btn>
+              ))}
+              {availableSkills.map(s => (
+                <Btn
+                  key={s}
+                  variant={activeFilters.has(s) ? "primary" : "ghost"}
+                  size="sm"
                   onClick={() => toggleFilter(s)}
                   style={{ borderRadius: 20, border: activeFilters.has(s) ? "none" : "1px solid var(--border)" }}
                 >
-                  {s}
+                  {trFilterLabel(t, s)}
                 </Btn>
               ))}
             </div>
@@ -222,68 +339,23 @@ export function InviteValidatorModal({ mission, onClose }) {
             <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noMatchesFound", null, "No matches found for these filters.")}</div>
           ) : (
             <div className="col gap-0">
-              {displayList.map(v => {
-                const isSelected = selectedIds.has(v.id);
-                return (
-                  <div key={v.id} className="modal-list-item">
-                    <div className="row ac gap-3">
-                      <Avatar name={v.name} size={42} />
-                      <div>
-                        <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 14 }}>
-                          {v.name}
-                          {v.verified && <Icon name="checkCircle" size={14} color="var(--success)" />}
-                        </div>
-                        <div className="muted" style={{ fontSize: 12, marginTop: 4, display: "flex", alignItems: "center" }}>
-                          {v.occ || t("roles.member", null, "Member")} <span style={{ margin: "0 8px", fontSize: 16, color: "var(--border)" }}>•</span> {v.city || t("locations.remote", null, "Remote")}
-                        </div>
-                        <div className="row gap-2" style={{ marginTop: 8, flexWrap: "wrap" }}>
-                          {(v.expertise || []).slice(0, 3).map(e => (
-                            <span key={e} style={{ fontSize: 11, background: "var(--panel-inset)", padding: "4px 10px", borderRadius: 12, color: "var(--text-muted)", border: "none", fontWeight: 500 }}>{e}</span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="modal-list-actions">
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 50 }}>
-                        <span style={{ fontWeight: 700, color: "var(--accent)", fontSize: 16 }}>{v.match}%</span>
-                        <span className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: 500 }}>{t("invite.matchLabel", null, "Match")}</span>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 70 }}>
-                        <span style={{ fontWeight: 700, color: "var(--success)", fontSize: 16, display: "flex", alignItems: "center", gap: 4 }}>
-                          <Icon name="shieldCheck" size={14} />
-                          {v.trust}
-                        </span>
-                        <span className="muted" style={{ fontSize: 11, marginTop: 4, fontWeight: 500 }}>{t("metrics.trustScore", null, "Trust Score")}</span>
-                      </div>
-                      <div style={{ width: 100, textAlign: "right" }}>
-                        {v.invitedStatus ? (
-                          <span className="faint" style={{ fontSize: 12.5, fontWeight: 600 }}>
-                            {v.invitedStatus === "accepted" ? t("invite.alreadyJoined", null, "Already joined") : t("invite.alreadyInvited", null, "Already invited")}
-                          </span>
-                        ) : (
-                          <Btn
-                            variant={isSelected ? "primary" : "ghost"}
-                            size="sm"
-                            icon={isSelected ? "check" : "plus"}
-                            onClick={() => toggleSelection(v.id)}
-                            style={{
-                              border: isSelected ? "none" : "1px solid var(--accent)",
-                              color: isSelected ? "#fff" : "var(--accent)",
-                              background: isSelected ? "var(--accent)" : "transparent",
-                              fontWeight: 600,
-                              padding: "6px 16px",
-                              borderRadius: 6
-                            }}
-                          >
-                            {isSelected ? t("actions.selected", null, "Selected") : t("actions.invite", null, "Invite")}
-                          </Btn>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {displayList.slice(0, visibleCount).map(v => (
+                <ValidatorListItem
+                  key={v.id}
+                  v={v}
+                  isSelected={selectedIds.has(v.id)}
+                  toggleSelection={toggleSelection}
+                  t={t}
+                />
+              ))}
+              
+              {visibleCount < displayList.length && (
+                <div style={{ textAlign: "center", marginTop: 24, marginBottom: 12 }}>
+                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 50)}>
+                    {t("actions.loadMore", null, "Load more")} ({displayList.length - visibleCount})
+                  </Btn>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -315,7 +387,10 @@ export function InviteValidatorModal({ mission, onClose }) {
               {selectedIds.size > 0 && (
                 <span 
                   style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 600 }} 
-                  onClick={() => setViewOnlySelected(!viewOnlySelected)}
+                  onClick={() => {
+                    setViewOnlySelected(!viewOnlySelected);
+                    setVisibleCount(20);
+                  }}
                 >
                   {viewOnlySelected ? t("actions.viewAll", null, "View all") : t("actions.viewSelected", null, "View selected")}
                 </span>

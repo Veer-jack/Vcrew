@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function InterviewSchedule() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [mission, setMission] = useState(null);
@@ -27,14 +29,14 @@ export default function InterviewSchedule() {
         setMission(data.mission);
         setSchedule(data.schedule);
       } catch {
-        setError("Couldn't load interview schedule.");
+        setError(t("missions.couldntLoadInterviewSchedule", null, "Couldn't load interview schedule."));
       } finally {
         setLoading(false);
       }
     })();
   }, [id, navigate]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading schedule…</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("missions.loadingSchedule", null, "Loading schedule…")}</div></div>;
   if (error) return <div className="page rise"><div className="muted">{error}</div></div>;
 
   const respond = async (accept) => {
@@ -43,7 +45,7 @@ export default function InterviewSchedule() {
       return;
     }
     if (!accept && !declineReason.trim()) {
-      setError("Please provide a reason so the builder can propose a better time.");
+      setError(t("missions.provideDeclineReason", null, "Please provide a reason so the builder can propose a better time."));
       return;
     }
 
@@ -55,7 +57,7 @@ export default function InterviewSchedule() {
       setSchedule(s => ({ ...s, status: accept ? "accepted" : "declined", validator_notes: accept ? null : JSON.stringify(payload) }));
       setDeclining(false);
     } catch (err) {
-      setError(err.message || "Couldn't respond — try again.");
+      setError(err.message || t("missions.couldntRespond", null, "Couldn't respond — try again."));
     } finally {
       setBusy(false);
     }
@@ -73,45 +75,45 @@ export default function InterviewSchedule() {
 
         {!schedule && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>Waiting for a time to be proposed</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>The builder hasn't proposed a time yet. You'll see it here once they do.</p>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.waitingForTime", null, "Waiting for a time to be proposed")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.noTimeProposedDesc", null, "The builder hasn't proposed a time yet. You'll see it here once they do.")}</p>
           </>
         )}
 
         {status === "proposed" && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{mission?.ptype === "focus" ? "Focus group time proposed" : "Interview time proposed"}</h2>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{mission?.ptype === "focus" ? t("missions.focusTimeProposed", null, "Focus group time proposed") : t("missions.interviewTimeProposed", null, "Interview time proposed")}</h2>
             <div className="card" style={{ padding: 16, marginBottom: 20, textAlign: "left" }}>
-              <div style={{ fontSize: 13, marginBottom: 4 }}><b>When:</b> {new Date(schedule.scheduled_at).toLocaleString()}</div>
-              {schedule.meeting_link && <div style={{ fontSize: 13 }}><b>Link:</b> <a href={schedule.meeting_link} target="_blank" rel="noopener noreferrer">{schedule.meeting_link}</a></div>}
+              <div style={{ fontSize: 13, marginBottom: 4 }}><b>{t("missions.when", null, "When:")}</b> {new Date(schedule.scheduled_at).toLocaleString()}</div>
+              {schedule.meeting_link && <div style={{ fontSize: 13 }}><b>{t("missions.link", null, "Link:")}</b> <a href={schedule.meeting_link} target="_blank" rel="noopener noreferrer">{schedule.meeting_link}</a></div>}
             </div>
             
             {declining ? (
               <div className="card" style={{ padding: 16, marginBottom: 20, textAlign: "left", border: "1px solid var(--warning)", background: "var(--warning-weak)" }}>
-                <h3 style={{ fontSize: 15, margin: "0 0 12px", color: "var(--warning)" }}>Why doesn't this time work?</h3>
-                <textarea className="fin" style={{ marginBottom: 12, minHeight: 80, background: "var(--panel)" }} placeholder="Reason for declining..." value={declineReason} onChange={e => setDeclineReason(e.target.value)} />
-                <h3 style={{ fontSize: 15, margin: "0 0 12px", color: "var(--warning)" }}>Suggest an alternative time range</h3>
+                <h3 style={{ fontSize: 15, margin: "0 0 12px", color: "var(--warning)" }}>{t("missions.whyDoesntTimeWork", null, "Why doesn't this time work?")}</h3>
+                <textarea className="fin" style={{ marginBottom: 12, minHeight: 80, background: "var(--panel)" }} placeholder={t("missions.reasonForDeclining", null, "Reason for declining...")} value={declineReason} onChange={e => setDeclineReason(e.target.value)} />
+                <h3 style={{ fontSize: 15, margin: "0 0 12px", color: "var(--warning)" }}>{t("missions.suggestAltTime", null, "Suggest an alternative time range")}</h3>
                 <select className="fin" style={{ marginBottom: 12, background: "var(--panel)" }} value={declineTimeHint} onChange={e => setDeclineTimeHint(e.target.value)}>
-                  <option value="">(Optional) No preference</option>
-                  <option value="9am-11am">Mornings: 9:00 AM - 11:00 AM</option>
-                  <option value="11am-1pm">Mid-day: 11:00 AM - 1:00 PM</option>
-                  <option value="1pm-3pm">Afternoon: 1:00 PM - 3:00 PM</option>
-                  <option value="3pm-5pm">Late Afternoon: 3:00 PM - 5:00 PM</option>
-                  <option value="5pm-7pm">Evenings: 5:00 PM - 7:00 PM</option>
-                  <option value="7pm-9pm">Late Evenings: 7:00 PM - 9:00 PM</option>
+                  <option value="">{t("missions.noPreference", null, "(Optional) No preference")}</option>
+                  <option value="9am-11am">{t("missions.timeMornings", null, "Mornings: 9:00 AM - 11:00 AM")}</option>
+                  <option value="11am-1pm">{t("missions.timeMidday", null, "Mid-day: 11:00 AM - 1:00 PM")}</option>
+                  <option value="1pm-3pm">{t("missions.timeAfternoon", null, "Afternoon: 1:00 PM - 3:00 PM")}</option>
+                  <option value="3pm-5pm">{t("missions.timeLateAfternoon", null, "Late Afternoon: 3:00 PM - 5:00 PM")}</option>
+                  <option value="5pm-7pm">{t("missions.timeEvenings", null, "Evenings: 5:00 PM - 7:00 PM")}</option>
+                  <option value="7pm-9pm">{t("missions.timeLateEvenings", null, "Late Evenings: 7:00 PM - 9:00 PM")}</option>
                 </select>
                 {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}
                 <div className="row gap-2">
-                  <Btn variant="primary" disabled={busy} onClick={() => respond(false)}>{busy ? "Saving…" : "Submit decline"}</Btn>
-                  <Btn variant="ghost" disabled={busy} onClick={() => setDeclining(false)}>Cancel</Btn>
+                  <Btn variant="primary" disabled={busy} onClick={() => respond(false)}>{busy ? t("actions.saving", null, "Saving…") : t("actions.submitDecline", null, "Submit decline")}</Btn>
+                  <Btn variant="ghost" disabled={busy} onClick={() => setDeclining(false)}>{t("actions.cancel", null, "Cancel")}</Btn>
                 </div>
               </div>
             ) : (
               <>
                 {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
                 <div className="row gap-2" style={{ justifyContent: "center" }}>
-                  <Btn variant="primary" disabled={busy} onClick={() => respond(true)}>{busy ? "Saving…" : "Accept this time"}</Btn>
-                  <Btn variant="ghost" disabled={busy} onClick={() => respond(false)}>Decline</Btn>
+                  <Btn variant="primary" disabled={busy} onClick={() => respond(true)}>{busy ? t("actions.saving", null, "Saving…") : t("actions.acceptThisTime", null, "Accept this time")}</Btn>
+                  <Btn variant="ghost" disabled={busy} onClick={() => respond(false)}>{t("actions.decline", null, "Decline")}</Btn>
                 </div>
               </>
             )}
@@ -120,8 +122,8 @@ export default function InterviewSchedule() {
 
         {status === "declined" && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>You declined this time</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>Waiting for the builder to propose a new time.</p>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.youDeclinedTime", null, "You declined this time")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.waitingNewTimeDesc", null, "Waiting for the builder to propose a new time.")}</p>
             {schedule.validator_notes && (
               <div className="card" style={{ padding: 16, marginBottom: 20, textAlign: "left", fontSize: 13, border: "1px solid var(--border)" }}>
                 {(() => {
@@ -129,8 +131,8 @@ export default function InterviewSchedule() {
                     const parsed = JSON.parse(schedule.validator_notes);
                     return (
                       <>
-                        <div style={{ marginBottom: parsed.timeRange ? 8 : 0 }}><b>Your reason:</b> {parsed.reason}</div>
-                        {parsed.timeRange && <div><b>Your suggestion:</b> {parsed.timeRange}</div>}
+                        <div style={{ marginBottom: parsed.timeRange ? 8 : 0 }}><b>{t("missions.yourReason", null, "Your reason:")}</b> {parsed.reason}</div>
+                        {parsed.timeRange && <div><b>{t("missions.yourSuggestion", null, "Your suggestion:")}</b> {parsed.timeRange}</div>}
                       </>
                     );
                   } catch { return null; }
@@ -142,17 +144,17 @@ export default function InterviewSchedule() {
 
         {status === "accepted" && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>You're confirmed</h2>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.youAreConfirmed", null, "You're confirmed")}</h2>
             <div className="card" style={{ padding: 16, marginBottom: 20, textAlign: "left" }}>
-              <div style={{ fontSize: 13, marginBottom: 4 }}><b>When:</b> {new Date(schedule.scheduled_at).toLocaleString()}</div>
-              {schedule.meeting_link && <div style={{ fontSize: 13 }}><b>Link:</b> <a href={schedule.meeting_link} target="_blank" rel="noopener noreferrer">{schedule.meeting_link}</a></div>}
+              <div style={{ fontSize: 13, marginBottom: 4 }}><b>{t("missions.when", null, "When:")}</b> {new Date(schedule.scheduled_at).toLocaleString()}</div>
+              {schedule.meeting_link && <div style={{ fontSize: 13 }}><b>{t("missions.link", null, "Link:")}</b> <a href={schedule.meeting_link} target="_blank" rel="noopener noreferrer">{schedule.meeting_link}</a></div>}
             </div>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>After the {mission?.ptype === "focus" ? "focus group" : "interview"}, the builder will mark it complete and you'll be able to finish your review here.</p>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.afterInterviewDesc", { type: mission?.ptype === "focus" ? t("missions.focusGroupText", null, "focus group") : t("missions.interviewText", null, "interview") }, `After the ${mission?.ptype === "focus" ? "focus group" : "interview"}, the builder will mark it complete and you'll be able to finish your review here.`)}</p>
           </>
         )}
 
         <div style={{ marginTop: 20 }}>
-          <Btn variant="ghost" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>Go to Workspace (Tasks)</Btn>
+          <Btn variant="ghost" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>{t("actions.goToWorkspace", null, "Go to Workspace (Tasks)")}</Btn>
         </div>
       </div>
     </div>

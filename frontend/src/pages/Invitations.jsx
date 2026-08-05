@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Btn, Empty } from "../components/ui";
+import Icon from "../components/Icon";
 import { api } from "../api/client";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "../i18n/index.jsx";
@@ -32,15 +33,12 @@ export default function Invitations() {
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
 
-  const load = () => {
-    setLoading(true);
+  useEffect(() => {
     api.missionInvitations()
       .then(res => setInvitations(res.invitations || []))
       .catch(() => toast.error(t("invitations.failedToLoad", null, "Failed to load invitations")))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, []);
+  }, [t]);
 
   const handleCancel = async (inv) => {
     setCancellingId(inv.id);
@@ -88,7 +86,13 @@ export default function Invitations() {
                   <td>
                     <div className="t-name">
                       <Avatar name={inv.validator.name} size={32} />
-                      <div>{inv.validator.name}<div className="t-sub">{inv.validator.city}</div></div>
+                      <div>
+                        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                          {inv.validator.name}
+                          {inv.isWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
+                        </div>
+                        <div className="t-sub">{inv.validator.city}</div>
+                      </div>
                     </div>
                   </td>
                   <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
@@ -96,7 +100,7 @@ export default function Invitations() {
                   <td>
                     {inv.status === "pending" && (
                       <Btn variant="ghost" size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)}>
-                        {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Uninvite")}
+                        {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
                       </Btn>
                     )}
                   </td>

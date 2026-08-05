@@ -4,8 +4,10 @@ import Icon from "../components/Icon";
 import { vapi } from "../vapi/client";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { VTypeTag } from "../vcomponents/vui";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function MissionResults() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { vtypes } = useVMeta();
@@ -15,10 +17,10 @@ export default function MissionResults() {
     vapi.task(id).then(setData); 
   }, [id]);
 
-  if (!data) return <div className="page rise"><div className="muted">Loading results…</div></div>;
+  if (!data) return <div className="page rise"><div className="muted">{t("missions.loadingResults", null, "Loading results…")}</div></div>;
 
   const { task } = data;
-  const t = vtypes[task.type];
+  const vType = vtypes[task.type];
 
   // Render stars
   const renderStars = (score) => {
@@ -40,7 +42,7 @@ export default function MissionResults() {
     <div className="page" style={{ maxWidth: 640, margin: "0 auto", textAlign: "center", paddingTop: "8vh" }}>
       
       <button className="btn btn-quiet rise" onClick={() => navigate("/validator/missions")} style={{ position: "absolute", top: 24, left: 16 }}>
-        <Icon name="arrowLeft" />My missions
+        <Icon name="arrowLeft" />{t("actions.myMissions", null, "My missions")}
       </button>
 
       <div className="rise" style={{ animationDelay: "0.1s" }}>
@@ -48,28 +50,28 @@ export default function MissionResults() {
           <Icon name="award" size={40} />
         </div>
         
-        <h1 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 8px", letterSpacing: "-.02em" }}>Mission Approved!</h1>
+        <h1 style={{ fontSize: 32, fontWeight: 800, margin: "0 0 8px", letterSpacing: "-.02em" }}>{t("missions.missionApproved", null, "Mission Approved!")}</h1>
         <p className="muted" style={{ fontSize: 16, margin: "0 0 32px" }}>
-          Great job on completing the <b>{task.product}</b> mission.
+          {t("missions.greatJobCompleting", { product: task.product }, `Great job on completing the ${task.product} mission.`)}
         </p>
 
         <div className="card" style={{ padding: "32px 24px", textAlign: "center", border: "2px solid var(--warning-weak)", background: "color-mix(in srgb, var(--warning) 3%, transparent)" }}>
-          <div className="eyebrow" style={{ color: "var(--warning)", marginBottom: 12 }}>You Earned</div>
+          <div className="eyebrow" style={{ color: "var(--warning)", marginBottom: 12 }}>{t("missions.youEarned", null, "You Earned")}</div>
           <div style={{ fontSize: 48, fontWeight: 800, color: "var(--success)", letterSpacing: "-.03em", marginBottom: 8 }}>
             ₹{task.reward}
           </div>
-          <div className="faint" style={{ fontSize: 13 }}>Added to your pending balance</div>
+          <div className="faint" style={{ fontSize: 13 }}>{t("missions.addedToPendingBalance", null, "Added to your pending balance")}</div>
 
           <hr style={{ margin: "32px 0", borderColor: "var(--border-weak)" }} />
           
-          <div className="eyebrow" style={{ marginBottom: 16 }}>Your Rating</div>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>{t("missions.yourRating", null, "Your Rating")}</div>
           <div className="row justify-center" style={{ marginBottom: 16 }}>
             {renderStars(task.myScore)}
           </div>
           
           {task.myReason && (
             <div style={{ background: "var(--bg)", padding: 16, borderRadius: 12, textAlign: "left", border: "1px solid var(--border)" }}>
-              <div className="eyebrow" style={{ marginBottom: 8 }}>Feedback</div>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>{t("missions.feedback", null, "Feedback")}</div>
               <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>"{task.myReason}"</p>
             </div>
           )}
@@ -77,7 +79,7 @@ export default function MissionResults() {
 
         <div style={{ marginTop: 40 }}>
           <button className="btn btn-primary btn-lg" onClick={() => navigate("/validator")} style={{ width: "100%", justifyContent: "center" }}>
-            Find more missions <Icon name="arrowRight" />
+            {t("actions.findMoreMissions", null, "Find more missions")} <Icon name="arrowRight" />
           </button>
         </div>
       </div>

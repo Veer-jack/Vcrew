@@ -26,6 +26,12 @@ router.get("/", async (req, res) => {
   // Order by rating so highest rated real validators show up first
   sql += ` ORDER BY rating DESC`;
 
+  const { limit } = req.query;
+  if (limit) {
+    sql += ` LIMIT ?`;
+    params.push(parseInt(limit, 10));
+  }
+
   const rows = await db.prepare(sql).all(...params);
 
   let invitedMap = {};
@@ -76,14 +82,7 @@ router.get("/", async (req, res) => {
   res.json({ members: mapped, filters: FILTERS });
 });
 
-// POST /api/audience/match-count { Geography, Demographics, Professional, Interests, "ValidationCrew Role" }
-// Real, filter-aware count against the actual validators table — same audience shape and
-// matching semantics as the Audience Explorer's client-side matchOption(), just done in SQL
-// (a WHERE clause returning one number) instead of fetching every one of ~3,000 rows over
-// the network and filtering in JS on every keystroke. Each group is AND'd together; values
-// within a group are OR'd, matching the original client-side semantics exactly.
-router.post("/match-count", async (req, res) => {
-  const audience = req.body || {};
+export async function getRealMatchCount(db, audience) {
   const clauses = [];
   const params = [];
 
@@ -91,8 +90,9 @@ router.post("/match-count", async (req, res) => {
     if (!Array.isArray(values) || !values.length) continue;
 
     if (group === "Geography") {
-      if (values.some(v => /worldwide|remote/i.test(v))) continue; // matches everyone — no restriction needed
-      const ors = values.map(v => {
+      const specificGeo = values.filter(v => !/worldwide|remote/i.test(v));
+      if (specificGeo.length === 0) continue; // matches everyone — no restriction needed
+      const ors = specificGeo.map(v => {
         params.push(`%${v}%`, `%${v}%`, `%${v}%`, `%${v}%`, `%${v}%`);
         return `(city ILIKE ? OR location ILIKE ? OR address_city ILIKE ? OR address_state ILIKE ? OR address_country ILIKE ?)`;
       });
@@ -131,10 +131,18 @@ router.post("/match-count", async (req, res) => {
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  // Passed as a single array, not spread: db.js's param-flattening helper unwraps a
-  // *single* array-valued bind param (our `= ANY(?)` case) when spread produces exactly
-  // one argument — this call shape is what that helper actually expects instead.
   const row = await db.prepare(`SELECT COUNT(*) AS c FROM validators ${where}`).get(params);
+  return parseInt(row.c, 10) || 0;
+}
 
-  res.json({ count: parseInt(row.c, 10) || 0 });
+// POST /api/audience/match-count { Geography, Demographics, Professional, Interests, "ValidationCrew Role" }
+// Real, filter-aware count against the actual validators table — same audience shape and
+// matching semantics as the Audience Explorer's client-side matchOption(), just done in SQL
+// (a WHERE clause returning one number) instead of fetching every one of ~3,000 rows over
+// the network and filtering in JS on every keystroke. Each group is AND'd together; values
+// within a group are OR'd, matching the original client-side semantics exactly.
+router.post("/match-count", async (req, res) => {
+  const audience = req.body || {};
+  const count = await getRealMatchCount(db, audience);
+  res.json({ count });
 });

@@ -7,6 +7,8 @@ import { useAuth } from "../context/AuthContext";
 import { PERSONA_CONFIG, buildAudienceQuery } from "../data/personaConfig";
 import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
+import { useTranslation } from "../i18n/index.jsx";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 const REGION = "india"; // ValidationCrew's primary market today; no region switcher yet.
 
@@ -18,9 +20,10 @@ const PERSONA_NAME_FIELD = {
 };
 
 function StepRail({ steps, current, maxReached, onJump }) {
+  const { t } = useTranslation();
   return (
     <aside className="wiz-rail">
-      <div className="eyebrow" style={{ marginBottom: 14 }}>Your setup</div>
+      <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
       <div className="col gap-1">
         {steps.map((s, i) => {
           const state = i < current ? "done" : i === current ? "current" : "upcoming";
@@ -42,6 +45,7 @@ function StepRail({ steps, current, maxReached, onJump }) {
 }
 
 function SuccessScreen({ persona, d, builder, onFinish }) {
+  const { t } = useTranslation();
   const items = persona.summary(d, REGION);
   const [matched, setMatched] = useState(null);
 
@@ -52,7 +56,7 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
   }, []);
 
   const allItems = persona.matchedNoun
-    ? [...items, { label: "Matched audience", value: matched === null ? "Counting…" : `${matched.toLocaleString("en-US")} ${persona.matchedNoun}` }]
+    ? [...items, { label: t("onboarding.matchedAudience", null, "Matched audience"), value: matched === null ? t("onboarding.counting", null, "Counting…") : `${matched.toLocaleString("en-US")} ${persona.matchedNoun}` }]
     : items;
 
   return (
@@ -60,9 +64,9 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
       <div className="brand-mark" style={{ margin: "0 auto 18px", background: "var(--success-weak)", color: "var(--success)" }}>
         <Icon name="checkCircle" size={20} />
       </div>
-      <h1 style={{ fontSize: 24, marginBottom: 8 }}>You're all set, {(builder?.name || d.fullName || "").split(" ")[0] || "there"}</h1>
+      <h1 style={{ fontSize: 24, marginBottom: 8 }}>{t("onboarding.youreAllSet", null, "You're all set,")} {(builder?.name || d.fullName || "").split(" ")[0] || t("onboarding.thereFallback", null, "there")}</h1>
       <p className="muted" style={{ marginBottom: 24, fontSize: 14 }}>
-        {persona.workspace(d)} is ready. We're already lining up {persona.noun === "study" ? "participants" : "validators"} who match your audience.
+        {persona.workspace(d)} {t("onboarding.isReadyLiningUp", { noun: persona.noun === "study" ? t("onboarding.participants", null, "participants") : t("onboarding.validators", null, "validators") }, `is ready. We're already lining up ${persona.noun === "study" ? "participants" : "validators"} who match your audience.`)}
       </p>
       <div className="card" style={{ padding: 18, textAlign: "left", marginBottom: 22 }}>
         {allItems.map((it, i) => (
@@ -72,12 +76,13 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
           </div>
         ))}
       </div>
-      <Btn variant="primary" block onClick={onFinish}>Go to my dashboard</Btn>
+      <Btn variant="primary" block onClick={onFinish}>{t("actions.goToDashboard", null, "Go to my dashboard")}</Btn>
     </div>
   );
 }
 
 export default function OnboardingWizard() {
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const role = params.get("role") || "founder";
   const persona = PERSONA_CONFIG[role];
@@ -114,33 +119,33 @@ export default function OnboardingWizard() {
 
   // Prevent accidental reload or back button if they've made progress
   const isDirty = !done && (step > 0 || Object.keys(d).length > 0);
-  useUnsavedChangesWarning(isDirty, "You're still setting up your account. Are you sure you want to leave and lose your progress?");
+  useUnsavedChangesWarning(isDirty, t("onboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
 
   const saveDraft = (newStep, newMaxReached, currentD) => {
     if (done) return;
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: newStep, maxReached: newMaxReached, d: currentD }));
-    } catch {}
+    } catch { /* ignore */ }
   };
+
+  const stepKey = persona ? persona.steps[step].key : null;
+  const StepComponent = persona ? persona.components[stepKey] : null;
+  const isValid = useMemo(() => persona ? persona.validate(stepKey, d, REGION) : false, [persona, stepKey, d]);
+  const isLast = persona ? step === persona.steps.length - 1 : false;
 
   if (!persona) {
     return (
       <div className="auth-shell">
         <div className="card auth-card rise">
-          <h1>Unknown role</h1>
-          <p className="muted">That onboarding path doesn't exist. <a href="/get-started/feedback">Go back</a></p>
+          <h1>{t("onboarding.unknownRole", null, "Unknown role")}</h1>
+          <p className="muted">{t("onboarding.pathNoExist", null, "That onboarding path doesn't exist.")} <a href="/get-started/feedback">{t("actions.goBack", null, "Go back")}</a></p>
         </div>
       </div>
     );
   }
 
-  const stepKey = persona.steps[step].key;
-  const StepComponent = persona.components[stepKey];
-  const isValid = useMemo(() => persona.validate(stepKey, d, REGION), [persona, stepKey, d]);
-  const isLast = step === persona.steps.length - 1;
-
   const goNext = async () => {
-    if (!isValid) { setError("Please fill in the required fields before continuing."); return; }
+    if (!isValid) { setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.")); return; }
     setError("");
     if (!isLast) {
       const next = step + 1;
@@ -162,10 +167,10 @@ export default function OnboardingWizard() {
         persona: role,
         profile: d,
       });
-      try { localStorage.removeItem(DRAFT_KEY); } catch {}
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setDone(true);
     } catch (err) {
-      setError(err.message || "Couldn't save your profile");
+      setError(err.message || t("onboarding.couldntSaveProfile", null, "Couldn't save your profile"));
     } finally {
       setBusy(false);
     }
@@ -198,18 +203,19 @@ export default function OnboardingWizard() {
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
         <span className="pill" style={{ marginLeft: 10 }}>{persona.name}</span>
         <div style={{ flex: 1 }} />
-        <button 
+        <LanguageSwitcher style={{ marginRight: 16 }} />
+        <button
           onClick={() => {
             window.__bypassUnload = true;
             localStorage.removeItem(DRAFT_KEY);
             window.location.reload();
           }}
-          className="faint" 
+          className="faint"
           style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginRight: 16 }}
         >
-          Start over
+          {t("actions.startOver", null, "Start over")}
         </button>
-        <a href="/" onClick={() => { window.__bypassUnload = true; }} className="faint" style={{ fontSize: 13 }}>Skip for now</a>
+        <a href="/" onClick={() => { window.__bypassUnload = true; }} className="faint" style={{ fontSize: 13 }}>{t("actions.skipForNow", null, "Skip for now")}</a>
       </header>
 
       <div className="wiz-body-grid">
@@ -218,9 +224,9 @@ export default function OnboardingWizard() {
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} />
           <div className="row gap-3" style={{ marginTop: 28 }}>
-            {step > 0 && <Btn variant="ghost" onClick={goBack}>Back</Btn>}
+            {step > 0 && <Btn variant="ghost" onClick={goBack}>{t("actions.back", null, "Back")}</Btn>}
             <Btn variant="primary" onClick={goNext} disabled={busy}>
-              {busy ? "Creating account…" : isLast ? "Create my workspace" : "Continue"}
+              {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
             </Btn>
           </div>
         </div>

@@ -86,10 +86,12 @@ export async function sendValidatorWelcome({ name, email }) {
   return send({ from: FROM_VALIDATOR, to: email, subject: `Welcome to the Crew, ${name.split(" ")[0]}`, html });
 }
 
+import { frontendUrl } from "./oauth.js";
+
 /* ---- Password reset ---- */
 
 export async function sendPasswordReset({ name, email, token, role }) {
-  const resetUrl = `${APP_URL}/${role === "validator" ? "validator/" : ""}reset-password?token=${token}`;
+  const resetUrl = `${frontendUrl()}/${role === "validator" ? "validator/" : ""}reset-password?token=${token}`;
   const html = baseLayout(`
     <h1>Reset your password</h1>
     <p>Hi ${name.split(" ")[0]}, we received a request to reset the password for your ValidationCrew account.</p>

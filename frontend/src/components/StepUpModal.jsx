@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../firebaseClient";
+import { useTranslation } from "../i18n/index.jsx";
 
 // `client` exposes firebaseConfig()/stepUpVerify(idToken). `phone` is the
 // account's already-verified phone number. On success, calls onVerified(stepUpToken).
-export default function StepUpModal({ client, phone, title = "Confirm it's you", onVerified, onClose }) {
+export default function StepUpModal({ client, phone, title, onVerified, onClose }) {
+  const { t } = useTranslation();
+  const displayTitle = title || t("auth.confirmItsYou", null, "Confirm it's you");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
@@ -17,12 +20,12 @@ export default function StepUpModal({ client, phone, title = "Confirm it's you",
     setError(""); setBusy(true);
     try {
       const auth = await getFirebaseAuth(client.firebaseConfig);
-      if (!auth) throw new Error("Phone verification isn't configured on this server yet");
+      if (!auth) throw new Error(t("auth.phoneVerificationNotConfigured", null, "Phone verification isn't configured on this server yet"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
       confirmationRef.current = await signInWithPhoneNumber(auth, phone, recaptchaRef.current);
       setSent(true);
     } catch (err) {
-      setError(err.message || "Couldn't send code");
+      setError(err.message || t("auth.couldntSendCode", null, "Couldn't send code"));
     } finally { setBusy(false); }
   };
 
@@ -37,7 +40,7 @@ export default function StepUpModal({ client, phone, title = "Confirm it's you",
       const res = await client.stepUpVerify(idToken);
       onVerified(res.stepUpToken);
     } catch (err) {
-      setError(err.message || "Couldn't verify code");
+      setError(err.message || t("auth.couldntVerifyCode", null, "Couldn't verify code"));
     } finally { setBusy(false); }
   };
 
@@ -48,16 +51,16 @@ export default function StepUpModal({ client, phone, title = "Confirm it's you",
         background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
           <b style={{ fontSize: 15 }}>{title}</b>
-          <button className="icon-btn" aria-label="Close" style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
+          <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
         </div>
         <div style={{ padding: 20 }}>
           {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}
-          {sent && <p className="muted" style={{ margin: "0 0 14px", fontSize: 13.5 }}>Enter the 6-digit code we just sent to {phone}.</p>}
+          {sent && <p className="muted" style={{ margin: "0 0 14px", fontSize: 13.5 }}>{t("auth.enter6DigitCodeSent", { phone }, `Enter the 6-digit code we just sent to ${phone}.`)}</p>}
           <form onSubmit={verify} className="col gap-3">
             <input className="fin" inputMode="numeric" maxLength={6} placeholder="123456" value={code} onChange={e => setCode(e.target.value)} autoFocus required />
             <div ref={containerRef} />
-            <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? "Verifying…" : "Verify and continue"}</button>
-            <button className="backlink" type="button" onClick={send} disabled={busy} style={{ margin: "0 auto" }}>Resend code</button>
+            <button className="btn btn-primary" type="submit" disabled={busy}>{busy ? t("actions.verifying", null, "Verifying…") : t("actions.verifyAndContinue", null, "Verify and continue")}</button>
+            <button className="backlink" type="button" onClick={send} disabled={busy} style={{ margin: "0 auto" }}>{t("actions.resendCode", null, "Resend code")}</button>
           </form>
         </div>
       </div>

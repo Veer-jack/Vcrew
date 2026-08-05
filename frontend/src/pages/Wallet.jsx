@@ -7,33 +7,36 @@ import { Btn, KpiCard, inr, inrK } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { exportCSV } from "../exportUtils";
+import { useTranslation } from "../i18n/index.jsx";
 
-const TABS = [
-  { k: "transactions", l: "Transaction history", ic: "list" },
-  { k: "invoices", l: "Invoices", ic: "fileText" },
-  { k: "methods", l: "Payment methods", ic: "creditCard" },
-];
+// TABS defined in component
 
 const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
 
-function loadRazorpayScript() {
+function loadRazorpayScript(t) {
   return new Promise((resolve, reject) => {
     if (window.Razorpay) return resolve();
     const existing = document.querySelector(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
     if (existing) {
       existing.addEventListener("load", () => resolve());
-      existing.addEventListener("error", () => reject(new Error("Couldn't load payment widget")));
+      existing.addEventListener("error", () => reject(new Error(t("wallet.errPaymentWidget", null, "Couldn't load payment widget"))));
       return;
     }
     const script = document.createElement("script");
     script.src = RAZORPAY_SCRIPT_URL;
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Couldn't load payment widget"));
+    script.onerror = () => reject(new Error(t("wallet.errPaymentWidget", null, "Couldn't load payment widget")));
     document.body.appendChild(script);
   });
 }
 
 export default function Wallet() {
+  const { t } = useTranslation();
+  const TABS = [
+    { k: "transactions", l: t("wallet.tabTransactions", null, "Transaction history"), ic: "list" },
+    { k: "invoices", l: t("wallet.tabInvoices", null, "Invoices"), ic: "fileText" },
+    { k: "methods", l: t("wallet.tabMethods", null, "Payment methods"), ic: "creditCard" },
+  ];
   const navigate = useNavigate();
   const { builder, refreshBuilder } = useAuth();
   const [tab, setTab] = useState("transactions");
@@ -53,7 +56,7 @@ export default function Wallet() {
     return () => clearTimeout(t);
   }, [tab]);
 
-  const load = () => { setLoadError(""); return api.wallet().then(setData).catch(err => setLoadError(err.message || "Couldn't load your wallet")); };
+  const load = () => { setLoadError(""); return api.wallet().then(setData).catch(err => setLoadError(err.message || t("wallet.errLoadWallet", null, "Couldn't load your wallet"))); };
   useEffect(() => {
     const t = setTimeout(() => load(), 0);
     return () => clearTimeout(t);
@@ -63,16 +66,16 @@ export default function Wallet() {
   if (loadError) return (
     <div className="page rise">
       <div className="err-banner" style={{ marginBottom: 12 }}>{loadError}</div>
-      <Btn variant="ghost" onClick={load}>Retry</Btn>
+      <Btn variant="ghost" onClick={load}>{t("actions.retry", null, "Retry")}</Btn>
     </div>
   );
-  if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
+  if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const payWithCard = async () => {
     setBusy(true); setError(""); setInfo("");
     try {
       const order = await api.createOrder(Number(amount));
-      await loadRazorpayScript();
+      await loadRazorpayScript(t);
 
       const rzp = new window.Razorpay({
         key: order.keyId,
@@ -80,7 +83,7 @@ export default function Wallet() {
         amount: order.amount * 100,
         currency: order.currency,
         name: "ValidationCrew",
-        description: "Wallet top-up",
+        description: t("wallet.walletTopup", null, "Wallet top-up"),
         prefill: { name: builder?.name, email: builder?.email },
         theme: { color: "#4f46e5" },
         handler: async (response) => {
@@ -91,11 +94,11 @@ export default function Wallet() {
               signature: response.razorpay_signature,
               amount: order.amount,
             });
-            setInfo("Payment received — your wallet has been topped up.");
+            setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
             setAdding(false);
             await Promise.all([load(), refreshBuilder()]);
           } catch (err) {
-            setError(err.message || "Couldn't verify payment");
+            setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
           } finally {
             setBusy(false);
           }
@@ -106,7 +109,7 @@ export default function Wallet() {
       });
       rzp.open();
     } catch (err) {
-      setError(err.message || "Couldn't start checkout");
+      setError(err.message || t("wallet.errStartCheckout", null, "Couldn't start checkout"));
       setBusy(false);
     }
   };
@@ -114,8 +117,8 @@ export default function Wallet() {
   const exportStatement = () => {
     exportCSV(
       "wallet_statement.csv",
-      ["Date", "Description", "Type", "Amount"],
-      data.transactions.map(t => [t.date, t.description, t.type, t.amount])
+      [t("wallet.thDate", null, "Date"), t("wallet.thDescription", null, "Description"), t("wallet.thType", null, "Type"), t("wallet.thAmountInr", null, "Amount (INR)")],
+      data.transactions.map(txn => [txn.date, txn.description, txn.type, txn.amount])
     );
   };
 
@@ -125,15 +128,15 @@ export default function Wallet() {
     doc.text("ValidationCrew", 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100, 100, 100);
-    doc.text("Invoice", 14, 30);
+    doc.text(t("wallet.thInvoice", null, "Invoice"), 14, 30);
     doc.setTextColor(20, 20, 20);
     doc.setFontSize(13);
     const rows = [
-      ["Invoice", inv.id],
-      ["Date", inv.date],
-      ["Status", inv.status],
-      ["Billed to", builder?.org || "—"],
-      ["Amount", inr(inv.amount)],
+      [t("wallet.thInvoice", null, "Invoice"), inv.id],
+      [t("wallet.thDate", null, "Date"), inv.date],
+      [t("wallet.invoiceStatus", null, "Status"), inv.status],
+      [t("wallet.billedTo", null, "Billed to"), builder?.org || "—"],
+      [t("wallet.thAmount", null, "Amount"), inr(inv.amount)],
     ];
     let y = 46;
     for (const [label, value] of rows) {
@@ -152,7 +155,7 @@ export default function Wallet() {
       setAdding(false); setStepUp(false);
     } catch (err) {
       if (err.code === "STEP_UP_REQUIRED") { setStepUp(true); return; }
-      setError(err.message || "Couldn't add funds");
+      setError(err.message || t("wallet.errAddFunds", null, "Couldn't add funds"));
       setStepUp(false);
     } finally {
       setBusy(false);
@@ -162,8 +165,8 @@ export default function Wallet() {
   return (
     <div className="page rise">
       <div className="ph">
-        <div><span className="eyebrow">Wallet &amp; billing</span><h1>Wallet</h1><p className="lead">Top up, track mission spend and manage how {builder?.org} pays.</p></div>
-        <div className="ph-actions"><Btn variant="ghost" icon="download" onClick={exportStatement}>Statement</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>Add funds</Btn></div>
+        <div><span className="eyebrow">{t("wallet.walletAndBilling", null, "Wallet & billing")}</span><h1>{t("wallet.title", null, "Wallet")}</h1><p className="lead">{t("wallet.lead", { org: builder?.org }, `Top up, track mission spend and manage how ${builder?.org} pays.`)}</p></div>
+        <div className="ph-actions"><Btn variant="ghost" icon="download" onClick={exportStatement}>{t("actions.statement", null, "Statement")}</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>{t("actions.addFunds", null, "Add funds")}</Btn></div>
       </div>
 
       {error && !adding && (
@@ -181,21 +184,21 @@ export default function Wallet() {
           {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}
           <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
             <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-              <label>Amount to add</label>
+              <label>{t("wallet.amountToAdd", null, "Amount to add")}</label>
               <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} /></div>
             </div>
             {cardsReady ? (
-              <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? "Opening…" : "Pay with card / UPI"}</Btn>
+              <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? t("actions.opening", null, "Opening…") : t("actions.payWithCardUpi", null, "Pay with card / UPI")}</Btn>
             ) : (
-              <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? "Adding…" : "Add to wallet"}</Btn>
+              <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? t("actions.adding", null, "Adding…") : t("actions.addToWallet", null, "Add to wallet")}</Btn>
             )}
-            <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>Cancel</Btn>
+            <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
           </div>
-          {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>Online payments aren't set up yet — this adds funds directly for testing.</p>}
+          {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>{t("wallet.onlinePaymentsNotSetup", null, "Online payments aren't set up yet — this adds funds directly for testing.")}</p>}
         </div>
       )}
       {stepUp && (
-        <StepUpModal client={api} phone={builder?.phone} title="Verify wallet top-up"
+        <StepUpModal client={api} phone={builder?.phone} title={t("wallet.verifyWalletTopup", null, "Verify wallet top-up")}
           onVerified={(token) => addFunds(token)}
           onClose={() => { setStepUp(false); setBusy(false); }} />
       )}
@@ -203,39 +206,39 @@ export default function Wallet() {
       <div className="wallet-hero sec">
         <div className="balance-card">
           <div className="bc-ring" />
-          <div className="bc-lab">Available balance</div>
+          <div className="bc-lab">{t("wallet.availableBalance", null, "Available balance")}</div>
           <div className="bc-num">{inr(data.balance)}</div>
           <div className="bc-grid">
-            <div><div className="l">In escrow</div><div className="v">{inr(data.pending)}</div></div>
-            <div><div className="l">This month</div><div className="v">{inr(data.monthSpend)}</div></div>
+            <div><div className="l">{t("wallet.inEscrow", null, "In escrow")}</div><div className="v">{inr(data.pending)}</div></div>
+            <div><div className="l">{t("wallet.thisMonth", null, "This month")}</div><div className="v">{inr(data.monthSpend)}</div></div>
           </div>
         </div>
-        <KpiCard label="Total spend (all time)" value={inrK(data.transactions.filter(t => t.type === "debit").reduce((s, t) => s + t.amount, 0))} icon="wallet" />
-        <KpiCard label="Pending charges" value={inr(data.pending)} icon="clock" tone="amber" />
+        <KpiCard label={t("wallet.totalSpendAllTime", null, "Total spend (all time)")} value={inrK(data.transactions.filter(t => t.type === "debit").reduce((s, t) => s + t.amount, 0))} icon="wallet" />
+        <KpiCard label={t("wallet.pendingCharges", null, "Pending charges")} value={inr(data.pending)} icon="clock" tone="amber" />
       </div>
 
       <div className="utabs sec">
-        {TABS.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}><Icon name={t.ic} size={15} />{t.l}</button>)}
+        {TABS.map(tab => <button key={tab.k} className={tab === tab.k ? "on" : ""} onClick={() => setTab(tab.k)}><Icon name={tab.ic} size={15} />{tab.l}</button>)}
       </div>
 
       {tab === "transactions" && (
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Date</th><th>Description</th><th>Type</th><th style={{ textAlign: "right" }}>Amount</th></tr></thead>
+            <thead><tr><th>{t("wallet.thDate", null, "Date")}</th><th>{t("wallet.thDescription", null, "Description")}</th><th>{t("wallet.thType", null, "Type")}</th><th style={{ textAlign: "right" }}>{t("wallet.thAmount", null, "Amount")}</th></tr></thead>
             <tbody>
-              {data.transactions.slice(0, visibleCount).map((t) => (
-                <tr key={t.id} className={t.missionId ? "click" : ""} onClick={() => t.missionId && navigate(`/missions/${t.missionId}`)}>
-                  <td className="mono" style={{ color: "var(--text-muted)", fontSize: 12.5 }}>{t.date}</td>
-                  <td style={{ fontWeight: 600 }}>{t.description}</td>
-                  <td><span className={`st ${t.type === "credit" ? "st-active" : "st-draft"}`}><span className="d" />{t.type === "credit" ? "Credit" : "Debit"}</span></td>
-                  <td className="num" style={{ color: t.type === "credit" ? "var(--success)" : "var(--text)" }}>{t.type === "credit" ? "+" : "–"}{inr(t.amount)}</td>
+              {data.transactions.slice(0, visibleCount).map((txn) => (
+                <tr key={txn.id} className={txn.missionId ? "click" : ""} onClick={() => txn.missionId && navigate(`/missions/${txn.missionId}`)}>
+                  <td className="mono" style={{ color: "var(--text-muted)", fontSize: 12.5 }}>{txn.date}</td>
+                  <td style={{ fontWeight: 600 }}>{txn.description}</td>
+                  <td><span className={`st ${txn.type === "credit" ? "st-active" : "st-draft"}`}><span className="d" />{txn.type === "credit" ? t("wallet.credit", null, "Credit") : t("wallet.debit", null, "Debit")}</span></td>
+                  <td className="num" style={{ color: txn.type === "credit" ? "var(--success)" : "var(--text)" }}>{txn.type === "credit" ? "+" : "–"}{inr(txn.amount)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {visibleCount < data.transactions.length && (
             <div style={{ textAlign: "center", padding: 16 }}>
-              <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>Load more transactions</Btn>
+              <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreTransactions", null, "Load more transactions")}</Btn>
             </div>
           )}
         </div>
@@ -244,7 +247,7 @@ export default function Wallet() {
       {tab === "invoices" && (
         <div className="tbl-wrap">
           <table className="tbl">
-            <thead><tr><th>Invoice</th><th>Date</th><th>Status</th><th style={{ textAlign: "right" }}>Amount</th><th style={{ width: 60 }}></th></tr></thead>
+            <thead><tr><th>{t("wallet.thInvoice", null, "Invoice")}</th><th>{t("wallet.thDate", null, "Date")}</th><th>{t("wallet.invoiceStatus", null, "Status")}</th><th style={{ textAlign: "right" }}>{t("wallet.thAmount", null, "Amount")}</th><th style={{ width: 60 }}></th></tr></thead>
             <tbody>
               {data.invoices.slice(0, visibleCount).map((v) => (
                 <tr key={v.id}>
@@ -252,14 +255,14 @@ export default function Wallet() {
                   <td className="muted">{v.date}</td>
                   <td><span className="st st-active"><span className="d" />{v.status}</span></td>
                   <td className="num">{inr(v.amount)}</td>
-                  <td><button className="icon-btn" style={{ width: 32, height: 32 }} title="Download" onClick={() => downloadInvoice(v)}><Icon name="download" size={15} /></button></td>
+                  <td><button className="icon-btn" style={{ width: 32, height: 32 }} title={t("actions.download", null, "Download")} onClick={() => downloadInvoice(v)}><Icon name="download" size={15} /></button></td>
                 </tr>
               ))}
             </tbody>
           </table>
           {visibleCount < data.invoices.length && (
             <div style={{ textAlign: "center", padding: 16 }}>
-              <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>Load more invoices</Btn>
+              <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreInvoices", null, "Load more invoices")}</Btn>
             </div>
           )}
         </div>
@@ -271,19 +274,19 @@ export default function Wallet() {
             {data.paymentMethods.map((p) => (
               <div className="pm-row" key={p.id}>
                 <span className="pm-ic">{p.brand}</span>
-                <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 14 }}>{p.brand === "UPI" ? p.last4 : `•••• ${p.last4}`}</div><div className="faint" style={{ fontSize: 12 }}>{p.exp !== "—" ? `Expires ${p.exp}` : "UPI handle"}</div></div>
-                {p.primary && <span className="st st-completed"><span className="d" />Primary</span>}
+                <div style={{ flex: 1 }}><div style={{ fontWeight: 700, fontSize: 14 }}>{p.brand === "UPI" ? p.last4 : `•••• ${p.last4}`}</div><div className="faint" style={{ fontSize: 12 }}>{p.exp !== "—" ? t("wallet.expires", { exp: p.exp }, `Expires ${p.exp}`) : t("wallet.upiHandle", null, "UPI handle")}</div></div>
+                {p.primary && <span className="st st-completed"><span className="d" />{t("wallet.primary", null, "Primary")}</span>}
               </div>
             ))}
-            <Btn variant="ghost" size="sm" icon="plus" style={{ marginTop: 14 }}>Add payment method</Btn>
+            <Btn variant="ghost" size="sm" icon="plus" style={{ marginTop: 14 }}>{t("actions.addPaymentMethod", null, "Add payment method")}</Btn>
           </div>
           <div className="sticky-side">
             <div className="estcard accent">
-              <span className="eyebrow">Billing summary</span>
+              <span className="eyebrow">{t("wallet.billingSummary", null, "Billing summary")}</span>
               <div className="est-num" style={{ margin: "8px 0 14px" }}>{inr(data.monthSpend)}</div>
-              <div className="est-row"><span className="lab">Plan</span><span className="v">{builder?.plan}</span></div>
-              <div className="est-row"><span className="lab">Billing cycle</span><span className="v">Monthly</span></div>
-              <div className="est-row"><span className="lab">Next invoice</span><span className="v">1 Jul</span></div>
+              <div className="est-row"><span className="lab">{t("wallet.plan", null, "Plan")}</span><span className="v">{builder?.plan}</span></div>
+              <div className="est-row"><span className="lab">{t("wallet.billingCycle", null, "Billing cycle")}</span><span className="v">{t("wallet.monthly", null, "Monthly")}</span></div>
+              <div className="est-row"><span className="lab">{t("wallet.nextInvoice", null, "Next invoice")}</span><span className="v">{t("wallet.nextInvoiceDate", null, "1 Jul")}</span></div>
             </div>
           </div>
         </div>

@@ -23,8 +23,10 @@ router.get("/:provider", async (req, res) => {
   if (!provider || !isConfigured(req.params.provider)) {
     return res.status(404).send(`${req.params.provider} login is not configured on this server yet.`);
   }
+  const mode = req.query.mode || "signin";
   const state = crypto.randomBytes(16).toString("hex");
   res.cookie(STATE_COOKIE, state, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: "none", secure: true });
+  res.cookie(STATE_COOKIE + "_mode", mode, { httpOnly: true, maxAge: 10 * 60 * 1000, sameSite: "none", secure: true });
   res.redirect(provider.authorizeUrl(state, BASE_PATH));
 });
 
@@ -41,7 +43,9 @@ router.get("/:provider/callback", async (req, res) => {
   if (error) return res.redirect(`${FRONTEND}/login?error=${encodeURIComponent(String(error))}`);
 
   const expectedState = req.cookies?.[STATE_COOKIE];
+  const mode = req.cookies?.[STATE_COOKIE + "_mode"] || "signin";
   res.clearCookie(STATE_COOKIE);
+  res.clearCookie(STATE_COOKIE + "_mode");
   if (!code || !state || !expectedState || state !== expectedState) {
     return res.redirect(`${FRONTEND}/login?error=${encodeURIComponent("Login session expired, please try again")}`);
   }
@@ -64,6 +68,9 @@ router.get("/:provider/callback", async (req, res) => {
 
     // 3) otherwise create a brand new builder account
     if (!builder) {
+      if (mode === "signin") {
+        return res.redirect(`${FRONTEND}/login?error=${encodeURIComponent("Account not found. Please create an account first.")}`);
+      }
       const randomPassword = await hashPassword(crypto.randomBytes(24).toString("hex"));
       const name = profile.name || profile.email.split("@")[0];
       await db.prepare(`

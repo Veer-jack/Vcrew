@@ -56,9 +56,7 @@ export const api = {
   raiseTicket: (payload) => request("/support/tickets", { method: "POST", body: payload }),
   getTicket: (id) => request(`/support/tickets/${id}`),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
-  phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
-  phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
-  phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
+
   stepUpVerify: (idToken) => request("/wallet/stepup/verify", { method: "POST", body: { idToken } }),
 
   meta: () => request("/meta"),
@@ -83,6 +81,7 @@ export const api = {
   markInterviewCompleted: (missionId, validatorId) => request(`/missions/${missionId}/schedules/${validatorId}/complete`, { method: "POST" }),
   missionPoll: (missionId) => request(`/missions/${missionId}/poll`),
   createMissionPoll: (missionId, payload) => request(`/missions/${missionId}/poll`, { method: "POST", body: payload }),
+  deleteMissionPoll: (missionId) => request(`/missions/${missionId}/poll`, { method: "DELETE" }),
   lockPollSlot: (missionId, slotId) => request(`/missions/${missionId}/poll/lock`, { method: "POST", body: { slotId } }),
   completeMissionPoll: (missionId) => request(`/missions/${missionId}/poll/complete`, { method: "POST" }),
   flagResponse: (missionId, responseId, flagged) =>
@@ -92,6 +91,8 @@ export const api = {
     return request(`/missions/invitations${qs.toString() ? `?${qs}` : ""}`);
   },
   cancelInvite: (missionId, validatorId) => request(`/missions/${missionId}/invite/${validatorId}`, { method: "DELETE" }),
+  removeParticipant: (missionId, validatorId) => request(`/missions/${missionId}/participants/${validatorId}`, { method: "DELETE" }),
+  missionWaitlist: (missionId) => request(`/missions/${missionId}/waitlist`),
 
   audience: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v));
