@@ -19,3 +19,8 @@
   50% { opacity: 0.3; }
   100% { opacity: 1; }
 }
+
+/* Ensure the native date picker calendar icon shows a pointer cursor */
+input::-webkit-calendar-picker-indicator {
+  cursor: pointer !important;
+}

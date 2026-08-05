@@ -36,7 +36,7 @@ export async function recalcMissionStats(missionId, optionalTx) {
   // Fire once, exactly at the crossing point — not on every recalc, so builders
   // aren't re-notified on subsequent revision/reject churn once already full.
   if ((m.submitted || 0) < target && submitted >= target) {
-    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'mission_full_submissions', 'checkCircle', 'success', 'All responses are in', ?, 'Just now', 1)`)
-      .run(m.builder_id, `All ${target} response(s) for "${m.name}" are in — head to Review to approve or reject them.`);
+    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'mission_full_submissions', 'checkCircle', 'success', 'All responses are in', ?, 'Just now', 1, ?)`)
+      .run(m.builder_id, `All ${target} response(s) for "${m.name}" are in — head to Review to approve or reject them.`, missionId);
   }
 }

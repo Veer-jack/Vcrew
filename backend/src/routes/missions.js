@@ -477,12 +477,27 @@ router.patch("/:id", async (req, res) => {
       
       // Notify saved users when mission completes or closes
       if ((newStatus === "completed" && m.status !== "completed") || (newStatus === "closed" && m.status !== "closed")) {
-        // Find everyone who saved it
-        const savedValidators = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(m.id);
-        for (const sv of savedValidators) {
+        const isCompleted = newStatus === "completed";
+        const title = isCompleted ? "Mission Completed" : "Mission Closed";
+        const body = isCompleted 
+          ? `The mission "${m.name}" you saved has been completed by the builder.` 
+          : `The mission "${m.name}" you saved has been closed by the builder. We'll meet you in another mission!`;
+        const icon = isCompleted ? "checkCircle" : "flag";
+        
+        // Find everyone who saved it or is participating
+        const validatorsToNotify = await tx.prepare(`
+          SELECT DISTINCT validator_id 
+          FROM (
+            SELECT validator_id FROM v_saved WHERE task_id = ?
+            UNION
+            SELECT validator_id FROM v_my_missions WHERE mission_id = ?
+          ) as combined
+        `).all(m.id, m.id);
+        
+        for (const sv of validatorsToNotify) {
           // Send polite notification
-          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'mission_completed', 'flag', 'muted', ?, ?, 'Just now', 1)`)
-            .run(sv.validator_id, "Mission Closed", `The mission "${m.name}" you saved has been closed by the builder. We'll meet you in another mission!`);
+          await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'mission_completed', ?, 'muted', ?, ?, 'Just now', 1, ?)`)
+            .run(sv.validator_id, icon, title, body, m.id);
         }
       }
 
@@ -860,9 +875,10 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const responses = await db.prepare(`
-    SELECT r.*, v.name, v.handle, v.rating as trust_score
+    SELECT r.*, v.name, v.handle, v.rating as trust_score, p.joined_at
     FROM responses r
     LEFT JOIN validators v ON v.id = r.validator_id
+    LEFT JOIN participants p ON p.mission_id = r.mission_id AND p.validator_id = r.validator_id
     WHERE r.mission_id = ? AND r.status != 'draft'
     ORDER BY r.submitted_at DESC
   `).all(req.params.id);
@@ -965,7 +981,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         status: r.status || "pending",
         quality: r.flagged ? "flagged" : "medium",
         date: new Date(r.submitted_at).toLocaleDateString(),
-        mins: 20,
+        mins: r.joined_at ? Math.max(1, Math.round((new Date(r.submitted_at) - new Date(r.joined_at)) / 60000)) : 20,
         tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
         breakdown,
         data,
@@ -1078,8 +1094,8 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
       // The mission just opened up 1 slot from being full! Notify waitlisted validators
       const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
       for (const sv of savedVals) {
-        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,1)`)
-          .run(sv.validator_id, "alert", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for ${updatedMission.name}.`, "Just now");
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+          .run(sv.validator_id, "alert", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for ${updatedMission.name}.`, "Just now", req.params.id);
       }
     }
 

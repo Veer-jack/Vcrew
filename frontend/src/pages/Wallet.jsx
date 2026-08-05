@@ -48,10 +48,16 @@ export default function Wallet() {
   const [loadError, setLoadError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
 
-  useEffect(() => { setVisibleCount(20); }, [tab]);
+  useEffect(() => {
+    const t = setTimeout(() => setVisibleCount(20), 0);
+    return () => clearTimeout(t);
+  }, [tab]);
 
   const load = () => { setLoadError(""); return api.wallet().then(setData).catch(err => setLoadError(err.message || "Couldn't load your wallet")); };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => load(), 0);
+    return () => clearTimeout(t);
+  }, []);
   useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
 
   if (loadError) return (

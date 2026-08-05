@@ -17,8 +17,14 @@ export default function Messages() {
   const [visibleThreadsCount, setVisibleThreadsCount] = useState(30);
   const [visibleMessagesCount, setVisibleMessagesCount] = useState(50);
 
-  useEffect(() => { setVisibleThreadsCount(30); }, [q]);
-  useEffect(() => { setVisibleMessagesCount(50); }, [activeId]);
+  useEffect(() => {
+    const t = setTimeout(() => setVisibleThreadsCount(30), 0);
+    return () => clearTimeout(t);
+  }, [q]);
+  useEffect(() => {
+    const t = setTimeout(() => setVisibleMessagesCount(50), 0);
+    return () => clearTimeout(t);
+  }, [activeId]);
 
   useEffect(() => {
     api.threads().then(d => {

@@ -313,15 +313,15 @@ router.post("/:id/withdraw", async (req, res) => {
     await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
 
     // Notify Builder
-    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'user_minus', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
-      .run(mission.builder_id, "Validator Withdrew", `${req.validator.name} has gracefully withdrawn from "${mission.name}". Their slot is now open.`);
+    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'system', 'user_minus', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+      .run(mission.builder_id, "Validator Withdrew", `${req.validator.name} has gracefully withdrawn from "${mission.name}". Their slot is now open.`, req.params.id);
 
     // If it was full and now isn't, notify waitlist
     if (wasFull) {
       const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
       for (const sv of savedVals) {
-        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,1,?)`)
-          .run(sv.validator_id, "alert", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for "${mission.name}".`, "Just now", req.params.id);
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+          .run(sv.validator_id, "alert", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for "${mission.name}".`, "Just now", req.params.id);
       }
     }
   });
@@ -450,14 +450,14 @@ router.patch("/:id/workspace/submit", async (req, res) => {
     if (existing.status === 'revision') {
       // Notify Builder
       await db.prepare(`
-        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-        VALUES (?, 'application', 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1)
-      `).run(m.builder_id, `A validator has updated their response for ${m.name} and is ready for your review.`);
+        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+        VALUES (?, 'application', 'submission', 'check', 'accent', 'Revision Submitted', ?, 'Just now', 1, ?)
+      `).run(m.builder_id, `A validator has updated their response for ${m.name} and is ready for your review.`, req.params.id);
     } else if (existing.status === 'draft') {
       await db.prepare(`
-        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-        VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1)
-      `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`);
+        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+        VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1, ?)
+      `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`, req.params.id);
     }
     await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
       .run(JSON.stringify(answers || {}), existing.id);
@@ -466,9 +466,9 @@ router.patch("/:id/workspace/submit", async (req, res) => {
       .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
     
     await db.prepare(`
-      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-      VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1)
-    `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`);
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1, ?)
+    `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`, req.params.id);
     
     await recalcMissionStats(req.params.id, db);
   }
@@ -565,8 +565,8 @@ router.post("/:id/shipment/received", async (req, res) => {
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This sample hasn't been marked as shipped yet" });
 
-  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shipment_received', 'package', 'success', ?, ?, 'Just now', 1)`)
-    .run(m.builder_id, "Sample Received", `${req.validator.name} has received the sample for ${m.name}.`);
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'system', 'shipment_received', 'package', 'success', ?, ?, 'Just now', 1, ?)`)
+    .run(m.builder_id, "Sample Received", `${req.validator.name} has received the sample for ${m.name}.`, req.params.id);
 
   res.json({ ok: true });
 });
@@ -599,9 +599,9 @@ router.post("/:id/schedule/accept", async (req, res) => {
 
   const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
   await db.prepare(`
-    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-    VALUES (?, 'application', 'schedule_accepted', 'calendar', 'success', 'Interview Accepted', ?, 'Just now', 1)
-  `).run(m.builder_id, `${val ? val.name : 'A validator'} has accepted the interview time for "${m.name}".`);
+    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+    VALUES (?, 'application', 'schedule_accepted', 'calendar', 'success', 'Interview Accepted', ?, 'Just now', 1, ?)
+  `).run(m.builder_id, `${val ? val.name : 'A validator'} has accepted the interview time for "${m.name}".`, req.params.id);
 
   res.json({ ok: true });
 });
@@ -619,8 +619,8 @@ router.post("/:id/schedule/decline", async (req, res) => {
     .run(notes, req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to decline" });
 
-  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'schedule_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
-    .run(m.builder_id, "Interview Declined", `${req.validator.name} declined the proposed interview time for ${m.name}.`);
+  await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'system', 'schedule_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+    .run(m.builder_id, "Interview Declined", `${req.validator.name} declined the proposed interview time for ${m.name}.`, req.params.id);
 
   res.json({ ok: true });
 });
@@ -676,12 +676,22 @@ router.post("/:id/poll/respond", async (req, res) => {
     }
   }
 
+  const previousResponses = await db.prepare(`SELECT 1 FROM focus_group_responses WHERE poll_id = ? AND validator_id = ? LIMIT 1`).get(poll.id, req.validator.id);
+  const isUpdate = !!previousResponses;
+
   await db.transaction(async (tx) => {
     await tx.prepare(`DELETE FROM focus_group_responses WHERE poll_id = ? AND validator_id = ?`).run(poll.id, req.validator.id);
     for (const slotId of slotIds) {
       await tx.prepare(`INSERT INTO focus_group_responses (poll_id, validator_id, slot_id) VALUES (?, ?, ?)`).run(poll.id, req.validator.id, slotId);
     }
   });
+
+  if (!isUpdate) {
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'application', 'submission', 'calendar', 'primary', 'Focus Group Availability', ?, 'Just now', 1, ?)
+    `).run(m.builder_id, `${req.validator.name} has submitted their availability for the focus group in "${m.name}".`, m.id);
+  }
 
   res.json({ ok: true });
 });
@@ -708,9 +718,9 @@ router.post("/:id/checkin", async (req, res) => {
     await db.prepare(`UPDATE participants SET stage = 'failed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
     
     await db.prepare(`
-      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-      VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1)
-    `).run(m.builder_id, `A validator failed the mission "${m.name}" due to missed check-ins.`);
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1, ?)
+    `).run(m.builder_id, `A validator failed the mission "${m.name}" due to missed check-ins.`, req.params.id);
 
     await db.prepare(`
       INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
@@ -734,9 +744,9 @@ router.post("/:id/checkin", async (req, res) => {
 
   const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
   await db.prepare(`
-    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread)
-    VALUES (?, 'application', 'checkin', 'check', 'accent', 'Review Completed', ?, 'Just now', 1)
-  `).run(m.builder_id, `Day ${sequentialDay} review completed by ${val ? val.name : 'a validator'} for mission "${m.name}".`);
+    INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+    VALUES (?, 'application', 'checkin', 'check', 'accent', 'Review Completed', ?, 'Just now', 1, ?)
+  `).run(m.builder_id, `Day ${sequentialDay} review completed by ${val ? val.name : 'a validator'} for mission "${m.name}".`, req.params.id);
 
   res.json({ ok: true });
 });
@@ -769,8 +779,8 @@ router.post("/invitations/:id/accept", async (req, res) => {
       await tx.prepare(`UPDATE missions SET joined = ? WHERE id = ?`).run(newJoined, m.id);
       
       // Notify Builder
-      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
-        .run(m.builder_id, "Invite Accepted", `${req.validator.name} has accepted your invitation and joined ${m.name}.`);
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)`)
+        .run(m.builder_id, "Invite Accepted", `${req.validator.name} has accepted your invitation and joined ${m.name}.`, m.id);
 
       // If the mission is now completely full, notify all other pending invitees
       if (newJoined >= m.target) {
@@ -803,8 +813,8 @@ router.post("/invitations/:id/decline", async (req, res) => {
   await db.transaction(async (tx) => {
     await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
     if (m) {
-      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1)`)
-        .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`);
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+        .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`, m.id);
     }
   });
 

@@ -31,7 +31,8 @@ export default function MissionDetails() {
         navigate(".", { replace: true, state: {} });
       }
     }); 
-  }, [id]); // Remove location.state from dependencies to prevent infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, location.state?.refresh]); // Remove location.state from dependencies to prevent infinite loops
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const { task, rubric } = data;
@@ -65,7 +66,7 @@ export default function MissionDetails() {
       setData(d => ({ ...d, task: { ...d.task, inviteId: null } }));
       navigate("/validator");
     } catch (e) {
-      alert("Failed to decline invite");
+      alert(e.message || "Failed to decline invite");
     }
   };
 
@@ -192,7 +193,7 @@ export default function MissionDetails() {
         background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
         border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
         <button className="btn btn-ghost" onClick={toggleSave}>
-          {task.spotsLeft <= 0 && !task.saved ? "🔔 Notify me if a slot opens" : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? "Saved" : "Save"}</>}
+          {task.spotsLeft <= 0 && !accepted && !task.saved ? "🔔 Notify me if a slot opens" : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? "Saved" : "Save"}</>}
         </button>
         <button className="btn btn-quiet" onClick={() => navigate("/validator")}>Decline</button>
         {!reportDone
@@ -213,7 +214,7 @@ export default function MissionDetails() {
             </button>
           </div>
         ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied" ? (
-          <button className="btn btn-primary" onClick={() => {
+          <button className="btn btn-primary btn-lg" onClick={() => {
               const inProgress = task.myStatus === "active" || task.myStatus === "applied";
               const dest = task.myStatus === "completed" ? "results"
                 : (task.ptype === "trial" && inProgress) ? "checkin"
@@ -226,7 +227,7 @@ export default function MissionDetails() {
               background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               opacity: task.myStatus === "rejected" ? 0.8 : 1
-            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} />{task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Accepted · Start now" : "View reason"}</button>
+            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} /> {task.myStatus === "completed" ? "View results" : task.myStatus === "submitted" ? "View submission" : (task.myStatus === "active" || task.myStatus === "applied") ? "Accepted · Start now" : "View reason"}</button>
         ) : (
           <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
             {busy ? "Applying…" : (task.status !== "active" && task.status !== "live" && task.status !== "published") ? "Mission Closed" : task.spotsLeft <= 0 ? "Out of slots" : "Apply to this mission"} {task.spotsLeft > 0 && (task.status === "active" || task.status === "live" || task.status === "published") && <Icon name="arrowRight" />}

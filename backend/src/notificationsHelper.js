@@ -42,7 +42,7 @@ export async function notifyMatchingValidators(missionId) {
     // We use INSERT INTO ... SELECT to do this in a single fast, indexed DB query.
     await db.prepare(`
       INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
-      SELECT id, 'mission', 'zap', 'primary', 'new_mission', 'New Mission Match', ?, 'Just now', 1, ?
+      SELECT id, 'mission', 'bolt', 'primary', 'new_mission', 'New Mission Match', ?, 'Just now', 1, ?
       FROM validators
       WHERE 1=1 ${roleFilter}
     `).run(body, missionId, ...roleParams);

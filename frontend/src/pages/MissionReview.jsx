@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Btn, inr } from "../components/ui";
+import { Btn } from "../components/ui";
 import { api } from "../api/client";
-import { useAuth } from "../context/AuthContext";
 import { exportCSV } from "../exportUtils";
 
 const TABS = [
@@ -56,7 +55,18 @@ function SlideOver({ sub, onClose, onAction }) {
   const [rating, setRating] = useState(0); // Add rating state
   const [view, setView] = useState("review"); // review | reject | revise | approve
   const [expandedTasks, setExpandedTasks] = useState(new Set([0]));
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const toggleTask = (i) => setExpandedTasks(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
+
+  const handleActionSubmit = async (action, reason, rating) => {
+    setIsProcessing(true);
+    try {
+      await onAction(sub.id, action, reason, rating);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (!sub) return null;
 
@@ -246,14 +256,14 @@ function SlideOver({ sub, onClose, onAction }) {
             )}
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>Cancel</button>
               <Btn 
                 variant="primary" 
-                style={{ flex: 1, justifyContent: "center" }} 
-                onClick={() => onAction(sub.id, "approved", rejectReason, rating)} 
-                disabled={rating === 0 || (rating <= 2 && !rejectReason.trim())}
+                style={{ flex: 1, justifyContent: "center", opacity: isProcessing ? 0.7 : 1 }} 
+                onClick={() => handleActionSubmit("approved", rejectReason, rating)} 
+                disabled={isProcessing || rating === 0 || (rating <= 2 && !rejectReason.trim())}
               >
-                Approve & Rate {rating > 0 ? rating : ''} ★
+                {isProcessing ? "Approving..." : `Approve & Rate ${rating > 0 ? rating : ''} ★`}
               </Btn>
             </div>
           </div>
@@ -264,8 +274,10 @@ function SlideOver({ sub, onClose, onAction }) {
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Reason for rejection</div>
             <textarea className="fin" placeholder="Explain why this submission doesn't meet the requirements…" rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
-              <button className="btn btn-danger" style={{ flex: 1 }} onClick={() => onAction(sub.id, "rejected", rejectReason, 1)} disabled={!rejectReason.trim()}>Reject submission</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>Cancel</button>
+              <button className="btn btn-danger" style={{ flex: 1, opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
+                {isProcessing ? "Rejecting..." : "Reject submission"}
+              </button>
             </div>
           </div>
         )}
@@ -275,8 +287,10 @@ function SlideOver({ sub, onClose, onAction }) {
             <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>What needs revision?</div>
             <textarea className="fin" placeholder="e.g. Please re-test the checkout flow and describe what happened at step 3…" rows={3} value={reviseNote} onChange={e => setReviseNote(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")}>Cancel</button>
-              <Btn variant="primary" style={{ flex: 1, justifyContent: "center" }} onClick={() => onAction(sub.id, "revision", reviseNote)} disabled={!reviseNote.trim()}>Send request</Btn>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>Cancel</button>
+              <Btn variant="primary" style={{ flex: 1, justifyContent: "center", opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("revision", reviseNote)} disabled={isProcessing || !reviseNote.trim()}>
+                {isProcessing ? "Sending..." : "Send request"}
+              </Btn>
             </div>
           </div>
         )}
@@ -288,7 +302,6 @@ function SlideOver({ sub, onClose, onAction }) {
 export default function MissionReview() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { builder } = useAuth();
   const [tab, setTab] = useState("pending");
   const [subs, setSubs] = useState([]);
   const [mission, setMission] = useState(null);

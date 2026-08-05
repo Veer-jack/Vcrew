@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, inr, inrK } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
@@ -13,7 +13,7 @@ import { exportCSV } from "../exportUtils";
 function timeAgo(dateString) {
   if (!dateString) return 'recently';
   const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
-  
+
   let interval = seconds / 31536000;
   if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' year' : ' years');
   interval = seconds / 2592000;
@@ -26,7 +26,7 @@ function timeAgo(dateString) {
   if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' hour' : ' hours');
   interval = seconds / 60;
   if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' minute' : ' minutes');
-  
+
   if (seconds < 10) return 'just now';
   return Math.floor(seconds) + ' seconds';
 }
@@ -78,12 +78,12 @@ function Toast({ message, type, onClose }) {
 
   useEffect(() => {
     if (!message) {
-      setExiting(false);
+      setTimeout(() => setExiting(false), 0);
       return;
     }
 
     const mountTime = Date.now();
-    
+
     const startExit = () => {
       setExiting(true);
       setTimeout(onClose, 300);
@@ -110,7 +110,7 @@ function Toast({ message, type, onClose }) {
   if (!message) return null;
   const colors = { success: "var(--success)", error: "var(--danger)", warning: "var(--warning)" };
   const icons = { success: "checkCircle", error: "alertTriangle", warning: "edit" };
-  
+
   return createPortal(
     <div style={{
       position: "fixed", top: 80, right: 24, zIndex: 999999,
@@ -158,20 +158,20 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
       <div className="kanban">
         {STAGES.map(st => {
           const col = participants.filter(p => p.stage === st.id);
-          const droppable = st.id !== "rewarded";
+          const droppable = st.id !== "rewarded" && st.id !== "rejected";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
               onDragOver={e => { e.preventDefault(); if (droppable) setOver(st.id); }}
               onDragLeave={() => setOver(o => o === st.id ? null : o)}
-              onDrop={e => { 
-                e.preventDefault(); 
-                if (st.id === "rewarded" && drag != null) {
-                  showToast("Please approve their submission first to reward them.", "error");
+              onDrop={e => {
+                e.preventDefault();
+                if ((st.id === "rewarded" || st.id === "rejected") && drag != null) {
+                  showToast(`Please review their submission to move them to ${st.label.toLowerCase()}.`, "error");
                 } else if (droppable && drag != null) {
-                  move(drag, st.id); 
+                  move(drag, st.id);
                 }
-                setOver(null); 
-                setDrag(null); 
+                setOver(null);
+                setDrag(null);
               }}
               style={drag && !droppable ? { cursor: "not-allowed" } : {}}>
               <div className="kcol-h">
@@ -184,16 +184,16 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${p.stage === "rewarded" ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded"}
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected"}
                     onDragStart={(e) => {
-                      if (p.stage === "rewarded") {
+                      if (p.stage === "rewarded" || p.stage === "rejected") {
                         e.preventDefault();
                         return;
                       }
                       setDrag(p.id);
-                    }} 
+                    }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    style={p.stage === "rewarded" ? { cursor: "default", opacity: 0.85 } : {}}>
+                    style={(p.stage === "rewarded" || p.stage === "rejected") ? { cursor: "default", opacity: 0.85 } : {}}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -201,14 +201,15 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                           <div className="kn">{p.name}</div>
                         </div>
                         <div className="kl row gap-2" style={{ margin: "2px 0 0" }}>
-                          {p.role} 
+                          {p.role}
                           {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>Rewarded</span>}
+                          {st.id === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>Rejected</span>}
                         </div>
                       </div>
                     </div>
                     <div className="kcard-foot" style={{ marginTop: 12 }}>
                       <div className="faint" style={{ fontSize: 10 }}>
-                        <span style={{ color: "var(--warning)", fontWeight: 700, marginRight: 2 }}>★ {p.trust}</span><br/>
+                        <span style={{ color: "var(--warning)", fontWeight: 700, marginRight: 2 }}>★ {p.trust}</span><br />
                         Joined {p.joined_at ? (timeAgo(p.joined_at) === 'just now' ? 'just now' : timeAgo(p.joined_at) + ' ago') : (p.time_label || 'recently')}
                       </div>
                       <span className="kreward" style={{ fontSize: 13, color: "var(--text)" }}>{inr(p.reward || mission.reward.amount)}</span>
@@ -218,11 +219,11 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                 {col.length === 0 && (
                   <div className="empty-kcol">
                     <div className="ec-ic" style={{ color: st.color, background: `color-mix(in srgb, ${st.color} 10%, transparent)` }}>
-                      <Icon name={st.id === "invited" ? "mail" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : st.id === "rewarded" ? "lock" : "fileText"} size={20} />
+                      <Icon name={st.id === "invited" ? "mail" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
                     </div>
-                    <b>{st.id === "rewarded" ? "Review to reward" : "No participants yet"}</b>
-                    <p>{st.id === "invited" ? "Invite users to grow your pipeline." : st.id === "accepted" ? "Participants who accept will appear here." : st.id === "started" ? "Participants who start will appear here." : st.id === "rewarded" ? "Approve submissions to move participants here and pay them." : "Submitted participants will appear here."}</p>
-                    {st.id === "rewarded" && (
+                    <b>{st.id === "rewarded" ? "Review to reward" : st.id === "rejected" ? "No rejected participants" : "No participants yet"}</b>
+                    <p>{st.id === "invited" ? "Invite users to grow your pipeline." : st.id === "accepted" ? "Participants who accept will appear here." : st.id === "started" ? "Participants who start will appear here." : st.id === "rewarded" ? "Approve submissions to move participants here and pay them." : st.id === "rejected" ? "Participants whose submissions are rejected will appear here." : "Submitted participants will appear here."}</p>
+                    {(st.id === "rewarded" || st.id === "rejected") && (
                       <Btn variant="quiet" size="sm" onClick={() => navigate(`/missions/${mission.id}/submissions`)} style={{ marginTop: 8 }}>Review submissions</Btn>
                     )}
                   </div>
@@ -260,7 +261,7 @@ function ResponseCard({ r, missionId, onFlag, navigate }) {
         <Avatar name={r.name} size={42} />
         <div style={{ flex: 1 }}>
           <div className="row between">
-            <div><div className="row gap-2"><b style={{ fontSize: 14.5 }}>{r.name}</b><span className="verif"><Icon name="checkCircle" size={13} /></span></div><div className="faint" style={{ fontSize: 12 }}>{r.role} · {r.city} · {r.time_label}</div></div>
+            <div><div className="row gap-2"><b style={{ fontSize: 14.5 }}>{r.name}</b><span className="verif"><Icon name="checkCircle" size={13} /></span> {r.status === 'rejected' && <span style={{ fontSize: 11, padding: "2px 8px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600, letterSpacing: "0.2px" }}>Rejected</span>}</div><div className="faint" style={{ fontSize: 12 }}>{r.role} · {r.city} · {r.time_label}</div></div>
             <div style={{ textAlign: "right" }}><Stars value={r.rating} /><div className="faint" style={{ fontSize: 11, marginTop: 2 }}>Trust {r.trust}</div></div>
           </div>
         </div>
@@ -443,8 +444,10 @@ function FileCard({ f, onDelete }) {
   const k = FILE_KIND[f.kind] || FILE_KIND.pdf;
   return (
     <div className="card" style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ height: 96, borderRadius: "var(--radius-sm)", border: "var(--hairline) solid var(--border)", display: "grid", placeItems: "center",
-        background: f.kind === "image" ? "repeating-linear-gradient(45deg, var(--panel-inset), var(--panel-inset) 8px, var(--panel-2) 8px, var(--panel-2) 16px)" : "var(--panel-inset)", color: k.tc }}>
+      <div style={{
+        height: 96, borderRadius: "var(--radius-sm)", border: "var(--hairline) solid var(--border)", display: "grid", placeItems: "center",
+        background: f.kind === "image" ? "repeating-linear-gradient(45deg, var(--panel-inset), var(--panel-inset) 8px, var(--panel-2) 8px, var(--panel-2) 16px)" : "var(--panel-inset)", color: k.tc
+      }}>
         <Icon name={k.icon} size={30} />
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -513,16 +516,16 @@ function MissionFilesTab({ missionId, files: initialFiles }) {
         {files.brief.length === 0
           ? <div className="muted" style={{ padding: "12px 0" }}>No brief files uploaded yet.</div>
           : <div className="files-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-              {files.brief.map((f, i) => <FileCard key={i} f={f} onDelete={handleDelete} />)}
-            </div>}
+            {files.brief.map((f, i) => <FileCard key={i} f={f} onDelete={handleDelete} />)}
+          </div>}
       </div>
       <div>
         <div className="sec-head"><h3 className="h-md">Participant submissions</h3><span className="muted" style={{ fontSize: 12.5 }}>{files.submissions.length} files</span></div>
         {files.submissions.length === 0
           ? <div className="muted" style={{ padding: "12px 0" }}>No submissions yet.</div>
           : <div className="files-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
-              {files.submissions.map((f, i) => <FileCard key={i} f={f} />)}
-            </div>}
+            {files.submissions.map((f, i) => <FileCard key={i} f={f} />)}
+          </div>}
       </div>
     </div>
   );
@@ -800,6 +803,7 @@ function MissionFocusGroupTab({ missionId }) {
 export default function MissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { categories } = useMeta();
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
@@ -819,7 +823,7 @@ export default function MissionDetail() {
   const handleStatusChange = async (newStatus) => {
     if (!window.confirm(`Are you sure you want to change the status to ${newStatus}?`)) return;
     try {
-      const { mission: updated } = await api.updateMission(mission.id, { status: newStatus });
+      const { mission: updated } = await api.updateMission(id, { status: newStatus });
       setData(d => ({ ...d, mission: updated }));
       showToast(`Mission marked as ${newStatus}`);
     } catch (err) {
@@ -828,33 +832,35 @@ export default function MissionDetail() {
   };
 
   useEffect(() => {
-    setData(null);
+    setTimeout(() => setData(null), 0);
     api.mission(id)
       .then(d => {
         setData(d);
-        setParticipants(d.participants.map(p => ({ ...p })));
-        setResponses(d.responses);
+        setParticipants(d?.participants?.map(p => ({ ...p })) || []);
+        setResponses(d?.responses || []);
       })
       .catch(err => setError(err.message));
-  }, [id]);
+  }, [id, location.state?.refresh]);
 
   if (error) return <div className="page rise"><Icon name="layers" /> <span className="muted">{error}</span></div>;
   if (!data) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   const { mission } = data;
   const baseTabs = TABS.map(t => ({ ...t, c: t.k === "participants" ? participants.length : t.k === "responses" ? responses.length : null }));
-  let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: "Shipments", ic: "box", c: null }, ...baseTabs.slice(3)] : baseTabs;
+  
+  let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: "Shipments", ic: "box", c: participants.length }, ...baseTabs.slice(3)] : baseTabs;
+  
   if (mission.ptype === "interview") {
-    const idx = tabs.findIndex(t => t.k === "responses") + 1;
-    tabs = [...tabs.slice(0, idx), { k: "interviews", l: "Interviews", ic: "calendar", c: null }, ...tabs.slice(idx)];
+    const idx1 = tabs.findIndex(t => t.k === "responses") + 1;
+    tabs = [...tabs.slice(0, idx1), { k: "interviews", l: "Interviews", ic: "calendar", c: participants.length }, ...tabs.slice(idx1)];
   }
   if (mission.ptype === "focus") {
-    const idx = tabs.findIndex(t => t.k === "responses") + 1;
-    tabs = [...tabs.slice(0, idx), { k: "focusgroup", l: "Focus Group", ic: "users", c: null }, ...tabs.slice(idx)];
+    const idx2 = tabs.findIndex(t => t.k === "responses") + 1;
+    tabs = [...tabs.slice(0, idx2), { k: "focusgroup", l: "Focus Group", ic: "users", c: participants.length }, ...tabs.slice(idx2)];
   }
   if (mission.ptype === "trial") {
-    const idx = tabs.findIndex(t => t.k === "responses") + 1;
-    tabs = [...tabs.slice(0, idx), { k: "checkins", l: "Check-ins", ic: "calendar", c: null }, ...tabs.slice(idx)];
+    const idx3 = tabs.findIndex(t => t.k === "responses") + 1;
+    tabs = [...tabs.slice(0, idx3), { k: "checkins", l: "Check-ins", ic: "calendar", c: participants.length }, ...tabs.slice(idx3)];
   }
 
   return (
@@ -918,7 +924,7 @@ export default function MissionDetail() {
 
 function MissionCheckinsTab({ responses }) {
   if (!responses || responses.length === 0) return <div className="card rise" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>No validators have submitted check-ins yet.</div>;
-  
+
   return (
     <div className="col gap-3 sec">
       {responses.map(r => (
@@ -932,7 +938,7 @@ function MissionCheckinsTab({ responses }) {
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--success)" }}>{(r.checkins || []).length} / 7 days logged</div>
             </div>
           </div>
-          
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {(r.checkins || []).map((c, i) => (
               <div key={i} style={{ background: "var(--panel-2)", padding: 16, borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>

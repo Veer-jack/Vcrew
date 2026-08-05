@@ -52,16 +52,22 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
     onClose();
     
     if (n.link) {
-      navigate(n.link);
+      navigate(n.link, { state: { refresh: Date.now() } });
       return;
     }
     
     if (n.title.includes("Participant") || n.type === "participant") {
-      navigate(n.missionId ? `/missions/${n.missionId}?tab=participants` : "/missions");
-    } else if (n.type === "application" || n.title.includes("Accepted") || n.title.includes("Approved") || n.title.includes("Rejected")) {
-      navigate("/missions");
+      navigate(n.missionId ? `/missions/${n.missionId}?tab=participants` : "/missions", { state: { refresh: Date.now() } });
+    } else if (n.title.includes("Interview")) {
+      navigate(n.missionId ? `/missions/${n.missionId}?tab=interviews` : "/missions", { state: { refresh: Date.now() } });
+    } else if (n.title.includes("Focus Group")) {
+      navigate(n.missionId ? `/missions/${n.missionId}?tab=focusgroup` : "/missions", { state: { refresh: Date.now() } });
     } else if (n.title.includes("Submission") || n.type === "submission") {
-      navigate(n.missionId ? `/missions/${n.missionId}` : "/missions");
+      navigate(n.missionId ? `/missions/${n.missionId}?tab=responses` : "/missions", { state: { refresh: Date.now() } });
+    } else if (n.missionId) {
+      navigate(`/missions/${n.missionId}`, { state: { refresh: Date.now() } });
+    } else if (n.type === "application" || n.title.includes("Accepted") || n.title.includes("Approved") || n.title.includes("Rejected")) {
+      navigate("/missions", { state: { refresh: Date.now() } });
     }
   };
 
