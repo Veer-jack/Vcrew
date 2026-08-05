@@ -1,0 +1,10 @@
+## Overview
+This PR introduces critical updates to make the system fully scalable, robust, clean, smooth, safe, and production-ready. It includes optimizations for rate limiters, database connections, CORS settings, and bundles the 243+ other pending changes from source control.
+
+## Tasks Completed
+- [x] Configured Redis-backed rate limiting (`RedisStore`) to share rate limits across multiple Node.js instances.
+- [x] Fine-tuned authentication rate limits (login/signup/global) to balance abuse prevention with high concurrent throughput for shared IPs.
+- [x] Implemented `trust proxy` to properly resolve client IPs behind the Railway proxy.
+- [x] Increased PostgreSQL database connection pool (`max: 100`) to handle large bursts of concurrent authentication traffic without queuing.
+- [x] Corrected CORS configuration to explicitly allow the base `.com` domain.
+- [x] Committed 243 pending file changes from git source control, including translations (ar, bn, es, fr, pt, ru, ur, zh), UI component updates, and new pages.

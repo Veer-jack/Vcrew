@@ -1,6 +1,8 @@
+/* eslint-disable react-hooks/purity */
 import { useState } from "react";
 import Icon from "./Icon";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "../i18n/index.jsx";
 
 function timeAgo(dateString) {
   if (!dateString) return null;
@@ -21,15 +23,17 @@ function timeAgo(dateString) {
 }
 
 export default function NotificationsSidebar({ onClose, items, setItems, onMarkAllRead, onClearAll, onRead, tabs }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("all");
   const navigate = useNavigate();
 
-  const activeTabs = tabs || [
-    { k: "all", l: "All", filter: () => true }, 
-    { k: "application", l: "Applications", filter: n => n.cat === "application" }, 
-    { k: "message", l: "Messages", filter: n => n.cat === "message" }, 
-    { k: "system", l: "System", filter: n => n.cat === "system" }
+  const getActiveTabs = (t) => tabs || [
+    { k: "all", l: t("status.all", null, "All"), filter: () => true }, 
+    { k: "application", l: t("notifications.applications", null, "Applications"), filter: n => n.cat === "application" }, 
+    { k: "message", l: t("notifications.messages", null, "Messages"), filter: n => n.cat === "message" }, 
+    { k: "system", l: t("notifications.system", null, "System"), filter: n => n.cat === "system" }
   ];
+  const activeTabs = getActiveTabs(t);
   
   const currentTab = activeTabs.find(t => t.k === activeTab) || activeTabs[0];
   const rows = items.filter(currentTab.filter || (() => true));
@@ -76,11 +80,11 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
       <div className="notif-overlay" onClick={onClose} />
       <div className="notif-panel">
         <div className="notif-h">
-          <b>Notifications</b>
+          <b>{t("notifications.title", null, "Notifications")}</b>
           <div className="row gap-2">
-            <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>Mark all read</button>
-            <button className="backlink" style={{ margin: 0, fontSize: 12.5, color: "var(--danger, #ff4d4f)" }} onClick={clearAll}>Clear all</button>
-            <button className="icon-btn" aria-label="Close" style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
+            <button className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={markAll}>{t("actions.markAllRead", null, "Mark all read")}</button>
+            <button className="backlink" style={{ margin: 0, fontSize: 12.5, color: "var(--danger, #ff4d4f)" }} onClick={clearAll}>{t("actions.clearAll", null, "Clear all")}</button>
+            <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 32, height: 32 }} onClick={onClose}><Icon name="x" size={16} /></button>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, padding: "12px 16px", borderBottom: "var(--hairline) solid var(--border)", overflowX: "auto" }}>
@@ -90,7 +94,7 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
           ))}
         </div>
         <div className="notif-list">
-          {rows.length === 0 && <div className="muted" style={{ padding: 24, textAlign: "center" }}>No notifications here.</div>}
+          {rows.length === 0 && <div className="muted" style={{ padding: 24, textAlign: "center" }}>{t("notifications.noNotifications", null, "No notifications here.")}</div>}
           {rows.map(n => (
             <div key={n.id} className={`notif-item ${n.unread ? "unread" : ""}`} onClick={() => open(n)}>
               <span className="notif-dot" />

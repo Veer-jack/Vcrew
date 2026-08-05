@@ -4,6 +4,53 @@
    ============================================================ */
 (function () {
   const page = document.body.dataset.page || "";
+
+  const T = {
+    forBuilders: "For Builders",
+    forValidators: "For Validators",
+    useCases: "Use Cases",
+    about: "About",
+    logIn: "Log in",
+    signInAccount: "Sign in to your account",
+    asBuilder: "As a Builder",
+    asBuilderDesc: "Run &amp; manage validations",
+    asValidator: "As a Validator",
+    asValidatorDesc: "Pick up missions &amp; earn",
+    getStarted: "Get started",
+    createAccount: "Create a free account",
+    imBuilder: "I'm a Builder",
+    imBuilderDesc: "Test my product with real users",
+    imValidator: "I'm a Validator",
+    imValidatorDesc: "Test products &amp; get paid",
+    startValidating: "Start validating",
+    builderLogin: "Builder login",
+    becomeValidator: "Become a Validator",
+    validatorLogin: "Validator login",
+    blurb: "The world's human validation network — connecting builders with the right humans to validate products, ideas and decisions before they ship.",
+    platform: "Platform",
+    company: "Company",
+    resources: "Resources",
+    legalStr: "Legal",
+    careers: "Careers",
+    blog: "Blog",
+    press: "Press",
+    helpCenter: "Help Center",
+    trustSafety: "Trust & Safety",
+    apiDocs: "API Docs",
+    status: "Status",
+    privacy: "Privacy",
+    terms: "Terms",
+    security: "Security",
+    contact: "Contact",
+    cookies: "Cookies",
+    goToDashboard: "Go to Dashboard",
+    profile: "Profile",
+    settings: "Settings",
+    signOut: "Sign out",
+    signedInAs: "You're currently signed in as a ",
+    signOutFirst: "Please sign out first to continue as a ",
+  };
+
   const ic = {
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>',
     menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
@@ -16,10 +63,10 @@
     logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
   };
   const links = [
-    { l: "For Builders", h: "builders.html", k: "builders" },
-    { l: "For Validators", h: "validators.html", k: "validators" },
-    { l: "Use Cases", h: "use-cases.html", k: "use-cases" },
-    { l: "About", h: "about.html", k: "about" },
+    { l: T.forBuilders, h: "builders.html", k: "builders" },
+    { l: T.forValidators, h: "validators.html", k: "validators" },
+    { l: T.useCases, h: "use-cases.html", k: "use-cases" },
+    { l: T.about, h: "about.html", k: "about" },
   ];
   const linkHtml = links.map(x => `<a href="${x.h}"${x.k === page ? ' style="color:var(--ink);background:var(--bg-soft)"' : ""}>${x.l}</a>`).join("");
 
@@ -27,19 +74,19 @@
 
   const defaultCta = `
     <div class="nav-drop" data-drop>
-      <button class="btn btn-ghost nav-dt" aria-haspopup="true" aria-expanded="false">Log in ${ic.caret}</button>
+      <button class="btn btn-ghost nav-dt" aria-haspopup="true" aria-expanded="false">${T.logIn} ${ic.caret}</button>
       <div class="nav-menu">
-        <span class="nav-menu-lab">Sign in to your account</span>
-        <a href="/login"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>As a Builder</b><small>Run &amp; manage validations</small></span></a>
-        <a href="/validator/login"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>As a Validator</b><small>Pick up missions &amp; earn</small></span></a>
+        <span class="nav-menu-lab">${T.signInAccount}</span>
+        <a href="/login"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>${T.asBuilder}</b><small>${T.asBuilderDesc}</small></span></a>
+        <a href="/validator/login"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>${T.asValidator}</b><small>${T.asValidatorDesc}</small></span></a>
       </div>
     </div>
     <div class="nav-drop" data-drop>
-      <button class="btn btn-primary nav-dt" aria-haspopup="true" aria-expanded="false">Get started ${ic.caret}</button>
+      <button class="btn btn-primary nav-dt" aria-haspopup="true" aria-expanded="false">${T.getStarted} ${ic.caret}</button>
       <div class="nav-menu right">
-        <span class="nav-menu-lab">Create a free account</span>
-        <a href="/login?mode=signup"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>I'm a Builder</b><small>Test my product with real users</small></span></a>
-        <a href="/validator/login?mode=signup"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>I'm a Validator</b><small>Test products &amp; get paid</small></span></a>
+        <span class="nav-menu-lab">${T.createAccount}</span>
+        <a href="/login?mode=signup"><span class="nm-ic nm-indigo">${ic.builder}</span><span class="nm-tx"><b>${T.imBuilder}</b><small>${T.imBuilderDesc}</small></span></a>
+        <a href="/validator/login?mode=signup"><span class="nm-ic nm-emerald">${ic.crewic}</span><span class="nm-tx"><b>${T.imValidator}</b><small>${T.imValidatorDesc}</small></span></a>
       </div>
     </div>
     <button class="nav-burger" aria-label="Menu">${ic.menu}</button>
@@ -60,6 +107,16 @@
           <div class="stagger-item" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">${brand}</div>
           <nav class="nav-links stagger-item" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">${linkHtml}</nav>
           <span class="nav-spacer"></span>
+
+          <div class="lang-selector-container" style="position:relative; margin-right: 24px; display: flex; align-items: center; z-index: 9999;">
+            <button id="lang-btn" style="border: 1px solid var(--border, #e2e8f0); border-radius: 99px; padding: 6px 14px; font-size: 13px; color: var(--ink, #0f172a); font-weight: 600; display: flex; align-items: center; gap: 8px; background: white; cursor: pointer; transition: all 0.2s;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>
+              <span id="lang-label">EN</span> 
+              <svg style="width:14px; height:14px; color:#64748b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+            <div id="lang-menu" style="position: absolute; top: calc(100% + 8px); right: 0; min-width: 180px; padding: 8px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); border: 1px solid var(--border, #e2e8f0); background: white; display: none; flex-direction: column; gap: 2px;">
+            </div>
+          </div>
           <div class="nav-cta stagger-item" id="nav-cta-container" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">
             ${initialCta}
           </div>
@@ -67,12 +124,12 @@
       </header>
       <div class="mobile-menu">
         ${links.map(x => `<a href="${x.h}">${x.l}</a>`).join("")}
-        <div class="mm-lab">For Builders</div>
-        <a class="btn btn-primary" href="/login">Start validating</a>
-        <a class="mm-link" href="/login">Builder login</a>
-        <div class="mm-lab">For Validators</div>
-        <a class="btn btn-ghost" href="validators.html">Become a Validator</a>
-        <a class="mm-link" href="/validator/login">Validator login</a>
+        <div class="mm-lab">${T.forBuilders}</div>
+        <a class="btn btn-primary" href="/login">${T.startValidating}</a>
+        <a class="mm-link" href="/login">${T.builderLogin}</a>
+        <div class="mm-lab">${T.forValidators}</div>
+        <a class="btn btn-ghost" href="validators.html">${T.becomeValidator}</a>
+        <a class="mm-link" href="/validator/login">${T.validatorLogin}</a>
       </div>`;
       
     // Wait for the auth state to fetch and render, then stagger the fade in
@@ -109,21 +166,21 @@
           <div class="cols">
             <div>
               ${brand}
-              <p class="blurb">The world's human validation network — connecting builders with the right humans to validate products, ideas and decisions before they ship.</p>
+              <p class="blurb">${T.blurb}</p>
               <div class="socials">
                 ${social('<path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2Z"/>') /* x */}
                 ${social('<rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/><path d="M10 9v12M10 14a4 4 0 0 1 8 0v7"/>', "https://www.linkedin.com/company/validation-crew", "ValidationCrew on LinkedIn")} /* in */
                 ${social('<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>') /* ig */}
               </div>
             </div>
-            ${col("Platform", [["For Builders", "builders.html"], ["For Validators", "validators.html"], ["Use Cases", "use-cases.html"]])}
-            ${col("Company", [["About", "about.html"], ["Careers", "about.html"], ["Blog", "#"], ["Press", "#"]])}
-            ${col("Resources", [["Help Center", "#"], ["Trust & Safety", "about.html"], ["API Docs", "#"], ["Status", "#"]])}
-            ${col("Legal", [["Privacy", "privacy.html"], ["Terms", "terms.html"], ["Security", "privacy.html#security"], ["Contact", "contact.html"]])}
+            ${col(T.platform, [[T.forBuilders, "builders.html"], [T.forValidators, "validators.html"], [T.useCases, "use-cases.html"]])}
+            ${col(T.company, [[T.about, "about.html"], [T.careers, "about.html"], [T.blog, "#"], [T.press, "#"]])}
+            ${col(T.resources, [[T.helpCenter, "#"], [T.trustSafety, "about.html"], [T.apiDocs, "#"], [T.status, "#"]])}
+            ${col(T.legalStr, [[T.privacy, "privacy.html"], [T.terms, "terms.html"], [T.security, "privacy.html#security"], [T.contact, "contact.html"]])}
           </div>
           <div class="footer-bot">
             <span>© <span data-year></span> ValidationCrew, Inc.</span>
-            <div class="legal"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="privacy.html#cookies">Cookies</a></div>
+            <div class="legal"><a href="privacy.html">${T.privacy}</a><a href="terms.html">${T.terms}</a><a href="privacy.html#cookies">${T.cookies}</a></div>
           </div>
         </div>
       </footer>`;
@@ -185,7 +242,7 @@
         ctaContainer.innerHTML = `
           <div style="display:flex; align-items:center; gap:16px;">
             <a href="${dashboardUrl}" class="btn btn-primary" style="display:flex; align-items:center; gap:8px; padding:8px 16px;">
-              <span style="width:16px;height:16px;display:inline-flex;">${ic.grid}</span> Go to Dashboard
+              <span style="width:16px;height:16px;display:inline-flex;">${ic.grid}</span> ${T.goToDashboard}
             </a>
             
             <div class="nav-drop" data-drop id="auth-nav-drop">
@@ -205,16 +262,16 @@
               <div class="nav-menu right" style="min-width:180px;">
                 <a href="${profileUrl}">
                   <span style="color:var(--text-light); display:inline-flex; width:16px; height:16px;">${userIcon}</span>
-                  <span style="font-weight:500; font-size:14px; color:var(--ink);">Profile</span>
+                  <span style="font-weight:500; font-size:14px; color:var(--ink);">${T.profile}</span>
                 </a>
                 <a href="${settingsUrl}">
                   <span style="color:var(--text-light); display:inline-flex; width:16px; height:16px;">${settingsIcon}</span>
-                  <span style="font-weight:500; font-size:14px; color:var(--ink);">Settings</span>
+                  <span style="font-weight:500; font-size:14px; color:var(--ink);">${T.settings}</span>
                 </a>
                 <div style="height:1px; background:var(--border, #e2e8f0); margin:4px 12px;"></div>
                 <a href="#" onclick="localStorage.removeItem('${tokenKey}'); window.location.reload(); return false;">
                   <span style="color:var(--text-light); display:inline-flex; width:16px; height:16px;">${ic.logout}</span>
-                  <span style="font-weight:500; font-size:14px; color:var(--ink);">Sign out</span>
+                  <span style="font-weight:500; font-size:14px; color:var(--ink);">${T.signOut}</span>
                 </a>
               </div>
             </div>
@@ -304,8 +361,8 @@
     }
     
     toast.dataset.createdAt = Date.now();
-    document.getElementById("vc-auth-toast-title").textContent = `You're currently signed in as a ${currentRole}.`;
-    document.getElementById("vc-auth-toast-sub").textContent = `Please sign out first to continue as a ${targetRole}.`;
+    document.getElementById("vc-auth-toast-title").textContent = `${T.signedInAs}${currentRole}.`;
+    document.getElementById("vc-auth-toast-sub").textContent = `${T.signOutFirst}${targetRole}.`;
     
     // Trigger animation
     requestAnimationFrame(() => {
@@ -350,5 +407,83 @@
       checkAuthState();
     }
   });
+
+
+  // Language Selector Interactive Logic
+  const langBtn = document.getElementById('lang-btn');
+  const langMenu = document.getElementById('lang-menu');
+  const langLabel = document.getElementById('lang-label');
+  
+  const langs = [
+    { code: 'en', flag: '🇺🇸', native: 'English', english: 'English' },
+    { code: 'hi', flag: '🇮🇳', native: 'हिंदी', english: 'Hindi' },
+    { code: 'zh', flag: '🇨🇳', native: '中文', english: 'Mandarin' },
+    { code: 'es', flag: '🇪🇸', native: 'Español', english: 'Spanish' },
+    { code: 'ar', flag: '🇸🇦', native: 'العربية', english: 'Arabic' },
+    { code: 'fr', flag: '🇫🇷', native: 'Français', english: 'French' },
+    { code: 'pt', flag: '🇧🇷', native: 'Português', english: 'Portuguese' },
+    { code: 'ru', flag: '🇷🇺', native: 'Русский', english: 'Russian' },
+    { code: 'bn', flag: '🇧🇩', native: 'বাংলা', english: 'Bengali' },
+    { code: 'ur', flag: '🇵🇰', native: 'اردو', english: 'Urdu' }
+  ];
+
+  const currentLang = localStorage.getItem('vc_lang') || 'en';
+  const currObj = langs.find(l => l.code === currentLang) || langs[0];
+  if (langLabel) langLabel.textContent = currObj.code.toUpperCase();
+
+  if (langMenu) {
+    langMenu.innerHTML = langs.map(l => {
+      const isSelected = l.code === currentLang;
+      return `
+        <a href="#" data-lang="${l.code}" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; text-decoration: none; background: ${isSelected ? '#f8fafc' : 'transparent'}; transition: background 0.2s;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 18px;">${l.flag}</span>
+            <div style="display: flex; flex-direction: column; line-height: 1.2;">
+              <span style="font-weight: 600; color: ${isSelected ? '#4f46e5' : '#0f172a'}; font-size: 13px;">${l.native}</span>
+              <span style="font-size: 11px; color: #64748b;">${l.english}</span>
+            </div>
+          </div>
+          ${isSelected ? '<svg style="width: 16px; height: 16px; color: #4f46e5; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
+        </a>
+      `;
+    }).join('');
+
+    langMenu.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const selected = e.currentTarget.getAttribute('data-lang');
+        localStorage.setItem('vc_lang', selected);
+        
+        const path = window.location.pathname;
+        let filename = path.split('/').pop() || 'index.html';
+        
+        if (selected === 'en') {
+          window.location.href = `/site/${filename}`;
+        } else {
+          window.location.href = `/site/${selected}/${filename}`;
+        }
+      });
+    });
+  }
+
+  if (langBtn && langMenu) {
+    langBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = langMenu.style.display === 'none';
+      langMenu.style.display = isHidden ? 'flex' : 'none';
+      if (isHidden) {
+        langBtn.style.background = '#f8fafc';
+      } else {
+        langBtn.style.background = 'white';
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!langMenu.contains(e.target) && e.target !== langBtn) {
+        langMenu.style.display = 'none';
+        langBtn.style.background = 'white';
+      }
+    });
+  }
 
 })();

@@ -9,6 +9,7 @@ import { COUNTRIES } from "./countries";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../../firebaseClient";
 import { detectLangFromCountryCode } from "../../i18n/languages.js";
 import { useTranslation } from "../../i18n/index.jsx";
+import LanguageSwitcher from "../LanguageSwitcher";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
@@ -25,7 +26,7 @@ const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMa
  *   userKey, onAuthed(token, user),
  * }
  */
-export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRole, signupHref }) {
+export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, signupHref }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,7 +40,6 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   const [smsReady, setSmsReady] = useState(false);
 
   const [name, setName] = useState("");
-  const [org, setOrg] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -50,7 +50,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   const [ccIdx, setCcIdx] = useState(() => COUNTRIES.findIndex((c) => c[1] === "+91"));
   const cc = COUNTRIES[ccIdx] ? COUNTRIES[ccIdx][1] : "+91";
-  const { setLang } = useTranslation();
+  const { t, setLang } = useTranslation();
 
   const handleCcChange = (e) => {
     const idx = Number(e.target.value);
@@ -74,8 +74,8 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
     adapter.firebaseConfig().then((d) => setSmsReady(!!d.configured)).catch(() => {});
     const params = new URLSearchParams(location.search);
     const oauthError = params.get("error");
-    if (oauthError) setError(oauthError);
-  }, [location.search]);
+    if (oauthError) setTimeout(() => setError(oauthError), 0);
+  }, [location.search, adapter]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -85,10 +85,9 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   const emailOk = EMAIL_RE.test(email);
   const errs = {
-    name: mode === "signup" && touched.name && !name.trim() ? "Tell us your name" : "",
-    org: mode === "signup" && touched.org && !org.trim() ? copy.field2Error : "",
-    email: touched.email && email && !emailOk ? "Enter a valid email" : "",
-    password: touched.password && password.length > 0 && password.length < 8 ? "At least 8 characters" : "",
+    name: mode === "signup" && touched.name && !name.trim() ? t("errors.required") : "",
+    email: touched.email && email && !emailOk ? t("errors.invalidEmail") : "",
+    password: touched.password && password.length > 0 && password.length < 8 ? t("auth.atLeast8Chars") : "",
   };
   const emailFormValid = emailOk && password.length >= 8 && (mode === "signin" || (name.trim() && agree));
 
@@ -96,19 +95,19 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   const submitEmail = async (e) => {
     e.preventDefault();
-    setTouched({ name: true, org: true, email: true, password: true });
+    setTouched({ name: true, email: true, password: true });
     setError("");
     if (!emailFormValid) return;
     setBusy(true);
     try {
       if (mode === "signin") await adapter.login(email, password);
       else {
-        await adapter.signup({ name: name.trim(), org: org.trim(), email: email.trim(), password });
+        await adapter.signup({ name: name.trim(), org: "", email: email.trim(), password });
         if (signupHref) { navigate(signupHref, { replace: true }); return; }
       }
       goAfterAuth();
     } catch (err) {
-      setError(err.message || "Something went wrong");
+      setError(err.message || t("errors.somethingWentWrong"));
     } finally { setBusy(false); }
   };
 
@@ -116,20 +115,20 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
   const phoneOk = cc === "+91" ? phoneDigits.length === 10 : (phoneDigits.length >= 7 && phoneDigits.length <= 13);
 
   const sendOtp = async () => {
-    setTouched((t) => ({ ...t, name: true, org: true }));
+    setTouched((t) => ({ ...t, name: true }));
     setError("");
     if (!phoneOk) return;
     if (mode === "signup" && !(name.trim() && agree)) return;
     setBusy(true);
     try {
       const auth = await getFirebaseAuth(adapter.firebaseConfig);
-      if (!auth) throw new Error("Phone sign-in isn't configured on this server yet");
+      if (!auth) throw new Error(t("auth.phoneSignInNotConfigured", null, "Phone sign-in isn't configured on this server yet"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
       confirmationRef.current = await signInWithPhoneNumber(auth, `${cc}${phoneDigits}`, recaptchaRef.current);
       setOtpSent(true);
       setResendIn(30);
     } catch (err) {
-      setError(err.message || "Couldn't send code");
+      setError(err.message || t("auth.couldntSendCode", null, "Couldn't send code"));
     } finally { setBusy(false); }
   };
 
@@ -143,7 +142,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
       adapter.onAuthed(res.token, res[adapter.userKey]);
       goAfterAuth();
     } catch (err) {
-      setError(err.message || "Incorrect code");
+      setError(err.message || t("auth.incorrectCode", null, "Incorrect code"));
     } finally { setBusy(false); }
   };
 
@@ -157,6 +156,9 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   if (stage === "forgot") return (
     <div className="asplit">
+      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
+        <LanguageSwitcher style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
+      </div>
       <div className="asplit-brand">
         <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
@@ -164,16 +166,16 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
       </div>
       <div className="asplit-form-col">
         <div className="asplit-form rise">
-          <h1 style={{ fontSize: 23, margin: "0 0 8px" }}>Reset your password</h1>
-          <p className="muted" style={{ fontSize: 13.5, margin: "0 0 20px" }}>Enter your email and we'll send you a reset link if an account exists.</p>
+          <h1 style={{ fontSize: 23, margin: "0 0 8px" }}>{t("auth.resetPassword")}</h1>
+          <p className="muted" style={{ fontSize: 13.5, margin: "0 0 20px" }}>{t("auth.enterEmailForResetLink", null, "Enter your email and we'll send you a reset link if an account exists.")}</p>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <form onSubmit={submitForgot} className="col gap-4">
-            <div className="fld"><label>Email</label>
+            <div className="fld"><label>{t("auth.email")}</label>
               <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus required />
             </div>
-            <Btn type="submit" variant="primary" size="lg" block disabled={forgotBusy}>{forgotBusy ? "Sending…" : "Send reset link"}</Btn>
+            <Btn type="submit" variant="primary" size="lg" block disabled={forgotBusy}>{forgotBusy ? t("auth.sending") : t("auth.sendResetLink")}</Btn>
           </form>
-          <p className="asplit-cross" style={{ marginTop: 16 }}><button type="button" className="backlink" onClick={() => setStage("main")}>← Back to sign in</button></p>
+          <p className="asplit-cross" style={{ marginTop: 16 }}><button type="button" className="backlink" onClick={() => setStage("main")}>← {t("auth.backToSignIn")}</button></p>
         </div>
       </div>
     </div>
@@ -181,15 +183,18 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   if (stage === "forgot-sent") return (
     <div className="asplit">
+      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
+        <LanguageSwitcher style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
+      </div>
       <div className="asplit-brand">
         <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
       </div>
       <div className="asplit-form-col">
         <div className="asplit-form rise" style={{ textAlign: "center" }}>
-          <h1 style={{ fontSize: 23, margin: "0 0 10px" }}>Check your inbox</h1>
-          <p className="muted" style={{ fontSize: 14 }}>If <b>{email}</b> is registered, you'll receive a reset link within a minute. Check your spam folder if it doesn't arrive.</p>
-          <Btn variant="ghost" onClick={() => setStage("main")}>← Back to sign in</Btn>
+          <h1 style={{ fontSize: 23, margin: "0 0 10px" }}>{t("auth.checkYourInbox")}</h1>
+          <p className="muted" style={{ fontSize: 14 }} dangerouslySetInnerHTML={{ __html: t("auth.resetLinkSent", { email: `<b>${email}</b>` }) }}></p>
+          <Btn variant="ghost" onClick={() => setStage("main")}>← {t("auth.backToSignIn")}</Btn>
         </div>
       </div>
     </div>
@@ -201,6 +206,9 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
 
   return (
     <div className="asplit">
+      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
+        <LanguageSwitcher style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
+      </div>
       <div className="asplit-brand">
         <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
@@ -224,14 +232,14 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
       <div className="asplit-form-col">
         <div className="asplit-form rise">
           <div className="asplit-tabs">
-            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); }}>Sign in</button>
+            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); }}>{t("auth.signIn")}</button>
             <button type="button" className={mode === "signup" ? "on" : ""}
               onClick={() => { setMode("signup"); setError(""); }}>
-              Create account
+              {t("auth.signUp")}
             </button>
           </div>
 
-          <h1 style={{ fontSize: 23, margin: "0 0 4px" }}>{mode === "signin" ? "Welcome back" : copy.signupTitle}</h1>
+          <h1 style={{ fontSize: 23, margin: "0 0 4px" }}>{mode === "signin" ? t("auth.welcomeBack") : copy.signupTitle}</h1>
           <p className="muted" style={{ fontSize: 13.5, margin: "0 0 20px" }}>{mode === "signin" ? copy.signinSub : copy.signupSub}</p>
 
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
@@ -239,14 +247,14 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
           {activeProviders.length > 0 && (
             <div className="sso-grid">
               {googleProv && (
-                <a className="btn btn-ghost full" href={`${adapter.oauthBasePath}/google`}>
-                  <GoogleMark size={17} /> Continue with Google
+                <a className="btn btn-ghost full" href={`${adapter.oauthBasePath}/google?mode=${mode}`}>
+                  <GoogleMark size={17} /> {t("auth.continueWithGoogle")}
                 </a>
               )}
               {otherProvs.map(([key]) => {
                 const Mark = SSO_MARKS[key];
                 return (
-                  <a key={key} className="btn btn-ghost" href={`${adapter.oauthBasePath}/${key}`}>
+                  <a key={key} className="btn btn-ghost" href={`${adapter.oauthBasePath}/${key}?mode=${mode}`}>
                     {Mark ? <Mark size={16} /> : null} {key.charAt(0).toUpperCase() + key.slice(1)}
                   </a>
                 );
@@ -257,7 +265,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
           {activeProviders.length > 0 && (
             <div className="row gap-3" style={{ alignItems: "center", margin: "16px 0 0" }}>
               <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              <span className="faint" style={{ fontSize: 12 }}>or continue with</span>
+              <span className="faint" style={{ fontSize: 12 }}>{t("auth.orContinueWith")}</span>
               <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
             </div>
           )}
@@ -265,10 +273,10 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
           {smsReady ? (
             <div className="method-tabs">
               <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); }}>
-                <Icon name="mail" size={15} /> Email
+                <Icon name="mail" size={15} /> {t("auth.emailTab")}
               </button>
               <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); }}>
-                <Icon name="phone" size={15} /> Phone
+                <Icon name="phone" size={15} /> {t("auth.phoneTab")}
               </button>
             </div>
           ) : <div style={{ height: 18 }} />}
@@ -278,7 +286,7 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
               {mode === "signup" && (
                 <>
                   <div className="fld">
-                    <label>Full name</label>
+                    <label>{t("auth.fullName")}</label>
                     <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" autoFocus />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
@@ -286,14 +294,14 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                 </>
               )}
               <div className="fld">
-                <label>{mode === "signup" ? "Work email" : "Email"}{copy.emailHint && mode === "signup" && <span className="faint"> · {copy.emailHint}</span>}</label>
+                <label>{mode === "signup" ? t("auth.workEmail", null, "Work email") : t("auth.email", null, "Email")}{copy.emailHint && mode === "signup" && <span className="faint"> · {copy.emailHint}</span>}</label>
                 <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@company.com" autoFocus={mode === "signin"} />
                 {errs.email && <p className="ferr">{errs.email}</p>}
               </div>
               <div className="fld">
-                <label>Password</label>
+                <label>{t("auth.password")}</label>
                 <div className="inw">
-                  <input className="fin" type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, password: true }))} placeholder={mode === "signup" ? "At least 8 characters" : "••••••••"} />
+                  <input className="fin" type={showPw ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, password: true }))} placeholder={mode === "signup" ? t("auth.atLeast8Chars", null, "At least 8 characters") : "••••••••"} />
                   <button type="button" onClick={() => setShowPw((s) => !s)} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--text-faint)" }}>
                     <Icon name={showPw ? "eye" : "eye"} size={16} />
                   </button>
@@ -302,18 +310,18 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                 {mode === "signin" && (
                   <button type="button" className="backlink" style={{ float: "right", marginTop: 6 }}
                     onClick={() => setStage("forgot")}>
-                    Forgot password?
+                    {t("auth.forgotPassword")}
                   </button>
                 )}
               </div>
               {mode === "signup" && (
                 <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                   <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
-                  I agree to the Terms of Service and Privacy Policy
+                  {t("auth.agreeToTerms")}
                 </label>
               )}
               <Btn type="submit" variant="primary" size="lg" block disabled={busy}>
-                {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
+                {busy ? t("auth.pleaseWait") : mode === "signin" ? t("auth.signIn") : t("auth.signUp")}
               </Btn>
             </form>
           ) : (
@@ -321,21 +329,21 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
               {mode === "signup" && !otpSent && (
                 <>
                   <div className="fld">
-                    <label>Full name</label>
+                    <label>{t("auth.fullName")}</label>
                     <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
-                    I agree to the Terms of Service and Privacy Policy
+                    {t("auth.agreeToTerms")}
                   </label>
                 </>
               )}
               {!otpSent ? (
                 <>
                   <div className="fld">
-                    <label>Mobile number</label>
+                    <label>{t("auth.mobileNumber")}</label>
                     <div className="phone-row">
                       <select className="cc-select" value={ccIdx} onChange={handleCcChange}>
                         {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}
@@ -345,19 +353,19 @@ export default function AuthSplitScreen({ role, copy, adapter, homePath, otherRo
                   </div>
                   <div ref={containerRef} />
                   <Btn type="button" variant="primary" size="lg" block disabled={busy} onClick={sendOtp}>
-                    {busy ? "Sending…" : "Send code"}
+                    {busy ? t("auth.sending") : t("auth.sendCode")}
                   </Btn>
                 </>
               ) : (
                 <>
-                  <p className="otp-lead">Enter the 6-digit code sent to <b>{cc} {phoneDigits}</b> <button type="button" className="backlink" onClick={() => { setOtpSent(false); setOtp(""); }}>Edit</button></p>
+                  <p className="otp-lead"><span dangerouslySetInnerHTML={{ __html: t("auth.enterCode", { phone: `<b>${cc} ${phoneDigits}</b>` }) }} /> <button type="button" className="backlink" onClick={() => { setOtpSent(false); setOtp(""); }}>{t("actions.edit")}</button></p>
                   <OtpBoxes value={otp} onChange={setOtp} />
                   <div className="resend-row">
-                    <span>Didn't get it?</span>
-                    <button type="button" disabled={resendIn > 0} onClick={sendOtp}>{resendIn > 0 ? `Resend in ${resendIn}s` : "Resend code"}</button>
+                    <span>{t("auth.didntGetIt")}</span>
+                    <button type="button" disabled={resendIn > 0} onClick={sendOtp}>{resendIn > 0 ? t("auth.resendIn", { seconds: resendIn }) : t("auth.resendCode")}</button>
                   </div>
                   <Btn type="button" variant="primary" size="lg" block disabled={busy || otp.length !== 6} onClick={verifyOtp}>
-                    {busy ? "Verifying…" : "Verify and continue"}
+                    {busy ? t("auth.verifying") : t("auth.verifyAndContinue")}
                   </Btn>
                 </>
               )}

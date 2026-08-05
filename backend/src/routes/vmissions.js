@@ -8,6 +8,7 @@ import fs from "fs";
 import { randomUUID } from "crypto";
 import { recalcMissionStats } from "../stats.js";
 import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
+import { translateBatch } from "../translate.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -38,6 +39,7 @@ function serializeRow(row) {
   return {
     id: row.mm_id,
     taskId: row.id,
+    src: row.src,
     type: row.category ? row.type : (VTYPES[row.type] ? row.type : "mvp"), category: row.category, product: row.product, tagline: row.tagline, company: row.company,
     reward: row.reward, minutes: row.minutes, match: row.match_pct,
     deadline: row.deadline_label,
@@ -53,9 +55,9 @@ router.get("/", async (req, res) => {
     SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, mm.created_at, mm.updated_at,
            t.* FROM v_my_missions mm 
     JOIN (
-      SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text FROM vtasks
+      SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
       UNION ALL
-      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief FROM missions
+      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
     ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ?`;
   const params = [req.validator.id];
@@ -93,7 +95,29 @@ router.get("/", async (req, res) => {
     else if (counts[r.status] !== undefined) counts[r.status] = Number(r.c);
   }
 
-  res.json({ missions: rows.map(serializeRow), counts });
+  const missions = rows.map(serializeRow);
+
+  const lang = req.validator.preferred_language;
+  if (lang && lang !== "en") {
+    const items = missions.flatMap(m => {
+      const entityType = `marketplace_${m.src}`;
+      const out = [
+        { entityType, entityId: Number(m.taskId), field: "product", text: m.product },
+        { entityType, entityId: Number(m.taskId), field: "tagline", text: m.tagline },
+      ];
+      if (m.reason) out.push({ entityType: "vmm_reason", entityId: m.id, field: "reason", text: m.reason });
+      return out;
+    });
+    const translated = await translateBatch(items, lang);
+    for (const m of missions) {
+      const entityType = `marketplace_${m.src}`;
+      m.product = translated.get(`${entityType}:${Number(m.taskId)}:product`) ?? m.product;
+      m.tagline = translated.get(`${entityType}:${Number(m.taskId)}:tagline`) ?? m.tagline;
+      if (m.reason) m.reason = translated.get(`vmm_reason:${m.id}:reason`) ?? m.reason;
+    }
+  }
+
+  res.json({ missions, counts });
 });
 
 // GET /api/v/missions/invitations

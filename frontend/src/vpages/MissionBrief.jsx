@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function MissionBrief() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -29,13 +31,13 @@ export default function MissionBrief() {
     })();
   }, [id]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading brief…</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("missions.loadingBrief", null, "Loading brief…")}</div></div>;
   if (!mission) return (
     <div className="page rise" style={{ textAlign: "center", paddingTop: 80 }}>
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
-      <h2 style={{ fontSize: 20, marginBottom: 8 }}>Mission not found</h2>
-      <p style={{ color: "var(--text-muted)" }}>This mission may have been deleted or is unavailable.</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>Go Back</Btn>
+      <h2 style={{ fontSize: 20, marginBottom: 8 }}>{t("missions.missionNotFound", null, "Mission not found")}</h2>
+      <p style={{ color: "var(--text-muted)" }}>{t("missions.missionNotFoundDesc", null, "This mission may have been deleted or is unavailable.")}</p>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
@@ -49,7 +51,7 @@ export default function MissionBrief() {
         <div style={{ display: "flex", alignItems: "center", marginBottom: 28 }}>
           {step > 0 && (
             <button className="btn btn-quiet" style={{ marginLeft: -8, padding: "7px 10px" }} onClick={() => setStep(0)}>
-              <Icon name="arrowLeft" size={15} /> Back
+              <Icon name="arrowLeft" size={15} /> {t("actions.back", null, "Back")}
             </button>
           )}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
@@ -62,7 +64,7 @@ export default function MissionBrief() {
 
         {/* Step tracker */}
         <div style={{ display: "flex", alignItems: "center", marginBottom: 32 }}>
-          {["Your access", "Mission overview"].map((l, i) => [
+          {[t("missions.yourAccess", null, "Your access"), t("missions.missionOverview", null, "Mission overview")].map((l, i) => [
             i > 0 && <div key={`b${i}`} style={{ flex: 1, height: 2, background: i <= step ? "var(--accent)" : "var(--border)", margin: "0 8px", transition: "background .3s" }} />,
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
               <div style={{
@@ -80,17 +82,17 @@ export default function MissionBrief() {
 
         {step === 0 ? (
           <div className="rise">
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>Mission accepted — here's your access</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 24px", fontSize: 15 }}>Keep all product details confidential. Do not share access credentials or product information.</p>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>{t("missions.missionAcceptedAccess", null, "Mission accepted — here's your access")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 24px", fontSize: 15 }}>{t("missions.confidentialityNotice", null, "Keep all product details confidential. Do not share access credentials or product information.")}</p>
 
             {/* App link */}
             {mission?.brief_url && (
               <div className="card" style={{ padding: 20, marginBottom: 14 }}>
-                <div className="eyebrow" style={{ marginBottom: 12 }}>App / product link</div>
+                <div className="eyebrow" style={{ marginBottom: 12 }}>{t("missions.appProductLink", null, "App / product link")}</div>
                 <a href={mission.brief_url} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: "var(--accent-weak)", borderRadius: "var(--radius-sm)", border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)", textDecoration: "none" }}>
                   <Icon name="link" size={18} style={{ color: "var(--accent)", flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--accent)" }}>Open product</div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--accent)" }}>{t("missions.openProduct", null, "Open product")}</div>
                     <div style={{ fontSize: 12, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mission.brief_url}</div>
                   </div>
                   <Icon name="externalLink" size={14} style={{ color: "var(--accent)", flexShrink: 0 }} />
@@ -101,13 +103,13 @@ export default function MissionBrief() {
             {/* Test credentials */}
             {mission?.brief_credentials && (
               <div className="card" style={{ padding: 20, marginBottom: 14 }}>
-                <div className="eyebrow" style={{ marginBottom: 12 }}>Test credentials</div>
+                <div className="eyebrow" style={{ marginBottom: 12 }}>{t("missions.testCredentials", null, "Test credentials")}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "var(--panel-inset)", borderRadius: "var(--radius-sm)", fontFamily: "var(--mono)", fontSize: 13 }}>
                   <span style={{ flex: 1, filter: revealed ? "none" : "blur(5px)", userSelect: revealed ? "text" : "none", transition: "filter .2s" }}>
                     {mission.brief_credentials}
                   </span>
                   <button className="btn btn-quiet" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setRevealed(r => !r)}>
-                    <Icon name={revealed ? "eyeOff" : "eye"} size={14} /> {revealed ? "Hide" : "Reveal"}
+                    <Icon name={revealed ? "eyeOff" : "eye"} size={14} /> {revealed ? t("actions.hide", null, "Hide") : t("actions.reveal", null, "Reveal")}
                   </button>
                 </div>
               </div>
@@ -124,20 +126,20 @@ export default function MissionBrief() {
                   {agreed && <Icon name="check" size={13} style={{ color: "#fff" }} />}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Confidentiality agreement</div>
-                  <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>I agree to keep this product, its features, and all access details confidential. I will not share screenshots, links, or information about this product with anyone outside of ValidationCrew.</div>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{t("missions.confidentialityAgreement", null, "Confidentiality agreement")}</div>
+                  <div style={{ fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5 }}>{t("missions.ndaText", null, "I agree to keep this product, its features, and all access details confidential. I will not share screenshots, links, or information about this product with anyone outside of ValidationCrew.")}</div>
                 </div>
               </div>
             </div>
 
             <Btn variant="primary" block disabled={!agreed} onClick={() => setStep(1)} style={{ justifyContent: "center" }}>
-              I'm ready → <Icon name="arrowRight" size={16} />
+              {t("actions.imReady", null, "I'm ready →")} <Icon name="arrowRight" size={16} />
             </Btn>
           </div>
         ) : (
           <div className="rise">
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>Mission overview</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 24px", fontSize: 15 }}>Read through the brief before starting. You can return to this page any time.</p>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 6px" }}>{t("missions.missionOverviewTitle", null, "Mission overview")}</h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 24px", fontSize: 15 }}>{t("missions.readBriefNotice", null, "Read through the brief before starting. You can return to this page any time.")}</p>
 
             {/* Mission card */}
             <div className="card" style={{ padding: 20, marginBottom: 14 }}>
@@ -157,9 +159,10 @@ export default function MissionBrief() {
 
             {/* Task list */}
             <div className="card" style={{ padding: 20, marginBottom: 14 }}>
-              <div className="eyebrow" style={{ marginBottom: 14 }}>Tasks overview — {tasks.length} tasks</div>
+              <div className="eyebrow" style={{ marginBottom: 14 }}>{t("missions.tasksOverviewCount", { count: tasks.length }, `Tasks overview — ${tasks.length} tasks`)}</div>
               {tasks.map((t, i) => {
                 const sev = SEV[t.severity] || SEV.imp;
+  SEV.crit.l = t("missions.sevCrit", null, "Critical"); SEV.imp.l = t("missions.sevImp", null, "Important"); SEV.nice.l = t("missions.sevNice", null, "Nice to have");
                 return (
                   <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
                     <span style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, background: "var(--panel-inset)", color: "var(--text-faint)", flexShrink: 0 }}>{i + 1}</span>
@@ -174,11 +177,11 @@ export default function MissionBrief() {
             {/* Time estimate */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", marginBottom: 24 }}>
               <Icon name="clock" size={16} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
-              <span style={{ fontSize: 13.5, color: "var(--text-muted)" }}>Estimated time: <b style={{ color: "var(--text)" }}>~{totalMins} minutes</b> across {tasks.length} tasks</span>
+              <span style={{ fontSize: 13.5, color: "var(--text-muted)" }}>{t("missions.estimatedTimeFull", { min: totalMins, count: tasks.length }, `Estimated time: ~${totalMins} minutes across ${tasks.length} tasks`)}</span>
             </div>
 
             <Btn variant="primary" block onClick={() => navigate(`/validator/missions/${id}/workspace`)} style={{ justifyContent: "center" }}>
-              Open workspace → <Icon name="arrowRight" size={16} />
+              {t("actions.openWorkspace", null, "Open workspace →")} <Icon name="arrowRight" size={16} />
             </Btn>
           </div>
         )}

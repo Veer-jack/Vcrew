@@ -10,6 +10,8 @@ import { randomUUID } from "crypto";
 
 export const router = Router();
 
+const VALID_LANGS = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
+
 // Same uploads dir + unguessable-UUID-filename convention as the mission proof uploads
 // (vmissions.js) and the generic /api/uploads/:filename server, just with a document
 // mimetype allowlist instead of image/video — a resume is a different kind of file.
@@ -51,7 +53,8 @@ function publicValidator(v) {
 }
 
 router.post("/signup", async (req, res) => {
-  const { name, email, password, expertise } = req.body || {};
+  const { name, email, password, expertise, lang } = req.body || {};
+  const preferredLanguage = VALID_LANGS.includes(lang) ? lang : "en";
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
@@ -68,9 +71,9 @@ router.post("/signup", async (req, res) => {
   if (handleExists) handle = baseHandle + Math.floor(Math.random() * 9000 + 1000);
 
   const result = await db.prepare(`
-    INSERT INTO validators (name, handle, email, password_hash, specialties_json)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(String(name).trim(), handle, normalizedEmail, await hashPassword(password), JSON.stringify(specialties));
+    INSERT INTO validators (name, handle, email, password_hash, specialties_json, preferred_language)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(String(name).trim(), handle, normalizedEmail, await hashPassword(password), JSON.stringify(specialties), preferredLanguage);
 
   const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(result.lastInsertRowid);
   const ip = req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim();

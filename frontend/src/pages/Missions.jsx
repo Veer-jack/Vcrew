@@ -5,16 +5,19 @@ import { Btn, Empty } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
+import { useTranslation } from "../i18n/index.jsx";
 
-const TABS = [
-  { k: "active", l: "Active" },
-  { k: "draft", l: "Draft" },
-  { k: "closed", l: "Closed" },
-  { k: "completed", l: "Completed" },
-  { k: "archived", l: "Archived" },
-];
+// Tabs defined dynamically inside component to use translations
 
 export default function Missions() {
+  const { t } = useTranslation();
+  const TABS = [
+    { k: "active", l: t("missions.tabActive", null, "Active") },
+    { k: "draft", l: t("missions.tabDraft", null, "Draft") },
+    { k: "closed", l: t("missions.tabClosed", null, "Closed") },
+    { k: "completed", l: t("missions.tabCompleted", null, "Completed") },
+    { k: "archived", l: t("missions.tabArchived", null, "Archived") }
+  ];
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { categories } = useMeta();
@@ -36,10 +39,10 @@ export default function Missions() {
   }, [tab, q]);
 
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this mission?")) {
+    if (window.confirm(t("missions.deleteConfirm", null, "Are you sure you want to delete this mission?"))) {
       api.deleteMission(id).then(() => {
         setMissions(prev => prev.filter(m => m.id !== id));
-        setToast("Mission deleted successfully");
+        setToast(t("missions.deleteSuccess", null, "Mission deleted successfully"));
         setTimeout(() => setToast(null), 3000);
       });
     }
@@ -80,23 +83,23 @@ export default function Missions() {
       )}
 
       <div className="ph">
-        <div><span className="eyebrow">Mission management</span><h1>Missions</h1><p className="lead">Every study you've run, in flight, or drafted.</p></div>
-        <div className="ph-actions"><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>Create Mission</Btn></div>
+        <div><span className="eyebrow">{t("missions.eyebrow", null, "Mission management")}</span><h1>{t("missions.title", null, "Missions")}</h1><p className="lead">{t("missions.lead", null, "Every study you've run, in flight, or drafted.")}</p></div>
+        <div className="ph-actions"><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn></div>
       </div>
       <div className="toolbar">
         <div className="tabs">{TABS.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}>{t.l}<span className="cnt">{counts[t.k] ?? "·"}</span></button>)}</div>
         <span className="grow" />
-        <div className="seg-search"><Icon name="search" size={16} /><input placeholder="Search missions…" value={q} onChange={e => setQ(e.target.value)} /></div>
+        <div className="seg-search"><Icon name="search" size={16} /><input placeholder={t("missions.searchPlaceholder", null, "Search missions…")} value={q} onChange={e => setQ(e.target.value)} /></div>
       </div>
-      {loading ? <div className="muted" style={{ padding: 24 }}>Loading…</div>
+      {loading ? <div className="muted" style={{ padding: 24 }}>{t("actions.loading", null, "Loading…")}</div>
         : missions.length === 0
-          ? <Empty icon="layers" title={`No ${tab} missions`} action={tab === "draft" || tab === "active" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>Create your first mission</Btn> : null}>{tab === "completed" ? "Completed missions will appear here once they wrap." : "Nothing here yet."}</Empty>
+          ? <Empty icon="layers" title={`${t("missions.no", null, "No")} ${tab} ${t("missions.missionsLower", null, "missions")}`} action={tab === "draft" || tab === "active" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createFirstMission", null, "Create your first mission")}</Btn> : null}>{tab === "completed" ? t("missions.completedEmpty", null, "Completed missions will appear here once they wrap.") : t("missions.emptyDefault", null, "Nothing here yet.")}</Empty>
           : (
             <div style={{ paddingBottom: 32 }}>
               <MissionsTable rows={missions.slice(0, visibleCount)} nav={navigate} categories={categories} onDelete={handleDelete} />
               {visibleCount < missions.length && (
                 <div style={{ textAlign: "center", marginTop: 16 }}>
-                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>Load more missions</Btn>
+                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</Btn>
                 </div>
               )}
             </div>

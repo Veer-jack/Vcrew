@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { VTYPES, TYPE_ORDER, deadlineHours } from "../vmeta.js";
+import { translateBatch } from "../translate.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -85,6 +86,7 @@ router.get("/", async (req, res) => {
 
   // Normalization logic in JS is safer for mapping the exact strings, but filtering is pushed down where possible.
   const rawRows = await db.prepare(baseCTE + ` SELECT * FROM base_tasks`).all();
+  const sourceById = new Map(rawRows.map(t => [t.id, t.source]));
   let tasks = await Promise.all(rawRows.map(t => serializeTask(t, savedIds, myContext, inviteContext)));
 
   // Calculate un-filtered totals for categories (normalized)
@@ -118,19 +120,57 @@ router.get("/", async (req, res) => {
   }[sort] || ((a, b) => b.match - a.match);
   tasks.sort(cmp);
 
+  const lang = req.validator.preferred_language;
+  if (lang && lang !== "en") {
+    const items = [];
+    for (const t of tasks) {
+      const entityType = `marketplace_${sourceById.get(String(t.id)) || "task"}`;
+      items.push({ entityType, entityId: Number(t.id), field: "product", text: t.product });
+      items.push({ entityType, entityId: Number(t.id), field: "tagline", text: t.tagline });
+      items.push({ entityType, entityId: Number(t.id), field: "brief", text: t.brief });
+    }
+    const translated = await translateBatch(items, lang);
+    for (const t of tasks) {
+      const entityType = `marketplace_${sourceById.get(String(t.id)) || "task"}`;
+      t.product = translated.get(`${entityType}:${Number(t.id)}:product`) ?? t.product;
+      t.tagline = translated.get(`${entityType}:${Number(t.id)}:tagline`) ?? t.tagline;
+      t.brief = translated.get(`${entityType}:${Number(t.id)}:brief`) ?? t.brief;
+    }
+  }
+
   res.json({ tasks, total, categories, featured });
 });
 
 // GET /api/v/marketplace/:id
 router.get("/:id", async (req, res) => {
   let t = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  let source = "mission";
   if (!t) {
     t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.id);
+    source = "vtask";
   }
   if (!t) return res.status(404).json({ error: "Mission not found" });
-  
+
   const { savedIds, myContext, inviteContext } = await loadContext(req.validator.id);
   const serialized = await serializeTask(t, savedIds, myContext, inviteContext);
+
+  const lang = req.validator.preferred_language;
+  if (lang && lang !== "en") {
+    const entityType = `marketplace_${source}`;
+    const entityId = Number(serialized.id);
+    const items = [
+      { entityType, entityId, field: "product", text: serialized.product },
+      { entityType, entityId, field: "tagline", text: serialized.tagline },
+      { entityType, entityId, field: "brief", text: serialized.brief },
+      ...serialized.steps.map((s, i) => ({ entityType, entityId, field: `steps.${i}`, text: s })),
+    ];
+    const translated = await translateBatch(items, lang);
+    serialized.product = translated.get(`${entityType}:${entityId}:product`) ?? serialized.product;
+    serialized.tagline = translated.get(`${entityType}:${entityId}:tagline`) ?? serialized.tagline;
+    serialized.brief = translated.get(`${entityType}:${entityId}:brief`) ?? serialized.brief;
+    serialized.steps = serialized.steps.map((s, i) => translated.get(`${entityType}:${entityId}:steps.${i}`) ?? s);
+  }
+
   res.json({ task: serialized, rubric: VTYPES[serialized.type] });
 });
 

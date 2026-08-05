@@ -3,8 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn, inr } from "../components/ui";
 import { vapi } from "../vapi/client";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function DailyCheckin() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   
@@ -46,15 +48,15 @@ export default function DailyCheckin() {
         }
       } catch (err) {
         console.error("Check-in status error:", err, "Detail:", err.detail);
-        setErrorMsg((err.message || "Failed to load check-in status") + (err.detail ? ` (${err.detail})` : ""));
+        setErrorMsg((err.message || t("missions.failedToLoadCheckinStatus", null, "Failed to load check-in status")) + (err.detail ? ` (${err.detail})` : ""));
       } finally {
         setLoading(false);
       }
     })();
   }, [id, navigate]);
 
-  if (loading) return <div className="page rise"><div className="muted">Loading check-in…</div></div>;
-  if (errorMsg) return <div className="page rise"><div style={{ color: "var(--danger)", padding: 24, textAlign: "center", fontWeight: 700 }}>Error: {errorMsg}</div></div>;
+  if (loading) return <div className="page rise"><div className="muted">{t("missions.loadingCheckin", null, "Loading check-in…")}</div></div>;
+  if (errorMsg) return <div className="page rise"><div style={{ color: "var(--danger)", padding: 24, textAlign: "center", fontWeight: 700 }}>{t("missions.error", null, "Error:")} {errorMsg}</div></div>;
 
   const totalDays = mission?.total_days || 7;
   const rewardTotal = mission?.reward_total || 0;
@@ -69,7 +71,7 @@ export default function DailyCheckin() {
     try {
       await vapi.post(`/missions/${id}/checkin`, { answers, screenshot_path: proofFilename });
     } catch (e) {
-      alert(e.message || "Failed to submit");
+      alert(e.message || t("missions.failedToSubmit", null, "Failed to submit"));
     } finally {
       setSubmitting(false);
       setSubmitted(true);
@@ -82,17 +84,17 @@ export default function DailyCheckin() {
         <div style={{ width: 80, height: 80, borderRadius: 24, background: "var(--success-weak)", display: "grid", placeItems: "center", margin: "0 auto 22px" }}>
           <Icon name="check" size={40} style={{ color: "var(--success)" }} />
         </div>
-        <h2 style={{ margin: "0 0 10px", fontSize: 24, fontWeight: 800 }}>Day {currentDay} submitted!</h2>
+        <h2 style={{ margin: "0 0 10px", fontSize: 24, fontWeight: 800 }}>{t("missions.daySubmitted", { currentDay }, `Day ${currentDay} submitted!`)}</h2>
         {currentDay >= totalDays ? (
           <>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>That's all {totalDays} days — time for your final review.</p>
-            <p style={{ color: "var(--success)", fontWeight: 700, margin: "0 0 26px" }}>Complete the final review to get paid.</p>
-            <Btn variant="primary" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>Continue to final review</Btn>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>{t("missions.allDaysDone", { totalDays }, `That's all ${totalDays} days — time for your final review.`)}</p>
+            <p style={{ color: "var(--success)", fontWeight: 700, margin: "0 0 26px" }}>{t("missions.completeFinalReview", null, "Complete the final review to get paid.")}</p>
+            <Btn variant="primary" onClick={() => navigate(`/validator/missions/${id}/workspace`)}>{t("actions.continueToFinalReview", null, "Continue to final review")}</Btn>
           </>
         ) : (
           <>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>Come back tomorrow for Day {currentDay + 1}.</p>
-            <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>{t("missions.comeBackTomorrow", { nextDay: currentDay + 1 }, `Come back tomorrow for Day ${currentDay + 1}.`)}</p>
+            <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
           </>
         )}
       </div>
@@ -111,12 +113,12 @@ export default function DailyCheckin() {
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{mission?.name}</div>
-              <div style={{ fontSize: 12, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>Longitudinal · {mission?.brand}</div>
+              <div style={{ fontSize: 12, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>{t("missions.longitudinal", null, "Longitudinal")} · {mission?.brand}</div>
             </div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700 }}>
-          <Icon name="gift" size={16} style={{ color: "var(--success)" }} /> {inr(rewardTotal)} on completion
+          <Icon name="gift" size={16} style={{ color: "var(--success)" }} /> {inr(rewardTotal)} {t("missions.onCompletion", null, "on completion")}
         </div>
       </div>
 
@@ -133,17 +135,17 @@ export default function DailyCheckin() {
                   <Icon name="calendar" size={24} style={{ color: "var(--accent)" }} />
                 </div>
                 <div>
-                  <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800 }}>Daily Check-in Streak</h2>
-                  <p style={{ margin: 0, fontSize: 14, color: "var(--text-muted)" }}>Complete all {totalDays} days to earn your full reward</p>
+                  <h2 style={{ margin: "0 0 6px", fontSize: 20, fontWeight: 800 }}>{t("missions.dailyCheckinStreak", null, "Daily Check-in Streak")}</h2>
+                  <p style={{ margin: 0, fontSize: 14, color: "var(--text-muted)" }}>{t("missions.completeAllDays", { totalDays }, `Complete all ${totalDays} days to earn your full reward`)}</p>
                 </div>
               </div>
               <div style={{ display: "flex", gap: 32, alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Progress</div>
-                  <div style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: "var(--success)" }}>{completedDays}</span> of {totalDays} days completed</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("missions.progress", null, "Progress")}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: "var(--success)" }}>{completedDays}</span> {t("missions.ofDaysCompleted", { totalDays }, `of ${totalDays} days completed`)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>Total Reward</div>
+                  <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("missions.totalReward", null, "Total Reward")}</div>
                   <div style={{ fontSize: 20, fontWeight: 800, color: "var(--success)" }}>{inr(rewardTotal)}</div>
                 </div>
               </div>
@@ -158,7 +160,7 @@ export default function DailyCheckin() {
                 {Array.from({ length: totalNodes }).map((_, i) => {
                   const nodeIndex = i + 1;
                   const isExtra = nodeIndex > totalDays;
-                  const label = isExtra ? `Extra Day ${nodeIndex - totalDays}` : `Day ${nodeIndex}`;
+                  const label = isExtra ? t("missions.extraDayN", { n: nodeIndex - totalDays }, `Extra Day ${nodeIndex - totalDays}`) : t("missions.dayN", { n: nodeIndex }, `Day ${nodeIndex}`);
                   
                   // Determine state based on sequence
                   // Timeline visual maps chronologically to events
@@ -182,24 +184,24 @@ export default function DailyCheckin() {
                   let border = "var(--border)";
                   let color = "var(--text-muted)";
                   let icon = <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--border)" }} />;
-                  let textLabel = "Upcoming";
+                  let textLabel = t("status.upcoming", null, "Upcoming");
 
                   if (state === "completed") {
                     bg = "var(--success)"; border = "var(--success)"; color = "var(--success)";
                     icon = <Icon name="check" size={16} style={{ color: "#fff" }} />;
-                    textLabel = "Completed";
+                    textLabel = t("status.completed", null, "Completed");
                   } else if (state === "skipped") {
                     bg = "var(--danger)"; border = "var(--danger)"; color = "var(--danger)";
                     icon = <Icon name="x" size={16} style={{ color: "#fff" }} />;
-                    textLabel = "Skipped";
+                    textLabel = t("status.skipped", null, "Skipped");
                   } else if (state === "today") {
                     bg = "var(--accent)"; border = "var(--accent)"; color = "var(--accent)";
                     icon = <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#fff" }} />;
-                    textLabel = "Today";
+                    textLabel = t("status.today", null, "Today");
                   } else if (state === "extra") {
                     border = "var(--accent-weak)"; color = "var(--accent)";
                     icon = <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--accent-weak)" }} />;
-                    textLabel = "Extra Day";
+                    textLabel = t("status.extraDay", null, "Extra Day");
                   }
 
                   return (
@@ -224,14 +226,14 @@ export default function DailyCheckin() {
             {/* Legend */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
               <div style={{ display: "flex", gap: 20, fontSize: 13, fontWeight: 500, color: "var(--text-muted)" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--success)" }} /> Completed</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "var(--accent)" }} /> Today</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--danger)" }} /> Skipped</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--border)" }} /> Upcoming</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--accent-weak)" }} /> Extra Day</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--success)" }} /> {t("status.completed", null, "Completed")}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "var(--accent)" }} /> {t("status.today", null, "Today")}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--danger)" }} /> {t("status.skipped", null, "Skipped")}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--border)" }} /> {t("status.upcoming", null, "Upcoming")}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--accent-weak)" }} /> {t("status.extraDay", null, "Extra Day")}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-                <Icon name="info" size={14} /> Skip a day and your streak extends by 1 extra day (up to 2).
+                <Icon name="info" size={14} /> {t("missions.skipDayNotice", null, "Skip a day and your streak extends by 1 extra day (up to 2).")}
               </div>
             </div>
           </div>
@@ -241,25 +243,25 @@ export default function DailyCheckin() {
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--danger-weak)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
                 <Icon name="x" size={32} style={{ color: "var(--danger)" }} />
               </div>
-              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>Mission Failed</h3>
-              <p style={{ margin: "0 auto 24px", maxWidth: 400, color: "var(--text-muted)" }}>You exceeded the maximum number of extra days. This mission is now locked and cannot be completed.</p>
-              <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>Back to My Missions</Btn>
+              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>{t("missions.missionFailed", null, "Mission Failed")}</h3>
+              <p style={{ margin: "0 auto 24px", maxWidth: 400, color: "var(--text-muted)" }}>{t("missions.missionLockedOut", null, "You exceeded the maximum number of extra days. This mission is now locked and cannot be completed.")}</p>
+              <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
             </div>
           ) : !canSubmitToday ? (
             <div className="card rise" style={{ padding: 40, textAlign: "center", background: "#fff" }}>
               <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--success-weak)", display: "grid", placeItems: "center", margin: "0 auto 16px" }}>
                 <Icon name="check" size={32} style={{ color: "var(--success)" }} />
               </div>
-              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>You're all caught up!</h3>
-              <p style={{ margin: "0 auto 24px", maxWidth: 400, color: "var(--text-muted)" }}>You've already submitted your check-in for today. Come back tomorrow for the next one.</p>
+              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>{t("missions.allCaughtUp", null, "You're all caught up!")}</h3>
+              <p style={{ margin: "0 auto 24px", maxWidth: 400, color: "var(--text-muted)" }}>{t("missions.alreadySubmittedCheckin", null, "You've already submitted your check-in for today. Come back tomorrow for the next one.")}</p>
             </div>
           ) : (
             <div className="card rise" style={{ padding: 32, background: "#fff" }}>
               {/* Form elements remain unchanged in logic, updated styles to match mockup */}
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Did you use it today?</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.didYouUseItToday", null, "Did you use it today?")}</div>
                 <div style={{ display: "flex", gap: 16 }}>
-                  {["Yes, actively", "Tried briefly", "No"].map(v => (
+                  {[t("missions.yesActively", null, "Yes, actively"), t("missions.triedBriefly", null, "Tried briefly"), t("missions.no", null, "No")].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, used: v }))} style={{
                       flex: 1, padding: "14px", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all .15s",
                       border: `1.5px solid ${answers.used === v ? "var(--accent)" : "var(--border)"}`,
@@ -271,13 +273,13 @@ export default function DailyCheckin() {
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>What did you do in the app today?</div>
-                <textarea className="fin" placeholder="e.g. Browsed the catalogue, added 2 items to cart, tried checkout…" rows={4} value={answers.what} onChange={e => setAnswers(a => ({ ...a, what: e.target.value }))} style={{ fontSize: 14, padding: 16, background: "var(--panel)" }} />
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.whatDidYouDo", null, "What did you do in the app today?")}</div>
+                <textarea className="fin" placeholder={t("missions.whatDidYouDoPlaceholder", null, "e.g. Browsed the catalogue, added 2 items to cart, tried checkout…")} rows={4} value={answers.what} onChange={e => setAnswers(a => ({ ...a, what: e.target.value }))} style={{ fontSize: 14, padding: 16, background: "var(--panel)" }} />
                 <div style={{ textAlign: "right", fontSize: 12, color: "var(--text-faint)", marginTop: 8 }}>{answers.what.length}/500</div>
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Any frustrations today?</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.anyFrustrations", null, "Any frustrations today?")}</div>
                 <div style={{ display: "flex", gap: 16, marginBottom: answers.frustration === "yes" ? 16 : 0 }}>
                   {["yes", "no"].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, frustration: a.frustration === v ? null : v }))} style={{
@@ -285,18 +287,18 @@ export default function DailyCheckin() {
                       border: `1.5px solid ${answers.frustration === v ? "var(--accent)" : "var(--border)"}`,
                       background: answers.frustration === v ? "var(--accent-weak)" : "#fff",
                       color: answers.frustration === v ? "var(--accent)" : "var(--text)",
-                    }}>{v === "yes" ? "Yes" : "No"}</button>
+                    }}>{v === "yes" ? t("actions.yes", null, "Yes") : t("actions.no", null, "No")}</button>
                   ))}
                 </div>
                 {answers.frustration === "yes" && (
-                  <textarea className="fin" placeholder="What was frustrating? Be specific…" rows={3} value={answers.frustrationDetail} onChange={e => setAnswers(a => ({ ...a, frustrationDetail: e.target.value }))} style={{ fontSize: 14, padding: 16, background: "var(--panel)" }} />
+                  <textarea className="fin" placeholder={t("missions.whatWasFrustrating", null, "What was frustrating? Be specific…")} rows={3} value={answers.frustrationDetail} onChange={e => setAnswers(a => ({ ...a, frustrationDetail: e.target.value }))} style={{ fontSize: 14, padding: 16, background: "var(--panel)" }} />
                 )}
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Would you open it again tomorrow?</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.openAgainTomorrow", null, "Would you open it again tomorrow?")}</div>
                 <div style={{ display: "flex", gap: 16 }}>
-                  {["Definitely", "Maybe", "No"].map(v => (
+                  {[t("missions.definitely", null, "Definitely"), t("missions.maybe", null, "Maybe"), t("missions.no", null, "No")].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, comeback: v }))} style={{
                       flex: 1, padding: 14, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all .15s",
                       border: `1.5px solid ${answers.comeback === v ? "var(--accent)" : "var(--border)"}`,
@@ -308,12 +310,12 @@ export default function DailyCheckin() {
               </div>
 
               <div style={{ marginBottom: 40 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Today's screenshot <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.todaysScreenshot", null, "Today's screenshot")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 {proofFilename ? (
                   <div style={{ border: "2px solid var(--success)", borderRadius: "var(--radius)", padding: "24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", background: "var(--success-weak)" }}>
                     <Icon name="check" size={28} style={{ color: "var(--success)", marginBottom: 8 }} />
-                    <div style={{ fontWeight: 700, color: "var(--success)" }}>Screenshot uploaded</div>
-                    <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 13 }} onClick={() => setProofFilename(null)}>Remove</button>
+                    <div style={{ fontWeight: 700, color: "var(--success)" }}>{t("missions.screenshotUploaded", null, "Screenshot uploaded")}</div>
+                    <button className="btn btn-quiet" style={{ marginTop: 8, fontSize: 13 }} onClick={() => setProofFilename(null)}>{t("actions.remove", null, "Remove")}</button>
                   </div>
                 ) : (
                   <label style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", padding: "40px 24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", cursor: uploadingProof ? "not-allowed" : "pointer", background: "var(--panel)", opacity: uploadingProof ? 0.7 : 1 }}>
@@ -325,24 +327,24 @@ export default function DailyCheckin() {
                         const res = await vapi.uploadCheckinProof(id, file);
                         setProofFilename(res.file.filename);
                       } catch (err) {
-                        alert(err.message || "Failed to upload proof");
+                        alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));
                       } finally {
                         setUploadingProof(false);
                       }
                     }} />
                     <Icon name="upload" size={28} style={{ color: "var(--text-faint)", marginBottom: 16 }} />
-                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{uploadingProof ? "Uploading…" : "Click or drop screenshot here"}</div>
-                    <p style={{ margin: 0, fontSize: 14, color: "var(--text-faint)" }}>PNG or JPG · max 10MB</p>
+                    <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 6 }}>{uploadingProof ? t("actions.uploading", null, "Uploading…") : t("missions.dropScreenshot", null, "Click or drop screenshot here")}</div>
+                    <p style={{ margin: 0, fontSize: 14, color: "var(--text-faint)" }}>{t("missions.imageFormatReq", null, "PNG or JPG · max 10MB")}</p>
                   </label>
                 )}
               </div>
 
               <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
                 <Btn variant="primary" icon="send" disabled={!canSubmit || submitting} onClick={submit} style={{ padding: "16px 32px", fontSize: 16, fontWeight: 700, background: "var(--accent)" }}>
-                  {submitting ? "Submitting…" : `Submit Check-in`}
+                  {submitting ? t("actions.submitting", null, "Submitting…") : t("actions.submitCheckin", null, "Submit Check-in")}
                 </Btn>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--text-muted)" }}>
-                  <Icon name="calendar" size={16} /> Daily check-in resets at 12:00 AM
+                  <Icon name="calendar" size={16} /> {t("missions.checkinResetTime", null, "Daily check-in resets at 12:00 AM")}
                 </div>
               </div>
             </div>
@@ -354,11 +356,11 @@ export default function DailyCheckin() {
           
           <div className="card rise" style={{ padding: 24, background: "#fff" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>How Extra Days Work</h3>
+              <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{t("missions.howExtraDaysWork", null, "How Extra Days Work")}</h3>
               <Icon name="info" size={16} style={{ color: "var(--text-muted)" }} />
             </div>
-            <p style={{ fontSize: 14, color: "var(--text)", marginBottom: 8 }}>You have <span style={{ fontWeight: 700 }}>2 extra days</span>.</p>
-            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.5 }}>If you skip a day, 1 extra day is added to the end of your streak.</p>
+            <p style={{ fontSize: 14, color: "var(--text)", marginBottom: 8 }}>{t("missions.youHaveExtraDays", null, "You have")} <span style={{ fontWeight: 700 }}>2 {t("missions.extraDays", null, "extra days")}</span>.</p>
+            <p style={{ fontSize: 14, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.5 }}>{t("missions.skipDayRule", null, "If you skip a day, 1 extra day is added to the end of your streak.")}</p>
             
             {/* Visual Diagram */}
             <div style={{ padding: 16, background: "var(--panel)", borderRadius: "var(--radius)" }}>
@@ -380,49 +382,49 @@ export default function DailyCheckin() {
                 <Icon name="arrowRight" size={12} style={{ color: "var(--text-faint)", marginLeft: 16 }} />
                 <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid var(--accent)", background: "var(--accent-weak)" }} />
               </div>
-              <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>+1 day added</div>
+              <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{t("missions.plusOneDayAdded", null, "+1 day added")}</div>
             </div>
           </div>
 
           <div className="card rise" style={{ padding: 24, background: "#fff" }}>
-            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 24px" }}>Your Summary</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: "0 0 24px" }}>{t("missions.yourSummary", null, "Your Summary")}</h3>
             
             <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 14 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text)" }}>
-                  <Icon name="checkCircle" size={18} style={{ color: "var(--success)" }} /> Completed
+                  <Icon name="checkCircle" size={18} style={{ color: "var(--success)" }} /> {t("status.completed", null, "Completed")}
                 </span>
-                <span style={{ fontWeight: 700, color: "var(--success)" }}>{completedDays} {completedDays === 1 ? 'day' : 'days'}</span>
+                <span style={{ fontWeight: 700, color: "var(--success)" }}>{completedDays} {completedDays === 1 ? t("missions.day", null, "day") : t("missions.days", null, "days")}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 14 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text)" }}>
-                  <Icon name="xCircle" size={18} style={{ color: "var(--danger)" }} /> Skipped
+                  <Icon name="xCircle" size={18} style={{ color: "var(--danger)" }} /> {t("status.skipped", null, "Skipped")}
                 </span>
-                <span style={{ fontWeight: 700, color: "var(--danger)" }}>{skippedDays} {skippedDays === 1 ? 'day' : 'days'}</span>
+                <span style={{ fontWeight: 700, color: "var(--danger)" }}>{skippedDays} {skippedDays === 1 ? t("missions.day", null, "day") : t("missions.days", null, "days")}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 14 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text)" }}>
-                  <Icon name="playCircle" size={18} style={{ color: "var(--accent)" }} /> Current
+                  <Icon name="playCircle" size={18} style={{ color: "var(--accent)" }} /> {t("missions.current", null, "Current")}
                 </span>
-                <span style={{ fontWeight: 700, color: "var(--accent)" }}>Day {currentDay}</span>
+                <span style={{ fontWeight: 700, color: "var(--accent)" }}>{t("missions.dayTitle", null, "Day")} {currentDay}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 14 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text-muted)" }}>
-                  <Icon name="clock" size={18} /> Upcoming
+                  <Icon name="clock" size={18} /> {t("status.upcoming", null, "Upcoming")}
                 </span>
-                <span style={{ fontWeight: 700 }}>{Math.max(0, totalDays - currentDay + (canSubmitToday ? 1 : 0))} days</span>
+                <span style={{ fontWeight: 700 }}>{Math.max(0, totalDays - currentDay + (canSubmitToday ? 1 : 0))} {t("missions.days", null, "days")}</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 14 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text-muted)" }}>
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--accent-weak)", marginLeft: 2 }} /> Extra Days Left
+                  <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--accent-weak)", marginLeft: 2 }} /> {t("missions.extraDaysLeft", null, "Extra Days Left")}
                 </span>
-                <span style={{ fontWeight: 700, color: remainingExtraDays === 0 ? "var(--danger)" : "var(--accent)" }}>{Math.max(0, remainingExtraDays)} {Math.max(0, remainingExtraDays) === 1 ? 'day' : 'days'}</span>
+                <span style={{ fontWeight: 700, color: remainingExtraDays === 0 ? "var(--danger)" : "var(--accent)" }}>{Math.max(0, remainingExtraDays)} {Math.max(0, remainingExtraDays) === 1 ? t("missions.day", null, "day") : t("missions.days", null, "days")}</span>
               </div>
               
               {remainingExtraDays === 0 && !lockedOut && (
                 <div style={{ background: "var(--danger-weak)", padding: 12, borderRadius: "var(--radius)", fontSize: 13, color: "var(--danger)", display: "flex", alignItems: "flex-start", gap: 8, marginTop: 4 }}>
                   <Icon name="alertCircle" size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <div><strong>Warning:</strong> You have 0 extra days left. Skipping another day will result in mission failure.</div>
+                  <div><strong>{t("actions.warning", null, "Warning")}:</strong> {t("missions.zeroExtraDaysWarning", null, "You have 0 extra days left. Skipping another day will result in mission failure.")}</div>
                 </div>
               )}
             </div>
@@ -432,8 +434,8 @@ export default function DailyCheckin() {
                 <Icon name="target" size={16} />
               </div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--accent)", marginBottom: 2 }}>Goal</div>
-                <div style={{ fontSize: 12, color: "var(--text)" }}>Complete all {totalDays} required days to earn the full reward.</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--accent)", marginBottom: 2 }}>{t("missions.goal", null, "Goal")}</div>
+                <div style={{ fontSize: 12, color: "var(--text)" }}>{t("missions.completeAllDaysGoal", { totalDays }, `Complete all ${totalDays} required days to earn the full reward.`)}</div>
               </div>
             </div>
           </div>
@@ -443,7 +445,7 @@ export default function DailyCheckin() {
               <Icon name="gift" size={24} style={{ color: "#fff" }} />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4, opacity: 0.9 }}>Total Reward</div>
+              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4, opacity: 0.9 }}>{t("missions.totalReward", null, "Total Reward")}</div>
               <div style={{ fontSize: 28, fontWeight: 800 }}>{inr(rewardTotal)}</div>
             </div>
           </div>

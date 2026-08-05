@@ -5,6 +5,7 @@ import { Avatar, Btn, inrK } from "./ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useTranslation } from "../i18n/index.jsx";
 import { BrandLogoFull } from "./BrandMark";
 import NotificationsSidebar from "./NotificationsSidebar";
 
@@ -14,6 +15,7 @@ const NAV_GROUPS = [
   { label: "Workspace", items: [
     { to: "/", label: "Dashboard", icon: "home", end: true },
     { to: "/missions", label: "Missions", icon: "layers" },
+    { to: "/invitations", label: "Invitations", icon: "send" },
     { to: "/audience", label: "Audience", icon: "compass" },
     { to: "/messages", label: "Messages", icon: "inbox" },
   ] },
@@ -26,25 +28,26 @@ const NAV_GROUPS = [
 ];
 
 function Sidebar({ closeMobile, builder }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <aside className="side">
       <div className="brand">
         <a href="/" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
       </div>
-      <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>Create Mission</Btn>
+      <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>{t("builder.createMission", null, "Create Mission")}</Btn>
       {NAV_GROUPS.flatMap(g => [
-        <div key={g.label} className="nav-group-label">{g.label}</div>,
+        <div key={g.label} className="nav-group-label">{t("nav." + g.label.toLowerCase(), null, g.label)}</div>,
         ...g.items.map(it => (
           <NavLink key={it.to} to={it.to} end={it.end} onClick={closeMobile}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-            <Icon name={it.icon} />{it.label}
+            <Icon name={it.icon} />{t("nav." + it.label.toLowerCase(), null, it.label)}
           </NavLink>
         )),
       ])}
       <div className="side-foot">
         <div className="lvl-card" style={{ marginBottom: 8 }}>
-          <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span style={{ fontWeight: 700, fontSize: 13 }}>Wallet</span><span className="mono faint" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
+          <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span style={{ fontWeight: 700, fontSize: 13 }}>{t("nav.wallet", null, "Wallet")}</span><span className="mono faint" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
           <div className="lvl-meter"><i style={{ width: "68%" }} /></div>
         </div>
         <NavLink to="/settings" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}>
@@ -54,8 +57,8 @@ function Sidebar({ closeMobile, builder }) {
             <div className="faint" style={{ fontSize: 11 }}>
               {builder?.role} · {builder?.plan}
               {builder?.verified
-                ? <span style={{ color: "var(--success)", marginLeft: 6 }}>✓ Verified</span>
-                : <span style={{ color: "var(--warning, #c2710c)", marginLeft: 6 }}>· Unverified</span>
+                ? <span style={{ color: "var(--success)", marginLeft: 6 }}>{t("appLayout.verified", null, "✓ Verified")}</span>
+                : <span style={{ color: "var(--warning, #c2710c)", marginLeft: 6 }}>{t("appLayout.unverified", null, "· Unverified")}</span>
               }
             </div>
           </div>
@@ -81,6 +84,7 @@ function pageTitle(pathname) {
 }
 
 export default function AppLayout() {
+  const { t } = useTranslation();
   const { builder, logout } = useAuth();
   const [bell, setBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -105,12 +109,12 @@ export default function AppLayout() {
       <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} />
       <div className="main" id="main-content">
         <header className="topbar">
-          <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          <h1>{pageTitle(location.pathname)}</h1>
+          <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
+          <h1>{t("nav." + pageTitle(location.pathname).toLowerCase(), null, pageTitle(location.pathname))}</h1>
           <div className="search" style={{ marginLeft: 18 }}>
             <Icon name="search" size={16} />
             <input
-              placeholder="Search missions…"
+              placeholder={t("actions.search", null, "Search missions…")}
               value={topbarQ}
               onChange={e => setTopbarQ(e.target.value)}
               onKeyDown={e => {
@@ -121,16 +125,16 @@ export default function AppLayout() {
             />
           </div>
           <span className="topbar-spacer" />
-          <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title="Notifications">
+          <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title={t("appLayout.notifications", null, "Notifications")}>
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
           </button>
-          <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title="Log out"><Icon name="logout" size={17} /></button>
+          <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title={t("appLayout.logOut", null, "Log out")}><Icon name="logout" size={17} /></button>
           <div style={{ position: "relative" }}>
             <button
               className="icon-btn"
               onClick={() => setShowProfile(p => !p)}
-              title="Profile"
+              title={t("appLayout.profile", null, "Profile")}
               style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", color: "#fff", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}
             >
               {(builder?.name || "B")[0].toUpperCase()}
@@ -144,10 +148,10 @@ export default function AppLayout() {
                 </div>
                 <div style={{ padding: "6px 0" }}>
                   <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0 }} onClick={() => { setShowProfile(false); navigate("/settings"); }}>
-                    <Icon name="settings" size={15} /> Settings
+                    <Icon name="settings" size={15} /> {t("nav.settings", null, "Settings")}
                   </button>
                   <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0, color: "var(--danger)" }} onClick={async () => { setShowProfile(false); await logout(); navigate("/login"); }}>
-                    <Icon name="logout" size={15} /> Sign out
+                    <Icon name="logout" size={15} /> {t("nav.logout", null, "Sign out")}
                   </button>
                 </div>
               </div>

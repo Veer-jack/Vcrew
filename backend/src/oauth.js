@@ -20,6 +20,7 @@ export const PROVIDERS = {
         redirect_uri: redirectUri("github", base),
         scope: this.scope,
         state,
+        prompt: "consent",
       });
       return `https://github.com/login/oauth/authorize?${params}`;
     },
@@ -75,6 +76,7 @@ export const PROVIDERS = {
         response_type: "code",
         scope: this.scope,
         state,
+        prompt: "select_account",
       });
       return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
     },

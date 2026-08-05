@@ -2,8 +2,10 @@ import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { setToken, api } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useTranslation } from "../i18n/index.jsx";
 
 export default function OAuthCallback() {
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { refreshBuilder } = useAuth();
@@ -11,7 +13,7 @@ export default function OAuthCallback() {
   useEffect(() => {
     const token = params.get("token");
     if (!token) {
-      navigate("/login?error=" + encodeURIComponent("Login failed, please try again"), { replace: true });
+      navigate("/login?error=" + encodeURIComponent(t("oauthCallback.loginFailed", null, "Login failed, please try again")), { replace: true });
       return;
     }
     setToken(token);
@@ -22,13 +24,13 @@ export default function OAuthCallback() {
         const needsOnboarding = !builder.designation || !builder.org || builder.org === builder.name + "'s workspace";
         navigate(needsOnboarding ? "/signup" : "/", { replace: true });
       })
-      .catch(() => navigate("/login?error=" + encodeURIComponent("Login failed, please try again"), { replace: true }));
+      .catch(() => navigate("/login?error=" + encodeURIComponent(t("oauthCallback.loginFailed", null, "Login failed, please try again")), { replace: true }));
   }, []);
 
   return (
     <div className="auth-shell">
       <div className="card auth-card rise" style={{ textAlign: "center" }}>
-        <p className="muted">Signing you in…</p>
+        <p className="muted">{t("oauthCallback.signingIn", null, "Signing you in…")}</p>
       </div>
     </div>
   );

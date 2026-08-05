@@ -311,6 +311,9 @@ export const REWARDS = [
 ];
 
 export const FILTERS = {
+  "ValidationCrew Role": [
+    "Validator", "Tester", "User"
+  ],
   Geography: {
     "Global & Remote": ["Worldwide", "Remote / Online only"],
     "India - 9 cities": ["India", "Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"],
@@ -335,10 +338,7 @@ export const FILTERS = {
     "Lifestyle": ["Fitness", "Yoga", "Outdoor activities", "Cooking", "Travel", "Gaming", "Reading", "Music", "Fashion", "Parenting", "Pets", "Tech", "Cinema", "Sports", "Social media"],
     "Industry": ["SaaS / B2B Software", "Fintech", "Healthcare", "EdTech", "E-commerce", "FMCG", "Automotive", "Real Estate", "Media", "AI / ML", "Logistics", "Manufacturing", "Government", "Non-profit"],
     "Product Types": ["Mobile apps iOS", "Mobile apps Android", "Web apps / SaaS", "AI / LLM products", "Fintech products", "Healthcare apps", "Developer tools", "Enterprise software", "Consumer apps", "Physical products", "Packaging", "Marketing campaigns", "Websites"]
-  },
-  "ValidationCrew Role": [
-    "Validator", "Tester", "User"
-  ]
+  }
 };
 
 export const catOf = (id) => CATEGORIES.find(c => c.id === id) || CATEGORIES[0];

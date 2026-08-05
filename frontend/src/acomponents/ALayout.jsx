@@ -6,8 +6,11 @@ import { Avatar } from "../components/ui";
 import { useAAuth } from "../acontext/AAuthContext";
 import { aapi } from "../aapi/client";
 import NotificationsSidebar from "../components/NotificationsSidebar";
+import { useTranslation } from "../i18n/index.jsx";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 
 export default function ALayout() {
+  const { t } = useTranslation();
   const { logout } = useAAuth();
   const [mobOpen, setMobOpen] = useState(false);
   const [bell, setBell] = useState(false);
@@ -59,12 +62,12 @@ export default function ALayout() {
       <aside className="side">
         <div className="brand">
           <BrandMark size={80} />
-          <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">Admin console</div></div>
+          <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{t("admin.signIn", null, "Admin console")}</div></div>
         </div>
         {NAV.map(it => (
           <NavLink key={it.to} to={it.to} end={it.end} onClick={() => setMobOpen(false)}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-            <Icon name={it.icon} />{it.label}
+            <Icon name={it.icon} />{t("admin." + it.label.toLowerCase().replace(/ /g, ""), null, it.label)}
             {Number(it.count) > 0 && <span className="nav-count">{it.count}</span>}
           </NavLink>
         ))}
@@ -77,13 +80,17 @@ export default function ALayout() {
             </div>
             <button className="icon-btn" onClick={async () => { await logout(); navigate("/admin/login"); }} title="Log out"><Icon name="logout" size={16} /></button>
           </div>
+          <LanguageSwitcher
+            onSave={(lang) => aapi.setLanguage(lang).catch(() => {})}
+            style={{ marginTop: 12, width: "100%" }}
+          />
         </div>
       </aside>
 
       <main className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title="Menu" style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          <h1>{TITLES[location.pathname] || "Admin"}</h1>
+          <h1>{t("admin." + (TITLES[location.pathname] || "Admin").toLowerCase().replace(/ /g, ""), null, TITLES[location.pathname] || "Admin")}</h1>
           <span className="topbar-spacer" />
           <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title="Notifications">
             <Icon name="bell" size={17} />

@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "../../i18n/index.jsx";
 
 // 6 separate digit boxes with auto-advance, backspace navigation, and paste support.
 export default function OtpBoxes({ value, onChange }) {
+  const { t } = useTranslation();
   const refs = useRef([]);
   const digits = value.split("");
 
@@ -42,7 +44,7 @@ export default function OtpBoxes({ value, onChange }) {
           key={i} ref={(el) => (refs.current[i] = el)}
           className={`otp-box ${digits[i] ? "filled" : ""}`}
           inputMode="numeric" maxLength={1} value={digits[i] || ""}
-          onChange={onInput(i)} onKeyDown={onKeyDown(i)} aria-label={`Digit ${i + 1}`}
+          onChange={onInput(i)} onKeyDown={onKeyDown(i)} aria-label={t("otp.digitN", { n: i + 1 }, `Digit ${i + 1}`)}
         />
       ))}
     </div>

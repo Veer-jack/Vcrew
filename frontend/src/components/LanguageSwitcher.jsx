@@ -40,9 +40,9 @@ export default function LanguageSwitcher({ onSave, style }) {
           <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
           <div
             role="listbox"
-            aria-label="Select language"
+            aria-label={t("languageSwitcher.selectLanguage", null, "Select language")}
             style={{
-              position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50,
+              position: "absolute", bottom: "calc(100% + 6px)", right: 0, zIndex: 50,
               background: "var(--bg)", border: "1px solid var(--border)",
               borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
               minWidth: 200, padding: "6px 0", maxHeight: 320, overflowY: "auto",

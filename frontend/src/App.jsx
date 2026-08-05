@@ -19,6 +19,7 @@ import Missions from "./pages/Missions";
 import MissionDetail from "./pages/MissionDetail";
 import CreateMissionWizard from "./pages/CreateMissionWizard";
 import Audience from "./pages/Audience";
+import Invitations from "./pages/Invitations";
 import Analytics from "./pages/Analytics";
 import Wallet from "./pages/Wallet";
 import Support from "./pages/Support";
@@ -98,6 +99,7 @@ function BuilderRoutes() {
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
         <Route path="/missions/:id/submissions" element={<MissionReview />} />
+        <Route path="/invitations" element={<Invitations />} />
         <Route path="/audience" element={<Audience />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/wallet" element={<Wallet />} />

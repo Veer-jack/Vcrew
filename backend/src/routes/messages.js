@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { notifyNewMessage } from "../notificationsHelper.js";
 import { upload } from "../upload.js";
+import { translateBatch } from "../translate.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -19,23 +20,29 @@ function timeAgo(dateStr) {
   return `${days}d ago`;
 }
 
-async function serializeThread(t, withMessages) {
+async function serializeThread(t, withMessages, lang) {
   const tTime = t.created_at ? timeAgo(t.created_at) : "Just now";
   const out = {
     id: t.id, name: t.name || "Validator", role: t.role || "User", mission: t.mission_name, missionId: t.mission_id, time: tTime,
   };
-  
+
   const msgs = await db.prepare(`SELECT * FROM thread_messages WHERE thread_id = ? ORDER BY id ASC`).all(t.id);
+  const doTranslate = lang && lang !== "en" && msgs.length;
+  const translated = doTranslate
+    ? await translateBatch(msgs.filter(m => m.body).map(m => ({ entityType: "thread_message", entityId: m.id, field: "body", text: m.body })), lang)
+    : null;
+  const bodyOf = (m) => (translated ? translated.get(`thread_message:${m.id}:body`) ?? m.body : m.body);
+
   if (withMessages) {
     out.messages = msgs.map(m => ({
       from: m.sender_role === 'builder' ? 'me' : 'them',
-      text: m.body,
+      text: bodyOf(m),
       attachment: m.attachment_path ? { url: `/api/uploads/${m.attachment_path}`, name: m.attachment_name } : null,
       time: m.created_at ? timeAgo(m.created_at) : "Just now",
     }));
   } else {
     const last = msgs[msgs.length - 1];
-    const lastText = last ? (last.body || (last.attachment_path ? `📎 ${last.attachment_name}` : "")) : "";
+    const lastText = last ? (bodyOf(last) || (last.attachment_path ? `📎 ${last.attachment_name}` : "")) : "";
     out.last = last ? (last.sender_role === "builder" ? `You: ${lastText}` : lastText) : "";
     out.unread = last && last.sender_role === "validator" ? 1 : 0;
   }
@@ -51,7 +58,7 @@ router.get("/threads", async (req, res) => {
     WHERE t.builder_id = ?
     ORDER BY t.created_at DESC
   `).all(req.builder.id);
-  res.json({ threads: await Promise.all(threads.map(t => serializeThread(t, false))) });
+  res.json({ threads: await Promise.all(threads.map(t => serializeThread(t, false, req.builder.preferred_language))) });
 });
 
 // POST /threads { validatorId, missionId } — find or create a thread with this
@@ -82,7 +89,7 @@ router.get("/threads/:id", async (req, res) => {
   `).get(req.params.id, req.builder.id);
   
   if (!t) return res.status(404).json({ error: "Thread not found" });
-  res.json({ thread: await serializeThread(t, true) });
+  res.json({ thread: await serializeThread(t, true, req.builder.preferred_language) });
 });
 
 router.post("/threads/:id/messages", async (req, res) => {
