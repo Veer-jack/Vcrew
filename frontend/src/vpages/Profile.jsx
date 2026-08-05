@@ -5,6 +5,7 @@ import PayoutSetup from "../components/PayoutSetup";
 import { ScoreRing, StatTile, VAvatar, VStars } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { levelName, levelPerks, badgeLabel, badgeDesc, expertiseLabel } from "../vi18n";
 
 export default function Profile() {
   const { t } = useTranslation();
@@ -72,7 +73,7 @@ export default function Profile() {
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
                   <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
-                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />{t("profile.lvlPrefix", null, "Lvl")} {data.level || 1} · {data.levelName || t("profile.trial", null, "Trial")}</span>
+                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />{t("profile.lvlPrefix", null, "Lvl")} {data.level || 1} · {data.levelName ? levelName(t, data.level, data.levelName) : t("profile.trial", null, "Trial")}</span>
                   <span className="tag" style={{ background: data.role === "Validator" ? "var(--purple-weak)" : data.role === "Tester" ? "var(--success-weak)" : "var(--border-color)", color: data.role === "Validator" ? "var(--purple)" : data.role === "Tester" ? "var(--success)" : "var(--text-muted)" }}>
                     <Icon name={data.role === "Validator" ? "shield" : data.role === "Tester" ? "checkSquare" : "user"} size={13} />
                     {data.role || t("profile.user", null, "User")}
@@ -182,7 +183,7 @@ export default function Profile() {
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <div className="row between" style={{ marginBottom: 4 }}>
               <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{t("profile.reputationLadder", null, "Reputation ladder")}</h3>
-              {data.nextLevel && <span className="faint" style={{ fontSize: 12.5 }}>{Math.max(0, data.nextLevel.min - (data.completed || 0))} {t("profile.validationsTo", null, "validations to")} {data.nextLevel.name}</span>}
+              {data.nextLevel && <span className="faint" style={{ fontSize: 12.5 }}>{Math.max(0, data.nextLevel.min - (data.completed || 0))} {t("profile.validationsTo", null, "validations to")} {levelName(t, data.nextLevel.n, data.nextLevel.name)}</span>}
             </div>
             <div className="lvl-meter" style={{ margin: "12px 0 18px" }}><i style={{ width: (data.levelPct || 0) + "%" }} /></div>
             <div style={{ display: "grid", gap: 4 }}>
@@ -196,7 +197,7 @@ export default function Profile() {
                       boxShadow: state === "cur" ? "0 0 0 4px var(--accent-weak)" : "none" }}>
                       {state === "done" ? <Icon name="check" size={14} /> : l.n}
                     </span>
-                    <div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>{l.name}</b> <span className="faint" style={{ fontSize: 12.5 }}>· {l.perks}</span></div>
+                    <div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>{levelName(t, l.n, l.name)}</b> <span className="faint" style={{ fontSize: 12.5 }}>· {levelPerks(t, l.n, l.perks)}</span></div>
                     {state === "cur" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("profile.you", null, "You")}</span>}
                     <span className="mono faint" style={{ fontSize: 11.5 }}>{l.min}+</span>
                   </div>
@@ -210,7 +211,7 @@ export default function Profile() {
             <div style={{ display: "grid", gap: 12 }}>
               {(data.expertise || []).map((e, i) => (
                 <div key={i} className="row gap-3" style={{ fontSize: 13.5 }}>
-                  <span style={{ width: 130, flex: "none", fontWeight: 600 }}>{e.l}</span>
+                  <span style={{ width: 130, flex: "none", fontWeight: 600 }}>{expertiseLabel(t, e.l)}</span>
                   <span style={{ flex: 1, height: 9, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: e.v + "%", borderRadius: 20, background: "linear-gradient(90deg, var(--accent), var(--accent-2))" }} /></span>
                   <span className="mono" style={{ width: 36, textAlign: "right", fontWeight: 600, fontSize: 12.5 }}>{e.v}</span>
                 </div>
@@ -233,7 +234,7 @@ export default function Profile() {
                     background: b.got ? "var(--success-weak)" : "var(--panel-inset)", color: b.got ? "var(--success)" : "var(--text-faint)" }}>
                     <Icon name={b.icon} size={18} />
                   </span>
-                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5 }}>{b.label}</div><div className="faint" style={{ fontSize: 12 }}>{b.desc}</div></div>
+                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5 }}>{badgeLabel(t, b.label)}</div><div className="faint" style={{ fontSize: 12 }}>{badgeDesc(t, b.label, b.desc)}</div></div>
                   {b.got && <Icon name="check" size={16} style={{ color: "var(--success)", flex: "none" }} />}
                 </div>
               ))}

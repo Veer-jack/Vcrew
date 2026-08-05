@@ -27,7 +27,10 @@ export async function getTickets(email) {
     });
 
     if (!res.ok) {
-      console.error("Freshdesk API Error:", await res.text());
+      const body = await res.text();
+      // A user who has never raised a ticket has no Freshdesk contact yet, so the
+      // email filter 400s -- expected for most users, not a failure worth logging.
+      if (!body.includes("no contact matching")) console.error("Freshdesk API Error:", body);
       return localRows.map(localTicketShape);
     }
 

@@ -8,13 +8,18 @@ import Icon from "./Icon";
  * and optionally calls onSave(langCode) to persist to the server.
  */
 export default function LanguageSwitcher({ onSave, style }) {
-  const { lang, setLang, t } = useTranslation();
+  const { lang, setLang, t, notifyLanguagePersisted } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  const select = (code) => {
-    setLang(code);
+  const select = async (code) => {
+    setLang(code); // instant: swaps the static UI language, no network round-trip
     setOpen(false);
-    if (onSave) onSave(code);
+    // Backend-translated content (missions, notifications, ...) is translated
+    // based on the DB's preferred_language, so pages must not refetch it
+    // until that's actually persisted -- otherwise the refetch can race the
+    // PATCH and come back with stale data.
+    if (onSave) await onSave(code);
+    notifyLanguagePersisted();
   };
 
   const current = LANGUAGES[lang] || LANGUAGES.en;

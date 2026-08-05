@@ -56,12 +56,35 @@ import { authMiddleware, validatorAuthMiddleware, createSession, createValidator
 import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
 
 import { rateLimit } from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
+import Redis from "ioredis";
+
+// ---- Rate limiter storage ----
+// express-rate-limit's default store is per-process, in-memory -- correct for
+// a single instance but silently wrong the moment this app runs as more than
+// one instance, since each process would keep its own separate counter. If
+// REDIS_URL is set, limits are backed by Redis instead, so every instance
+// shares one true count. No REDIS_URL -> falls back to the default in-memory
+// store, so this still works unmodified in local dev.
+let redisClient = null;
+if (process.env.REDIS_URL) {
+  redisClient = new Redis(process.env.REDIS_URL);
+  redisClient.on("error", (err) => console.error("[redis] connection error:", err.message));
+}
+const rateLimitStore = () =>
+  redisClient
+    ? {
+        store: new RedisStore({ sendCommand: (...args) => redisClient.call(...args) }),
+        // express-rate-limit's default is to 500 the request if the store errors
+        // (e.g. Redis is briefly unreachable) -- that would turn a Redis hiccup
+        // into a login/signup outage, which is worse than the problem this store
+        // solves. Fail open instead: skip rate-limiting for that one request and
+        // log it, rather than blocking real users because Redis blinked.
+        passOnStoreError: true,
+      }
+    : {};
 
 // ---- Rate limiters ----
-// Per-process, in-memory counters -- correct as long as this runs as a single
-// instance. If this app ever runs as more than one instance at once, these
-// limits need to move to a shared store (e.g. Redis) or each instance will
-// count separately and the effective limit multiplies silently.
 // Windows are per-minute (fast reset = forgiving to real users), but the caps
 // stay sized to "how many legitimate attempts could plausibly land close
 // together" (e.g. a shared office IP), not inflated just because the window
@@ -73,6 +96,7 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests, please slow down" },
+  ...rateLimitStore(),
 });
 
 // Auth-specific limiters — tighter windows on endpoints that accept credentials
@@ -82,6 +106,7 @@ const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many sign-in attempts, please try again in a minute" },
+  ...rateLimitStore(),
 });
 
 const signupLimiter = rateLimit({
@@ -90,6 +115,7 @@ const signupLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many accounts created from this IP, please try again in a minute" },
+  ...rateLimitStore(),
 });
 
 const adminLimiter = rateLimit({
@@ -98,6 +124,7 @@ const adminLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many admin sign-in attempts, please try again in 15 minutes" },
+  ...rateLimitStore(),
 });
 
 const phoneLimiter = rateLimit({
@@ -106,6 +133,7 @@ const phoneLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many OTP requests, please try again in 10 minutes" },
+  ...rateLimitStore(),
 });
 
 await initDb();

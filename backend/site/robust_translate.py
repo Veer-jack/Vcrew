@@ -2,7 +2,7 @@ import os
 import re
 import json
 import time
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 from deep_translator import GoogleTranslator
 
 # Run this from backend/site

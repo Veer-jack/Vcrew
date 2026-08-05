@@ -26,7 +26,7 @@ const TABS = [
 function MyMissionRow({ m, vtypes, ptypes, navigate }) {
   const { t } = useTranslation();
   const pt = ptypes?.find(p => p.id === m.type);
-  const vType = vtypes[m.type] || (pt ? { icon: pvType.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
+  const vType = vtypes[m.type] || (pt ? { icon: pt.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
   const s = MM_STATUS[m.status];
   return (
     <div className="card" style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
@@ -67,7 +67,7 @@ function MyMissionRow({ m, vtypes, ptypes, navigate }) {
 }
 
 export default function MyMissions() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { vtypes, ptypes } = useVMeta();
@@ -91,7 +91,7 @@ export default function MyMissions() {
       if (active) { setLoading(false); setData({ missions: [], counts: data?.counts || {} }); }
     });
     return () => { active = false; };
-  }, [tab]);
+  }, [tab, dataVersion]);
 
   const tabs = TABS.map(tabObj => ({ ...tabObj, c: data?.counts?.[tabObj.k] ?? "·" }));
 

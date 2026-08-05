@@ -8,7 +8,7 @@ import { deadlineLabel } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
 
 export default function MissionDetails() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { vtypes, ptypes } = useVMeta();
@@ -34,7 +34,7 @@ export default function MissionDetails() {
       }
     }); 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, location.state?.refresh]); // Remove location.state from dependencies to prevent infinite loops
+  }, [id, location.state?.refresh, dataVersion]); // Remove location.state from dependencies to prevent infinite loops
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const { task, rubric } = data;

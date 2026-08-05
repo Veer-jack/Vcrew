@@ -9,7 +9,6 @@ import { COUNTRIES } from "./countries";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../../firebaseClient";
 import { detectLangFromCountryCode } from "../../i18n/languages.js";
 import { useTranslation } from "../../i18n/index.jsx";
-import LanguageSwitcher from "../LanguageSwitcher";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
@@ -156,9 +155,6 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
   if (stage === "forgot") return (
     <div className="asplit">
-      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
-        <LanguageSwitcher style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
-      </div>
       <div className="asplit-brand">
         <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
@@ -183,9 +179,6 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
   if (stage === "forgot-sent") return (
     <div className="asplit">
-      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
-        <LanguageSwitcher style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
-      </div>
       <div className="asplit-brand">
         <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>
@@ -206,9 +199,6 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
   return (
     <div className="asplit">
-      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
-        <LanguageSwitcher style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
-      </div>
       <div className="asplit-brand">
         <div className="asplit-brand-logo"><BrandMark size={80} /></div>
         <h1 className="asplit-headline">{copy.headline}</h1>

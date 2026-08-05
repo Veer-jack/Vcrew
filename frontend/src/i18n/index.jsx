@@ -37,6 +37,15 @@ export function I18nProvider({ children, initialLang }) {
   const [lang, setLangState] = useState(startLang);
   const [strings, setStrings] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Bumped only once a language change has been persisted server-side (see
+  // notifyLanguagePersisted below). Backend-translated content (missions,
+  // notifications, ...) is translated based on the DB's preferred_language,
+  // not the request itself -- pages that fetch that content should depend on
+  // this value (not `lang`) to know when it's actually safe to refetch,
+  // otherwise a refetch can race the PATCH that persists the new language
+  // and come back with stale (old-language) data.
+  const [dataVersion, setDataVersion] = useState(0);
+  const notifyLanguagePersisted = () => setDataVersion(v => v + 1);
 
   const loadStrings = async (code) => {
     setLoading(true);
@@ -75,7 +84,7 @@ export function I18nProvider({ children, initialLang }) {
   };
 
   return (
-    <I18nContext.Provider value={{ lang, setLang, t, strings, loading, dir: LANGUAGES[lang]?.dir || "ltr" }}>
+    <I18nContext.Provider value={{ lang, setLang, t, strings, loading, dir: LANGUAGES[lang]?.dir || "ltr", dataVersion, notifyLanguagePersisted }}>
       {children}
     </I18nContext.Provider>
   );

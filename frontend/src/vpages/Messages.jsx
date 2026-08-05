@@ -6,7 +6,7 @@ import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 
 export default function Messages() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const [threads, setThreads] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [active, setActive] = useState(null);
@@ -21,9 +21,9 @@ export default function Messages() {
   useEffect(() => { setVisibleMessagesCount(50); }, [activeId]);
 
   useEffect(() => {
-    vapi.threads().then(d => { setThreads(d.threads); if (d.threads.length) setActiveId(d.threads[0].id); });
-  }, []);
-  useEffect(() => { if (activeId) vapi.thread(activeId).then(d => setActive(d.thread)); }, [activeId]);
+    vapi.threads().then(d => { setThreads(d.threads); setActiveId(prev => prev ?? (d.threads.length ? d.threads[0].id : null)); });
+  }, [dataVersion]);
+  useEffect(() => { if (activeId) vapi.thread(activeId).then(d => setActive(d.thread)); }, [activeId, dataVersion]);
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [active?.messages?.length]);
 
   const send = async () => {

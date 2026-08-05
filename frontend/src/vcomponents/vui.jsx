@@ -1,5 +1,7 @@
 import Icon from "../components/Icon";
 import { avColor, initials } from "../components/ui";
+import { useTranslation } from "../i18n/index.jsx";
+import { vtLabel } from "../vi18n";
 
 export function VAvatar({ name, size = 38, ring }) {
   return (
@@ -64,12 +66,13 @@ export function VReward({ amount, big }) {
 }
 
 export function VTypeTag({ type, vtypes, size }) {
-  const t = vtypes[type];
-  if (!t) return null;
+  const { t } = useTranslation();
+  const vt = vtypes[type];
+  if (!vt) return null;
   return (
-    <span className="tag" style={{ background: `color-mix(in srgb, var(${t.accentVar}) 13%, transparent)`, color: `var(${t.accentVar})` }}>
-      <Icon name={t.icon} size={size === "sm" ? 12 : 14} />
-      {t.label}
+    <span className="tag" style={{ background: `color-mix(in srgb, var(${vt.accentVar}) 13%, transparent)`, color: `var(${vt.accentVar})` }}>
+      <Icon name={vt.icon} size={size === "sm" ? 12 : 14} />
+      {vtLabel(t, vt)}
     </span>
   );
 }

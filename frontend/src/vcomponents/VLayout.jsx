@@ -115,7 +115,7 @@ function pageTitle(pathname) {
 }
 
 export default function VLayout() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const { validator, logout } = useVAuth();
   const [bell, setBell] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
@@ -128,7 +128,7 @@ export default function VLayout() {
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [dataVersion]);
 
   const unreadCount = notifs.filter(n => n.unread).length;
 

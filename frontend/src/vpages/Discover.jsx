@@ -6,6 +6,7 @@ import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { deadlineLabel, deadlineHours } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
+import { vtLabel, rewardBandLabel, timeBandLabel, sortLabel } from "../vi18n";
 
 function RadioRow({ on, onClick, label }) {
   return (
@@ -134,7 +135,7 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
 }
 
 export default function Discover() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
   const { vtypes, typeOrder, rewardBands, timeBands, sorts } = useVMeta();
   const [q, setQ] = useState("");
@@ -164,7 +165,7 @@ export default function Discover() {
     vapi.marketplace({ q, types: [...types].join(","), reward, time, verified: verifiedOnly, minMatch, sort })
       .then(setData)
       .catch(() => {});
-  }, [q, types, reward, time, verifiedOnly, minMatch, sort]);
+  }, [q, types, reward, time, verifiedOnly, minMatch, sort, dataVersion]);
 
   const onOpen = (task) => {
     if (task.myStatus === "completed") {
@@ -212,7 +213,7 @@ export default function Discover() {
           {data.categories.map(c => (
             <button key={c.key} className={`mkt-cat ${types.has(c.key) ? "on" : ""}`} style={{ "--c": `var(${vtypes[c.key].accentVar})` }} onClick={() => toggleType(c.key)}>
               <span className="ci"><Icon name={vtypes[c.key].icon} size={18} /></span>
-              <span className="cl">{c.label}</span>
+              <span className="cl">{vtLabel(t, vtypes[c.key])}</span>
               <span className="cc">{c.count} {t("status.open", null, "open")}</span>
             </button>
           ))}
@@ -231,7 +232,7 @@ export default function Discover() {
           <label className="pill" style={{ gap: 8, cursor: "pointer" }}>
             <span className="faint" style={{ fontSize: 12 }}>{t("discover.sort", null, "Sort")}</span>
             <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
-              {sorts.map(s => <option key={s.k} value={s.k}>{s.l}</option>)}
+              {sorts.map(s => <option key={s.k} value={s.k}>{sortLabel(t, s.k, s.l)}</option>)}
             </select>
           </label>
         </div>
@@ -249,17 +250,17 @@ export default function Discover() {
               {typeOrder.map(k => (
                 <button key={k} className={`mkt-check ${types.has(k) ? "on" : ""}`} style={{ "--c": `var(${vtypes[k].accentVar})`, width: "100%" }} onClick={() => toggleType(k)}>
                   <span className="bx">{types.has(k) && <Icon name="check" size={12} />}</span>
-                  {vtypes[k].label}<span className="cnt">{data.categories.find(c => c.key === k)?.count ?? 0}</span>
+                  {vtLabel(t, vtypes[k])}<span className="cnt">{data.categories.find(c => c.key === k)?.count ?? 0}</span>
                 </button>
               ))}
             </div>
             <div className="mkt-fgroup">
               <span className="lbl">{t("discover.reward", null, "Reward")}</span>
-              <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={b.l} />)}</div>
+              <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={rewardBandLabel(t, b.k, b.l)} />)}</div>
             </div>
             <div className="mkt-fgroup">
               <span className="lbl">{t("discover.timeRequired", null, "Time required")}</span>
-              <div className="col gap-2">{timeBands.map(b => <RadioRow key={b.k} on={time === b.k} onClick={() => setTime(b.k)} label={b.l} />)}</div>
+              <div className="col gap-2">{timeBands.map(b => <RadioRow key={b.k} on={time === b.k} onClick={() => setTime(b.k)} label={timeBandLabel(t, b.k, b.l)} />)}</div>
             </div>
             <div className="mkt-fgroup">
               <span className="lbl">{t("discover.minMatch", null, "Minimum match")} · {minMatch}%</span>
