@@ -22,7 +22,7 @@ export async function notifyMatchingValidators(missionId) {
       audience = JSON.parse(mission.audience_json || "{}");
     } catch (e) {}
 
-    const targetRoles = audience.role || [];
+    const targetRoles = audience["ValidationCrew Role"] || audience.role || [];
     let roleFilter = "";
     let roleParams = [];
 
@@ -41,11 +41,11 @@ export async function notifyMatchingValidators(missionId) {
     // Insert notifications only for matching validators.
     // We use INSERT INTO ... SELECT to do this in a single fast, indexed DB query.
     await db.prepare(`
-      INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread)
-      SELECT id, 'mission', 'zap', 'primary', 'new_mission', 'New Mission Match', ?, 'Just now', 1
+      INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
+      SELECT id, 'mission', 'zap', 'primary', 'new_mission', 'New Mission Match', ?, 'Just now', 1, ?
       FROM validators
       WHERE 1=1 ${roleFilter}
-    `).run(body, ...roleParams);
+    `).run(body, missionId, ...roleParams);
 
   } catch (error) {
     console.error("notifyMatchingValidators error:", error);

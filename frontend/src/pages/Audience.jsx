@@ -1,13 +1,32 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Empty, KpiCard, MatchRing } from "../components/ui";
 import { api } from "../api/client";
 import { InviteToMissionModal } from "../components/InviteToMissionModal";
+import { Modal } from "../components/Modal";
+import { useAuth } from "../context/AuthContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
 const EMPTY_SEL = (filters) => Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
+
+// Defaults the filter panel to whatever the builder picked on the Audience step during
+// onboarding (real values, same taxonomy — Demographics/Professional/Interests match
+// exactly). State/City were free text there, not checkboxes here, so those carry
+// forward as search text instead of a checkbox — see the `q` default below.
+function defaultSelFromProfile(filters, profile) {
+  const sel = EMPTY_SEL(filters);
+  if (!profile) return sel;
+  const add = (group, values) => { (values || []).forEach(v => v && sel[group] && sel[group].add(v)); };
+  add("Demographics", profile.ageBands);
+  add("Demographics", (profile.genders || []).filter(g => g !== "Any"));
+  add("Demographics", profile.incomeBands);
+  add("Professional", profile.occupations);
+  add("Interests", profile.interests);
+  if (profile.country && profile.country.trim().toLowerCase() === "india") sel.Geography.add("India");
+  return sel;
+}
 
 const COUNTRY_MAP = {
   "India": ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"]
@@ -34,6 +53,7 @@ const matchOption = (m, g, o) => {
 
 export default function AudienceExplorer() {
   const navigate = useNavigate();
+  const { builder } = useAuth();
   const [members, setMembers] = useState([]);
   const [filters, setFilters] = useState({});
   const [sel, setSel] = useState({});
@@ -43,17 +63,58 @@ export default function AudienceExplorer() {
   const [inviteModalValidator, setInviteModalValidator] = useState(null);
   const [visibleCount, setVisibleCount] = useState(50);
   const [closedSub, setClosedSub] = useState(new Set());
+  const [usingDefaults, setUsingDefaults] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   useEffect(() => {
-    api.audience().then(d => { 
-      setMembers(d.members); 
-      setFilters(d.filters); 
-      setSel(EMPTY_SEL(d.filters)); 
+    api.audience().then(d => {
+      setMembers(d.members);
+      setFilters(d.filters);
+      
+      const stored = sessionStorage.getItem("audienceFilters");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const restoredSel = {};
+          for (const k of Object.keys(parsed.sel || {})) {
+            restoredSel[k] = new Set(parsed.sel[k]);
+          }
+          setSel(restoredSel);
+          setQ(parsed.q || "");
+          setUsingDefaults(parsed.usingDefaults || false);
+        } catch {
+          setSel(defaultSelFromProfile(d.filters, builder?.profile));
+        }
+      } else {
+        const profile = builder?.profile;
+        setSel(defaultSelFromProfile(d.filters, profile));
+        // Free-text state/city from onboarding carries forward as search text —
+        // there's no matching checkbox for those in this panel's curated city list.
+        if (profile && (profile.district || profile.state)) {
+          setQ(profile.district || profile.state);
+          setUsingDefaults(true);
+        }
+      }
       setIsLoading(false);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
+  useEffect(() => {
+    if (!isLoading) {
+      const serializedSel = {};
+      for (const k of Object.keys(sel || {})) {
+        serializedSel[k] = Array.from(sel[k] || []);
+      }
+      sessionStorage.setItem("audienceFilters", JSON.stringify({
+        sel: serializedSel,
+        q: q,
+        usingDefaults: usingDefaults
+      }));
+    }
+  }, [sel, q, usingDefaults, isLoading]);
+
+  const toggle = (g, o) => { setUsingDefaults(false); setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; }); };
   const toggleGroup = (g) => setClosed(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
   const toggleSubgroup = (sub) => setClosedSub(p => { const s = new Set(p); s.has(sub) ? s.delete(sub) : s.add(sub); return s; });
   
@@ -78,14 +139,27 @@ export default function AudienceExplorer() {
       const role = !sel["ValidationCrew Role"] || sel["ValidationCrew Role"].size === 0 || [...sel["ValidationCrew Role"]].some(o => matchOption(m, "ValidationCrew Role", o));
       const occ = !sel.Professional || sel.Professional.size === 0 || [...sel.Professional].some(o => matchOption(m, "Professional", o));
       const int = sel.Interests.size === 0 || [...sel.Interests].some(o => matchOption(m, "Interests", o));
-      const demo = !sel.Demographics || sel.Demographics.size === 0 || [...sel.Demographics].some(o => matchOption(m, "Demographics", o));
+      const ageOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.Age?.includes(o)));
+      const genOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.Gender?.includes(o)));
+      const incOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Income Bracket"]?.includes(o)));
+      const marOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Marital Status"]?.includes(o)));
+      const kidOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Has Kids"]?.includes(o)));
+
+      const demoAge = ageOpts.size === 0 || [...ageOpts].some(o => matchOption(m, "Demographics", o));
+      const demoGen = genOpts.size === 0 || [...genOpts].some(o => matchOption(m, "Demographics", o));
+      const demoInc = incOpts.size === 0 || [...incOpts].some(o => matchOption(m, "Demographics", o));
+      const demoMar = marOpts.size === 0 || [...marOpts].some(o => matchOption(m, "Demographics", o));
+      const demoKids = kidOpts.size === 0 || [...kidOpts].some(o => matchOption(m, "Demographics", o));
+      const demo = demoAge && demoGen && demoInc && demoMar && demoKids;
+      
       const qq = !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase());
       return geo && role && occ && int && demo && qq;
     }).sort((a, b) => b.match - a.match);
-  }, [members, sel, q]);
+  }, [members, sel, q, filters]);
 
   useEffect(() => {
-    setVisibleCount(50);
+    const t = setTimeout(() => setVisibleCount(50), 0);
+    return () => clearTimeout(t);
   }, [sel, q]);
 
   const exportPDF = () => {
@@ -139,6 +213,19 @@ export default function AudienceExplorer() {
         </div>
         <div className="ph-actions"><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>Create Mission</Btn></div>
       </div>
+
+      {usingDefaults && (
+        <div className="row between" style={{ alignItems: "center", padding: "10px 16px", background: "var(--accent-weak)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: 13 }}>
+          <span style={{ color: "var(--accent)" }}><Icon name="filter" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />Showing the audience you picked when setting up your account.</span>
+          <button className="backlink" style={{ fontSize: 13, color: "var(--accent)" }} onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); setUsingDefaults(false); }}>Reset to see everyone</button>
+        </div>
+      )}
+      {!usingDefaults && Object.keys(builder?.profile || {}).length > 0 && (
+        <div className="row between" style={{ alignItems: "center", padding: "10px 16px", background: "var(--panel)", border: "1px dashed var(--border)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: 13 }}>
+          <span className="muted" style={{ fontWeight: 500 }}><Icon name="info" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />You are exploring a custom audience.</span>
+          <button className="backlink" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500 }} onClick={() => setShowRestoreModal(true)}>Restore profile defaults</button>
+        </div>
+      )}
 
       <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <KpiCard label="Matching members" value={results.length} icon="users" />
@@ -199,7 +286,7 @@ export default function AudienceExplorer() {
                     {o} <button onClick={() => toggle(g, o)}><Icon name="x" size={12} /></button>
                   </div>
                 )))}
-                <button className="backlink" style={{ marginLeft: "auto", fontSize: 13, color: "var(--accent)" }} onClick={() => setSel(EMPTY_SEL(filters))}>
+                <button className="backlink" style={{ marginLeft: "auto", fontSize: 13, color: "var(--accent)" }} onClick={() => { setSel(EMPTY_SEL(filters)); setUsingDefaults(false); }}>
                   <Icon name="trash" size={13} style={{ marginRight: 4, verticalAlign: -2 }}/>Clear all
                 </button>
               </div>
@@ -207,26 +294,19 @@ export default function AudienceExplorer() {
           )}
           
           <div className="toolbar">
-            <div className="seg-search"><Icon name="search" size={16} /><input placeholder="Search by name, role, city…" value={q} onChange={e => setQ(e.target.value)} /></div>
+            <div className="seg-search"><Icon name="search" size={16} /><input placeholder="Search by name, role, city…" value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
             <span className="muted" style={{ fontSize: 13 }}>{results.length} results</span>
             <span className="grow" />
             <span style={{ fontSize: 13, fontWeight: 500, marginRight: 16 }}>Sort by: Match <Icon name="chevronDown" size={14} style={{ verticalAlign: -2, marginLeft: 4 }}/></span>
             <Btn variant="ghost" size="sm" icon="download" onClick={exportPDF} disabled={results.length === 0}>Export PDF</Btn>
           </div>
-          {isLoading ? (
-            <div className="col gap-3" style={{ opacity: 0.6 }}>
-              {[1, 2, 3].map(i => (
-                <div className="aud-card" key={i} style={{ minHeight: 90 }}>
-                  <div className="muted">Loading members...</div>
-                </div>
-              ))}
-            </div>
-          ) : results.length === 0 ? (
-            <Empty icon="users" title="No members match these filters" action={<Btn variant="ghost" icon="refresh" onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); }}>Reset filters</Btn>}>Try widening your geography or removing an interest to grow the pool.</Empty>
-          ) : (
-            <div className="col gap-3">
-              {results.slice(0, visibleCount).map((m) => (
-                <div className="aud-card" key={m.id}>
+          <div style={{ transition: "opacity 0.3s ease", opacity: isLoading ? 0.3 : 1, pointerEvents: isLoading ? "none" : "auto" }}>
+            {results.length === 0 && !isLoading ? (
+              <Empty icon="users" title="No members match these filters" action={<Btn variant="ghost" icon="refresh" onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); }}>Reset filters</Btn>}>Try widening your geography or removing an interest to grow the pool.</Empty>
+            ) : (
+              <div className="col gap-3">
+                {results.slice(0, visibleCount).map((m) => (
+                  <div className="aud-card rise" key={m.id}>
                   <Avatar name={m.name} size={46} />
                   <div className="aud-meta">
                     <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={14} /> Verified</span>}</div>
@@ -262,11 +342,38 @@ export default function AudienceExplorer() {
               )}
             </div>
           )}
+          </div>
         </div>
       </div>
       
       {inviteModalValidator && (
         <InviteToMissionModal validator={inviteModalValidator} onClose={() => setInviteModalValidator(null)} />
+      )}
+      {showRestoreModal && (
+        <Modal title="Restore your default audience?" onClose={() => setShowRestoreModal(false)} width={420}>
+          <div style={{ padding: "0 20px 20px" }}>
+            <p className="muted" style={{ fontSize: 14, marginBottom: 24, lineHeight: 1.5 }}>
+              This will overwrite your current filters and instantly load the audience you specified during your profile setup. Do you want to continue?
+            </p>
+            <div className="row" style={{ gap: 12, justifyContent: "flex-end" }}>
+              <Btn variant="secondary" onClick={() => setShowRestoreModal(false)}>Cancel</Btn>
+              <Btn variant="primary" onClick={() => {
+                setShowRestoreModal(false);
+                setIsLoading(true);
+                setTimeout(() => {
+                  setSel(defaultSelFromProfile(filters, builder?.profile));
+                  if (builder?.profile?.district || builder?.profile?.state) {
+                    setQ(builder.profile.district || builder.profile.state);
+                  } else {
+                    setQ("");
+                  }
+                  setUsingDefaults(true);
+                  setIsLoading(false);
+                }, 400);
+              }}>Yes, restore defaults</Btn>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

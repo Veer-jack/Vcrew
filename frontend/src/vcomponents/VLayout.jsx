@@ -6,6 +6,24 @@ import { VAvatar } from "./vui";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 
+function timeAgo(dateString) {
+  if (!dateString) return null;
+  const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
+  let interval = seconds / 31536000;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' year ago' : ' years ago');
+  interval = seconds / 2592000;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' month ago' : ' months ago');
+  interval = seconds / 604800;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' week ago' : ' weeks ago');
+  interval = seconds / 86400;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' day ago' : ' days ago');
+  interval = seconds / 3600;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' hr ago' : ' hrs ago');
+  interval = seconds / 60;
+  if (interval >= 1) return Math.floor(interval) + (Math.floor(interval) === 1 ? ' min ago' : ' mins ago');
+  return 'Just now';
+}
+
 function VNotifPanel({ onClose, items, setItems }) {
   const [cat, setCat] = useState("all");
 
@@ -20,9 +38,18 @@ function VNotifPanel({ onClose, items, setItems }) {
   const navigate = useNavigate();
   const open = async (n) => {
     if (n.unread) { await vapi.markRead(n.id); setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i)); }
-    if (n.type === 'mission_full' && n.target_id) {
+    if ((n.type === 'mission_full' || n.type === 'new_mission') && n.target_id) {
       onClose();
-      navigate(`/validator/missions/${n.target_id}`, { state: { autoSave: true } });
+      navigate(`/validator/missions/${n.target_id}`);
+    } else if (n.type === 'submission_approved' || n.type === 'mission_completed') {
+      onClose();
+      navigate(`/validator/missions?tab=completed`);
+    } else if (n.type === 'submission_rejected') {
+      onClose();
+      navigate(`/validator/missions?tab=rejected`);
+    } else if (n.type === 'submission_revision') {
+      onClose();
+      navigate(`/validator/missions?tab=active`);
     }
   };
 
@@ -51,7 +78,7 @@ function VNotifPanel({ onClose, items, setItems }) {
               <span className="notif-dot" />
               <span className={`feed-ic ${n.tone}`} style={{ width: 34, height: 34 }}><Icon name={n.icon} size={16} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="row between" style={{ gap: 8 }}><b style={{ fontSize: 13.5 }}>{n.title}</b><span className="feed-time">{n.time}</span></div>
+                <div className="row between" style={{ gap: 8 }}><b style={{ fontSize: 13.5 }}>{n.title}</b><span className="feed-time">{timeAgo(n.createdAt) || n.time}</span></div>
                 <p className="muted" style={{ margin: "3px 0 0", fontSize: 13, lineHeight: 1.45 }}>{n.body}</p>
               </div>
             </div>

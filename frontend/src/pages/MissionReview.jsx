@@ -136,7 +136,7 @@ function SlideOver({ sub, onClose, onAction }) {
                   ))}
                   <span style={{ fontSize: 11, fontWeight: 700, marginLeft: 6, color: "var(--text)" }}>5/5</span>
                 </div>
-                <Icon name={expandedTasks.has(i) ? "chevUp" : "chevDown"} size={16} style={{ color: "var(--text-muted)" }} />
+                <Icon name={expandedTasks.has(i) ? "chevronUp" : "chevronDown"} size={16} style={{ color: "var(--text-muted)" }} />
               </div>
               
               {expandedTasks.has(i) && (
@@ -167,15 +167,18 @@ function SlideOver({ sub, onClose, onAction }) {
                               return (
                                 <div key={idx} style={{ position: "relative", width: 140, height: 80, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)", background: "#000" }}>
                                   {isVideo ? (
-                                    <video src={src} controls style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                                  ) : (
                                     <>
-                                      <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                                      <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
-                                        <Icon name="externalLink" size={12} /> View
-                                      </a>
+                                      <video src={src + "#t=0.1"} preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "rgba(255,255,255,0.9)", pointerEvents: "none" }}>
+                                        <Icon name="playCircle" size={28} />
+                                      </div>
                                     </>
+                                  ) : (
+                                    <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                                   )}
+                                  <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                                    <Icon name="externalLink" size={12} /> View
+                                  </a>
                                 </div>
                               );
                             })}

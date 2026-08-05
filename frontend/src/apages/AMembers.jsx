@@ -7,6 +7,7 @@ const TABS = [
   { k: "all", l: "All" },
   { k: "builder", l: "Builders" },
   { k: "validator", l: "Validators" },
+  { k: "suspended", l: "Suspended" },
 ];
 
 const PAGE_SIZE = 20;
@@ -22,18 +23,24 @@ export default function AMembers() {
 
   // Server-side paginated — with 3000+ validators seeded, fetching every row up front
   // isn't viable. "Load more" fetches the next page instead of slicing an already-fully-loaded array.
-  const load = (params) => aapi.members({ ...params, offset: 0, limit: PAGE_SIZE }).then(d => { setMembers(d.members); setTotal(d.total); });
-  useEffect(() => { load({ q, type: tab === "all" ? undefined : tab }); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  const typeParam = (tab === "builder" || tab === "validator") ? tab : undefined;
+  const statusParam = tab === "suspended" ? "suspended" : undefined;
+
+  const load = (params) => {
+    setMembers(null);
+    aapi.members({ ...params, offset: 0, limit: PAGE_SIZE }).then(d => { setMembers(d.members); setTotal(d.total); });
+  };
+  useEffect(() => { load({ q, type: typeParam, status: statusParam }); }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const search = (e) => {
     e.preventDefault();
-    load({ q, type: tab === "all" ? undefined : tab });
+    load({ q, type: typeParam, status: statusParam });
   };
 
   const loadMore = async () => {
     setLoadingMore(true);
     try {
-      const d = await aapi.members({ q, type: tab === "all" ? undefined : tab, offset: members.length, limit: PAGE_SIZE });
+      const d = await aapi.members({ q, type: typeParam, status: statusParam, offset: members.length, limit: PAGE_SIZE });
       setMembers(ms => [...ms, ...d.members]);
       setTotal(d.total);
     } finally {
@@ -79,7 +86,9 @@ export default function AMembers() {
             {members === null ? (
               <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>Loading…</td></tr>
             ) : members.length === 0 ? (
-              <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>No members match your search.</td></tr>
+              <tr><td colSpan={6} className="muted" style={{ padding: 24 }}>
+                {tab === "suspended" && !q ? "No accounts are suspended." : "No members match your search."}
+              </td></tr>
             ) : (
               <>
                 {members.map(m => (

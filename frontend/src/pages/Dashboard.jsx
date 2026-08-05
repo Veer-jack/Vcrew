@@ -24,7 +24,7 @@ function ProfileCompletionBanner({ builder, nav }) {
           draftStepNum = draft.step + 1; // 1-indexed
           break;
         }
-      } catch {}
+      } catch { /* ignore */ }
     }
   } else {
     // They have a persona in DB, but profile is incomplete. Check their draft for progress.
@@ -33,7 +33,7 @@ function ProfileCompletionBanner({ builder, nav }) {
       if (draft && typeof draft.step === "number") {
         draftStepNum = draft.step + 1;
       }
-    } catch {}
+    } catch { /* ignore */ }
   }
 
   if (!activePersonaKey) {
@@ -168,7 +168,7 @@ function ProfileCompletionBanner({ builder, nav }) {
           <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>Continue Setup &rarr;</Btn>
           {!builder?.persona && (
             <Btn variant="ghost" block onClick={() => {
-              Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(`vc_onboarding_draft_${k}`); } catch {} });
+              Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(`vc_onboarding_draft_${k}`); } catch { /* ignore */ } });
               nav(`/get-started/feedback`);
             }}>Change role</Btn>
           )}
@@ -215,13 +215,14 @@ function ActivityFeed({ rows }) {
 }
 
 export default function Dashboard() {
-  const { builder } = useAuth();
+  const { builder, refreshBuilder } = useAuth();
   const { categories } = useMeta();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [showAllMissions, setShowAllMissions] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
+  const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     // Prevent back-button going to login page
@@ -232,11 +233,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    setLoadErr(false);
+    refreshBuilder().catch(() => {});
     api.dashboard()
       .then(setData)
       .catch(() => setLoadErr(true));
-  }, []);
+  }, [refreshBuilder]);
 
   if (loadErr) return (
     <div className="page rise" style={{ textAlign: "center", paddingTop: 60 }}>
@@ -252,20 +253,60 @@ export default function Dashboard() {
   return (
     <div className="page rise">
       {!builder?.verified && (
-        <div style={{
-          background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)",
-          border: "1px solid #f59e0b", borderRadius: "var(--radius)", padding: "14px 18px",
-          marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12
-        }}>
-          <Icon name="shield" size={18} style={{ color: "#c2710c", flex: "none", marginTop: 2 }} />
-          <div>
-            <b style={{ fontSize: 13.5, color: "#92400e" }}>Your account is unverified</b>
-            <p style={{ fontSize: 13, color: "#92400e", margin: "3px 0 0", lineHeight: 1.5 }}>
-              You can run up to 3 active missions with a maximum of 25 participants each.
-              To unlock unlimited campaigns, verify your website through your profile settings — an admin will review it within 24 hours.
-            </p>
+        data.latestVerification?.status === 'rejected' ? (
+          <div style={{
+            background: "#fef2f2",
+            border: "1px solid #fecaca", borderRadius: "var(--radius)", padding: "14px 18px",
+            marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12, justifyContent: "space-between"
+          }}>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Icon name="xOctagon" size={18} style={{ color: "#ef4444", flex: "none", marginTop: 2 }} />
+              <div>
+                <b style={{ fontSize: 13.5, color: "#991b1b" }}>Your account has been rejected</b>
+                <p style={{ fontSize: 13, color: "#b91c1c", margin: "3px 0 0", lineHeight: 1.5 }}>
+                  Reason: {data.latestVerification?.reviewer_note || "The website provided could not be verified. Please ensure the link is correct."}
+                  <br />You can edit your details and apply for re-verification.
+                </p>
+              </div>
+            </div>
+            <button 
+              className="btn btn-outline" 
+              disabled={isApplying}
+              onClick={async () => {
+                setIsApplying(true);
+                try {
+                  await api.auth.reapplyVerification();
+                  // Re-fetch dashboard to update banner back to pending
+                  api.dashboard().then(setData).catch(() => setLoadErr(true));
+                } catch (e) {
+                  alert(e.message || "Failed to reapply");
+                  setIsApplying(false);
+                }
+              }}
+              style={{ flexShrink: 0, fontSize: 13, borderColor: "#ef4444", color: "#ef4444" }}
+            >
+              {isApplying ? "Applying..." : "Apply for Re-verification"}
+            </button>
           </div>
-        </div>
+        ) : (
+          <div style={{
+            background: "linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%)",
+            border: "1px solid #f59e0b", borderRadius: "var(--radius)", padding: "14px 18px",
+            marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12, justifyContent: "space-between"
+          }}>
+            <div style={{ display: "flex", gap: 12 }}>
+              <Icon name="shield" size={18} style={{ color: "#c2710c", flex: "none", marginTop: 2 }} />
+              <div>
+                <b style={{ fontSize: 13.5, color: "#92400e" }}>Your account is unverified</b>
+                <p style={{ fontSize: 13, color: "#92400e", margin: "3px 0 0", lineHeight: 1.5 }}>
+                  You can run up to 3 active missions with a maximum of 25 participants each.
+                  To unlock unlimited campaigns, verify your website through your profile settings — an admin will review it within 24 hours.
+                </p>
+              </div>
+            </div>
+            <button className="btn btn-outline" onClick={() => navigate("/settings")} style={{ flexShrink: 0, fontSize: 13, borderColor: "#f59e0b", color: "#d97706" }}>View Profile</button>
+          </div>
+        )
       )}
       <ProfileCompletionBanner builder={builder} nav={navigate} />
       <div className="ph">

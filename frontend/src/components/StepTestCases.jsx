@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { api } from "../api/client";
@@ -199,7 +200,6 @@ export default function StepTestCases({ d, set }) {
   const canGen = form.desc.trim().length > 20 || urlFetched;
   const hasTasks = tasks.length > 0;
   const totalMins = tasks.reduce((a, t) => a + (t.min_time_seconds || 120), 0);
-  const showRight = hasTasks || genState === "loading";
 
   const fetchUrl = async () => {
     if (!form.url.trim()) return;
@@ -233,11 +233,13 @@ export default function StepTestCases({ d, set }) {
       set({ tasks: res.tasks || [] });
       setGenState("done");
       setExpanded(0);
+      if (res.fallback) {
+        toast("AI generation is temporarily unavailable — showing example test cases you can edit.", { icon: "⚠️" });
+      }
     } catch (err) {
-      // Handle API failure
       set({ tasks: [] });
       setGenState("idle");
-      alert("Failed to generate test cases. Make sure the backend server is running and AI services are configured.");
+      toast.error("Failed to generate test cases. Make sure the backend server is running and AI services are configured.");
     }
     set({ genFor: { cat: d.cat, ptype: d.ptype } });
   };
@@ -258,9 +260,9 @@ export default function StepTestCases({ d, set }) {
 
   return (
     <div className="rise">
-      <div style={{ display: showRight ? "grid" : "block", gridTemplateColumns: "370px 1fr", gap: 26, alignItems: "start" }}>
-        {/* LEFT PANEL */}
-        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18, position: "sticky", top: 80 }}>
+      <div style={{ display: "block" }}>
+        {/* FORM */}
+        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>
             <label>What did you build? <span className="opt">be specific</span></label>
             <textarea className="fin" rows={4} placeholder="e.g. A subscription app for curated D2C products. Users browse, subscribe, and manage deliveries. We want to test the core shopping flow before launch." value={form.desc} onChange={e => patch({ desc: e.target.value })} style={{ minHeight: 108 }} />
@@ -316,65 +318,61 @@ export default function StepTestCases({ d, set }) {
           </Btn>
         </div>
 
-        {/* RIGHT PANEL */}
-        {showRight && (
-          <div style={{ minWidth: 0 }}>
-            {genState === "loading" ? (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", display: "inline-block", animation: "pulse 1.1s ease infinite" }} />
-                  <span style={{ fontSize: 13.5, color: "var(--text-muted)", fontWeight: 600 }}>Analysing your product and generating test cases…</span>
+      </div>
+
+      {/* RESULTS — always in the same slot, below the form */}
+      <div style={{ marginTop: 22 }}>
+        {genState === "loading" ? (
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", display: "inline-block", animation: "pulse 1.1s ease infinite" }} />
+              <span style={{ fontSize: 13.5, color: "var(--text-muted)", fontWeight: 600 }}>Analysing your product and generating test cases…</span>
+            </div>
+            {[0, 1, 2].map(i => (
+              <div key={i} className="card" style={{ padding: "13px 14px", marginBottom: 10 }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <div className="sk" style={{ width: 26, height: 26, borderRadius: 8 }} />
+                  <div className="sk sk-line" style={{ flex: 1, height: 14, maxWidth: 200 }} />
+                  <div className="sk" style={{ width: 74, height: 22, borderRadius: 20 }} />
                 </div>
-                {[0, 1, 2].map(i => (
-                  <div key={i} className="card" style={{ padding: "13px 14px", marginBottom: 10 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div className="sk" style={{ width: 26, height: 26, borderRadius: 8 }} />
-                      <div className="sk sk-line" style={{ flex: 1, height: 14, maxWidth: 200 }} />
-                      <div className="sk" style={{ width: 74, height: 22, borderRadius: 20 }} />
-                    </div>
-                  </div>
-                ))}
               </div>
-            ) : (
-              <div className="rise">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                  <div>
-                    <div className="eyebrow">Generated test cases</div>
-                    <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{tasks.length} tasks · ~{Math.ceil(totalMins / 60)} min total</p>
-                  </div>
-                  <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={addCustom}>
-                    <Icon name="plus" size={15} /> Add custom task
-                  </button>
-                </div>
-                {d.genFor && (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
-                  <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
-                    <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
-                    <span style={{ color: "var(--warning)", fontWeight: 600 }}>Category or participation type changed since these were generated — regenerate to match.</span>
-                  </div>
-                )}
-                {tasks.map((t, i) => (
-                  <TaskCard key={t.id} task={t} idx={i} total={tasks.length} onMove={moveTask} expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} onDelete={(i) => { const a = [...tasks]; a.splice(i, 1); set({ tasks: a }); setExpanded(null); }} onEdit={(i, patch) => { const a = [...tasks]; a[i] = { ...a[i], ...patch }; set({ tasks: a }); }} />
-                ))}
-                <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--success-weak)", border: "1px solid color-mix(in srgb, var(--success) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
-                  <Icon name="shield" size={15} style={{ color: "var(--success)", flexShrink: 0 }} />
-                  <span style={{ color: "var(--success)", fontWeight: 600 }}>Test cases will be saved as structured tasks on the mission when published.</span>
-                </div>
+            ))}
+          </div>
+        ) : hasTasks ? (
+          <div className="rise">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div>
+                <div className="eyebrow">Generated test cases</div>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{tasks.length} tasks · ~{Math.ceil(totalMins / 60)} min total</p>
+              </div>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={addCustom}>
+                <Icon name="plus" size={15} /> Add custom task
+              </button>
+            </div>
+            {d.genFor && (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
+              <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
+                <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
+                <span style={{ color: "var(--warning)", fontWeight: 600 }}>Category or participation type changed since these were generated — regenerate to match.</span>
               </div>
             )}
+            {tasks.map((t, i) => (
+              <TaskCard key={t.id} task={t} idx={i} total={tasks.length} onMove={moveTask} expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} onDelete={(i) => { const a = [...tasks]; a.splice(i, 1); set({ tasks: a }); setExpanded(null); }} onEdit={(i, patch) => { const a = [...tasks]; a[i] = { ...a[i], ...patch }; set({ tasks: a }); }} />
+            ))}
+            <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--success-weak)", border: "1px solid color-mix(in srgb, var(--success) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
+              <Icon name="shield" size={15} style={{ color: "var(--success)", flexShrink: 0 }} />
+              <span style={{ color: "var(--success)", fontWeight: 600 }}>Test cases will be saved as structured tasks on the mission when published.</span>
+            </div>
+          </div>
+        ) : (
+          <div className="rise-2" style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "60px 24px", minHeight: 360 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--accent-weak)", display: "grid", placeItems: "center", marginBottom: 14 }}>
+              <Icon name="sparkles" size={26} style={{ color: "var(--accent)" }} />
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 7 }}>Test cases will appear here</div>
+            <p style={{ margin: 0, color: "var(--text-faint)", fontSize: 13.5, maxWidth: "36ch" }}>Fill in the form and click "Generate test cases with AI ✦" to create structured tasks for your validators.</p>
           </div>
         )}
       </div>
-
-      {/* Empty right state */}
-      {!showRight && (
-        <div className="rise-2" style={{ marginTop: 22, border: "2px dashed var(--border)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "60px 24px", minHeight: 360 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--accent-weak)", display: "grid", placeItems: "center", marginBottom: 14 }}>
-            <Icon name="sparkles" size={26} style={{ color: "var(--accent)" }} />
-          </div>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 7 }}>Test cases will appear here</div>
-          <p style={{ margin: 0, color: "var(--text-faint)", fontSize: 13.5, maxWidth: "36ch" }}>Fill in the form and click "Generate test cases with AI ✦" to create structured tasks for your validators.</p>
-        </div>
-      )}
     </div>
   );
 }

@@ -8,7 +8,7 @@ router.use(validatorAuthMiddleware);
 router.get("/", async (req, res) => {
   const rows = await db.prepare(`SELECT * FROM v_notifications WHERE validator_id = ? ORDER BY id DESC`).all(req.validator.id);
   res.json({ notifications: rows.map(n => ({
-    id: n.id, cat: n.cat, icon: n.icon, tone: n.tone, title: n.title, body: n.body, time: n.time_label, unread: !!n.unread,
+    id: n.id, cat: n.cat, type: n.type, icon: n.icon, tone: n.tone, title: n.title, body: n.body, time: n.time_label, unread: !!n.unread, createdAt: n.created_at, target_id: n.target_id
   })) });
 });
 

@@ -1,4 +1,5 @@
-  import React, { useEffect } from "react";
+import React, { useEffect } from "react";
+import { createPortal } from "react-dom";
 import Icon from "./Icon";
 
 export function Modal({ title, children, onClose, width = 500, hideHeader = false, align = "center" }) {
@@ -16,7 +17,7 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
     ? { top: 80, left: "50%", transform: "translateX(-50%)" }
     : { top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
 
-  return (
+  return createPortal(
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} style={{ zIndex: 60 }} />
       <div style={{ position: "fixed", ...position, width: width, maxWidth: "92vw", zIndex: 61, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
@@ -36,6 +37,7 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

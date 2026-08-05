@@ -1,11 +1,12 @@
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 
-export function Field({ label, optional, span, children }) {
+export function Field({ label, optional, span, hint, children }) {
   return (
     <div className={`fld${span ? " fld-span" : ""}`}>
       <label>{label} {optional && <span className="faint">(optional)</span>}</label>
       {children}
+      {hint && <p className="fhint">{hint}</p>}
     </div>
   );
 }
@@ -79,17 +80,26 @@ export function SelCards({ options, value, onChange, multi = false, cols = 2 }) 
   );
 }
 
-export function ReachMeter({ reach, base }) {
-  const pct = Math.max(4, Math.min(100, Math.round((reach / base) * 100)));
+export function ReachMeter({ reach, base, firstLoad, updating }) {
+  const pct = firstLoad ? 0 : Math.max(4, Math.min(100, Math.round((reach / base) * 100)));
   return (
     <div className="card" style={{ padding: 16, marginBottom: 6 }}>
       <div className="row between" style={{ alignItems: "center" }}>
         <div className="row gap-2" style={{ alignItems: "center" }}>
           <Icon name="users" size={16} />
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 18, fontFamily: "var(--mono)" }}>{reach.toLocaleString("en-US")}</div>
-            <div className="faint" style={{ fontSize: 11.5 }}>people match right now</div>
-          </div>
+          {firstLoad ? (
+            <div className="faint" style={{ fontSize: 13.5 }}>Finding your audience…</div>
+          ) : (
+            <div>
+              <div className="row gap-2" style={{ alignItems: "baseline" }}>
+                <div style={{ fontWeight: 700, fontSize: 18, fontFamily: "var(--mono)", opacity: updating ? 0.5 : 1, transition: "opacity .15s" }}>
+                  {reach.toLocaleString("en-US")}
+                </div>
+                {updating && <span className="faint" style={{ fontSize: 11 }}>Updating…</span>}
+              </div>
+              <div className="faint" style={{ fontSize: 11.5 }}>people match right now</div>
+            </div>
+          )}
         </div>
       </div>
       <div style={{ height: 6, borderRadius: 6, background: "var(--border)", marginTop: 10, overflow: "hidden" }}>
@@ -117,20 +127,20 @@ export function LocationFields({ region, d, set, withCity }) {
   );
 }
 
-export function DemographicsRow({ d, set }) {
+export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
   return (
     <div className="fgrid c2">
       <Field label="Age">
-        <Chips options={["18–24", "25–34", "35–44", "45–54", "55+"]} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
+        <Chips options={ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"]} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
       <Field label="Gender">
-        <Chips options={["Any", "Female", "Male", "Non-binary"]} value={d.genders} onChange={(v) => set("genders", v)} />
+        <Chips options={genderOptions || ["Any", "Female", "Male", "Non-binary"]} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
   );
 }
 
-export function ProfileChips({ d, set, region, show = {}, occOptions }) {
+export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions }) {
   return (
     <div className="col gap-3">
       {show.occupation && (
@@ -139,23 +149,23 @@ export function ProfileChips({ d, set, region, show = {}, occOptions }) {
         </Field>
       )}
       {show.education && (
-        <Field label="Education">
+        <Field label="Education" optional hint="Not yet tracked on validator profiles — doesn't affect the match count.">
           <Chips options={["High school", "Diploma", "Undergraduate", "Postgraduate", "PhD / Doctorate"]} value={d.educations} onChange={(v) => set("educations", v)} />
         </Field>
       )}
       {show.income && (
         <Field label="Income band" optional>
-          <Chips options={region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"]} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
+          <Chips options={incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"])} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
         </Field>
       )}
       {show.languages && (
-        <Field label="Languages" optional>
+        <Field label="Languages" optional hint="Not yet tracked on validator profiles — doesn't affect the match count.">
           <Chips options={region === "india" ? ["Hindi", "English", "Tamil", "Telugu", "Kannada", "Bengali", "Marathi", "Gujarati", "Malayalam", "Punjabi"] : ["English", "Spanish", "French", "German", "Mandarin", "Arabic", "Portuguese", "Japanese"]} value={d.languages} onChange={(v) => set("languages", v)} />
         </Field>
       )}
       {show.interests && (
         <Field label="Interests" optional>
-          <Chips options={["AI", "Startups", "Fitness", "Healthcare", "Education", "Finance", "Gaming", "Parenting", "Travel", "Fashion", "Food", "Sustainability"]} value={d.interests} onChange={(v) => set("interests", v)} />
+          <Chips options={interestOptions || ["AI", "Startups", "Fitness", "Healthcare", "Education", "Finance", "Gaming", "Parenting", "Travel", "Fashion", "Food", "Sustainability"]} value={d.interests} onChange={(v) => set("interests", v)} />
         </Field>
       )}
     </div>

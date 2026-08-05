@@ -18,22 +18,7 @@ const WZ_STEPS = [
   { t: "Review & Publish", s: "Confirm & launch", hint: "One last look before it goes live to your matched audience." },
 ];
 
-/* simulated live audience pool — narrows as filters are applied */
-function matchCount(filters) {
-  const POOL = 1284000;
-  const groupFactor = (key, weight) => {
-    const n = filters[key]?.size || 0;
-    if (!n) return 1;
-    return Math.min(1, weight * n + 0.06);
-  };
-  let f = POOL;
-  f *= groupFactor("Geography", 0.11);
-  f *= groupFactor("Demographics", 0.16);
-  f *= groupFactor("Professional", 0.14);
-  f *= groupFactor("ValidationCrew Role", 0.34);
-  f *= groupFactor("Interests", 0.2);
-  return Math.max(45, Math.round(f / 5) * 5);
-}
+
 
 function StepInfo({ d, set, categories }) {
   return (
@@ -91,19 +76,23 @@ function FilterGroup({ title, options, sel, toggle }) {
     </div>
   );
 }
-function StepAudience({ d, toggle, filters }) {
-  const count = matchCount(d.filters);
+function StepAudience({ d, toggle, filters, liveCount, isFetchingCount }) {
+  const count = liveCount;
   const pct = Math.min(100, Math.round((count / 1284000) * 100));
   return (
     <div className="rise">
       <div className="reach" style={{ marginBottom: 8, position: "sticky", top: 0, zIndex: 5 }}>
         <div className="reach-top">
           <span className="r-ic"><Icon name="users" size={22} /></span>
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>
             <div className="r-num" key={count}>{count.toLocaleString("en-IN")} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 600 }}>matching members</span></div>
             <div className="r-lab">available right now for this audience</div>
           </div>
-          <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> Live</span>
+          {isFetchingCount ? (
+            <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> Updating...</span>
+          ) : (
+            <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> Live</span>
+          )}
         </div>
         <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
         <div className="r-foot"><span>Narrower = higher quality</span><span>{pct}% of total pool</span></div>
@@ -218,11 +207,11 @@ function ReviewRow({ icon, label, children }) {
     </div>
   );
 }
-function StepReview({ d, categories, ptypes, rewards }) {
+function StepReview({ d, categories, ptypes, rewards, liveCount }) {
   const cat = categories.find(c => c.id === d.cat) || categories[0];
   const pt = ptypes.find(p => p.id === d.ptype);
   const rw = rewards.find(r => r.id === d.reward.type);
-  const count = matchCount(d.filters);
+  const count = liveCount;
   const allFilters = Object.values(d.filters).flatMap(s => [...s]);
   return (
     <div className="rise">
@@ -299,6 +288,18 @@ export default function CreateMissionWizard() {
     };
   });
 
+  const [liveCount, setLiveCount] = useState(1284000);
+  const [isFetchingCount, setIsFetchingCount] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setIsFetchingCount(true), 0);
+    const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
+    api.audienceMatchCount(audience)
+      .then(res => setLiveCount(res.count))
+      .catch(() => {})
+      .finally(() => setIsFetchingCount(false));
+  }, [d.filters]);
+
   // Auto-save to localStorage
   useEffect(() => {
     if (!published) {
@@ -336,8 +337,7 @@ export default function CreateMissionWizard() {
     return { ...p, filters: { ...p.filters, [group]: s } };
   });
 
-  const MAX_PARTICIPANTS = 500;
-  const participantWarning = d.reward.participants > MAX_PARTICIPANTS;
+
   const canNext = step !== 0 || (d.title.trim() && d.cat);
   const last = step === WZ_STEPS.length - 1;
 
@@ -378,9 +378,9 @@ export default function CreateMissionWizard() {
     <StepInfo d={d} set={set} categories={categories} />,
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
-    <StepAudience d={d} toggle={toggle} filters={filters} />,
+    <StepAudience d={d} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} />,
     <StepReward d={d} set={set} rewards={rewards} />,
-    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} />,
+    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} />,
   ][step];
 
   return (
@@ -425,7 +425,7 @@ export default function CreateMissionWizard() {
           <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> Back</button>
           <span className="fprog">Step <b>{step + 1}</b> / {WZ_STEPS.length}</span>
           <span className="grow" />
-          {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{matchCount(d.filters).toLocaleString("en-IN")} members</span>}
+          {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{liveCount.toLocaleString("en-IN")} members</span>}
           {step === 4 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.</span>}
           <Btn variant="primary" iconRight={last ? "bolt" : "arrowRight"} disabled={!canNext || busy} onClick={goNext}>
             {busy ? "Publishing…" : last ? "Publish Mission" : "Continue"}
