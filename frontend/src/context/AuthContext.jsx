@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { api, setToken, getToken } from "../api/client";
 
 const AuthContext = createContext(null);
@@ -23,42 +23,52 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
+  // useCallback so these keep a stable identity across renders — without it,
+  // every AuthProvider re-render (including the one triggered by calling
+  // refreshBuilder itself) hands out a new function reference, which any
+  // effect depending on it (e.g. Dashboard's data fetch) reads as "changed"
+  // and re-runs, which calls refreshBuilder again... an infinite fetch loop.
+  const login = useCallback(async (email, password) => {
     const { token, builder } = await api.login(email, password);
     setToken(token);
     setBuilder(builder);
     applyLang(builder);
     return builder;
-  };
+  }, []);
 
-  const signup = async (payload) => {
+  const signup = useCallback(async (payload) => {
     const { token, builder } = await api.signup(payload);
     setToken(token);
     setBuilder(builder);
     applyLang(builder);
     return builder;
-  };
+  }, []);
 
-  const completeOnboarding = async (payload) => {
+  const completeOnboarding = useCallback(async (payload) => {
     const { builder } = await api.completeOnboarding(payload);
     setBuilder(builder);
     return builder;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try { await api.logout(); } catch { /* ignore */ }
     setToken(null);
     setBuilder(null);
-  };
+  }, []);
 
-  const refreshBuilder = async () => {
+  const refreshBuilder = useCallback(async () => {
     const { builder } = await api.me();
     setBuilder(builder);
     return builder;
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ builder, setBuilder, loading, login, signup, completeOnboarding, logout, refreshBuilder }),
+    [builder, loading, login, signup, completeOnboarding, logout, refreshBuilder]
+  );
 
   return (
-    <AuthContext.Provider value={{ builder, setBuilder, loading, login, signup, completeOnboarding, logout, refreshBuilder }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
