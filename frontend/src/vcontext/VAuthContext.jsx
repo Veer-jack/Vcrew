@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { vapi, setVToken, getVToken } from "../vapi/client";
 
 const VAuthContext = createContext(null);
@@ -15,34 +15,42 @@ export function VAuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async (email, password) => {
+  // useCallback for a stable identity across renders — see AuthContext.jsx
+  // (the builder-side equivalent) for why an unstable refresh() reference
+  // here would cause an infinite refetch loop in anything that depends on it.
+  const login = useCallback(async (email, password) => {
     const { token, validator } = await vapi.login(email, password);
     setVToken(token);
     setValidator(validator);
     return validator;
-  };
+  }, []);
 
-  const signup = async (payload) => {
+  const signup = useCallback(async (payload) => {
     const { token, validator } = await vapi.signup(payload);
     setVToken(token);
     setValidator(validator);
     return validator;
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try { await vapi.logout(); } catch { /* ignore */ }
     setVToken(null);
     setValidator(null);
-  };
+  }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const { validator } = await vapi.me();
     setValidator(validator);
     return validator;
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ validator, setValidator, loading, login, signup, logout, refresh }),
+    [validator, loading, login, signup, logout, refresh]
+  );
 
   return (
-    <VAuthContext.Provider value={{ validator, setValidator, loading, login, signup, logout, refresh }}>
+    <VAuthContext.Provider value={value}>
       {children}
     </VAuthContext.Provider>
   );
