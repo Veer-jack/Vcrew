@@ -75,16 +75,38 @@ export async function translateBatch(items, targetLang) {
   }
 
   const withHash = usable.map((it) => ({ ...it, hash: hashText(it.text) }));
+  if (!withHash.length) return result;
+
+  // One round trip for the whole batch instead of one query per item -- on a
+  // page with dozens of translatable strings (e.g. an activity feed), that
+  // N+1 pattern was the actual multi-second bottleneck, not the translate API.
+  const cacheRowKey = (t, id, f, h) => `${t}:${id}:${f}:${h}`;
+  const cached = await db
+    .prepare(`
+      SELECT entity_type, entity_id, field, source_hash, translated
+      FROM translation_cache
+      WHERE lang = ?
+        AND (entity_type, entity_id, field, source_hash) IN (
+          SELECT * FROM unnest(?::text[], ?::text[], ?::text[], ?::text[])
+        )
+    `)
+    .all(
+      targetLang,
+      withHash.map((it) => it.entityType),
+      withHash.map((it) => String(it.entityId)),
+      withHash.map((it) => it.field),
+      withHash.map((it) => it.hash),
+    );
+  const cacheMap = new Map(cached.map((r) => [cacheRowKey(r.entity_type, r.entity_id, r.field, r.source_hash), r.translated]));
 
   const toFetch = [];
   for (const it of withHash) {
-    const row = await db
-      .prepare(`SELECT translated FROM translation_cache WHERE entity_type=? AND entity_id=? AND field=? AND lang=? AND source_hash=?`)
-      .get(it.entityType, it.entityId, it.field, targetLang, it.hash);
-    if (row) result.set(keyOf(it.entityType, it.entityId, it.field), row.translated);
+    const hit = cacheMap.get(cacheRowKey(it.entityType, String(it.entityId), it.field, it.hash));
+    if (hit !== undefined) result.set(keyOf(it.entityType, it.entityId, it.field), hit);
     else toFetch.push(it);
   }
 
+  const toInsert = [];
   for (const batch of chunk(toFetch, CHUNK_SIZE)) {
     const translated = await callGoogleTranslate(batch.map((it) => it.text), targetLang);
     if (!translated) {
@@ -96,14 +118,25 @@ export async function translateBatch(items, targetLang) {
       const it = batch[i];
       const text = translated[i] ?? it.text;
       result.set(keyOf(it.entityType, it.entityId, it.field), text);
-      await db
-        .prepare(
-          `INSERT INTO translation_cache (entity_type, entity_id, field, source_hash, lang, translated)
-           VALUES (?, ?, ?, ?, ?, ?)
-           ON CONFLICT (entity_type, entity_id, field, lang, source_hash) DO NOTHING`
-        )
-        .run(it.entityType, it.entityId, it.field, it.hash, targetLang, text);
+      toInsert.push({ ...it, text });
     }
+  }
+
+  if (toInsert.length) {
+    await db
+      .prepare(`
+        INSERT INTO translation_cache (entity_type, entity_id, field, source_hash, lang, translated)
+        SELECT * FROM unnest(?::text[], ?::text[], ?::text[], ?::text[], ?::text[], ?::text[])
+        ON CONFLICT (entity_type, entity_id, field, lang, source_hash) DO NOTHING
+      `)
+      .run(
+        toInsert.map((it) => it.entityType),
+        toInsert.map((it) => String(it.entityId)),
+        toInsert.map((it) => it.field),
+        toInsert.map((it) => it.hash),
+        toInsert.map(() => targetLang),
+        toInsert.map((it) => it.text),
+      );
   }
 
   return result;

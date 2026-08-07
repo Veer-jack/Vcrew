@@ -89,7 +89,7 @@ export default function Submitted() {
 
       <div className="card rise-2" style={{ padding: 18, marginBottom: 28, display: "flex", gap: 12, alignItems: "center", background: "var(--panel-2)" }}>
         <Icon name="shield" size={22} style={{ color: "var(--success)", flex: "none" }} />
-        <div style={{ fontSize: 13.5 }} className="muted">{t("missions.highSignalDesc", null, "High-signal, specific feedback raises your accuracy score and unlocks higher-paying tasks. Low-effort submissions get filtered before the founder ever sees them.")}</div>
+        <div style={{ fontSize: 13.5 }} className="muted">{t("missions.highSignalDesc", null, "High-signal, specific feedback raises your accuracy score and unlocks higher-paying tasks. Low-effort submissions get filtered before the builder ever sees them.")}</div>
       </div>
 
       {next && (

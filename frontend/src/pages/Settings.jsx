@@ -128,6 +128,7 @@ export default function Settings() {
         </div>
 
         <PhoneSetup client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
+          prefillPhone={builder?.profile?.mobile}
           onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))} />
 
         {!builder?.oauthProvider && (

@@ -83,6 +83,7 @@ export default function ALayout() {
           <LanguageSwitcher
             onSave={(lang) => aapi.setLanguage(lang).catch(() => {})}
             style={{ marginTop: 12, width: "100%" }}
+            openUp
           />
         </div>
       </aside>

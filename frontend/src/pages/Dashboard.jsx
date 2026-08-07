@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Btn, KpiCard, inr, inrK } from "../components/ui";
+import { Btn, KpiCard, UpdatingBadge, inr, inrK } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
-import { PERSONA_CONFIG } from "../data/personaConfig";
+import { PERSONA_CONFIG, onboardingDraftKey, stepLabel } from "../data/personaConfig";
 import { useTranslation } from "../i18n/index.jsx";
 import { activityWho, activityText } from "../bi18n";
 
@@ -21,7 +21,7 @@ function ProfileCompletionBanner({ builder, nav }) {
   if (!activePersonaKey) {
     for (const key of Object.keys(PERSONA_CONFIG)) {
       try {
-        const draft = JSON.parse(localStorage.getItem(`vc_onboarding_draft_${key}`));
+        const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, key)));
         if (draft && typeof draft.step === "number") {
           activePersonaKey = key;
           draftStepNum = draft.step + 1; // 1-indexed
@@ -32,7 +32,7 @@ function ProfileCompletionBanner({ builder, nav }) {
   } else {
     // They have a persona in DB, but profile is incomplete. Check their draft for progress.
     try {
-      const draft = JSON.parse(localStorage.getItem(`vc_onboarding_draft_${activePersonaKey}`));
+      const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
       if (draft && typeof draft.step === "number") {
         draftStepNum = draft.step + 1;
       }
@@ -105,11 +105,11 @@ function ProfileCompletionBanner({ builder, nav }) {
   const nextStep = persona.steps[currentStepNum - 1];
 
   let icName = "rocket";
-  let title = "Founder / Startup";
-  let desc = "Set up your startup details to unlock all platform features.";
-  if (activePersonaKey === "company") { icName = "building"; title = "Company"; desc = "Add your company information to build trust and credibility."; }
-  else if (activePersonaKey === "researcher") { icName = "flask"; title = "Researcher"; desc = "Tell us about your research interests and goals."; }
-  else if (activePersonaKey === "organization") { icName = "users"; title = "Organization"; desc = "Provide organization details to manage your account."; }
+  let title = t("dashboard.personaTitle.founder", null, "Founder / Startup");
+  let desc = t("dashboard.personaDesc.founder", null, "Set up your startup details to unlock all platform features.");
+  if (activePersonaKey === "company") { icName = "building"; title = t("dashboard.personaTitle.company", null, "Company"); desc = t("dashboard.personaDesc.company", null, "Add your company information to build trust and credibility."); }
+  else if (activePersonaKey === "researcher") { icName = "flask"; title = t("dashboard.personaTitle.researcher", null, "Researcher"); desc = t("dashboard.personaDesc.researcher", null, "Tell us about your research interests and goals."); }
+  else if (activePersonaKey === "organization") { icName = "users"; title = t("dashboard.personaTitle.organization", null, "Organization"); desc = t("dashboard.personaDesc.organization", null, "Provide organization details to manage your account."); }
 
   return (
     <div className="card" style={{
@@ -127,7 +127,7 @@ function ProfileCompletionBanner({ builder, nav }) {
         <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 10, overflow: "hidden" }}>
           <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.3s" }} />
         </div>
-        <a href={`/signup?role=${activePersonaKey}`} className="faint" style={{ fontSize: 12, fontWeight: 500 }}>{t("actions.viewAllSteps", null, "View all steps &rarr;")}</a>
+        <a href={`/signup?role=${activePersonaKey}`} className="faint" style={{ fontSize: 12, fontWeight: 500 }}>{t("actions.viewAllSteps", null, "View all steps →")}</a>
       </div>
 
       {/* Middle */}
@@ -139,9 +139,9 @@ function ProfileCompletionBanner({ builder, nav }) {
           <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("dashboard.nextStep", null, "Next step")}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="layout" size={16} style={{ color: "var(--accent)" }} />
-            <b style={{ fontSize: 14 }}>{nextStep?.label || "Details"}</b>
+            <b style={{ fontSize: 14 }}>{nextStep ? stepLabel(t, nextStep.key, nextStep.label) : t("dashboard.details", null, "Details")}</b>
           </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginLeft: 24 }}>{t("dashboard.continueFilling", null, "Continue filling out your")} {nextStep?.label?.toLowerCase() || t("dashboard.details", null, "details")}.</div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginLeft: 24 }}>{t("dashboard.continueFilling", null, "Continue filling out your")} {nextStep ? stepLabel(t, nextStep.key, nextStep.label).toLowerCase() : t("dashboard.details", null, "details")}.</div>
         </div>
       </div>
 
@@ -162,16 +162,16 @@ function ProfileCompletionBanner({ builder, nav }) {
                     {i + 1}
                   </div>
                 )}
-                <span style={{ fontSize: 13, fontWeight: isCurr ? 600 : 500, color: isCurr ? "var(--heading)" : "var(--text)" }}>{s.label}</span>
+                <span style={{ fontSize: 13, fontWeight: isCurr ? 600 : 500, color: isCurr ? "var(--heading)" : "var(--text)" }}>{stepLabel(t, s.key, s.label)}</span>
               </div>
             );
           })}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>{t("actions.continueSetup", null, "Continue Setup &rarr;")}</Btn>
+          <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>{t("actions.continueSetup", null, "Continue Setup →")}</Btn>
           {!builder?.persona && (
             <Btn variant="ghost" block onClick={() => {
-              Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(`vc_onboarding_draft_${k}`); } catch { /* ignore */ } });
+              Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(onboardingDraftKey(builder?.id, k)); } catch { /* ignore */ } });
               nav(`/get-started/feedback`);
             }}>{t("actions.changeRole", null, "Change role")}</Btn>
           )}
@@ -220,11 +220,12 @@ function ActivityFeed({ rows }) {
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const { builder, refreshBuilder } = useAuth();
   const { categories } = useMeta();
   const navigate = useNavigate();
   const [data, setData] = useState(null);
+  const [refetching, setRefetching] = useState(false);
   const [showAllMissions, setShowAllMissions] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
@@ -240,10 +241,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     refreshBuilder().catch(() => {});
+    setTimeout(() => setRefetching(true), 0);
     api.dashboard()
       .then(setData)
-      .catch(() => setLoadErr(true));
-  }, [refreshBuilder]);
+      .catch(() => setLoadErr(true))
+      .finally(() => setRefetching(false));
+  }, [refreshBuilder, dataVersion]);
 
   if (loadErr) return (
     <div className="page rise" style={{ textAlign: "center", paddingTop: 60 }}>
@@ -321,7 +324,8 @@ export default function Dashboard() {
           <h1>{t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
           <p className="lead">{t("dashboard.howMissionsTracking", { org: builder?.org }, `Here's how ${builder?.org || ""}'s validation missions are tracking today.`)}</p>
         </div>
-        <div className="ph-actions">
+        <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}>
+          <UpdatingBadge show={refetching} />
           <Btn variant="ghost" icon="compass" onClick={() => navigate("/audience")}>{t("actions.browseAudience", null, "Browse audience")}</Btn>
           <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn>
         </div>

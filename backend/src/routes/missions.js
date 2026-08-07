@@ -433,6 +433,22 @@ router.patch("/:id", async (req, res) => {
   const newStatus = req.body.status !== undefined ? req.body.status : m.status;
   const newTarget = req.body.target !== undefined ? Number(req.body.target) : m.target;
 
+  // The edit-mission modal already blocks these client-side, but this route has
+  // no other validation at all otherwise — anything sent here gets written
+  // straight to the row, so these need to hold even if a request bypasses the UI.
+  if (req.body.target !== undefined && (!Number.isFinite(newTarget) || newTarget < 1)) {
+    return res.status(400).json({ error: "Target participants must be at least 1" });
+  }
+  if (req.body.name !== undefined && !String(req.body.name).trim()) {
+    return res.status(400).json({ error: "Name is required" });
+  }
+  if (req.body.deadline) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (String(req.body.deadline).slice(0, 10) < todayStr) {
+      return res.status(400).json({ error: "Deadline can't be in the past" });
+    }
+  }
+
   // Gate publishing (draft → active) AND any target increase on an already-active
   // mission the same way as creating an active mission — gated on the REQUESTED
   // target, not the stale pre-update one, so a single publish+upsize request (or a

@@ -4,6 +4,9 @@
   "description": "",
   "main": "src/server.js",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node --env-file=.env src/server.js",
     "seed": "node --env-file=.env src/seed.js",

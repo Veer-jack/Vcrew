@@ -154,6 +154,21 @@ export function Trend({ data, height = 200 }) {
   );
 }
 
+// Shown when a page's already-visible data is being silently refetched (e.g.
+// after switching language) so users see a light "still working on it" cue
+// instead of stale content sitting there with no explanation, or a jarring
+// full-page reload back to a blank loading state.
+export function UpdatingBadge({ show }) {
+  const { t } = useTranslation();
+  if (!show) return null;
+  return (
+    <span className="pill" style={{ gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+      <Icon name="refresh" size={13} style={{ animation: "spin 0.9s linear infinite" }} />
+      {t("common.updating", null, "Updating…")}
+    </span>
+  );
+}
+
 export function Empty({ icon = "inbox", title, children, action }) {
   return (
     <div className="empty rise">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams, useOutletContext } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VEmpty } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
@@ -28,8 +29,8 @@ function RaiseTicket({ onClose, onCreated }) {
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", width: 520, maxWidth: "min(520px, calc(100vw - 280px - 32px))", maxHeight: "90vh", overflow: "auto", zIndex: 61,
-        background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+        <div style={{ width: 520, maxWidth: "min(520px, calc(100vw - 280px - 32px))", maxHeight: "90vh", overflow: "auto", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         {sent ? (
           <div style={{ padding: 40, textAlign: "center" }}>
             <span style={{ width: 64, height: 64, borderRadius: 18, display: "grid", placeItems: "center", margin: "0 auto 18px", background: "var(--success-weak)", color: "var(--success)" }}><Icon name="check" size={30} /></span>
@@ -75,6 +76,7 @@ function RaiseTicket({ onClose, onCreated }) {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );
@@ -89,12 +91,13 @@ function ViewTicket({ ticket, onClose }) {
     vapi.getTicket(ticket.id)
       .then(res => setConvos(res.conversations))
       .catch(err => setError(err.message || t("vSupport.failedToLoadTicket", null, "Failed to load ticket")));
-  }, [ticket.id]);
+  }, [ticket.id, t]);
 
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 61, background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+        <div style={{ width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         <div className="row between" style={{ padding: "18px 22px", borderBottom: "var(--hairline) solid var(--border)", flex: "none" }}>
           <div>
             <div className="faint mono" style={{ fontSize: 11 }}>{ticket.id}</div>
@@ -119,6 +122,7 @@ function ViewTicket({ ticket, onClose }) {
         <div style={{ padding: "16px 22px", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel-inset)", fontSize: 13, textAlign: "center", color: "var(--text-faint)" }}>
           {t("support.replyViaEmail", null, "To reply to this ticket, please reply to the email sent to your inbox.")}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -128,11 +132,18 @@ const getTicketStatus = (t) => ({
   open: { l: t("support.statusOpen", null, "Open"), c: "var(--warning)", bg: "var(--warning-weak)" },
   answered: { l: t("support.statusAnswered", null, "Answered"), c: "var(--accent)", bg: "var(--accent-weak)" },
   resolved: { l: t("support.statusResolved", null, "Resolved"), c: "var(--success)", bg: "var(--success-weak)" },
+  // freshdesk.js's getTickets() collapses every non-open Freshdesk status (Pending,
+  // Resolved, Closed) into the single string "closed" -- without this entry, that
+  // lookup misses and silently falls back to "open", mislabeling closed tickets.
+  closed: { l: t("support.statusResolved", null, "Resolved"), c: "var(--success)", bg: "var(--success-weak)" },
 });
 
 export default function Support() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState("help");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(searchParams.get("tab") || "help");
+  const { notifs } = useOutletContext() || { notifs: [] };
+  const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(null);
   const [raising, setRaising] = useState(false);
@@ -141,6 +152,7 @@ export default function Support() {
   const [visibleHelpCount, setVisibleHelpCount] = useState(20);
   const [visibleTicketsCount, setVisibleTicketsCount] = useState(20);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setVisibleHelpCount(20); }, [q]);
 
   useEffect(() => { vapi.support().then(setData).catch(() => {}); }, []);
@@ -160,9 +172,12 @@ export default function Support() {
 
       <div className="row between wrap gap-3 rise-2" style={{ marginBottom: 18 }}>
         <div className="row gap-2">
-          {[{ k: "help", l: t("support.helpArticles", null, "Help articles") }, { k: "tickets", l: t("support.myTickets", null, "My tickets") }].map(t => (
-            <button key={t.k} className="pill" onClick={() => setTab(t.k)} style={{ cursor: "pointer", fontWeight: 700,
-              background: tab === t.k ? "var(--accent)" : "var(--panel)", borderColor: tab === t.k ? "var(--accent)" : "var(--border)", color: tab === t.k ? "#fff" : "var(--text-muted)" }}>{t.l}</button>
+          {[{ k: "help", l: t("support.helpArticles", null, "Help articles") }, { k: "tickets", l: t("support.myTickets", null, "My tickets") }].map(tDef => (
+            <button key={tDef.k} className="pill" onClick={() => setTab(tDef.k)} style={{ cursor: "pointer", fontWeight: 700, position: "relative",
+              background: tab === tDef.k ? "var(--accent)" : "var(--panel)", borderColor: tab === tDef.k ? "var(--accent)" : "var(--border)", color: tab === tDef.k ? "#fff" : "var(--text-muted)" }}>
+              {tDef.l}
+              {tDef.k === "tickets" && supportUnreadCount > 0 && <span className="bell-unread-dot blink" style={{ position: "absolute", top: -2, right: -2 }} />}
+            </button>
           ))}
         </div>
         <button className="btn btn-primary" onClick={() => setRaising(true)}><Icon name="plus" size={16} />{t("support.raiseTicket", null, "Raise a ticket")}</button>

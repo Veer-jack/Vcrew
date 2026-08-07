@@ -2,37 +2,21 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { useTranslation } from "../i18n/index.jsx";
-
-const getRoles = (t) => [
-  {
-    key: "founder", icon: "rocket", name: t("roles.founder", null, "Founder / Startup"), live: true,
-    desc: t("roles.founderDesc", null, "Validate your startup — product feedback, user opinions, beta testing, idea & pricing validation."),
-    accent: "#4f46e5",
-  },
-  {
-    key: "company", icon: "building", name: t("roles.company", null, "Company"), live: true,
-    desc: t("roles.companyDesc", null, "Evaluate products, packaging, pricing, brand perception and customer experience."),
-    accent: "#0891b2",
-  },
-  {
-    key: "researcher", icon: "flask", name: t("roles.researcher", null, "Researcher"), live: true,
-    desc: t("roles.researcherDesc", null, "Recruit participants for academic, social, healthcare, or scientific research."),
-    accent: "#0d9488",
-  },
-  {
-    key: "organization", icon: "building", name: t("roles.organization", null, "Organization"), live: true,
-    desc: t("roles.orgDesc", null, "Gather community, policy and programme feedback — impact assessment and awareness studies."),
-    accent: "#c2710c",
-  },
-];
-
+import LanguageSwitcher from "../components/LanguageSwitcher";
+import { api } from "../api/client";
+import { useAuth } from "../context/AuthContext";
+import { getRoles, switchToRoleDraft } from "../data/personaConfig";
 
 export default function RoleSelect() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { builder } = useAuth();
 
   return (
     <div className="auth-shell">
+      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
+      </div>
       <div className="rise" style={{ width: "100%", maxWidth: 860, textAlign: "center" }}>
         <div style={{ margin: "0 auto 18px" }}><BrandMark size={80} /></div>
         <div className="eyebrow" style={{ marginBottom: 10 }}>{t("onboarding.iNeedFeedback", null, "I need feedback")}</div>
@@ -51,12 +35,7 @@ export default function RoleSelect() {
               disabled={!r.live}
               onClick={() => {
                 if (!r.live) return;
-                // Clear any lingering drafts to ensure a clean slate when switching roles
-                getRoles(t).forEach(roleObj => {
-                  try { localStorage.removeItem(`vc_onboarding_draft_${roleObj.key}`); } catch {}
-                });
-                // Formally initialize a blank draft so the dashboard instantly knows the user's choice
-                try { localStorage.setItem(`vc_onboarding_draft_${r.key}`, JSON.stringify({ step: 0, maxReached: 0, d: {} })); } catch {}
+                switchToRoleDraft(builder?.id, r.key, builder);
                 navigate(`/signup?role=${r.key}`);
               }}
             >
@@ -74,7 +53,7 @@ export default function RoleSelect() {
         </div>
 
         <p className="faint" style={{ marginTop: 26, fontSize: 12.5 }}>
-          <a href="/get-started">&larr; {t("actions.back", null, "Back")}</a>
+          <a href="/get-started">{t("actions.skip", null, "Skip")} &rarr;</a>
         </p>
       </div>
     </div>

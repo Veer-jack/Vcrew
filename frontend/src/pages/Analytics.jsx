@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Btn, KpiCard, MissionLogo, PBarRow, Trend } from "../components/ui";
+import { Btn, KpiCard, MissionLogo, PBarRow, Trend, UpdatingBadge } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { exportCSV, exportXls } from "../exportUtils";
@@ -10,16 +10,21 @@ import { useTranslation } from "../i18n/index.jsx";
 import { categoryLabel } from "../bi18n";
 
 export default function Analytics() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
   useMeta();
   const [data, setData] = useState(null);
   const [missions, setMissions] = useState([]);
+  const [refetching, setRefetching] = useState(false);
 
   useEffect(() => {
-    api.analytics().then(setData);
-    api.missions().then(d => setMissions(d.missions.filter(m => m.status !== "draft")));
-  }, []);
+    setTimeout(() => setRefetching(true), 0);
+    Promise.all([
+      api.analytics().then(setData),
+      api.missions().then(d => setMissions(d.missions.filter(m => m.status !== "draft"))),
+    ]).finally(() => setRefetching(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataVersion]);
 
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
@@ -52,7 +57,8 @@ export default function Analytics() {
     <div className="page rise">
       <div className="ph">
         <div><span className="eyebrow">{t("analytics.reports", null, "Reports")}</span><h1>{t("analytics.title", null, "Analytics & Reports")}</h1><p className="lead">{t("analytics.lead", null, "Aggregate insight across every mission you've run.")}</p></div>
-        <div className="ph-actions">
+        <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}>
+          <UpdatingBadge show={refetching} />
           <Btn variant="ghost" size="sm" icon="fileText" onClick={exportPDF}>{t("actions.pdf", null, "PDF")}</Btn>
           <Btn variant="ghost" size="sm" icon="download" onClick={() => exportXls("analytics_report.xls", reportHeaders, reportRows)}>{t("actions.excel", null, "Excel")}</Btn>
           <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV("analytics_report.csv", reportHeaders, reportRows)}>{t("actions.csv", null, "CSV")}</Btn>

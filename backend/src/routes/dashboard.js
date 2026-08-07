@@ -119,25 +119,12 @@ router.get("/", async (req, res) => {
     };
   });
 
-  const lang = req.builder.preferred_language;
-  if (lang && lang !== "en") {
-    if (activity.length) {
-      // mission_name here mirrors an actual mission's name -- keyed the same way
-      // missions.js keys it ("mission"/id/"name") so both share the translation cache.
-      const translated = await translateBatch(
-        activity.filter(a => a.mission_name).map(a => ({ entityType: "activity_title", entityId: a.id, field: "title", text: a.mission_name })),
-        lang
-      );
-      activity = activity.map(a => ({ ...a, mission_name: translated.get(`activity_title:${a.id}:title`) ?? a.mission_name }));
-    }
-  }
-
   const recentRaw = await db.prepare(`
-    SELECT m.*, 
+    SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted
     FROM missions m WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6
   `).all(bId);
-  
+
   let recent = recentRaw.map(m => {
     const realSub = m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted;
     const realComp = m.real_submitted !== undefined
@@ -152,13 +139,24 @@ router.get("/", async (req, res) => {
     };
   });
 
-  if (lang && lang !== "en" && recent.length) {
-    // Same entityType/field as missions.js's mission list, so this shares that cache.
-    const translated = await translateBatch(
-      recent.map(m => ({ entityType: "mission", entityId: m.id, field: "name", text: m.name })),
-      lang
-    );
-    recent = recent.map(m => ({ ...m, name: translated.get(`mission:${m.id}:name`) ?? m.name }));
+  const lang = req.builder.preferred_language;
+  if (lang && lang !== "en") {
+    // Independent of each other -- run concurrently rather than one-after-another.
+    const [activityTranslated, missionsTranslated] = await Promise.all([
+      activity.length
+        ? translateBatch(
+            // mission_name here mirrors an actual mission's name -- keyed the same way
+            // missions.js keys it ("mission"/id/"name") so both share the translation cache.
+            activity.filter(a => a.mission_name).map(a => ({ entityType: "activity_title", entityId: a.id, field: "title", text: a.mission_name })),
+            lang
+          )
+        : new Map(),
+      recent.length
+        ? translateBatch(recent.map(m => ({ entityType: "mission", entityId: m.id, field: "name", text: m.name })), lang)
+        : new Map(),
+    ]);
+    activity = activity.map(a => ({ ...a, mission_name: activityTranslated.get(`activity_title:${a.id}:title`) ?? a.mission_name }));
+    recent = recent.map(m => ({ ...m, name: missionsTranslated.get(`mission:${m.id}:name`) ?? m.name }));
   }
 
   const latestVerif = await db.prepare(`SELECT status, reviewer_note FROM verifications WHERE builder_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(bId);

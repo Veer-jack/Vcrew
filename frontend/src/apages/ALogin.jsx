@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, useLocation, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn, PasswordInput } from "../components/ui";
@@ -25,17 +25,9 @@ export default function ALogin() {
 
   const goToApp = () => navigate(location.state?.from || "/admin", { replace: true });
 
-  if (admin) {
-    return (
-      <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
-        <div style={{ textAlign: "center", background: "var(--panel)", padding: "40px 32px", borderRadius: "var(--radius)", border: "1px solid var(--border)", maxWidth: 400, boxShadow: "var(--shadow-sm)" }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>{t("auth.alreadyLoggedIn", null, "Already logged in")}</h2>
-          <p style={{ color: "var(--text-muted)", marginBottom: 24, fontSize: 15 }}><span dangerouslySetInnerHTML={{ __html: t("auth.loggedInAs", { email: `<strong>${admin.email}</strong>` }, "You are currently logged in as {email}.") }} /></p>
-          <Link to="/admin" className="btn btn-primary" style={{ display: "inline-flex", width: "100%", justifyContent: "center" }}>{t("admin.goToDashboard", null, "Go to Admin Dashboard →")}</Link>
-        </div>
-      </div>
-    );
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (admin) goToApp(); }, [admin]);
+  if (admin) return null;
 
   const submitCredentials = async (e) => {
     e.preventDefault();

@@ -58,7 +58,7 @@ router.post("/signup", async (req, res) => {
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
-  if (!password || String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+  if (!password || String(password).trim().length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
@@ -155,7 +155,7 @@ router.post("/forgot-password", async (req, res) => {
 // POST /api/v/auth/reset-password { token, password }
 router.post("/reset-password", async (req, res) => {
   const { token, password } = req.body || {};
-  if (!token || !password || String(password).length < 8) {
+  if (!token || !password || String(password).trim().length < 8) {
     return res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
   }
 
@@ -179,7 +179,7 @@ router.post("/change-password", validatorAuthMiddleware, async (req, res) => {
     return res.status(400).json({ error: "Users registered via Google/GitHub cannot change passwords here." });
   }
 
-  if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+  if (!currentPassword || !newPassword || String(newPassword).trim().length < 8) {
     return res.status(400).json({ error: "Current password and a new password (min 8 characters) are required." });
   }
 

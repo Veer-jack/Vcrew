@@ -25,20 +25,20 @@ function wzSteps(t) {
 
 
 
-function StepInfo({ d, set, categories }) {
+function StepInfo({ d, set, categories, showErrors }) {
   const { t } = useTranslation();
   return (
     <div className="rise">
-      <div className="fld" style={{ marginBottom: 18 }}>
-        <label>{t("createMission.missionTitleLabel", null, "Mission Title")}</label>
+      <div className={`fld ${showErrors && !d.title.trim() ? "fld-invalid" : ""}`} style={{ marginBottom: 18 }}>
+        <label>{t("createMission.missionTitleLabel", null, "Mission Title")} <span className="req-star" aria-hidden="true">*</span></label>
         <input className="fin" placeholder={t("createMission.missionTitlePlaceholder", null, "e.g. Cold Brew Can — Taste Panel")} value={d.title} onChange={e => set({ title: e.target.value })} />
         <p className="fhint">{t("createMission.missionTitleHint", null, "Members see this first — make it specific and inviting.")}</p>
       </div>
-      <div className="fld" style={{ marginBottom: 24 }}>
-        <label>{t("createMission.descriptionLabel", null, "Description")}</label>
+      <div className={`fld ${showErrors && !d.desc.trim() ? "fld-invalid" : ""}`} style={{ marginBottom: 24 }}>
+        <label>{t("createMission.descriptionLabel", null, "Description")} <span className="req-star" aria-hidden="true">*</span></label>
         <textarea className="field" placeholder={t("createMission.descriptionPlaceholder", null, "Describe what you're validating, what participants will do, and what a great submission looks like.")} value={d.desc} onChange={e => set({ desc: e.target.value })} />
       </div>
-      <div className="fsec"><b>{t("createMission.missionCategoryLabel", null, "Mission Category")}</b><span className="line" /><span className="cnt">{t("createMission.pickOne", null, "Pick one")}</span></div>
+      <div className="fsec"><b>{t("createMission.missionCategoryLabel", null, "Mission Category")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /><span className="cnt">{t("createMission.pickOne", null, "Pick one")}</span></div>
       <div className="optcards">
         {categories.map(c => (
           <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} onClick={() => set({ cat: c.id })}>
@@ -52,11 +52,12 @@ function StepInfo({ d, set, categories }) {
   );
 }
 
-function FilterGroup({ title, options, sel, toggle }) {
+function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const showSearch = options.length > 8;
   const filtered = q.trim() ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options;
+  const showOtherInput = onOtherTextChange && sel.has("Other");
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
       <div className="row between" style={{ marginBottom: 10 }}>
@@ -80,10 +81,19 @@ function FilterGroup({ title, options, sel, toggle }) {
         ))}
         {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q }, `No matches for "${q}"`)}</span>}
       </div>
+      {showOtherInput && (
+        <input
+          className="fin"
+          style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
+          placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+          value={otherText}
+          onChange={e => onOtherTextChange(e.target.value)}
+        />
+      )}
     </div>
   );
 }
-function StepAudience({ d, toggle, filters, liveCount, isFetchingCount }) {
+function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount }) {
   const { t } = useTranslation();
   const count = liveCount;
   const pct = Math.min(100, Math.round((count / 1284000) * 100));
@@ -106,7 +116,11 @@ function StepAudience({ d, toggle, filters, liveCount, isFetchingCount }) {
         <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
-        <FilterGroup key={g} title={g} options={Array.isArray(opts) ? opts : Object.values(opts).flat()} sel={d.filters[g]} toggle={toggle} />
+        <FilterGroup
+          key={g} title={g} options={Array.isArray(opts) ? opts : Object.values(opts).flat()} sel={d.filters[g]} toggle={toggle}
+          otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
+          onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
+        />
       ))}
     </div>
   );
@@ -144,13 +158,13 @@ function StepParticipation({ d, set, ptypes }) {
   );
 }
 
-function StepReward({ d, set, rewards }) {
+function StepReward({ d, set, rewards, showErrors }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
   return (
     <div className="rise">
-      <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")}</b><span className="line" /></div>
+      <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
       <div className="optcards c2" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         {rewards.map(r => (
           <button key={r.id} className={`optcard ${d.reward.type === r.id ? "on" : ""}`} onClick={() => set({ reward: { ...d.reward, type: r.id } })}>
@@ -163,16 +177,16 @@ function StepReward({ d, set, rewards }) {
 
       <div className="fgrid c2" style={{ marginTop: 24 }}>
         {needsAmt && (
-          <div className="fld">
-            <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
+          <div className={`fld ${showErrors && !(d.reward.amount > 0) ? "fld-invalid" : ""}`}>
+            <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
-              <input className="fin" type="number" min="0" value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: +e.target.value } })} />
+              <input className="fin" type="number" min="1" value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: +e.target.value } })} />
             </div>
           </div>
         )}
         <div className="fld">
-          <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")}</label>
+          <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="number" min="1" max="500" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: Math.min(500, Math.max(1, +e.target.value)) } })} />
           <p className="fhint">{t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}</p>
         </div>
@@ -186,10 +200,7 @@ function CostCard({ d, rewards, balance, platformFeePct }) {
   const rw = rewards.find(r => r.id === d.reward.type);
   const n = +d.reward.participants || 0;
   const per = rw?.needsAmt ? (+d.reward.amount || 0) : 0;
-  const subtotal = per * n;
-  const fee = Math.round(subtotal * platformFeePct);
-  const fulfil = d.reward.type === "sample" ? n * 60 : 0;
-  const total = subtotal + fee + fulfil;
+  const { subtotal, fee, fulfil, total } = computeCost(d, rewards, platformFeePct);
   return (
     <div className="estcard accent">
       <span className="eyebrow">{t("createMission.liveCostEstimate", null, "Live cost estimate")}</span>
@@ -210,6 +221,33 @@ function CostCard({ d, rewards, balance, platformFeePct }) {
   );
 }
 
+function BalanceCard({ balance }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const low = (balance ?? 0) < 500;
+  return (
+    <div className="estcard accent">
+      <span className="eyebrow">{t("createMission.walletBalance", null, "Wallet balance")}</span>
+      <div className="est-num" style={{ margin: "8px 0 14px" }}>{inr(balance)}</div>
+      {low ? (
+        <>
+          <div className="row gap-2" style={{ fontSize: 12.5, color: "var(--danger)", alignItems: "flex-start" }}>
+            <Icon name="alertTriangle" size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}</span>
+          </div>
+          <Btn variant="primary" icon="plus" block onClick={() => navigate("/wallet")} style={{ marginTop: 14 }}>
+            {t("actions.addFunds", null, "Add funds")}
+          </Btn>
+        </>
+      ) : (
+        <div className="row gap-2" style={{ fontSize: 12, color: "var(--text-faint)" }}>
+          <Icon name="shield" size={14} /><span>{t("createMission.escrowNote", null, "Held in escrow · released only on approved submissions")}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ReviewRow({ icon, label, children }) {
   return (
     <div className="row gap-3" style={{ padding: "13px 0", borderTop: "1px solid var(--border)", alignItems: "flex-start" }}>
@@ -224,7 +262,9 @@ function StepReview({ d, categories, ptypes, rewards, liveCount }) {
   const pt = ptypes.find(p => p.id === d.ptype);
   const rw = rewards.find(r => r.id === d.reward.type);
   const count = liveCount;
-  const allFilters = Object.values(d.filters).flatMap(s => [...s]);
+  const allFilters = Object.entries(d.filters).flatMap(([g, s]) =>
+    [...s].map(v => (g === "Geography" && v === "Other" && d.otherGeoText?.trim()) ? d.otherGeoText.trim() : v)
+  );
   return (
     <div className="rise">
       <div className="card" style={{ padding: "4px 20px 14px" }}>
@@ -249,7 +289,34 @@ function emptyFilters(filters) {
   return Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 }
 
-const DRAFT_KEY = "vcrew_mission_draft";
+function flatOptions(opts) {
+  return Array.isArray(opts) ? opts : Object.values(opts).flat();
+}
+
+// The backend already free-text substring-matches Geography (see
+// getRealMatchCount in backend/src/routes/audience.js), so the "Other"
+// chip's typed value can be sent straight through as its own entry —
+// no need to swap it in for the literal "Other" marker (the backend treats
+// "Other" itself as a no-op, same as "Worldwide"/"Remote").
+function buildAudiencePayload(d) {
+  const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
+  const otherGeo = (d.otherGeoText || "").trim();
+  if (otherGeo && audience.Geography?.includes("Other")) audience.Geography = [...audience.Geography, otherGeo];
+  return audience;
+}
+
+function computeCost(d, rewards, platformFeePct) {
+  const rw = rewards.find(r => r.id === d.reward.type);
+  const n = +d.reward.participants || 0;
+  const per = rw?.needsAmt ? (+d.reward.amount || 0) : 0;
+  const subtotal = per * n;
+  const fee = Math.round(subtotal * platformFeePct);
+  const fulfil = d.reward.type === "sample" ? n * 60 : 0;
+  return { subtotal, fee, fulfil, total: subtotal + fee + fulfil };
+}
+
+const GEO_GROUP = "Geography";
+const WORLDWIDE = "Worldwide";
 
 function serializeDraft(d) {
   const data = { ...d, filters: {} };
@@ -272,6 +339,28 @@ function deserializeDraft(jsonStr, emptyF) {
   }
 }
 
+// Module scope (not component state): evaluated once per real browser page
+// load, and untouched by client-side route changes, since those don't
+// re-run module code. That's exactly the signal needed to tell "the user
+// hit reload" apart from "the user navigated away and back within the app" —
+// the Navigation Timing API only flags the *document's* load as type
+// "reload", and that value is otherwise indistinguishable from ordinary SPA
+// remounts once read. The guard flag ensures the draft is only ever wiped
+// once per real reload, not on every subsequent SPA visit to this route.
+let handledFreshReload = false;
+function clearDraftIfFreshReload(draftKey) {
+  if (handledFreshReload) return;
+  handledFreshReload = true;
+  try {
+    if (performance.getEntriesByType("navigation")[0]?.type !== "reload") return;
+  } catch { return; }
+  try {
+    localStorage.removeItem(draftKey);
+    localStorage.removeItem(draftKey + "_step");
+    localStorage.removeItem(draftKey + "_maxReached");
+  } catch { /* ignore */ }
+}
+
 export default function CreateMissionWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -279,27 +368,35 @@ export default function CreateMissionWizard() {
   const { categories, ptypes, rewards, filters, platformFeePct } = useMeta();
   const WZ_STEPS = wzSteps(t);
 
+  // Scoped per-builder so switching accounts on the same browser never shows
+  // one builder's in-progress mission draft to another.
+  const DRAFT_KEY = `vcrew_mission_draft_${builder?.id || "anon"}`;
+  clearDraftIfFreshReload(DRAFT_KEY);
+
   const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
+  const [maxReached, setMaxReached] = useState(() => Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+
+  const freshDraft = () => ({
+    title: "", desc: "", cat: categories[0]?.id || "feedback",
+    filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
+    ptype: ptypes[0]?.id || "ptest",
+    reward: { type: "fixed", amount: 250, participants: 120 },
+    genFor: null,
+    durationDays: 7,
+  });
 
   const [d, setD] = useState(() => {
     const saved = localStorage.getItem(DRAFT_KEY);
-    const emptyF = emptyFilters(filters);
     if (saved) {
-      const parsed = deserializeDraft(saved, emptyF);
+      const parsed = deserializeDraft(saved, emptyFilters(filters));
       if (parsed) return parsed;
     }
-    return {
-      title: "", desc: "", cat: categories[0]?.id || "feedback",
-      filters: { ...emptyF, "ValidationCrew Role": new Set(["Validator"]) },
-      ptype: ptypes[0]?.id || "ptest",
-      reward: { type: "fixed", amount: 250, participants: 120 },
-      genFor: null,
-      durationDays: 7,
-    };
+    return freshDraft();
   });
 
   const [liveCount, setLiveCount] = useState(1284000);
@@ -307,20 +404,22 @@ export default function CreateMissionWizard() {
 
   useEffect(() => {
     setTimeout(() => setIsFetchingCount(true), 0);
-    const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
+    const audience = buildAudiencePayload(d);
     api.audienceMatchCount(audience)
       .then(res => setLiveCount(res.count))
       .catch(() => {})
       .finally(() => setIsFetchingCount(false));
-  }, [d.filters]);
+  }, [d.filters, d.otherGeoText]);
 
-  // Auto-save to localStorage
+  // Auto-save to localStorage — survives reload/tab-close by design, so the
+  // exit-warning copy ("your progress has been auto-saved") stays true.
   useEffect(() => {
     if (!published) {
       localStorage.setItem(DRAFT_KEY, serializeDraft(d));
       localStorage.setItem(DRAFT_KEY + "_step", step);
+      localStorage.setItem(DRAFT_KEY + "_maxReached", maxReached);
     }
-  }, [d, step, published]);
+  }, [d, step, maxReached, published]);
 
   // Native browser prompt for tab close/refresh
   useEffect(() => {
@@ -333,33 +432,54 @@ export default function CreateMissionWizard() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [published]);
 
-  // Clear draft on hard reload or tab close
-  useEffect(() => {
-    const handleUnload = () => {
-      localStorage.removeItem(DRAFT_KEY);
-      localStorage.removeItem(DRAFT_KEY + "_step");
-    };
-    window.addEventListener("unload", handleUnload);
-    return () => window.removeEventListener("unload", handleUnload);
-  }, []);
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(DRAFT_KEY + "_step");
+    localStorage.removeItem(DRAFT_KEY + "_maxReached");
+  };
 
-
+  const startFresh = () => {
+    if (!window.confirm(t("createMission.startFreshConfirm", null, "Start a new mission from scratch? This discards your current draft."))) return;
+    clearDraft();
+    setD(freshDraft());
+    setStep(0);
+    setMaxReached(0);
+  };
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
   const toggle = (group, opt) => setD(p => {
+    if (group === GEO_GROUP) {
+      if (opt === WORLDWIDE) {
+        const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set(flatOptions(filters[GEO_GROUP]));
+        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
+      }
+      const s = new Set(p.filters[GEO_GROUP]);
+      s.has(opt) ? s.delete(opt) : s.add(opt);
+      s.delete(WORLDWIDE);
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
+    }
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
     return { ...p, filters: { ...p.filters, [group]: s } };
   });
 
-
-  const canNext = step !== 0 || (d.title.trim() && d.cat);
+  const cost = computeCost(d, rewards, platformFeePct);
+  const insufficientFunds = step === 4 && cost.total > (builder?.balance ?? 0);
+  const selectedReward = rewards.find(r => r.id === d.reward.type);
+  const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
+  // Missing required fields keep Continue clickable (so clicking it can
+  // explain what's missing via showErrors) — only insufficientFunds hard-
+  // disables it, since that one already has its own hover tooltip.
+  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat))
+    && (step !== 2 || (d.tasks && d.tasks.length > 0))
+    && (step !== 4 || rewardAmountOk);
+  const canNext = fieldsValid && !insufficientFunds;
   const last = step === WZ_STEPS.length - 1;
 
   const publish = async () => {
     setBusy(true); setError("");
     try {
-      const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
-      const geo = [...d.filters.Geography];
+      const audience = buildAudiencePayload(d);
+      const geo = (audience.Geography || []).filter(v => v.toLowerCase() !== "other");
       const { mission } = await api.createMission({
         name: d.title || t("createMission.untitledMission", null, "Untitled mission"),
         description: d.desc,
@@ -374,8 +494,7 @@ export default function CreateMissionWizard() {
         durationDays: d.durationDays,
       });
       setPublished(true);
-      localStorage.removeItem(DRAFT_KEY);
-      localStorage.removeItem(DRAFT_KEY + "_step");
+      clearDraft();
       await refreshBuilder();
       navigate(`/missions/${mission.id}`);
     } catch (err) {
@@ -385,15 +504,33 @@ export default function CreateMissionWizard() {
     }
   };
 
-  const goNext = () => last ? publish() : setStep(s => s + 1);
-  const goBack = () => step === 0 ? setShowExitWarning(true) : setStep(s => s - 1);
+  const goNext = () => {
+    if (!fieldsValid) {
+      setShowErrors(true);
+      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      return;
+    }
+    setShowErrors(false); setError("");
+    if (last) return publish();
+    const next = step + 1;
+    setStep(next);
+    setMaxReached(m => Math.max(m, next));
+  };
+  // "Back" on step 0 reads as plain backward navigation, not a deliberate
+  // "abandon this mission" action (that's what the sidebar's "Exit to
+  // dashboard" is for) — so it skips the confirmation and goes straight to
+  // the dashboard. The draft is still auto-saved regardless.
+  const goBack = () => {
+    setShowErrors(false); setError("");
+    if (step === 0) navigate("/"); else setStep(s => s - 1);
+  };
 
   const StepBody = [
-    <StepInfo d={d} set={set} categories={categories} />,
+    <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} />,
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
-    <StepAudience d={d} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} />,
-    <StepReward d={d} set={set} rewards={rewards} />,
+    <StepAudience d={d} set={set} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} />,
   ][step];
 
@@ -406,19 +543,20 @@ export default function CreateMissionWizard() {
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
-            <button key={i} className={`wz-step ${i === step ? "cur" : i < step ? "done" : "up"}`} onClick={() => i < step && setStep(i)}>
-              <span className="sd">{i < step ? <Icon name="check" size={14} /> : i + 1}</span>
+            <button key={i} className={`wz-step ${i === step ? "cur" : i < maxReached ? "done" : "up"}`} disabled={i > maxReached} onClick={() => { if (i <= maxReached) { setShowErrors(false); setError(""); setStep(i); } }}>
+              <span className="sd">{i !== step && i < maxReached ? <Icon name="check" size={14} /> : i + 1}</span>
               <span className="sm"><b>{s.t}</b><p>{s.s}</p></span>
             </button>
           ))}
         </div>
         <div className="wz-rail-foot">
+          <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> {t("createMission.exitToDashboard", null, "Exit to dashboard")}</button>
         </div>
       </aside>
 
       <div className="wz-main">
-        <div className="wz-content">
+        <div className={`wz-content ${step === 2 ? "wide" : step === 0 ? "wide-lg" : ""}`}>
           <div className="wz-head">
             <span className="step-of">{t("createMission.stepOfTotal", { current: step + 1, total: WZ_STEPS.length }, `Step ${step + 1} of ${WZ_STEPS.length}`)}</span>
             <h2>{WZ_STEPS[step].t}</h2>
@@ -430,6 +568,11 @@ export default function CreateMissionWizard() {
               <div>{StepBody}</div>
               <div className="sticky-side"><CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} /></div>
             </div>
+          ) : step === 0 ? (
+            <div className="split-slim">
+              <div>{StepBody}</div>
+              <div className="sticky-side"><BalanceCard balance={builder?.balance} /></div>
+            </div>
           ) : StepBody}
         </div>
       </div>
@@ -439,9 +582,23 @@ export default function CreateMissionWizard() {
           <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
           <span className="fprog">{t("createMission.stepLabel", null, "Step")} <b>{step + 1}</b> / {WZ_STEPS.length}</span>
           <span className="grow" />
+          {step === 2 && !canNext && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")}</span>}
           {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{t("createMission.membersCount", { count: liveCount.toLocaleString("en-IN") }, `${liveCount.toLocaleString("en-IN")} members`)}</span>}
-          {step === 4 && <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4 }}>{t("createMission.estCost", { amount: inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants) }, `${inr((rewards.find(r => r.id === d.reward.type)?.needsAmt ? d.reward.amount : 0) * d.reward.participants)} est.`)}</span>}
-          <Btn variant="primary" iconRight={last ? "bolt" : "arrowRight"} disabled={!canNext || busy} onClick={goNext}>
+          {step === 4 && (
+            <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4, color: insufficientFunds ? "var(--danger)" : undefined }}>
+              {t("createMission.estCost", { amount: inr(cost.total) }, `${inr(cost.total)} est.`)}
+              {insufficientFunds && ` · ${t("createMission.insufficientBalance", null, "exceeds wallet balance")}`}
+            </span>
+          )}
+          <Btn
+            variant="primary"
+            iconRight={last ? "bolt" : "arrowRight"}
+            disabled={insufficientFunds || busy}
+            onClick={goNext}
+            title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
+              : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
+            style={!fieldsValid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          >
             {busy ? t("createMission.publishing", null, "Publishing…") : last ? t("createMission.publishMission", null, "Publish Mission") : t("createMission.continue", null, "Continue")}
           </Btn>
         </div>

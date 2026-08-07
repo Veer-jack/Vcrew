@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Btn, Empty } from "../components/ui";
+import { Btn, Empty, UpdatingBadge } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
@@ -10,7 +10,7 @@ import { useTranslation } from "../i18n/index.jsx";
 // Tabs defined dynamically inside component to use translations
 
 export default function Missions() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const TABS = [
     { k: "active", l: t("missions.tabActive", null, "Active") },
     { k: "draft", l: t("missions.tabDraft", null, "Draft") },
@@ -26,6 +26,7 @@ export default function Missions() {
   const [missions, setMissions] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
+  const [refetching, setRefetching] = useState(false);
   const [toast, setToast] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
 
@@ -35,8 +36,10 @@ export default function Missions() {
   }, [tab, q]);
 
   useEffect(() => {
-    api.missions({ status: tab, q }).then(d => { setMissions(d.missions); setLoading(false); });
-  }, [tab, q]);
+    setTimeout(() => setRefetching(true), 0);
+    api.missions({ status: tab, q }).then(d => { setMissions(d.missions); setLoading(false); }).finally(() => setRefetching(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, q, dataVersion]);
 
   const handleDelete = (id) => {
     if (window.confirm(t("missions.deleteConfirm", null, "Are you sure you want to delete this mission?"))) {
@@ -84,7 +87,7 @@ export default function Missions() {
 
       <div className="ph">
         <div><span className="eyebrow">{t("missions.eyebrow", null, "Mission management")}</span><h1>{t("missions.title", null, "Missions")}</h1><p className="lead">{t("missions.lead", null, "Every study you've run, in flight, or drafted.")}</p></div>
-        <div className="ph-actions"><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn></div>
+        <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn></div>
       </div>
       <div className="toolbar">
         <div className="tabs">{TABS.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}>{t.l}<span className="cnt">{counts[t.k] ?? "·"}</span></button>)}</div>

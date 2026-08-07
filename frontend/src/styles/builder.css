@@ -273,6 +273,8 @@ html[data-direction="signal"] .wz-rail { background: #0e1019; }
 .wz[data-layout="topbar"] .wz-top { display: flex; }
 .wz-content { flex: 1; padding: 40px 48px 130px; width: 100%; max-width: 720px; margin: 0 auto; }
 .wz[data-layout="topbar"] .wz-content { max-width: 860px; }
+.wz-content.wide { max-width: 1120px; }
+.wz-content.wide-lg { max-width: 1084px; }
 .wz-head { margin-bottom: 26px; }
 .wz-head .step-of { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
 html[data-direction="signal"] .wz-head .step-of { color: var(--accent-2); }
@@ -511,6 +513,11 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
 .seg-search svg { width: 16px; height: 16px; flex: none; }
 .split { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .sticky-side { position: sticky; top: 84px; }
+.tc-split { display: grid; grid-template-columns: 380px minmax(0,1fr); gap: 24px; align-items: start; }
+/* keeps the main column at its normal ~720px width and puts the side card in
+   the extra space, instead of .split's approach of shrinking the main column
+   to make room for it */
+.split-slim { display: grid; grid-template-columns: minmax(0,720px) 340px; gap: 24px; align-items: start; }
 .m2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .m3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
 .crumbs { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-faint); margin-bottom: 6px; }
@@ -555,10 +562,10 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
 .mob-scrim { display: none; }
 
 @media (max-width: 980px) {
-  .split, .aud, .wz { grid-template-columns: 1fr; }
+  .split, .aud, .wz, .tc-split, .split-slim { grid-template-columns: 1fr; }
   .filter-panel { position: static; max-height: none; }
   .wz-rail { display: none; }
-  .wz-content { padding: 22px 18px 130px; max-width: 100%; }
+  .wz-content, .wz-content.wide, .wz-content.wide-lg { padding: 22px 18px 130px; max-width: 100%; }
   .wz[data-layout="topbar"] .wz-content { max-width: 100%; }
   /* mobile wizard: surface the stepper + exit bar even in rail layout */
   .wz[data-layout="rail"] .wz-top, .wz[data-layout="topbar"] .wz-top { display: flex; height: 54px; padding: 0 18px; }

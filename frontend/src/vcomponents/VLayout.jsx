@@ -53,6 +53,9 @@ function VNotifPanel({ onClose, items, setItems }) {
     } else if (n.type === 'submission_revision') {
       onClose();
       navigate(`/validator/missions?tab=active`, { state: { refresh: Date.now() } });
+    } else if (n.type === 'support_update' || n.title?.includes("Support Update")) {
+      onClose();
+      navigate(`/validator/support?tab=tickets`, { state: { refresh: Date.now() } });
     } else if (n.target_id) {
       onClose();
       navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
@@ -131,6 +134,7 @@ export default function VLayout() {
   }, [dataVersion]);
 
   const unreadCount = notifs.filter(n => n.unread).length;
+  const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
@@ -158,6 +162,7 @@ export default function VLayout() {
         <div style={{ marginTop: 8 }}>
           <NavLink to="/validator/support" onClick={() => setMobOpen(false)} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
             <Icon name="life" />{t("nav.support", null, "Help & support")}
+            {supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
           </NavLink>
         </div>
         <div className="side-foot">
@@ -177,6 +182,7 @@ export default function VLayout() {
           <LanguageSwitcher
             onSave={(lang) => vapi.setLanguage(lang).catch(() => {})}
             style={{ marginTop: 8, width: "100%" }}
+            openUp
           />
         </div>
       </aside>
@@ -193,7 +199,7 @@ export default function VLayout() {
           <button className="icon-btn" onClick={async () => { await logout(); navigate("/validator/login"); }} title={t("vLayout.logOut", null, "Log out")}><Icon name="logout" size={17} /></button>
           <VAvatar name={validator?.name || ""} size={38} ring />
         </header>
-        <Outlet />
+        <Outlet context={{ notifs }} />
       </main>
       {bell && <VNotifPanel onClose={() => setBell(false)} items={notifs} setItems={setNotifs} />}
     </div>
