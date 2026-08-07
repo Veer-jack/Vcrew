@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, inr, inrK } from "../components/ui";
+import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { InviteValidatorModal } from "../components/InviteValidatorModal";
@@ -334,9 +334,19 @@ function EditMissionModal({ mission, onClose, onSaved }) {
   const [deadline, setDeadline] = useState(mission.deadline ? mission.deadline.slice(0, 10) : "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const nameInvalid = !name.trim();
+  const targetInvalid = !(Number(target) >= 1);
+  const deadlineInvalid = deadline && deadline < todayStr;
 
   const save = async () => {
-    setBusy(true); setErr("");
+    setErr("");
+    if (nameInvalid) { setShowErrors(true); return setErr(t("missionDetail.errNameRequired", null, "Name is required")); }
+    if (targetInvalid) { setShowErrors(true); return setErr(t("missionDetail.errTargetMin", null, "Target participants must be at least 1")); }
+    if (deadlineInvalid) { setShowErrors(true); return setErr(t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")); }
+    setShowErrors(false);
+    setBusy(true);
     try {
       const { mission: updated } = await api.updateMission(mission.id, { name, description, region, target: Number(target), deadline: deadline || null });
       onSaved(updated);
@@ -352,13 +362,17 @@ function EditMissionModal({ mission, onClose, onSaved }) {
     <Modal title={t("missionDetail.editMission", null, "Edit mission")} onClose={onClose} width={480}>
       <div className="col gap-3" style={{ padding: "0 20px 20px" }}>
         {err && <div className="err-banner">{err}</div>}
-        <div className="fld"><label>{t("missionDetail.nameLabel", null, "Name")}</label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
+        <div className={`fld ${(showErrors || name) && nameInvalid ? "fld-invalid" : ""}`}><label>{t("missionDetail.nameLabel", null, "Name")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
         <div className="fld"><label>{t("missionDetail.descLabel", null, "Description")}</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
         <div className="row gap-3">
           <div className="fld" style={{ flex: 1 }}><label>{t("missionDetail.regionLabel", null, "Region")}</label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
-          <div className="fld" style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")}</label><input className="fin" type="number" min="0" value={target} onChange={e => setTarget(e.target.value)} /></div>
+          <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value)} /></div>
         </div>
-        <div className="fld"><label>{t("missionDetail.deadlineLabel", null, "Deadline")}</label><input className="fin" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></div>
+        <div className={`fld ${deadlineInvalid ? "fld-invalid" : ""}`}>
+          <label>{t("missionDetail.deadlineLabel", null, "Deadline")}</label>
+          <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} />
+          {deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")}</p>}
+        </div>
         <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
           <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
           <Btn variant="primary" disabled={busy} onClick={save}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
@@ -526,7 +540,7 @@ function MissionFilesTab({ missionId, files: initialFiles }) {
       {error && <div className="err-banner">{error}</div>}
       <div>
         <div className="sec-head">
-          <h3 className="h-md">{t("missionDetail.briefAssets", null, "Brief &amp; assets")}</h3>
+          <h3 className="h-md">{t("missionDetail.briefAssets", null, "Brief & assets")}</h3>
           <input ref={inputRef} type="file" style={{ display: "none" }} onChange={handleUpload}
             accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.jpg,.jpeg,.png,.gif,.webp" />
           <Btn variant="ghost" size="sm" icon="upload" disabled={uploading} onClick={() => inputRef.current?.click()}>
@@ -999,13 +1013,15 @@ function WaitlistInviteModal({ mission, waitlist, onClose, showToast }) {
 
 
 export default function MissionDetail() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { categories } = useMeta();
   const [tab, setTab] = useState("overview");
   const [data, setData] = useState(null);
+  const [refetching, setRefetching] = useState(false);
+  const mountedRef = useRef(false);
   const [participants, setParticipants] = useState([]);
   const [responses, setResponses] = useState([]);
   const [error, setError] = useState("");
@@ -1059,6 +1075,22 @@ export default function MissionDetail() {
       .catch(err => setError(err.message));
   }, [id, location.state?.refresh]);
 
+  // Language switch: refetch translated content in the background instead of
+  // blanking the page like a real navigation does above.
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    setTimeout(() => setRefetching(true), 0);
+    api.mission(id)
+      .then(d => {
+        setData(d);
+        setParticipants(d?.participants?.map(p => ({ ...p })) || []);
+        setResponses(d?.responses || []);
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setRefetching(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataVersion]);
+
   if (error) return <div className="page rise"><Icon name="layers" /> <span className="muted">{error}</span></div>;
   if (!data) return <div className="page rise"><div className="muted">{t("missionDetail.loading", null, "Loading…")}</div></div>;
 
@@ -1092,7 +1124,8 @@ export default function MissionDetail() {
             <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {t("missionDetail.closes", null, "Closes")} {mission.deadline}</span></div>
           </div>
         </div>
-        <div className="ph-actions" style={{ flexWrap: "wrap" }}>
+        <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
+          <UpdatingBadge show={refetching} />
           {mission.status === "active" && <Btn variant="ghost" icon="xCircle" onClick={() => handleStatusChange("closed")}>{t("actions.close", null, "Close")}</Btn>}
           {mission.status === "closed" && <Btn variant="ghost" icon="checkCircle" onClick={() => handleStatusChange("completed")}>{t("actions.complete", null, "Complete")}</Btn>}
           {(mission.status === "completed" || mission.status === "draft") && <Btn variant="ghost" icon="archive" onClick={() => handleStatusChange("archived")}>{t("actions.archive", null, "Archive")}</Btn>}

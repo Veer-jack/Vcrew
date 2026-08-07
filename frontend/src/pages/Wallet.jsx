@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
-import { Btn, KpiCard, inr, inrK } from "../components/ui";
+import { Btn, KpiCard, UpdatingBadge, inr, inrK } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { exportCSV } from "../exportUtils";
@@ -31,7 +31,7 @@ function loadRazorpayScript(t) {
 }
 
 export default function Wallet() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const TABS = [
     { k: "transactions", l: t("wallet.tabTransactions", null, "Transaction history"), ic: "list" },
     { k: "invoices", l: t("wallet.tabInvoices", null, "Invoices"), ic: "fileText" },
@@ -50,17 +50,23 @@ export default function Wallet() {
   const [cardsReady, setCardsReady] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
+  const [refetching, setRefetching] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setVisibleCount(20), 0);
     return () => clearTimeout(t);
   }, [tab]);
 
-  const load = () => { setLoadError(""); return api.wallet().then(setData).catch(err => setLoadError(err.message || t("wallet.errLoadWallet", null, "Couldn't load your wallet"))); };
+  const load = () => {
+    setLoadError("");
+    setRefetching(true);
+    return api.wallet().then(setData).catch(err => setLoadError(err.message || t("wallet.errLoadWallet", null, "Couldn't load your wallet"))).finally(() => setRefetching(false));
+  };
   useEffect(() => {
     const t = setTimeout(() => load(), 0);
     return () => clearTimeout(t);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataVersion]);
   useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
 
   if (loadError) return (
@@ -166,7 +172,7 @@ export default function Wallet() {
     <div className="page rise">
       <div className="ph">
         <div><span className="eyebrow">{t("wallet.walletAndBilling", null, "Wallet & billing")}</span><h1>{t("wallet.title", null, "Wallet")}</h1><p className="lead">{t("wallet.lead", { org: builder?.org }, `Top up, track mission spend and manage how ${builder?.org} pays.`)}</p></div>
-        <div className="ph-actions"><Btn variant="ghost" icon="download" onClick={exportStatement}>{t("actions.statement", null, "Statement")}</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>{t("actions.addFunds", null, "Add funds")}</Btn></div>
+        <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="ghost" icon="download" onClick={exportStatement}>{t("actions.statement", null, "Statement")}</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>{t("actions.addFunds", null, "Add funds")}</Btn></div>
       </div>
 
       {error && !adding && (

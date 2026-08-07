@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AuthSplitScreen from "../components/auth/AuthSplitScreen";
 import { useTranslation } from "../i18n/index.jsx";
 import { useAuth } from "../context/AuthContext";
@@ -7,6 +8,7 @@ import { api, setToken } from "../api/client";
 export default function Login() {
   const { t, lang } = useTranslation();
   const { builder, setBuilder } = useAuth();
+  const navigate = useNavigate();
 
   const COPY = {
     headline: t("builder.login.headline", null, "Know it's good before you ship it."),
@@ -27,17 +29,8 @@ export default function Login() {
     foot: t("builder.login.foot", null, "Protected by SOC 2-grade security. We never share your idea with anyone outside your matched validators."),
   };
 
-  if (builder) {
-    return (
-      <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "var(--bg)" }}>
-        <div style={{ textAlign: "center", background: "var(--panel)", padding: "40px 32px", borderRadius: "var(--radius)", border: "1px solid var(--border)", maxWidth: 400, boxShadow: "var(--shadow-sm)" }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>{t("auth.alreadyLoggedIn", null, "Already logged in")}</h2>
-          <p style={{ color: "var(--text-muted)", marginBottom: 24, fontSize: 15 }}><span dangerouslySetInnerHTML={{ __html: t("auth.loggedInAs", { email: `<strong>${builder.email}</strong>` }, "You are currently logged in as {email}.") }} /></p>
-          <Link to="/" className="btn btn-primary" style={{ display: "inline-flex", width: "100%", justifyContent: "center" }}>{t("auth.goToDashboard", null, "Go to Dashboard →")}</Link>
-        </div>
-      </div>
-    );
-  }
+  useEffect(() => { if (builder) navigate("/", { replace: true }); }, [builder, navigate]);
+  if (builder) return null;
 
   const adapter = {
     oauthProviders: () => api.oauthProviders(),

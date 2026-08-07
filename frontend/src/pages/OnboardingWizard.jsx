@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, buildAudienceQuery } from "../data/personaConfig";
+import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft } from "../data/personaConfig";
 import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
@@ -35,7 +35,7 @@ function StepRail({ steps, current, maxReached, onJump }) {
               className={`wiz-step wiz-step-${state}`}
             >
               <span className="wiz-step-dot">{i < current ? <Icon name="check" size={12} /> : i + 1}</span>
-              <span>{s.label}</span>
+              <span>{stepLabel(t, s.key, s.label)}</span>
             </button>
           );
         })}
@@ -44,10 +44,87 @@ function StepRail({ steps, current, maxReached, onJump }) {
   );
 }
 
+// Inline role switcher — lets the user jump straight to another persona's
+// onboarding without leaving to the full-page selector. Switching wipes every
+// role's draft and seeds a fresh one for the picked role (same reset
+// RoleSelect uses), so the dashboard's progress banner always points at
+// exactly one unambiguous, freshly-created draft afterwards. A full page
+// navigation (not client-side routing) is used deliberately: this component's
+// step/draft state is only initialized on mount, so a same-route search-param
+// change alone wouldn't pick up the new role's data.
+function RoleSwitcher({ currentKey, builder }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const roles = getRoles(t);
+
+  const pick = (key) => {
+    setOpen(false);
+    if (key === currentKey) return;
+    window.__bypassUnload = true;
+    switchToRoleDraft(builder?.id, key, builder);
+    window.location.href = `/signup?role=${key}`;
+  };
+
+  return (
+    <div style={{ position: "relative", marginRight: 16 }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="faint"
+        style={{ fontSize: 13, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+      >
+        {t("actions.changeRole", null, "Change role")} <Icon name="chevronDown" size={12} />
+      </button>
+      {open && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
+          <div
+            role="listbox"
+            style={{
+              position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50,
+              background: "var(--bg)", border: "1px solid var(--border)",
+              borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
+              minWidth: 260, padding: "6px 0",
+            }}
+          >
+            {roles.map((r) => (
+              <button
+                key={r.key}
+                type="button"
+                role="option"
+                aria-selected={r.key === currentKey}
+                disabled={!r.live}
+                onClick={() => r.live && pick(r.key)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10, width: "100%",
+                  padding: "9px 14px", background: r.key === currentKey ? "var(--accent-weak)" : "none",
+                  border: "none", cursor: r.live ? "pointer" : "default", textAlign: "left",
+                  color: r.key === currentKey ? "var(--accent)" : "var(--text)",
+                  opacity: r.live ? 1 : 0.5,
+                  fontSize: 13.5, fontFamily: "inherit",
+                }}
+              >
+                <span className="intent-ic" style={{ background: `${r.accent}1a`, color: r.accent, width: 26, height: 26, flexShrink: 0 }}>
+                  <Icon name={r.icon} size={14} />
+                </span>
+                <span style={{ fontWeight: r.key === currentKey ? 700 : 500 }}>{r.name}</span>
+                {r.key === currentKey && <Icon name="check" size={13} style={{ marginLeft: "auto", color: "var(--accent)" }} />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function SuccessScreen({ persona, d, builder, onFinish }) {
   const { t } = useTranslation();
-  const items = persona.summary(d, REGION);
+  const items = persona.summary(d, t);
   const [matched, setMatched] = useState(null);
+  const matchedNounLabel = persona.matchedNoun === "people" ? t("onboarding.matchedNounPeople", null, "people") : t("onboarding.matchedNounValidators", null, "validators");
 
   useEffect(() => {
     if (!persona.matchedNoun) return;
@@ -56,7 +133,7 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
   }, []);
 
   const allItems = persona.matchedNoun
-    ? [...items, { label: t("onboarding.matchedAudience", null, "Matched audience"), value: matched === null ? t("onboarding.counting", null, "Counting…") : `${matched.toLocaleString("en-US")} ${persona.matchedNoun}` }]
+    ? [...items, { label: t("onboarding.matchedAudience", null, "Matched audience"), value: matched === null ? t("onboarding.counting", null, "Counting…") : `${matched.toLocaleString("en-US")} ${matchedNounLabel}` }]
     : items;
 
   return (
@@ -66,7 +143,7 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
       </div>
       <h1 style={{ fontSize: 24, marginBottom: 8 }}>{t("onboarding.youreAllSet", null, "You're all set,")} {(builder?.name || d.fullName || "").split(" ")[0] || t("onboarding.thereFallback", null, "there")}</h1>
       <p className="muted" style={{ marginBottom: 24, fontSize: 14 }}>
-        {persona.workspace(d)} {t("onboarding.isReadyLiningUp", { noun: persona.noun === "study" ? t("onboarding.participants", null, "participants") : t("onboarding.validators", null, "validators") }, `is ready. We're already lining up ${persona.noun === "study" ? "participants" : "validators"} who match your audience.`)}
+        {persona.workspace(d, t)} {t("onboarding.isReadyLiningUp", { noun: persona.noun === "study" ? t("onboarding.participants", null, "participants") : t("onboarding.validators", null, "validators") }, `is ready. We're already lining up ${persona.noun === "study" ? "participants" : "validators"} who match your audience.`)}
       </p>
       <div className="card" style={{ padding: 18, textAlign: "left", marginBottom: 22 }}>
         {allItems.map((it, i) => (
@@ -89,7 +166,7 @@ export default function OnboardingWizard() {
   const { completeOnboarding, builder } = useAuth();
   const navigate = useNavigate();
 
-  const DRAFT_KEY = `vc_onboarding_draft_${role}`;
+  const DRAFT_KEY = onboardingDraftKey(builder?.id, role);
 
   const [step, setStep] = useState(() => {
     try {
@@ -108,11 +185,18 @@ export default function OnboardingWizard() {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
   const [d, setD] = useState(() => {
+    // Prefill from what signup already collected instead of making the user
+    // retype their own name/email. A draft (e.g. RoleSelect's placeholder
+    // `{}`) is merged on top rather than replacing this wholesale, so an
+    // empty/partial draft can't blank out the real account's name/email.
+    const base = { fullName: builder?.name || "", email: builder?.email || "" };
     try {
       const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
-      return saved ? saved.d : {};
-    } catch { return {}; }
+      if (saved?.d) return { ...base, ...saved.d };
+    } catch { /* ignore */ }
+    return base;
   });
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
@@ -145,8 +229,8 @@ export default function OnboardingWizard() {
   }
 
   const goNext = async () => {
-    if (!isValid) { setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.")); return; }
-    setError("");
+    if (!isValid) { setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.")); setShowErrors(true); return; }
+    setError(""); setShowErrors(false);
     if (!isLast) {
       const next = step + 1;
       const newMax = Math.max(maxReached, next);
@@ -177,13 +261,14 @@ export default function OnboardingWizard() {
   };
 
   const goBack = () => {
-    setError("");
+    setError(""); setShowErrors(false);
     const prev = Math.max(0, step - 1);
     setStep(prev);
     saveDraft(prev, maxReached, d);
   };
 
   const handleJump = (i) => {
+    setShowErrors(false);
     setStep(i);
     saveDraft(i, maxReached, d);
   };
@@ -201,13 +286,19 @@ export default function OnboardingWizard() {
       <header className="wiz-top">
         <BrandMark size={28} />
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
-        <span className="pill" style={{ marginLeft: 10 }}>{persona.name}</span>
+        <span className="pill" style={{ marginLeft: 10 }}>{t(`onboarding.persona.${role}.name`, null, persona.name)}</span>
         <div style={{ flex: 1 }} />
         <LanguageSwitcher style={{ marginRight: 16 }} />
+        <RoleSwitcher currentKey={role} builder={builder} />
         <button
           onClick={() => {
             window.__bypassUnload = true;
-            localStorage.removeItem(DRAFT_KEY);
+            // Reset (not remove) the draft: this stays on the same role, just
+            // restarts progress within it, so the dashboard's "which role /
+            // how far" banner stays in sync instead of reporting no role picked.
+            try {
+              localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: 0, maxReached: 0, d: { fullName: builder?.name || "", email: builder?.email || "" } }));
+            } catch { /* ignore */ }
             window.location.reload();
           }}
           className="faint"
@@ -222,7 +313,7 @@ export default function OnboardingWizard() {
         <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} />
         <div className="wiz-content">
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-          <StepComponent d={d} set={set} region={REGION} />
+          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
           <div className="row gap-3" style={{ marginTop: 28 }}>
             {step > 0 && <Btn variant="ghost" onClick={goBack}>{t("actions.back", null, "Back")}</Btn>}
             <Btn variant="primary" onClick={goNext} disabled={busy}>

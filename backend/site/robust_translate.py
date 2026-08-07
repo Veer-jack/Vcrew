@@ -57,6 +57,8 @@ def translate_html_file(filepath, outpath, lang_code, lang_name, api_lang=None):
         soup = BeautifulSoup(f.read(), 'html.parser')
 
     for element in soup.find_all(text=True):
+        if isinstance(element, Comment):
+            continue
         if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
             continue
         text = str(element).strip()

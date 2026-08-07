@@ -7,7 +7,7 @@ import Icon from "./Icon";
  * Saves the preference to localStorage immediately (for instant feedback)
  * and optionally calls onSave(langCode) to persist to the server.
  */
-export default function LanguageSwitcher({ onSave, style }) {
+export default function LanguageSwitcher({ onSave, style, openUp }) {
   const { lang, setLang, t, notifyLanguagePersisted } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -47,7 +47,7 @@ export default function LanguageSwitcher({ onSave, style }) {
             role="listbox"
             aria-label={t("languageSwitcher.selectLanguage", null, "Select language")}
             style={{
-              position: "absolute", bottom: "calc(100% + 6px)", right: 0, zIndex: 50,
+              position: "absolute", [openUp ? "bottom" : "top"]: "calc(100% + 6px)", right: 0, zIndex: 50,
               background: "var(--bg)", border: "1px solid var(--border)",
               borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
               minWidth: 200, padding: "6px 0", maxHeight: 320, overflowY: "auto",

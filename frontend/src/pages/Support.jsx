@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Icon from "../components/Icon";
-import { Empty } from "../components/ui";
+import { Empty, UpdatingBadge } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { helpCatLabel, builderHelpArticleField } from "../bi18n";
@@ -28,8 +28,8 @@ function RaiseTicket({ onClose, onCreated }) {
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 520, maxWidth: "94vw", maxHeight: "90vh", overflow: "auto", zIndex: 61,
-        background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+        <div style={{ width: 520, maxWidth: "94vw", maxHeight: "90vh", overflow: "auto", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         {sent ? (
           <div style={{ padding: 40, textAlign: "center" }}>
             <span style={{ width: 64, height: 64, borderRadius: 18, display: "grid", placeItems: "center", margin: "0 auto 18px", background: "var(--success-weak)", color: "var(--success)" }}><Icon name="check" size={30} /></span>
@@ -75,6 +75,7 @@ function RaiseTicket({ onClose, onCreated }) {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );
@@ -89,12 +90,13 @@ function ViewTicket({ ticket, onClose }) {
     api.getTicket(ticket.id)
       .then(res => setConvos(res.conversations))
       .catch(err => setError(err.message || t("support.errLoadTicket", null, "Failed to load ticket")));
-  }, [ticket.id]);
+  }, [ticket.id, t]);
 
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", zIndex: 61, background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
+      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+        <div style={{ width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         <div className="row between" style={{ padding: "18px 22px", borderBottom: "var(--hairline) solid var(--border)", flex: "none" }}>
           <div>
             <div className="faint mono" style={{ fontSize: 11 }}>{ticket.id}</div>
@@ -119,6 +121,7 @@ function ViewTicket({ ticket, onClose }) {
         <div style={{ padding: "16px 22px", borderTop: "var(--hairline) solid var(--border)", background: "var(--panel-inset)", fontSize: 13, textAlign: "center", color: "var(--text-faint)" }}>
           {t("support.replyInstructions", null, "To reply to this ticket, please reply to the email sent to your inbox.")}
         </div>
+        </div>
       </div>
     </div>
   );
@@ -128,6 +131,10 @@ const getTicketStatus = (t) => ({
   open: { l: t("status.open", null, "Open"), c: "var(--warning)", bg: "var(--warning-weak)" },
   answered: { l: t("status.answered", null, "Answered"), c: "var(--accent)", bg: "var(--accent-weak)" },
   resolved: { l: t("status.resolved", null, "Resolved"), c: "var(--success)", bg: "var(--success-weak)" },
+  // freshdesk.js's getTickets() collapses every non-open Freshdesk status (Pending,
+  // Resolved, Closed) into the single string "closed" -- without this entry, that
+  // lookup misses and silently falls back to "open", mislabeling closed tickets.
+  closed: { l: t("status.resolved", null, "Resolved"), c: "var(--success)", bg: "var(--success-weak)" },
 });
 
 export default function Support() {
@@ -138,9 +145,13 @@ export default function Support() {
   const [raising, setRaising] = useState(false);
   const [viewingTicket, setViewingTicket] = useState(null);
   const [data, setData] = useState(null);
+  const [refetching, setRefetching] = useState(false);
   const [visibleTicketsCount, setVisibleTicketsCount] = useState(20);
 
-  useEffect(() => { api.support().then(setData); }, []);
+  useEffect(() => {
+    setTimeout(() => setRefetching(true), 0);
+    api.support().then(setData).finally(() => setRefetching(false));
+  }, []);
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const help = data.helpArticles
@@ -150,7 +161,10 @@ export default function Support() {
   return (
     <div className="page" style={{ maxWidth: 880, margin: "0 auto" }}>
       <div className="rise" style={{ marginBottom: 22 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>{t("support.title", null, "Support")}</div>
+        <div className="row between" style={{ alignItems: "flex-start" }}>
+          <div className="eyebrow" style={{ marginBottom: 6 }}>{t("support.title", null, "Support")}</div>
+          <UpdatingBadge show={refetching} />
+        </div>
         <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("support.helpCenter", null, "Help center")}</h2>
         <p className="muted" style={{ margin: "6px 0 0", fontSize: 15 }}>{t("support.subtitle", null, "Find an answer fast, or raise a ticket and our team will get back within a few hours.")}</p>
       </div>

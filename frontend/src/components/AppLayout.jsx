@@ -66,6 +66,7 @@ function Sidebar({ closeMobile, builder }) {
         <LanguageSwitcher
           onSave={(lang) => api.setLanguage(lang).catch(() => {})}
           style={{ marginTop: 8, width: "100%" }}
+          openUp
         />
       </div>
     </aside>
@@ -84,7 +85,7 @@ function pageTitle(pathname) {
 }
 
 export default function AppLayout() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const { builder, logout } = useAuth();
   const [bell, setBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -99,7 +100,7 @@ export default function AppLayout() {
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [dataVersion]);
 
   const unreadCount = notifs.filter(n => n.unread).length;
 
@@ -129,7 +130,6 @@ export default function AppLayout() {
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
           </button>
-          <button className="icon-btn" style={{ color: "var(--danger, red)" }} onClick={async () => { await logout(); navigate("/login"); }} title={t("appLayout.logOut", null, "Log out")}><Icon name="logout" size={17} /></button>
           <div style={{ position: "relative" }}>
             <button
               className="icon-btn"
@@ -140,7 +140,9 @@ export default function AppLayout() {
               {(builder?.name || "B")[0].toUpperCase()}
             </button>
             {showProfile && (
-              <div style={{ position: "absolute", top: 42, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden" }}>
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowProfile(false)} />
+                <div style={{ position: "absolute", top: 42, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden" }}>
                 <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{builder?.name}</div>
                   <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>{builder?.email}</div>
@@ -154,7 +156,8 @@ export default function AppLayout() {
                     <Icon name="logout" size={15} /> {t("nav.logout", null, "Sign out")}
                   </button>
                 </div>
-              </div>
+                </div>
+              </>
             )}
           </div>
         </header>

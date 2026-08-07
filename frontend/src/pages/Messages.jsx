@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn } from "../components/ui";
+import { Avatar, Btn, UpdatingBadge } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 
 export default function Messages() {
-  const { t } = useTranslation();
+  const { t, dataVersion } = useTranslation();
   const [searchParams] = useSearchParams();
   const requestedThreadId = searchParams.get("thread");
   const [threads, setThreads] = useState([]);
@@ -19,6 +19,7 @@ export default function Messages() {
   const fileInputRef = useRef(null);
   const [visibleThreadsCount, setVisibleThreadsCount] = useState(30);
   const [visibleMessagesCount, setVisibleMessagesCount] = useState(50);
+  const [refetching, setRefetching] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setVisibleThreadsCount(30), 0);
@@ -30,18 +31,24 @@ export default function Messages() {
   }, [activeId]);
 
   useEffect(() => {
+    setTimeout(() => setRefetching(true), 0);
     api.threads().then(d => {
       setThreads(d.threads);
       const requested = requestedThreadId && d.threads.find(t => String(t.id) === requestedThreadId);
-      if (requested) setActiveId(requested.id);
-      else if (d.threads.length) setActiveId(d.threads[0].id);
-    });
-  }, [requestedThreadId]);
+      setActiveId(prev => {
+        if (requested) return requested.id;
+        if (prev && d.threads.some(t => t.id === prev)) return prev;
+        return d.threads.length ? d.threads[0].id : null;
+      });
+    }).finally(() => setRefetching(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedThreadId, dataVersion]);
 
   useEffect(() => {
     if (!activeId) return;
     api.thread(activeId).then(d => setActive(d.thread));
-  }, [activeId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId, dataVersion]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -75,6 +82,7 @@ export default function Messages() {
     <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", height: "calc(100vh - 64px)" }}>
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0 }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
+          {refetching && <div style={{ marginBottom: 8 }}><UpdatingBadge show /></div>}
           <div className="seg-search" style={{ maxWidth: "100%" }}><Icon name="search" size={16} /><input placeholder={t("messages.searchPlaceholder", null, "Search conversations…")} value={q} onChange={e => setQ(e.target.value)} /></div>
         </div>
         <div style={{ overflowY: "auto", flex: 1 }}>

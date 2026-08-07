@@ -33,7 +33,7 @@ router.post("/signup", async (req, res) => {
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
-  if (!password || String(password).length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+  if (!password || String(password).trim().length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
@@ -161,8 +161,8 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   const name = String(req.body?.name ?? req.builder.name).trim();
   const org = String(req.body?.org ?? req.builder.org).trim();
   const email = String(req.body?.email ?? req.builder.email).toLowerCase().trim();
-  const website = req.body?.website !== undefined ? String(req.body.website).trim() : req.builder.website;
-  const designation = req.body?.designation !== undefined ? String(req.body.designation).trim() : req.builder.designation;
+  const website = req.body?.website !== undefined ? (req.body.website ? String(req.body.website).trim() : null) : req.builder.website;
+  const designation = req.body?.designation !== undefined ? (req.body.designation ? String(req.body.designation).trim() : null) : req.builder.designation;
 
   if (!name) return res.status(400).json({ error: "Name is required" });
   if (!org) return res.status(400).json({ error: "Workspace name is required" });
@@ -181,8 +181,8 @@ router.patch("/profile", authMiddleware, async (req, res) => {
 router.patch("/onboarding", authMiddleware, async (req, res) => {
   const { persona, profile } = req.body || {};
   const org = String(req.body?.org || req.builder.org || "").trim();
-  const designation = req.body?.designation !== undefined ? String(req.body.designation).trim() : req.builder.designation;
-  const website = req.body?.website !== undefined ? String(req.body.website).trim() : req.builder.website;
+  const designation = req.body?.designation !== undefined ? (req.body.designation ? String(req.body.designation).trim() : null) : req.builder.designation;
+  const website = req.body?.website !== undefined ? (req.body.website ? String(req.body.website).trim() : null) : req.builder.website;
 
   const personaKey = PERSONA_LABELS[persona] ? persona : "founder";
   let profileJson = null;
@@ -263,7 +263,7 @@ router.post("/forgot-password", async (req, res) => {
 // POST /api/auth/reset-password { token, password }
 router.post("/reset-password", async (req, res) => {
   const { token, password } = req.body || {};
-  if (!token || !password || String(password).length < 8) {
+  if (!token || !password || String(password).trim().length < 8) {
     return res.status(400).json({ error: "Valid token and a password of at least 8 characters are required" });
   }
 
@@ -287,7 +287,7 @@ router.post("/change-password", authMiddleware, async (req, res) => {
     return res.status(400).json({ error: "Users registered via Google/GitHub cannot change passwords here." });
   }
 
-  if (!currentPassword || !newPassword || String(newPassword).length < 8) {
+  if (!currentPassword || !newPassword || String(newPassword).trim().length < 8) {
     return res.status(400).json({ error: "Current password and a new password (min 8 characters) are required." });
   }
 

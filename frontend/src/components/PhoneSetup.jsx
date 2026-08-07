@@ -7,7 +7,7 @@ import { useTranslation } from "../i18n/index.jsx";
 // `client` is either the builder `api` or validator `vapi` object — both expose
 // the same firebaseConfig/phoneLink/phoneRemove methods. `phone`/`phoneVerified`
 // come from the current user.
-export default function PhoneSetup({ client, phone, phoneVerified, onUpdate }) {
+export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate }) {
   const { t } = useTranslation();
   const [firebaseReady, setFirebaseReady] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -88,9 +88,9 @@ export default function PhoneSetup({ client, phone, phoneVerified, onUpdate }) {
     <div className="card" style={{ padding: "var(--pad-card)" }}>
       <div className="row between" style={{ marginBottom: phoneVerified || editing ? 14 : 0 }}>
         <div>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.phoneNumber", null, "Phone number")}</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
           <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
-            {phoneVerified ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.") : t("auth.addPhoneDesc", null, "Add a phone number to enable login via SMS code and extra verification for withdrawals.")}
+            {phoneVerified ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.") : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
           </p>
         </div>
         {phoneVerified && !editing && (
@@ -100,7 +100,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, onUpdate }) {
           </div>
         )}
         {!phoneVerified && !editing && firebaseReady && (
-          <button className="btn btn-ghost" onClick={() => setEditing(true)}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
+          <button className="btn btn-ghost" onClick={() => { setPhoneInput(prefillPhone || ""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
         )}
       </div>
 
@@ -111,7 +111,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, onUpdate }) {
           {step === "phone" ? (
             <form onSubmit={sendCode} className="row gap-2" style={{ alignItems: "flex-end" }}>
               <div className="fld" style={{ flex: 1 }}>
-                <label>{t("auth.phoneNumber", null, "Phone number")}</label>
+                <label>{t("auth.mobileNumber", null, "Mobile number")}</label>
                 <div className="phone-row" style={{ display: "flex", gap: "8px" }}>
                   <select className="cc-select fin" value={ccIdx} onChange={(e) => setCcIdx(Number(e.target.value))} style={{ width: "120px", flexShrink: 0 }}>
                     {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}

@@ -1,22 +1,25 @@
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
+import { COUNTRIES } from "./auth/countries";
 
-export function Field({ label, optional, span, hint, children }) {
+const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
+
+export function Field({ label, optional, span, hint, invalid, children }) {
   return (
-    <div className={`fld${span ? " fld-span" : ""}`}>
-      <label>{label} {optional && <span className="faint">(optional)</span>}</label>
+    <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`}>
+      <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
       {children}
       {hint && <p className="fhint">{hint}</p>}
     </div>
   );
 }
 
-export function TextInput({ value, onChange, placeholder, type = "text" }) {
+export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength }) {
   if (type === "password") {
     return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
   }
-  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
+  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} />;
 }
 
 export function Textarea({ value, onChange, placeholder }) {
@@ -112,12 +115,13 @@ export function ReachMeter({ reach, base, firstLoad, updating }) {
   );
 }
 
-export function LocationFields({ region, d, set, withCity }) {
+export function LocationFields({ region, d, set, withCity, showErrors }) {
   const { t } = useTranslation();
+  const country = d.country || (region === "india" ? "India" : "");
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.country", null, "Country")}>
-        <TextInput value={d.country} onChange={(v) => set("country", v)} placeholder={region === "india" ? t("onboardingFields.countryIndia", null, "India") : t("onboardingFields.countryUS", null, "United States")} />
+      <Field label={t("onboardingFields.country", null, "Country")} invalid={showErrors && !country}>
+        <SelectInput value={country} onChange={(v) => set("country", v)} options={COUNTRY_NAMES} placeholder={t("onboardingFields.selectCountry", null, "Select country")} />
       </Field>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
         <TextInput value={d.state} onChange={(v) => set("state", v)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
@@ -182,17 +186,23 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
 // "Verify" steps store a claim for manual review — there is no automated
 // DNS/domain-ownership or document verification pipeline today, so this
 // records intent rather than pretending to confirm it instantly.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, verified, onVerify, optional }) {
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, verified, onVerify, onUnverify, optional, showErrors }) {
   const { t } = useTranslation();
+  const invalid = showErrors && !optional && !verified;
   return (
-    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start" }}>
+    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }}>
       <span className="intent-ic" style={{ background: "var(--accent-weak)", color: "var(--accent)", flex: "none" }}>
         <Icon name={icon} size={16} />
       </span>
       <div style={{ flex: 1 }}>
         <div className="row between" style={{ alignItems: "center" }}>
-          <b style={{ fontSize: 13.5 }}>{title} {optional && <span className="faint" style={{ fontWeight: 400 }}>(optional)</span>}</b>
-          {verified && <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}><Icon name="check" size={12} /> {t("onboardingFields.submitted", null, "Submitted")}</span>}
+          <b style={{ fontSize: 13.5 }}>{title} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</b>
+          {verified && (
+            <div className="row gap-2" style={{ alignItems: "center" }}>
+              <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}><Icon name="check" size={12} /> {t("onboardingFields.submitted", null, "Submitted")}</span>
+              <button type="button" className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={onUnverify}>{t("actions.edit", null, "Edit")}</button>
+            </div>
+          )}
         </div>
         <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
         {!verified && (
@@ -206,25 +216,32 @@ export function VerifyRow({ icon, title, desc, placeholder, value, onChange, ver
   );
 }
 
-export function PersonalFields({ d, set, roleField }) {
+export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
   const { t } = useTranslation();
+  const otherLabel = t("onboardingFields.roleOther", null, "Other");
+  const defaultOptions = [t("onboardingFields.roleFounderCeo", null, "Founder & CEO"), t("onboardingFields.roleCofounder", null, "Co-founder"), t("onboardingFields.roleProductManager", null, "Product Manager"), t("onboardingFields.roleHeadOfProduct", null, "Head of Product"), t("onboardingFields.roleGrowthMarketing", null, "Growth / Marketing"), t("onboardingFields.roleDesignLead", null, "Design Lead"), t("onboardingFields.roleEngineeringLead", null, "Engineering Lead"), t("onboardingFields.roleOperations", null, "Operations"), otherLabel];
+  const roleOptions = roleField?.options ? [...roleField.options, otherLabel] : defaultOptions;
+  const isOther = d.designation === otherLabel;
+  const mobileDigits = (d.mobile || "").replace(/\D/g, "");
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.fullName", null, "Full name")}>
+      <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()}>
         <TextInput value={d.fullName} onChange={(v) => set("fullName", v)} placeholder={t("onboardingFields.fullNamePlaceholder", null, "Aarav Mehta")} />
       </Field>
-      <Field label={t("onboardingFields.email", null, "Email")}>
-        <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder={t("onboardingFields.emailPlaceholder", null, "you@company.com")} />
+      <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")}>
+        <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder={t("onboardingFields.emailPlaceholder", null, "you@company.com")} disabled={emailLocked} />
       </Field>
-      <Field label={t("onboardingFields.mobileNumber", null, "Mobile number")}>
-        <TextInput value={d.mobile} onChange={(v) => set("mobile", v)} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
+      <Field label={t("onboardingFields.mobileNumber", null, "Mobile number")} invalid={showErrors && mobileDigits.length < 8}>
+        <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
       </Field>
-      <Field label={roleField ? roleField.label : t("onboardingFields.jobTitle", null, "Job title")}>
-        {roleField?.free
-          ? <TextInput value={d[roleField.key]} onChange={(v) => set(roleField.key, v)} placeholder={roleField.placeholder} />
-          : <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={[t("onboardingFields.roleFounderCeo", null, "Founder & CEO"), t("onboardingFields.roleCofounder", null, "Co-founder"), t("onboardingFields.roleProductManager", null, "Product Manager"), t("onboardingFields.roleHeadOfProduct", null, "Head of Product"), t("onboardingFields.roleGrowthMarketing", null, "Growth / Marketing"), t("onboardingFields.roleDesignLead", null, "Design Lead"), t("onboardingFields.roleEngineeringLead", null, "Engineering Lead"), t("onboardingFields.roleOperations", null, "Operations"), t("onboardingFields.roleOther", null, "Other")]} placeholder={t("onboardingFields.selectRole", null, "Select role")} />}
+      <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation}>
+        <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={roleOptions} placeholder={t("onboardingFields.selectRole", null, "Select role")} />
       </Field>
-
+      {isOther && (
+        <Field label={t("onboardingFields.customRole", null, "Your role")} span invalid={showErrors && !(d.designationOther || "").trim()}>
+          <TextInput value={d.designationOther} onChange={(v) => set("designationOther", v)} placeholder={t("onboardingFields.customRolePlaceholder", null, "Type your role")} />
+        </Field>
+      )}
     </div>
   );
 }

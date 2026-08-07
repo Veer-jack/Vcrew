@@ -83,18 +83,22 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   }, [resendIn]);
 
   const emailOk = EMAIL_RE.test(email);
+  const passwordTrimmedLen = password.trim().length;
   const errs = {
     name: mode === "signup" && touched.name && !name.trim() ? t("errors.required") : "",
-    email: touched.email && email && !emailOk ? t("errors.invalidEmail") : "",
-    password: touched.password && password.length > 0 && password.length < 8 ? t("auth.atLeast8Chars") : "",
+    email: touched.email && !email.trim() ? t("errors.required") : (touched.email && email && !emailOk ? t("errors.invalidEmail") : ""),
+    // A whitespace-only password numerically satisfies length >= 8 but isn't a
+    // real password — check the trimmed length so "8 spaces" doesn't pass.
+    password: touched.password && password.length > 0 && passwordTrimmedLen < 8 ? t("errors.passwordTooShort", null, "Password must be at least 8 characters") : "",
+    agree: mode === "signup" && touched.agree && !agree ? t("auth.mustAcceptTerms", null, "Please accept the Terms & Conditions") : "",
   };
-  const emailFormValid = emailOk && password.length >= 8 && (mode === "signin" || (name.trim() && agree));
+  const emailFormValid = emailOk && passwordTrimmedLen >= 8 && (mode === "signin" || (name.trim() && agree));
 
   const goAfterAuth = () => navigate(location.state?.from || homePath, { replace: true });
 
   const submitEmail = async (e) => {
     e.preventDefault();
-    setTouched({ name: true, email: true, password: true });
+    setTouched({ name: true, email: true, password: true, agree: true });
     setError("");
     if (!emailFormValid) return;
     setBusy(true);
@@ -114,7 +118,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   const phoneOk = cc === "+91" ? phoneDigits.length === 10 : (phoneDigits.length >= 7 && phoneDigits.length <= 13);
 
   const sendOtp = async () => {
-    setTouched((t) => ({ ...t, name: true }));
+    setTouched((t) => ({ ...t, name: true, agree: true }));
     setError("");
     if (!phoneOk) return;
     if (mode === "signup" && !(name.trim() && agree)) return;
@@ -305,10 +309,13 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 )}
               </div>
               {mode === "signup" && (
-                <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
-                  <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
-                  {t("auth.agreeToTerms")}
-                </label>
+                <div>
+                  <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
+                    <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setTouched((t) => ({ ...t, agree: true })); }} style={{ marginTop: 2 }} />
+                    {t("auth.agreeToTerms")}
+                  </label>
+                  {errs.agree && <p className="ferr">{errs.agree}</p>}
+                </div>
               )}
               <Btn type="submit" variant="primary" size="lg" block disabled={busy}>
                 {busy ? t("auth.pleaseWait") : mode === "signin" ? t("auth.signIn") : t("auth.signUp")}
@@ -325,9 +332,10 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                   </div>
 
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
-                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} style={{ marginTop: 2 }} />
+                    <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setTouched((t) => ({ ...t, agree: true })); }} style={{ marginTop: 2 }} />
                     {t("auth.agreeToTerms")}
                   </label>
+                  {errs.agree && <p className="ferr">{errs.agree}</p>}
                 </>
               )}
               {!otpSent ? (

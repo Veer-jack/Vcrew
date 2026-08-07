@@ -90,7 +90,11 @@ export async function getRealMatchCount(db, audience) {
     if (!Array.isArray(values) || !values.length) continue;
 
     if (group === "Geography") {
-      const specificGeo = values.filter(v => !/worldwide|remote/i.test(v));
+      // "Other" is a bare marker meaning "the builder typed a custom location as
+      // a separate array entry" (see StepAudience in CreateMissionWizard.jsx) —
+      // it carries no location info itself, so treat it as a no-op like
+      // Worldwide/Remote rather than substring-matching the literal word "other".
+      const specificGeo = values.filter(v => !/worldwide|remote/i.test(v) && v.toLowerCase() !== "other");
       if (specificGeo.length === 0) continue; // matches everyone — no restriction needed
       const ors = specificGeo.map(v => {
         params.push(`%${v}%`, `%${v}%`, `%${v}%`, `%${v}%`, `%${v}%`);

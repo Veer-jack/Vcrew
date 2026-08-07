@@ -64,7 +64,7 @@ export default function IntentFork() {
         </div>
 
         <p className="faint" style={{ marginTop: 26, fontSize: 12.5 }}>
-          {t("landing.alreadyAccount", null, "Already have an account?")} <a href="/login">{t("landing.signInFounder", null, "Sign in as a Founder")}</a> or <a href="/validator/login">{t("landing.signInValidator", null, "sign in as a Validator")}</a>.
+          {t("landing.alreadyAccount", null, "Already have an account?")} <a href="/login">{t("landing.signInFounder", null, "Sign in as a Builder")}</a> or <a href="/validator/login">{t("landing.signInValidator", null, "sign in as a Validator")}</a>.
         </p>
       </div>
     </div>

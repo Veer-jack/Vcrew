@@ -208,15 +208,24 @@ export default function StepTestCases({ d, set }) {
     "Willingness to pay": t("testCases.goalWillingnessToPay", null, "Willingness to pay"),
     All: t("testCases.goalAll", null, "All"),
   };
-  const [form, setForm] = useState({ desc: "", url: "", platforms: new Set(), goals: new Set(), users: "" });
+  // Lives on the shared wizard draft (not local state) so it survives
+  // navigating away to another step and back — StepTestCases fully
+  // unmounts/remounts on step switches (CreateMissionWizard swaps the
+  // rendered step by array index), which would otherwise wipe it while
+  // d.tasks (already on the draft) kept surviving, silently emptying the
+  // form under already-generated test cases.
+  const form = d.testCaseForm || { desc: "", url: "", platforms: [], goals: [], users: "" };
   const [genState, setGenState] = useState("idle"); // idle | fetching | loading | done
   const [urlFetched, setUrlFetched] = useState(false);
   const [urlContext, setUrlContext] = useState(null);
   const [expanded, setExpanded] = useState(null);
 
   const tasks = d.tasks || [];
-  const patch = (p) => setForm(f => ({ ...f, ...p }));
-  const toggleChip = (key, val) => setForm(f => { const s = new Set(f[key]); s.has(val) ? s.delete(val) : s.add(val); return { ...f, [key]: s }; });
+  const patch = (p) => set({ testCaseForm: { ...form, ...p } });
+  const toggleChip = (key, val) => {
+    const cur = form[key] || [];
+    patch({ [key]: cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val] });
+  };
   const canGen = form.desc.trim().length > 20 || urlFetched;
   const hasTasks = tasks.length > 0;
   const totalMins = tasks.reduce((a, t) => a + (t.min_time_seconds || 120), 0);
@@ -236,6 +245,7 @@ export default function StepTestCases({ d, set }) {
   };
 
   const generate = async () => {
+    if (hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
@@ -243,8 +253,8 @@ export default function StepTestCases({ d, set }) {
       const res = await api.post("/missions/generate-tasks", {
         description: form.desc,
         url: form.url,
-        platform: [...form.platforms].join(", "),
-        goals: [...form.goals].join(", "),
+        platform: form.platforms.join(", "),
+        goals: form.goals.join(", "),
         targetUsers: form.users,
         category: d.cat,
         ptype: d.ptype,
@@ -279,8 +289,8 @@ export default function StepTestCases({ d, set }) {
   };
 
   return (
-    <div className="rise">
-      <div style={{ display: "block" }}>
+    <div className="rise tc-split">
+      <div>
         {/* FORM */}
         <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>
@@ -310,7 +320,7 @@ export default function StepTestCases({ d, set }) {
             <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.platform", null, "Platform")}</b><span className="line" /></div>
             <div className="chips">
               {TC_PLATFORMS.map(p => (
-                <button key={p} className={`chip ${form.platforms.has(p) ? "on" : ""}`} onClick={() => toggleChip("platforms", p)}>
+                <button key={p} className={`chip ${form.platforms.includes(p) ? "on" : ""}`} onClick={() => toggleChip("platforms", p)}>
                   <span className="ck"><Icon name="check" size={10} /></span>{platformLabel[p] || p}
                 </button>
               ))}
@@ -321,7 +331,7 @@ export default function StepTestCases({ d, set }) {
             <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.validationGoals", null, "Validation goals")}</b><span className="line" /></div>
             <div className="chips">
               {TC_GOALS.map(g => (
-                <button key={g} className={`chip ${form.goals.has(g) ? "on" : ""}`} onClick={() => toggleChip("goals", g)}>
+                <button key={g} className={`chip ${form.goals.includes(g) ? "on" : ""}`} onClick={() => toggleChip("goals", g)}>
                   <span className="ck"><Icon name="check" size={10} /></span>{goalLabel[g] || g}
                 </button>
               ))}
@@ -334,14 +344,13 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <Btn variant="primary" block disabled={!canGen || genState === "loading"} onClick={generate} style={{ justifyContent: "center", gap: 10, fontSize: 15 }}>
-            <Icon name="sparkles" size={18} />{genState === "loading" ? t("testCases.generating", null, "Generating…") : t("testCases.generateWithAI", null, "Generate test cases with AI ✦")}
+            <Icon name="sparkles" size={18} />{genState === "loading" ? t("testCases.generating", null, "Generating…") : hasTasks ? t("testCases.regenerateWithAI", null, "Regenerate test cases with AI ✦") : t("testCases.generateWithAI", null, "Generate test cases with AI ✦")}
           </Btn>
         </div>
 
       </div>
 
-      {/* RESULTS — always in the same slot, below the form */}
-      <div style={{ marginTop: 22 }}>
+      <div>
         {genState === "loading" ? (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
