@@ -6,6 +6,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASSWORD,
   },
+  // Railway containers have no IPv6 egress — without this, Node can resolve
+  // Gmail's SMTP host to an IPv6 address and fail with ENETUNREACH before
+  // ever attempting IPv4, so every send dies at the connection stage.
+  family: 4,
 });
 console.log("[GMAIL_CONFIG] GMAIL_USER:", process.env.GMAIL_USER ? "SET" : "NOT SET");
 console.log("[GMAIL_CONFIG] GMAIL_PASSWORD:", process.env.GMAIL_PASSWORD ? "SET" : "NOT SET");
