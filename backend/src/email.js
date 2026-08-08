@@ -7,7 +7,8 @@ const transporter = nodemailer.createTransport({
     pass: process.env.GMAIL_PASSWORD,
   },
 });
-
+console.log("[GMAIL_CONFIG] GMAIL_USER:", process.env.GMAIL_USER ? "SET" : "NOT SET");
+console.log("[GMAIL_CONFIG] GMAIL_PASSWORD:", process.env.GMAIL_PASSWORD ? "SET" : "NOT SET");
 async function send({ from, to, subject, html, text }) {
   try {
     const result = await transporter.sendMail({
