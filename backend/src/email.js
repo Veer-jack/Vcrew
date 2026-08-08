@@ -42,3 +42,22 @@ export async function sendMissionPublished({ builderName, builderEmail, missionN
   const html = `<h1>Mission Live</h1><p>Hi ${builderName.split(" ")[0]}, your mission is live. <a href="${APP_URL}/missions/${missionId}">View here</a></p>`;
   return send({ to: builderEmail, subject: `Your mission "${missionName}" is live`, html });
 }
+
+export async function sendWithdrawalUpdate({ validatorName, validatorEmail, amount, status, failureReason }) {
+  const amountStr = `₹${(amount / 100).toLocaleString("en-IN")}`;
+  const approved = status === "processed";
+  const html = `
+    <h1>Withdrawal ${approved ? "processed ✅" : "update"}</h1>
+    <p>Hi ${validatorName.split(" ")[0]}, your withdrawal request for <strong>${amountStr}</strong> has been ${approved ? "processed and is on its way to your account." : `updated to: <strong>${status}</strong>.`}</p>
+    ${failureReason ? `<p>Reason: ${failureReason}</p>` : ""}
+  `;
+  return send({ to: validatorEmail, subject: approved ? `Withdrawal of ${amountStr} processed` : `Withdrawal update — ${status}`, html });
+}
+
+export async function sendValidatorWelcome({ name, email }) {
+  const html = `
+    <h1>Welcome to the Crew!</h1>
+    <p>Hi ${name.split(" ")[0]}, welcome to ValidationCrew as a Validator!</p>
+  `;
+  return send({ to: email, subject: `Welcome to the Crew, ${name.split(" ")[0]}`, html });
+}
