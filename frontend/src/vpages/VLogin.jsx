@@ -39,6 +39,7 @@ export default function VLogin() {
     phoneLoginVerify: (idToken) => vapi.phoneLoginVerify(idToken),
     login: (email, password) => vapi.login(email, password).then(({ token, validator }) => { setVToken(token); setValidator(validator); }),
     signup: ({ name, org, email, password }) => vapi.signup({ name, expertise: org, email, password, lang }).then(({ token, validator }) => { setVToken(token); setValidator(validator); }),
+    forgotPassword: (email) => vapi.forgotPassword(email),
     userKey: "validator",
     onAuthed: (token, validator) => { setVToken(token); setValidator(validator); },
   };

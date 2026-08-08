@@ -1,7 +1,12 @@
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  // Explicit host/port 587 (STARTTLS) instead of the 'service: gmail' shorthand,
+  // which defaults to port 465 (implicit TLS) — some hosts filter one but not
+  // the other, so this is worth trying on its own merits.
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASSWORD,
@@ -10,6 +15,10 @@ const transporter = nodemailer.createTransport({
   // Gmail's SMTP host to an IPv6 address and fail with ENETUNREACH before
   // ever attempting IPv4, so every send dies at the connection stage.
   family: 4,
+  // Fail fast instead of hanging for minutes if the port is filtered —
+  // makes a real block visible in seconds instead of blocking the request
+  // (and the UI) for the full default timeout.
+  connectionTimeout: 10000,
 });
 console.log("[GMAIL_CONFIG] GMAIL_USER:", process.env.GMAIL_USER ? "SET" : "NOT SET");
 console.log("[GMAIL_CONFIG] GMAIL_PASSWORD:", process.env.GMAIL_PASSWORD ? "SET" : "NOT SET");
