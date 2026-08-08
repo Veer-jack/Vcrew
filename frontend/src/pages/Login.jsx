@@ -39,6 +39,7 @@ export default function Login() {
     phoneLoginVerify: (idToken) => api.phoneLoginVerify(idToken),
     login: (email, password) => api.login(email, password).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
     signup: ({ name, org, email, password }) => api.signup({ name, org, email, password, lang }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
+    forgotPassword: (email) => api.forgotPassword(email),
     userKey: "builder",
     onAuthed: (token, builder) => { setToken(token); setBuilder(builder); },
   };
