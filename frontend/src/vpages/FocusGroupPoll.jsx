@@ -12,6 +12,7 @@ export default function FocusGroupPoll() {
   const navigate = useNavigate();
   const [mission, setMission] = useState(null);
   const [poll, setPoll] = useState(null);
+  const [restarted, setRestarted] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -27,6 +28,7 @@ export default function FocusGroupPoll() {
         }
         setMission(data.mission);
         setPoll(data.poll);
+        setRestarted(!!data.restarted);
         setSelected(new Set(data.poll?.mySlotIds || []));
       } catch {
         setError(t("missions.couldntLoadFocusGroupPoll", null, "Couldn't load the focus group poll."));
@@ -73,13 +75,27 @@ export default function FocusGroupPoll() {
 
         {!poll && (
           <>
-            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.waitingForTimes", null, "Waiting for times to be proposed")}</h2>
-            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>{t("missions.noScheduleDesc", null, "The builder hasn't set up the focus group schedule yet. You'll see it here once they do.")}</p>
+            <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>
+              {restarted ? t("missions.pollRestartedTitle", null, "The poll was restarted") : t("missions.waitingForTimes", null, "Waiting for times to be proposed")}
+            </h2>
+            <p style={{ color: "var(--text-muted)", margin: "0 0 20px", fontSize: 15 }}>
+              {restarted
+                ? t("missions.pollRestartedDesc", null, "Sorry about that — the builder restarted scheduling for this session. New candidate times are coming soon, and you'll see them here as soon as they're posted.")
+                : t("missions.noScheduleDesc", null, "The builder hasn't set up the focus group schedule yet. You'll see it here once they do.")}
+            </p>
           </>
         )}
 
         {status === "open" && (
           <>
+            {poll.isRestart && (
+              <div className="card" style={{ padding: 12, marginBottom: 16, textAlign: "left", background: "var(--accent-weak)", border: "none" }}>
+                <div className="row gap-2" style={{ alignItems: "flex-start" }}>
+                  <Icon name="refresh" size={15} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
+                  <span style={{ fontSize: 13, color: "var(--accent)" }}>{t("missions.pollRestartedBanner", null, "The builder restarted this poll with new times — please vote again below.")}</span>
+                </div>
+              </div>
+            )}
             <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 800 }}>{t("missions.markYourAvailability", null, "Mark your availability")}</h2>
             <p style={{ color: "var(--text-muted)", margin: "0 0 16px", fontSize: 14 }}>{t("missions.selectTimeDesc", null, "Select every time you could make it — the builder will pick whichever works for the most people.")}</p>
             <div className="col gap-2" style={{ marginBottom: 20, textAlign: "left" }}>
@@ -91,9 +107,23 @@ export default function FocusGroupPoll() {
               ))}
             </div>
             {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-            <Btn variant="primary" block disabled={busy} onClick={submit}>
-              {busy ? t("actions.saving", null, "Saving…") : (poll.mySlotIds && poll.mySlotIds.length > 0) ? t("actions.updateAvailability", null, "Update availability") : t("actions.saveAvailability", null, "Save my availability")}
-            </Btn>
+            {(() => {
+              const savedIds = poll.mySlotIds || [];
+              // Nothing changed since the last successful save: disable the
+              // button instead of leaving it clickable, which previously let
+              // every extra click re-fire an identical save + success toast
+              // with no feedback that it was a no-op.
+              const isDirty = selected.size !== savedIds.length || savedIds.some(sid => !selected.has(sid));
+              const label = busy ? t("actions.saving", null, "Saving…")
+                : !isDirty && savedIds.length > 0 ? t("actions.saved", null, "Saved")
+                : savedIds.length > 0 ? t("actions.updateAvailability", null, "Update availability")
+                : t("actions.saveAvailability", null, "Save my availability");
+              return (
+                <Btn variant="primary" block disabled={busy || !isDirty} onClick={submit}>
+                  {label}
+                </Btn>
+              );
+            })()}
           </>
         )}
 

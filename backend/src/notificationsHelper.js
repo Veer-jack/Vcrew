@@ -66,15 +66,15 @@ export async function notifySavedValidators(missionId) {
 
     // Find validators who saved the mission but are NOT currently participating
     await db.prepare(`
-      INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread)
-      SELECT s.validator_id, 'system', 'unlock', 'success', 'slot_opened', 'Slot Opened!', 'A slot just opened up for a mission you saved. Claim it before it''s gone!', 'Just now', 1
+      INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
+      SELECT s.validator_id, 'mission', 'unlock', 'success', 'slot_available', 'Slot Opened!', 'A slot just opened up for a mission you saved. Claim it before it''s gone!', 'Just now', 1, ?
       FROM v_saved s
       WHERE s.task_id = ?
       AND NOT EXISTS (
         SELECT 1 FROM participants p
         WHERE p.mission_id = ? AND p.validator_id = s.validator_id
       )
-    `).run(missionId, missionId);
+    `).run(missionId, missionId, missionId);
 
   } catch (error) {
     console.error("notifySavedValidators error:", error);

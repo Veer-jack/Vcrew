@@ -761,6 +761,7 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
 
   const [poll, setPoll] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [meetingLink, setMeetingLink] = useState("");
@@ -782,12 +783,16 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
     }
   };
   const load = () => {
-    api.missionPoll(missionId).then(d => { setPoll(d.poll); setLoading(false); }).catch(err => { setError(err.message); setLoading(false); });
+    api.missionPoll(missionId).then(d => { setPoll(d.poll); setLoading(false); }).catch(err => { setLoadError(err.message); setLoading(false); });
   };
   useEffect(load, [missionId]);
 
   if (loading) return <div className="muted">{t("missionDetail.loadingPoll", null, "Loading focus group poll…")}</div>;
-  if (error) return <div className="muted">{error}</div>;
+  // Only a genuine load failure replaces the whole section — action errors
+  // (create/lock/complete/delete) use the separate `error` state and render
+  // inline as an err-banner (see below) so the form/poll stays visible and
+  // usable instead of vanishing behind a plain, unstyled error message.
+  if (loadError) return <div className="muted">{loadError}</div>;
 
   const createPoll = async () => {
     setBusy(true);

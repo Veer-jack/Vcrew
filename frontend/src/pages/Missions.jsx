@@ -21,7 +21,7 @@ export default function Missions() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { categories } = useMeta();
-  const [tab, setTab] = useState("active");
+  const [tab, setTab] = useState(searchParams.get("tab") || "active");
   const [q, setQ] = useState(searchParams.get("q") || "");
   const [missions, setMissions] = useState([]);
   const [counts, setCounts] = useState({});

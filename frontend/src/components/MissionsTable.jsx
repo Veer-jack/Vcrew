@@ -2,6 +2,17 @@ import Icon from "./Icon";
 import { MissionLogo, PBarRow, StatusTag, TypeTag, inr } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
 
+// Region is stored as one long comma-joined string (e.g. every country an
+// audience filter matched) — show the first few and collapse the rest into
+// a count instead of letting the row balloon to five lines, with the full
+// list still available on hover.
+function truncateRegion(region, max = 4) {
+  if (!region) return "";
+  const parts = region.split(", ");
+  if (parts.length <= max) return region;
+  return `${parts.slice(0, max).join(", ")} +${parts.length - max} more`;
+}
+
 export default function MissionsTable({ rows, nav, categories, onDelete }) {
   const { t } = useTranslation();
   if (!rows.length) return <div className="muted" style={{ padding: 24 }}>{t("missions.noMissionsYet", null, "No missions yet — create your first one.")}</div>;
@@ -19,11 +30,11 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
         </thead>
         <tbody>
           {rows.map(m => (
-            <tr className="click" key={m.id} onClick={() => nav(`/missions/${m.id}`)}>
+            <tr className="click" key={m.id} onClick={() => nav(m.status === "draft" ? `/missions/${m.id}/edit` : `/missions/${m.id}`)}>
               <td>
                 <div className="t-name">
                   <MissionLogo name={m.name} cat={m.category} size={34} />
-                  <div><div>{m.name}</div><div className="t-sub">{m.region}</div></div>
+                  <div><div>{m.name}</div><div className="t-sub" title={m.region} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 360 }}>{truncateRegion(m.region)}</div></div>
                 </div>
               </td>
               <td><TypeTag cat={m.category} categories={categories} /></td>

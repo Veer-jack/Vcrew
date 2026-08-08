@@ -6,15 +6,15 @@
  *
  * Setup:
  *   1. Create an account at resend.com
- *   2. Verify your sending domain (validationcrew.app)
+ *   2. Verify your sending domain (validationcrew.com)
  *   3. Add RESEND_API_KEY to Railway environment variables
  */
 
 import { Resend } from "resend";
 
-const FROM_BUILDER = "ValidationCrew <builders@validationcrew.app>";
-const FROM_VALIDATOR = "ValidationCrew <crew@validationcrew.app>";
-const FROM_NOREPLY = "ValidationCrew <noreply@validationcrew.app>";
+const FROM_BUILDER = "ValidationCrew <builders@validationcrew.com>";
+const FROM_VALIDATOR = "ValidationCrew <crew@validationcrew.com>";
+const FROM_NOREPLY = "ValidationCrew <noreply@validationcrew.com>";
 
 const APP_URL = process.env.APP_URL || "https://vcrew-production.up.railway.app";
 

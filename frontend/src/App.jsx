@@ -95,6 +95,7 @@ function BuilderRoutes() {
       <Route path="/signup" element={builder?.profile ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
+      <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />

@@ -13,6 +13,7 @@ const MM_STATUS = {
   submitted: { label: "In review", labelKey: "status.inReview", tone: "var(--warning)", bg: "var(--warning-weak)" },
   completed: { label: "Paid", labelKey: "status.paid", tone: "var(--success)", bg: "var(--success-weak)" },
   rejected:  { label: "Not selected", labelKey: "status.notSelected", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
+  closed:    { label: "Closed", labelKey: "status.closed", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
 };
 
 const TABS = [
@@ -21,6 +22,7 @@ const TABS = [
   { k: "submitted", l: "Submitted", lKey: "status.submitted" },
   { k: "completed", l: "Completed", lKey: "status.completed" },
   { k: "rejected", l: "Rejected", lKey: "status.rejected" },
+  { k: "closed", l: "Closed", lKey: "status.closed" },
 ];
 
 function MyMissionRow({ m, vtypes, ptypes, navigate }) {
@@ -117,8 +119,8 @@ export default function MyMissions() {
       {loading ? <div className="muted">{t("actions.loading", null, "Loading…")}</div> : (!data || data.missions.length === 0)
         ? <div className="card" style={{ padding: 0 }}>
             <VEmpty icon="inbox" title={t("missions.nothingYet", { tab }, `Nothing ${tab} yet`)}
-              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
-              cta={tab !== "completed" && tab !== "rejected" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
+              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
+              cta={tab !== "completed" && tab !== "rejected" && tab !== "closed" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
           </div>
         : (
             <div className="rise-3" style={{ display: "grid", gap: 12 }}>
