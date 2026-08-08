@@ -16,8 +16,7 @@ const FROM_BUILDER = "ValidationCrew <builders@validationcrew.app>";
 const FROM_VALIDATOR = "ValidationCrew <crew@validationcrew.app>";
 const FROM_NOREPLY = "ValidationCrew <noreply@validationcrew.app>";
 
-const APP_URL = process.env.APP_URL || "https://vcrew-production.up.railway.app";
-
+const APP_URL = process.env.APP_URL || "https://www.validationcrew.com";
 let resend = null;
 if (process.env.RESEND_API_KEY) {
   resend = new Resend(process.env.RESEND_API_KEY);
