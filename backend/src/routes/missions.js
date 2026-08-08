@@ -107,6 +107,8 @@ function serializeMission(m) {
     description: m.description,
     deadline: m.deadline,
     audience: JSON.parse(m.audience_json || "{}"),
+    tasks: JSON.parse(m.tasks_json || "[]"),
+    durationDays: m.duration_days,
     createdAt: m.created_at,
   };
 }
@@ -477,7 +479,11 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
+  // Category/ptype/reward/tasks/duration are only editable while the mission
+  // is still a draft — once active, changing reward/target goes through the
+  // escrow-aware branches above, and category/ptype/tasks are locked in.
   const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
+  if (m.status === "draft") allowed.push("category", "ptype", "tasks", "durationDays", "reward");
   const updates = [];
   const params = [];
   let spendDelta = 0;
@@ -535,6 +541,17 @@ router.patch("/:id", async (req, res) => {
             // Explorer) — already-joined participants are untouched, by design.
             updates.push(`audience_json = ?`);
             params.push(JSON.stringify(req.body.audience || {}));
+          } else if (key === "tasks") {
+            updates.push(`tasks_json = ?`);
+            params.push(JSON.stringify(req.body.tasks || []));
+          } else if (key === "durationDays") {
+            updates.push(`duration_days = ?`);
+            params.push(Math.min(30, Math.max(2, Number(req.body.durationDays) || 7)));
+          } else if (key === "reward") {
+            const reward = req.body.reward || {};
+            const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
+            updates.push(`reward_type = ?, reward_amount = ?`);
+            params.push(rewardType, Number(reward.amount) || 0);
           } else {
             updates.push(`${key} = ?`);
             params.push(req.body[key]);
@@ -573,8 +590,21 @@ router.patch("/:id", async (req, res) => {
           // Set spend to exactly what was released so future transitions don't double refund
           await tx.prepare(`UPDATE missions SET spend = ? WHERE id = ?`).run(alreadyReleased, m.id);
         }
+
+        // Anyone still mid-flow (never submitted, or asked for a revision)
+        // stops being "active" the moment the mission itself terminates —
+        // otherwise they keep showing up under the Active tab with a working
+        // Resume button, and the poll/workspace routes they can still reach
+        // have no idea the mission is over.
+        const closedReason = newStatus === "completed"
+          ? `The mission "${m.name}" was marked completed by the builder before you finished.`
+          : newStatus === "archived"
+          ? `The mission "${m.name}" was archived by the builder before you finished.`
+          : `The mission "${m.name}" was closed by the builder before you finished.`;
+        await tx.prepare(`UPDATE v_my_missions SET status = 'closed', reason = ? WHERE mission_id = ? AND status IN ('active', 'revision')`)
+          .run(closedReason, m.id);
       }
-      
+
       // Notify saved users when mission completes or closes
       if ((newStatus === "completed" && m.status !== "completed") || (newStatus === "closed" && m.status !== "closed")) {
         const isCompleted = newStatus === "completed";
@@ -892,7 +922,7 @@ router.delete("/:id/participants/:validatorId", authMiddleware, async (req, res)
           const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
           for (const sv of savedVals) {
             await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
-              .run(sv.validator_id, "alert", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for "${mission.name}".`, "Just now", req.params.id);
+              .run(sv.validator_id, "mission", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for "${mission.name}".`, "Just now", req.params.id);
           }
         }
       }
@@ -948,26 +978,40 @@ router.get("/:id/poll", authMiddleware, async (req, res) => {
 
 // POST /api/missions/:id/poll — builder creates the poll (once per mission)
 router.post("/:id/poll", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name, status, focus_group_poll_restarted_at FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (mission.status !== "active") return res.status(400).json({ error: "This mission is no longer active — scheduling is closed." });
 
   const { meetingLink, slots } = req.body || {};
   if (!Array.isArray(slots) || slots.length < 2 || slots.length > 4) return res.status(400).json({ error: "Between 2 and 4 candidate time slots are required" });
 
+  // A restart leaves the "restarted, not yet replaced" flag set on the
+  // mission until this moment — this new poll IS that replacement, so it
+  // carries the fact forward (validators see a "new times" banner on it)
+  // and the flag is cleared since the gap it tracked is now filled.
+  const isRestart = !!mission.focus_group_poll_restarted_at;
+
   let pollId;
   try {
     await db.transaction(async (tx) => {
-      const pollRes = await tx.prepare(`INSERT INTO focus_group_polls (mission_id, meeting_link, status) VALUES (?, ?, 'open')`).run(req.params.id, meetingLink || null);
+      const pollRes = await tx.prepare(`INSERT INTO focus_group_polls (mission_id, meeting_link, status, is_restart) VALUES (?, ?, 'open', ?)`).run(req.params.id, meetingLink || null, isRestart);
       pollId = pollRes.lastInsertRowid;
       for (const scheduledAt of slots) {
         await tx.prepare(`INSERT INTO focus_group_slots (poll_id, scheduled_at) VALUES (?, ?)`).run(pollId, scheduledAt);
       }
+      if (isRestart) {
+        await tx.prepare(`UPDATE missions SET focus_group_poll_restarted_at = NULL WHERE id = ?`).run(mission.id);
+      }
 
       // Notify all active validators to select their availability
       const activeValidators = await tx.prepare(`SELECT validator_id FROM v_my_missions WHERE mission_id = ? AND status = 'active'`).all(mission.id);
+      const title = isRestart ? "New Focus Group Times" : "Focus Group Scheduling";
+      const body = isRestart
+        ? `The builder restarted scheduling for "${mission.name}" with new proposed times — please vote again.`
+        : `Please select your availability for the focus group: "${mission.name}".`;
       for (const av of activeValidators) {
         await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'poll_created', 'calendar', 'primary', ?, ?, 'Just now', 1, ?)`)
-          .run(av.validator_id, "Focus Group Scheduling", `Please select your availability for the focus group: "${mission.name}".`, mission.id);
+          .run(av.validator_id, title, body, mission.id);
       }
     });
   } catch {
@@ -979,17 +1023,31 @@ router.post("/:id/poll", authMiddleware, async (req, res) => {
 
 // DELETE /api/missions/:id/poll — builder deletes/restarts a focus group poll
 router.delete("/:id/poll", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name, status FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (mission.status !== "active") return res.status(400).json({ error: "This mission is no longer active — scheduling is closed." });
 
-  await db.prepare(`DELETE FROM focus_group_polls WHERE mission_id = ?`).run(req.params.id);
+  await db.transaction(async (tx) => {
+    await tx.prepare(`DELETE FROM focus_group_polls WHERE mission_id = ?`).run(req.params.id);
+    await tx.prepare(`UPDATE missions SET focus_group_poll_restarted_at = NOW() WHERE id = ?`).run(mission.id);
+
+    // Whoever had already voted on the poll that just got wiped deserves to
+    // know why it vanished, before the new one (if any) shows up.
+    const activeValidators = await tx.prepare(`SELECT validator_id FROM v_my_missions WHERE mission_id = ? AND status = 'active'`).all(mission.id);
+    for (const av of activeValidators) {
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'poll_restarted', 'refresh', 'muted', ?, ?, 'Just now', 1, ?)`)
+        .run(av.validator_id, "Focus Group Poll Restarted", `The builder restarted scheduling for "${mission.name}". New times are coming soon.`, mission.id);
+    }
+  });
+
   res.json({ ok: true });
 });
 
 // POST /api/missions/:id/poll/lock — builder locks in a candidate slot
 router.post("/:id/poll/lock", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name, status FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (mission.status !== "active") return res.status(400).json({ error: "This mission is no longer active — scheduling is closed." });
 
   const { slotId } = req.body || {};
   if (!slotId) return res.status(400).json({ error: "slotId is required" });
@@ -1027,8 +1085,9 @@ router.post("/:id/poll/lock", authMiddleware, async (req, res) => {
 
 // POST /api/missions/:id/poll/complete — builder marks the focus group session as having happened
 router.post("/:id/poll/complete", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name, status FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (mission.status !== "active") return res.status(400).json({ error: "This mission is no longer active — scheduling is closed." });
 
   const poll = await db.prepare(`UPDATE focus_group_polls SET status = 'completed', completed_at = NOW() WHERE mission_id = ? AND status = 'locked' RETURNING id, locked_slot_id`)
     .get(req.params.id);
@@ -1269,7 +1328,7 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
       const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
       for (const sv of savedVals) {
         await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
-          .run(sv.validator_id, "alert", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for ${updatedMission.name}.`, "Just now", req.params.id);
+          .run(sv.validator_id, "mission", "slot_available", "bell", "success", "Slot Available!", `Hurry up! A slot just opened up for ${updatedMission.name}.`, "Just now", req.params.id);
       }
     }
 
@@ -1362,11 +1421,11 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
       .run(req.builder.id, req.params.validatorId, req.params.id);
 
     if (isWaitlist) {
-      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'invite', 'waitlist_invite', 'star', 'accent', ?, ?, 'Just now', 1)`)
-        .run(req.params.validatorId, "Waitlist Slot Opened!", `A slot opened up! You've been invited to the mission you saved: ${mission.name}`);
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'waitlist_invite', 'star', 'accent', ?, ?, 'Just now', 1, ?)`)
+        .run(req.params.validatorId, "Waitlist Slot Opened!", `A slot opened up! You've been invited to the mission you saved: ${mission.name}`, req.params.id);
     } else {
-      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'invite', 'mission_invite', 'userplus', 'primary', ?, ?, 'Just now', 1)`)
-        .run(req.params.validatorId, "New Mission Invitation", `${req.builder.org || req.builder.name} has invited you to their mission: ${mission.name}`);
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'mission_invite', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)`)
+        .run(req.params.validatorId, "New Mission Invitation", `${req.builder.org || req.builder.name} has invited you to their mission: ${mission.name}`, req.params.id);
     }
   });
 

@@ -8,7 +8,7 @@ export default function VOAuthCallback() {
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { refresh } = useVAuth();
+  const { setValidator } = useVAuth();
 
   useEffect(() => {
     const token = params.get("token");
@@ -19,7 +19,14 @@ export default function VOAuthCallback() {
     setVToken(token);
     vapi.me()
       .then(({ validator }) => {
-        refresh();
+        // Must land in VAuthContext before navigating — RequireVAuth reads
+        // `validator` from context to decide whether to bounce back to
+        // /validator/login, so navigating before this settles is a race (see
+        // the matching fix in pages/OAuthCallback.jsx for the builder side).
+        // Setting directly from the response already in hand, instead of
+        // calling refresh() (a second /me request for the same data), also
+        // saves a full extra round-trip.
+        setValidator(validator);
         // If handle or city missing = onboarding not done
         const needsOnboarding = !validator.city || !validator.handle || validator.handle === validator.email?.split("@")[0];
         navigate(needsOnboarding ? "/validator/onboarding" : "/validator", { replace: true });

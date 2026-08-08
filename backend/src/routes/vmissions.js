@@ -88,7 +88,7 @@ router.get("/", async (req, res) => {
     }
   }
 
-  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0 };
+  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0, closed: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
     if (r.status === "revision") counts.active += Number(r.c);
@@ -656,7 +656,7 @@ router.get("/:id/poll-status", async (req, res) => {
   if (m.ptype !== "focus") return res.status(400).json({ error: "This mission does not use focus group scheduling" });
 
   const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ?`).get(req.params.id);
-  if (!poll) return res.json({ mission: { name: m.name, brand: m.brand }, poll: null });
+  if (!poll) return res.json({ mission: { name: m.name, brand: m.brand }, poll: null, restarted: !!m.focus_group_poll_restarted_at });
 
   const slots = await db.prepare(`SELECT id, scheduled_at FROM focus_group_slots WHERE poll_id = ? ORDER BY scheduled_at ASC`).all(poll.id);
   const myResponses = await db.prepare(`SELECT slot_id FROM focus_group_responses WHERE poll_id = ? AND validator_id = ?`).all(poll.id, req.validator.id);
@@ -676,6 +676,7 @@ router.get("/:id/poll-status", async (req, res) => {
       mySlotIds,
       lockedSlotId: poll.locked_slot_id,
       outcome,
+      isRestart: !!poll.is_restart,
     },
   });
 });
@@ -685,6 +686,7 @@ router.post("/:id/poll/respond", async (req, res) => {
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "focus") return res.status(400).json({ error: "This mission does not use focus group scheduling" });
+  if (m.status !== "active") return res.status(400).json({ error: "This mission is no longer active — scheduling is closed." });
 
   const poll = await db.prepare(`SELECT * FROM focus_group_polls WHERE mission_id = ? AND status = 'open'`).get(req.params.id);
   if (!poll) return res.status(400).json({ error: "No open poll to respond to" });

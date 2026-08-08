@@ -123,6 +123,10 @@ export async function initDb() {
     if (!mCols.includes('brief_url')) await client.query('ALTER TABLE missions ADD COLUMN brief_url TEXT');
     if (!mCols.includes('brief_credentials')) await client.query('ALTER TABLE missions ADD COLUMN brief_credentials TEXT');
     if (!mCols.includes('duration_days')) await client.query('ALTER TABLE missions ADD COLUMN duration_days INTEGER DEFAULT 7');
+    // Set when a builder restarts a focus group poll, cleared once the
+    // replacement poll is created — lets validators be told "restarted,
+    // new times coming soon" instead of the generic first-time-waiting copy.
+    if (!mCols.includes('focus_group_poll_restarted_at')) await client.query('ALTER TABLE missions ADD COLUMN focus_group_poll_restarted_at TIMESTAMPTZ');
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);
@@ -240,6 +244,12 @@ export async function initDb() {
     const vnColNames = vnCols.rows.map(r => r.column_name);
     if (!vnColNames.includes('target_id')) {
       await client.query(`ALTER TABLE v_notifications ADD COLUMN target_id TEXT`);
+    }
+
+    const fgpCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='focus_group_polls'");
+    const fgpColNames = fgpCols.rows.map(r => r.column_name);
+    if (!fgpColNames.includes('is_restart')) {
+      await client.query(`ALTER TABLE focus_group_polls ADD COLUMN is_restart BOOLEAN DEFAULT FALSE`);
     }
 
     console.log("✅ PostgreSQL connected + schema applied");

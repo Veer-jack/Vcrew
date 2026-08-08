@@ -8,6 +8,17 @@ import { deadlineLabel, deadlineHours } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
 import { vtLabel, rewardBandLabel, timeBandLabel, sortLabel } from "../vi18n";
 
+// Same grouping the card badges already use (see MktCard/FeaturedMission
+// above) — the status tabs are just a filter over that same vocabulary,
+// not a second one.
+function myStatusGroup(myStatus) {
+  if (myStatus === "completed") return "approved";
+  if (myStatus === "submitted") return "submitted";
+  if (myStatus === "active" || myStatus === "applied") return "accepted";
+  if (myStatus === "rejected") return "rejected";
+  return "open";
+}
+
 function RadioRow({ on, onClick, label }) {
   return (
     <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textAlign: "left", fontSize: 13.5, fontWeight: 600, color: on ? "var(--text)" : "var(--text-muted)" }}>
@@ -145,6 +156,7 @@ export default function Discover() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minMatch, setMinMatch] = useState(0);
   const [sort, setSort] = useState("match");
+  const [statusTab, setStatusTab] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   const [data, setData] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
@@ -166,6 +178,10 @@ export default function Discover() {
       .then(setData)
       .catch(() => {});
   }, [q, types, reward, time, verifiedOnly, minMatch, sort, dataVersion]);
+
+  // Status is filtered client-side over the already-fetched list (see
+  // visibleTasks below), so switching tabs just resets the "Load more" cursor.
+  useEffect(() => { setVisibleCount(20); }, [statusTab]);
 
   const onOpen = (task) => {
     if (task.myStatus === "completed") {
@@ -193,7 +209,25 @@ export default function Discover() {
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
   const filtersActive = q || types.size || reward !== "any" || time !== "any" || verifiedOnly || minMatch > 0;
-  const showFeatured = !filtersActive && sort === "match" && data.featured;
+  const showFeatured = !filtersActive && statusTab === "all" && sort === "match" && data.featured;
+  // Status is about your own relationship to each mission (haven't applied /
+  // applied / approved), not ordering — kept as its own tabs row instead of
+  // folded into Sort, and filtered client-side since every matching task is
+  // already in `data.tasks`.
+  const STATUS_TABS = [
+    { k: "all", l: t("discover.statusAll", null, "All") },
+    { k: "open", l: t("status.open", null, "Open") },
+    { k: "accepted", l: t("status.accepted", null, "Accepted") },
+    { k: "submitted", l: t("status.submitted", null, "Submitted") },
+    { k: "approved", l: t("status.approved", null, "Approved") },
+    { k: "rejected", l: t("status.rejected", null, "Rejected") },
+  ];
+  const statusCounts = data.tasks.reduce((acc, x) => {
+    const g = myStatusGroup(x.myStatus);
+    acc[g] = (acc[g] || 0) + 1;
+    return acc;
+  }, { all: data.tasks.length });
+  const visibleTasks = statusTab === "all" ? data.tasks : data.tasks.filter(x => myStatusGroup(x.myStatus) === statusTab);
 
   return (
     <div className="page">
@@ -222,10 +256,18 @@ export default function Discover() {
 
       {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
 
-      <div className="row between wrap gap-3 rise-2" style={{ margin: showFeatured ? "24px 0 16px" : "0 0 16px" }}>
+      <div className="tabs rise-2" style={{ margin: showFeatured ? "24px 0 0" : "0" }}>
+        {STATUS_TABS.map(st => (
+          <button key={st.k} className={statusTab === st.k ? "on" : ""} onClick={() => setStatusTab(st.k)}>
+            {st.l}<span className="cnt">{statusCounts[st.k] ?? 0}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="row between wrap gap-3 rise-2" style={{ margin: "16px 0 16px" }}>
         <div className="row gap-2" style={{ alignItems: "baseline" }}>
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, letterSpacing: "-.02em" }}>{filtersActive ? t("discover.results", null, "Results") : t("discover.allMissions", null, "All missions")}</h3>
-          <span className="muted mono" style={{ fontSize: 13 }}>{data.tasks.length}</span>
+          <span className="muted mono" style={{ fontSize: 13 }}>{visibleTasks.length}</span>
         </div>
         <div className="row gap-2">
           <button className="pill" onClick={() => setShowFilters(f => !f)} style={{ cursor: "pointer" }}><Icon name="filter" size={14} />{t("discover.filters", null, "Filters")}{filtersActive ? " ·" : ""}</button>
@@ -247,12 +289,21 @@ export default function Discover() {
             </div>
             <div className="mkt-fgroup">
               <span className="lbl">{t("discover.validationType", null, "Validation type")}</span>
-              {typeOrder.map(k => (
-                <button key={k} className={`mkt-check ${types.has(k) ? "on" : ""}`} style={{ "--c": `var(${vtypes[k].accentVar})`, width: "100%" }} onClick={() => toggleType(k)}>
-                  <span className="bx">{types.has(k) && <Icon name="check" size={12} />}</span>
-                  {vtLabel(t, vtypes[k])}<span className="cnt">{data.categories.find(c => c.key === k)?.count ?? 0}</span>
-                </button>
-              ))}
+              {typeOrder.map(k => {
+                const count = data.categories.find(c => c.key === k)?.count ?? 0;
+                return (
+                  <button
+                    key={k} className={`mkt-check ${types.has(k) ? "on" : ""}`}
+                    style={{ "--c": `var(${vtypes[k].accentVar})`, width: "100%", opacity: count === 0 ? 0.45 : 1, cursor: count === 0 ? "not-allowed" : "pointer" }}
+                    disabled={count === 0}
+                    onClick={() => toggleType(k)}
+                  >
+                    <span className="bx">{types.has(k) && <Icon name="check" size={12} />}</span>
+                    <Icon name={vtypes[k].icon} size={14} style={{ color: "var(--c)", flex: "none" }} />
+                    {vtLabel(t, vtypes[k])}<span className="cnt">{count}</span>
+                  </button>
+                );
+              })}
             </div>
             <div className="mkt-fgroup">
               <span className="lbl">{t("discover.reward", null, "Reward")}</span>
@@ -275,12 +326,12 @@ export default function Discover() {
           </div>
         </aside>
         <div style={{ minWidth: 0 }}>
-          {data.tasks.length === 0
-            ? <div className="card"><VEmpty icon="search" title={t("discover.noMatchTitle", null, "No missions match")} body={t("discover.noMatchBody", null, "Try widening your filters or clearing your search — new missions are posted throughout the day.")} cta={<button className="btn btn-primary" onClick={clearAll}>{t("actions.clearFilters", null, "Clear filters")}</button>} /></div>
+          {visibleTasks.length === 0
+            ? <div className="card"><VEmpty icon="search" title={t("discover.noMatchTitle", null, "No missions match")} body={t("discover.noMatchBody", null, "Try widening your filters or clearing your search — new missions are posted throughout the day.")} cta={<button className="btn btn-primary" onClick={() => { clearAll(); setStatusTab("all"); }}>{t("actions.clearFilters", null, "Clear filters")}</button>} /></div>
             : (
               <div>
-                <div className="mkt-grid rise-3">{data.tasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
-                {visibleCount < data.tasks.length && (
+                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
+                {visibleCount < visibleTasks.length && (
                   <div style={{ textAlign: "center", marginTop: 24, paddingBottom: 24 }}>
                     <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</button>
                   </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import React from 'react';
@@ -93,10 +93,10 @@ function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange
     </div>
   );
 }
-function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount }) {
+function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, basePool }) {
   const { t } = useTranslation();
   const count = liveCount;
-  const pct = Math.min(100, Math.round((count / 1284000) * 100));
+  const pct = basePool > 0 ? Math.min(100, Math.round((count / basePool) * 100)) : 0;
   return (
     <div className="rise">
       <div className="reach" style={{ marginBottom: 8, position: "sticky", top: 0, zIndex: 5 }}>
@@ -248,16 +248,20 @@ function BalanceCard({ balance }) {
   );
 }
 
-function ReviewRow({ icon, label, children }) {
+function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
+  const { t } = useTranslation();
   return (
-    <div className="row gap-3" style={{ padding: "13px 0", borderTop: "1px solid var(--border)", alignItems: "flex-start" }}>
-      <span className="feed-ic accent" style={{ width: 30, height: 30 }}><Icon name={icon} size={15} /></span>
-      <div style={{ flex: 1 }}><div className="faint" style={{ fontSize: 12 }}>{label}</div><div style={{ fontWeight: 600, fontSize: 14, marginTop: 2 }}>{children}</div></div>
+    <div className="row gap-3" style={{ padding: "14px 0", borderTop: "1px solid var(--border)", alignItems: "flex-start" }}>
+      <span style={{ width: 34, height: 34, borderRadius: 10, flex: "none", display: "grid", placeItems: "center",
+        background: `color-mix(in srgb, var(${color}) 14%, transparent)`, color: `var(${color})` }}><Icon name={icon} size={16} /></span>
+      <div style={{ flex: 1, minWidth: 0 }}><div className="faint" style={{ fontSize: 12 }}>{label}</div><div style={{ fontWeight: 700, fontSize: 14, marginTop: 2 }}>{children}</div></div>
+      {onEdit && <button className="backlink" style={{ margin: 0, fontSize: 12.5, flex: "none" }} onClick={onEdit}>{t("actions.edit", null, "Edit")}</button>}
     </div>
   );
 }
-function StepReview({ d, categories, ptypes, rewards, liveCount }) {
+function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
   const { t } = useTranslation();
+  const [descExpanded, setDescExpanded] = React.useState(false);
   const cat = categories.find(c => c.id === d.cat) || categories[0];
   const pt = ptypes.find(p => p.id === d.ptype);
   const rw = rewards.find(r => r.id === d.reward.type);
@@ -265,22 +269,27 @@ function StepReview({ d, categories, ptypes, rewards, liveCount }) {
   const allFilters = Object.entries(d.filters).flatMap(([g, s]) =>
     [...s].map(v => (g === "Geography" && v === "Other" && d.otherGeoText?.trim()) ? d.otherGeoText.trim() : v)
   );
+  const descLong = d.desc && d.desc.length > 160;
   return (
     <div className="rise">
       <div className="card" style={{ padding: "4px 20px 14px" }}>
-        <ReviewRow icon="edit" label={t("createMission.missionTitleReviewLabel", null, "Mission title")}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
-        <ReviewRow icon={cat?.icon || "layers"} label={t("createMission.categoryLabel", null, "Category")}>{cat && categoryLabel(t, cat)}</ReviewRow>
-        <ReviewRow icon="users" label={t("createMission.audienceLabel", null, "Audience")}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
-        <ReviewRow icon={pt?.icon || "list"} label={t("createMission.participationTypeLabel", null, "Participation type")}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
-        <ReviewRow icon={rw?.icon || "coins"} label={t("createMission.rewardLabel", null, "Reward")}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
+        <ReviewRow icon="edit" color="--accent-2" label={t("createMission.missionTitleReviewLabel", null, "Mission title")} onEdit={() => onEditStep(0)}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
+        <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
+        <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
+        <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
+        <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
+        {d.desc && (
+          <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
+            <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
+            {descLong && <button className="backlink" style={{ margin: "4px 0 0", fontSize: 12.5 }} onClick={() => setDescExpanded(v => !v)}>{descExpanded ? t("actions.showLess", null, "Show less") : t("actions.readMore", null, "Read more")}</button>}
+          </ReviewRow>
+        )}
+        {allFilters.length > 0 && (
+          <ReviewRow icon="filter" color="--accent" label={t("createMission.audienceFiltersEyebrow", null, "Audience filters")} onEdit={() => onEditStep(3)}>
+            <div className="chips" style={{ marginTop: 4 }}>{allFilters.map(f => <span key={f} className="chip on" style={{ pointerEvents: "none" }}>{f}</span>)}</div>
+          </ReviewRow>
+        )}
       </div>
-      {d.desc && <div className="card" style={{ padding: 18, marginTop: 14 }}><span className="eyebrow">{t("createMission.descriptionEyebrow", null, "Description")}</span><p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.6 }}>{d.desc}</p></div>}
-      {allFilters.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <span className="eyebrow">{t("createMission.audienceFiltersEyebrow", null, "Audience filters")}</span>
-          <div className="chips" style={{ marginTop: 10 }}>{allFilters.map(f => <span key={f} className="chip on" style={{ pointerEvents: "none" }}>{f}</span>)}</div>
-        </div>
-      )}
     </div>
   );
 }
@@ -317,6 +326,47 @@ function computeCost(d, rewards, platformFeePct) {
 
 const GEO_GROUP = "Geography";
 const WORLDWIDE = "Worldwide";
+
+// Reverse of buildAudiencePayload(): rehydrates a fetched draft mission back
+// into the wizard's internal `d` shape so an existing draft can be resumed
+// through the full 6-step flow instead of just the lightweight edit modal.
+function missionToDraft(mission, filters, categories, ptypes) {
+  const emptyF = emptyFilters(filters);
+  const audience = mission.audience || {};
+  const draft = {
+    title: mission.name || "",
+    desc: mission.description || "",
+    cat: mission.category || categories[0]?.id || "feedback",
+    ptype: mission.ptype || ptypes[0]?.id || "ptest",
+    reward: {
+      type: mission.reward?.type || "fixed",
+      amount: mission.reward?.amount || 0,
+      participants: mission.participants?.target || 1,
+    },
+    filters: emptyF,
+    genFor: null,
+    durationDays: mission.durationDays || 7,
+    tasks: mission.tasks || [],
+  };
+  for (const g of Object.keys(emptyF)) {
+    const vals = audience[g];
+    if (!Array.isArray(vals)) continue;
+    if (g === GEO_GROUP) {
+      const known = new Set(flatOptions(filters[GEO_GROUP]));
+      const sel = new Set();
+      let otherText = "";
+      for (const v of vals) {
+        if (known.has(v)) sel.add(v);
+        else { sel.add("Other"); otherText = v; }
+      }
+      draft.filters[g] = sel;
+      if (otherText) draft.otherGeoText = otherText;
+    } else {
+      draft.filters[g] = new Set(vals);
+    }
+  }
+  return draft;
+}
 
 function serializeDraft(d) {
   const data = { ...d, filters: {} };
@@ -364,22 +414,28 @@ function clearDraftIfFreshReload(draftKey) {
 export default function CreateMissionWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { id: missionId } = useParams();
   const { builder, refreshBuilder } = useAuth();
   const { categories, ptypes, rewards, filters, platformFeePct } = useMeta();
   const WZ_STEPS = wzSteps(t);
+  const lastStep = WZ_STEPS.length - 1;
 
   // Scoped per-builder so switching accounts on the same browser never shows
   // one builder's in-progress mission draft to another.
   const DRAFT_KEY = `vcrew_mission_draft_${builder?.id || "anon"}`;
   clearDraftIfFreshReload(DRAFT_KEY);
 
-  const [step, setStep] = useState(() => parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
-  const [maxReached, setMaxReached] = useState(() => Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
+  // Resuming an existing draft opens straight on Review, with every step
+  // already unlocked via the rail/Edit links — the scratch localStorage draft
+  // (for an in-progress *new* mission) plays no part in this flow.
+  const [step, setStep] = useState(() => missionId ? lastStep : parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
+  const [maxReached, setMaxReached] = useState(() => missionId ? lastStep : Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
+  const [loadingMission, setLoadingMission] = useState(!!missionId);
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
@@ -391,6 +447,7 @@ export default function CreateMissionWizard() {
   });
 
   const [d, setD] = useState(() => {
+    if (missionId) return freshDraft(); // placeholder until the fetch below lands
     const saved = localStorage.getItem(DRAFT_KEY);
     if (saved) {
       const parsed = deserializeDraft(saved, emptyFilters(filters));
@@ -399,8 +456,33 @@ export default function CreateMissionWizard() {
     return freshDraft();
   });
 
-  const [liveCount, setLiveCount] = useState(1284000);
+  useEffect(() => {
+    if (!missionId) return;
+    let cancelled = false;
+    api.mission(missionId)
+      .then(({ mission }) => {
+        if (cancelled) return;
+        // Only drafts are editable through this full wizard — an already-
+        // published mission lands here only via a stale/hand-typed URL.
+        if (mission.status !== "draft") { navigate(`/missions/${missionId}`, { replace: true }); return; }
+        setD(missionToDraft(mission, filters, categories, ptypes));
+        setLoadingMission(false);
+      })
+      .catch(() => navigate("/missions", { replace: true }));
+    return () => { cancelled = true; };
+  }, [missionId]);
+
+  const [liveCount, setLiveCount] = useState(0);
   const [isFetchingCount, setIsFetchingCount] = useState(false);
+  // The real, unfiltered total — fetched once, used as the "% of total pool"
+  // denominator. Previously that denominator was a hardcoded guess
+  // (1,284,000), so any real audience (a few hundred/thousand people) always
+  // rounded down to "0% of total pool" no matter how broad the filters were.
+  const [basePool, setBasePool] = useState(0);
+
+  useEffect(() => {
+    api.audienceMatchCount({}).then(res => setBasePool(res.count)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     setTimeout(() => setIsFetchingCount(true), 0);
@@ -413,13 +495,17 @@ export default function CreateMissionWizard() {
 
   // Auto-save to localStorage — survives reload/tab-close by design, so the
   // exit-warning copy ("your progress has been auto-saved") stays true.
+  // Skipped entirely while resuming an existing draft: that content is
+  // already safely persisted server-side, and writing it into the "new
+  // mission" scratch slot would make the next "Create Mission" click
+  // confusingly resume this same draft's content.
   useEffect(() => {
-    if (!published) {
+    if (!published && !missionId) {
       localStorage.setItem(DRAFT_KEY, serializeDraft(d));
       localStorage.setItem(DRAFT_KEY + "_step", step);
       localStorage.setItem(DRAFT_KEY + "_maxReached", maxReached);
     }
-  }, [d, step, maxReached, published]);
+  }, [d, step, maxReached, published, missionId]);
 
   // Native browser prompt for tab close/refresh
   useEffect(() => {
@@ -463,7 +549,8 @@ export default function CreateMissionWizard() {
   });
 
   const cost = computeCost(d, rewards, platformFeePct);
-  const insufficientFunds = step === 4 && cost.total > (builder?.balance ?? 0);
+  const last = step === lastStep;
+  const insufficientFunds = (step === 4 || last) && cost.total > (builder?.balance ?? 0);
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
   // Missing required fields keep Continue clickable (so clicking it can
@@ -473,32 +560,66 @@ export default function CreateMissionWizard() {
     && (step !== 2 || (d.tasks && d.tasks.length > 0))
     && (step !== 4 || rewardAmountOk);
   const canNext = fieldsValid && !insufficientFunds;
-  const last = step === WZ_STEPS.length - 1;
+
+  const buildMissionPayload = (status) => {
+    const audience = buildAudiencePayload(d);
+    const geo = (audience.Geography || []).filter(v => v.toLowerCase() !== "other");
+    return {
+      name: d.title || t("createMission.untitledMission", null, "Untitled mission"),
+      description: d.desc,
+      category: d.cat,
+      ptype: d.ptype,
+      status,
+      target: d.reward.participants,
+      reward: { type: d.reward.type, amount: d.reward.amount },
+      region: geo.length ? geo.join(", ") : "Worldwide",
+      audience,
+      tasks: d.tasks,
+      durationDays: d.durationDays,
+    };
+  };
+
+  // Autosave while resuming an existing draft: edits are already backed by a
+  // real row (unlike a brand-new mission's localStorage scratch draft), so
+  // there's no separate "Save as Draft" click to hang them on — debounce and
+  // PATCH the draft in place instead. Silently ignored on failure, same as
+  // any other autosave; the next successful edit/publish will catch it up.
+  useEffect(() => {
+    if (!missionId || loadingMission || published) return;
+    const timer = setTimeout(() => {
+      api.updateMission(missionId, buildMissionPayload("draft")).catch(() => {});
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [d, missionId, loadingMission, published]);
 
   const publish = async () => {
     setBusy(true); setError("");
     try {
-      const audience = buildAudiencePayload(d);
-      const geo = (audience.Geography || []).filter(v => v.toLowerCase() !== "other");
-      const { mission } = await api.createMission({
-        name: d.title || t("createMission.untitledMission", null, "Untitled mission"),
-        description: d.desc,
-        category: d.cat,
-        ptype: d.ptype,
-        status: "active",
-        target: d.reward.participants,
-        reward: { type: d.reward.type, amount: d.reward.amount },
-        region: geo.length ? geo.join(", ") : "Worldwide",
-        audience,
-        tasks: d.tasks,
-        durationDays: d.durationDays,
-      });
+      const payload = buildMissionPayload("active");
+      const { mission } = missionId ? await api.updateMission(missionId, payload) : await api.createMission(payload);
       setPublished(true);
       clearDraft();
       await refreshBuilder();
       navigate(`/missions/${mission.id}`);
     } catch (err) {
       setError(err.message || t("createMission.publishError", null, "Couldn't publish this mission"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Only reachable for a brand-new mission (hidden once resuming an existing
+  // draft — that draft is already safely persisted, so there's nothing new
+  // to save until the user actually publishes or edits it again).
+  const saveDraft = async () => {
+    setBusy(true); setError("");
+    try {
+      await api.createMission(buildMissionPayload("draft"));
+      setPublished(true); // stops the scratch-draft autosave/beforeunload — this is now safely persisted
+      clearDraft();
+      navigate("/missions?tab=draft");
+    } catch (err) {
+      setError(err.message || t("createMission.saveDraftError", null, "Couldn't save this draft"));
     } finally {
       setBusy(false);
     }
@@ -516,6 +637,7 @@ export default function CreateMissionWizard() {
     setStep(next);
     setMaxReached(m => Math.max(m, next));
   };
+  const editStep = (i) => { setShowErrors(false); setError(""); setStep(i); };
   // "Back" on step 0 reads as plain backward navigation, not a deliberate
   // "abandon this mission" action (that's what the sidebar's "Exit to
   // dashboard" is for) — so it skips the confirmation and goes straight to
@@ -529,17 +651,28 @@ export default function CreateMissionWizard() {
     <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} />,
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
-    <StepAudience d={d} set={set} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} />,
+    <StepAudience d={d} set={set} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
     <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} />,
-    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} />,
+    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
   ][step];
+
+  if (loadingMission) {
+    // Deliberately not the "wz" class here — it defines the rail/main two-
+    // column grid, so a single child inside it only centers within the
+    // narrow rail column instead of the full viewport.
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <p className="muted">{t("createMission.loadingDraft", null, "Loading draft…")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
         <div className="wz-brand">
           <BrandMark size={52} />
-          <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{t("createMission.newMission", null, "New mission")}</div></div>
+          <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{missionId ? t("createMission.editDraft", null, "Edit draft") : t("createMission.newMission", null, "New mission")}</div></div>
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
@@ -550,13 +683,13 @@ export default function CreateMissionWizard() {
           ))}
         </div>
         <div className="wz-rail-foot">
-          <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
+          {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
           <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> {t("createMission.exitToDashboard", null, "Exit to dashboard")}</button>
         </div>
       </aside>
 
       <div className="wz-main">
-        <div className={`wz-content ${step === 2 ? "wide" : step === 0 ? "wide-lg" : ""}`}>
+        <div className={`wz-content ${step === 2 || last ? "wide" : step === 0 ? "wide-lg" : ""}`}>
           <div className="wz-head">
             <span className="step-of">{t("createMission.stepOfTotal", { current: step + 1, total: WZ_STEPS.length }, `Step ${step + 1} of ${WZ_STEPS.length}`)}</span>
             <h2>{WZ_STEPS[step].t}</h2>
@@ -566,7 +699,20 @@ export default function CreateMissionWizard() {
           {last ? (
             <div className="split">
               <div>{StepBody}</div>
-              <div className="sticky-side"><CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} /></div>
+              <div className="sticky-side">
+                <CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} />
+                <div className="card" style={{ padding: 16, marginTop: 14, background: "color-mix(in srgb, var(--accent-weak) 55%, var(--panel))", borderColor: "color-mix(in srgb, var(--accent) 30%, var(--border))" }}>
+                  <div className="row gap-2" style={{ alignItems: "flex-start" }}>
+                    <Icon name="info" size={17} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }} />
+                    <div>
+                      <b style={{ fontSize: 14, color: "var(--accent)" }}>{t("createMission.whatHappensNextTitle", null, "What happens next?")}</b>
+                      <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--text)", lineHeight: 1.55 }}>
+                        {t("createMission.whatHappensNextBody", null, "Once you publish, your mission will be reviewed and goes live to the selected audience within a few minutes.")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : step === 0 ? (
             <div className="split-slim">
@@ -590,17 +736,37 @@ export default function CreateMissionWizard() {
               {insufficientFunds && ` · ${t("createMission.insufficientBalance", null, "exceeds wallet balance")}`}
             </span>
           )}
-          <Btn
-            variant="primary"
-            iconRight={last ? "bolt" : "arrowRight"}
-            disabled={insufficientFunds || busy}
-            onClick={goNext}
-            title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
-              : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
-            style={!fieldsValid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-          >
-            {busy ? t("createMission.publishing", null, "Publishing…") : last ? t("createMission.publishMission", null, "Publish Mission") : t("createMission.continue", null, "Continue")}
-          </Btn>
+          {last ? (
+            <div className="row gap-2">
+              {!missionId && (
+                <Btn variant="ghost" icon="bookmark" disabled={busy} onClick={saveDraft}>
+                  {t("createMission.saveAsDraft", null, "Save as Draft")}
+                </Btn>
+              )}
+              <Btn
+                variant="primary"
+                iconRight="bolt"
+                disabled={insufficientFunds || busy}
+                onClick={goNext}
+                title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
+                  : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
+              >
+                {busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission")}
+              </Btn>
+            </div>
+          ) : (
+            <Btn
+              variant="primary"
+              iconRight="arrowRight"
+              disabled={insufficientFunds || busy}
+              onClick={goNext}
+              title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
+                : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
+              style={!fieldsValid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+            >
+              {t("createMission.continue", null, "Continue")}
+            </Btn>
+          )}
         </div>
       </div>
 

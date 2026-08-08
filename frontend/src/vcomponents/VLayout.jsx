@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Link, Outlet, useNavigate, useLocation } from "react-router-dom";
+import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandLogoFull } from "../components/BrandMark";
 import { VAvatar } from "./vui";
@@ -31,8 +31,15 @@ function VNotifPanel({ onClose, items, setItems }) {
   const [cat, setCat] = useState("all");
 
   const rows = cat === "all" ? items : items.filter(n => n.cat === cat);
+  // "application" was never an actual notification cat in the data (every
+  // insert uses system/invite/mission/reward/alert) — this tab always showed
+  // zero rows for everyone. Repointed at "alert" (submission rejected/revision,
+  // the closest real equivalent of "your application status changed"), and
+  // "mission" is a new tab for mission-lifecycle notifications (new match,
+  // completed, slot opened, etc.) that previously had no dedicated filter.
   const cats = [
-    { k: "all", l: t("vLayout.catAll", null, "All") }, { k: "invite", l: t("vLayout.catInvitations", null, "Invitations") }, { k: "application", l: t("vLayout.catApplications", null, "Applications") },
+    { k: "all", l: t("vLayout.catAll", null, "All") }, { k: "invite", l: t("vLayout.catInvitations", null, "Invitations") },
+    { k: "mission", l: t("vLayout.catMissions", null, "Missions") }, { k: "alert", l: t("vLayout.catApplications", null, "Applications") },
     { k: "reward", l: t("vLayout.catRewards", null, "Rewards") }, { k: "system", l: t("vLayout.catSystem", null, "System") },
   ];
 
@@ -98,13 +105,20 @@ function VNotifPanel({ onClose, items, setItems }) {
   );
 }
 
-const NAV = [
-  { to: "/validator", label: "Discover", icon: "compass", end: true },
-  { to: "/validator/missions", label: "My missions", icon: "bookmark" },
-  { to: "/validator/messages", label: "Messages", icon: "inbox" },
-  { to: "/validator/earnings", label: "Earnings", icon: "wallet" },
-  { to: "/validator/profile", label: "Profile", icon: "userplus" },
-  { to: "/validator/settings", label: "Settings", icon: "settings" },
+// Grouped the same way the builder sidebar groups its nav (Workspace/Insights
+// section labels via .nav-group-label) instead of one flat unlabeled list.
+const NAV_GROUPS = [
+  { label: "Workspace", tKey: "vworkspace", items: [
+    { to: "/validator", label: "Discover", icon: "compass", end: true },
+    { to: "/validator/missions", label: "My missions", icon: "bookmark" },
+    { to: "/validator/messages", label: "Messages", icon: "inbox" },
+  ] },
+  { label: "Account", tKey: "account", items: [
+    { to: "/validator/earnings", label: "Earnings", icon: "wallet" },
+    { to: "/validator/profile", label: "Profile", icon: "userplus" },
+    { to: "/validator/settings", label: "Settings", icon: "settings" },
+    { to: "/validator/support", label: "Help & support", icon: "life", tKey: "support" },
+  ] },
 ];
 
 const TITLES = {
@@ -143,28 +157,26 @@ export default function VLayout() {
         <div className="brand">
           <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
         </div>
-        {NAV.map(it => {
-          let customActive;
-          if (it.to === "/validator") {
-            customActive = location.pathname === "/validator" || (location.pathname.startsWith("/validator/missions/") && location.state?.fromDiscover);
-          } else if (it.to === "/validator/missions") {
-            customActive = location.pathname === "/validator/missions" || (location.pathname.startsWith("/validator/missions/") && !location.state?.fromDiscover);
-          } else {
-            customActive = location.pathname.startsWith(it.to);
-          }
-          return (
-            <Link key={it.to} to={it.to} onClick={() => setMobOpen(false)}
-              className={`nav-item ${customActive ? "active" : ""}`}>
-              <Icon name={it.icon} />{t("nav." + it.label.toLowerCase().replace(/ /g, ""), null, it.label)}
-            </Link>
-          );
-        })}
-        <div style={{ marginTop: 8 }}>
-          <NavLink to="/validator/support" onClick={() => setMobOpen(false)} className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-            <Icon name="life" />{t("nav.support", null, "Help & support")}
-            {supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
-          </NavLink>
-        </div>
+        {NAV_GROUPS.flatMap(g => [
+          <div key={g.label} className="nav-group-label">{t("nav." + g.tKey, null, g.label)}</div>,
+          ...g.items.map(it => {
+            let customActive;
+            if (it.to === "/validator") {
+              customActive = location.pathname === "/validator" || (location.pathname.startsWith("/validator/missions/") && location.state?.fromDiscover);
+            } else if (it.to === "/validator/missions") {
+              customActive = location.pathname === "/validator/missions" || (location.pathname.startsWith("/validator/missions/") && !location.state?.fromDiscover);
+            } else {
+              customActive = location.pathname.startsWith(it.to);
+            }
+            return (
+              <Link key={it.to} to={it.to} onClick={() => setMobOpen(false)}
+                className={`nav-item ${customActive ? "active" : ""}`}>
+                <Icon name={it.icon} />{t("nav." + (it.tKey || it.label.toLowerCase().replace(/ /g, "")), null, it.label)}
+                {it.to === "/validator/support" && supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
+              </Link>
+            );
+          }),
+        ])}
         <div className="side-foot">
           <button onClick={() => navigate("/validator/profile")} style={{ all: "unset", cursor: "pointer", display: "block" }}>
             <div className="lvl-card">
