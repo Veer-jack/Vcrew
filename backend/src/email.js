@@ -19,6 +19,7 @@ const FROM_NOREPLY = "ValidationCrew <noreply@validationcrew.app>";
 const APP_URL = process.env.APP_URL || "https://www.validationcrew.com";
 let resend = null;
 if (process.env.RESEND_API_KEY) {
+console.log("[RESEND_INIT]", !!resend, "API_KEY:", !!process.env.RESEND_API_KEY);
   resend = new Resend(process.env.RESEND_API_KEY);
 } else {
   console.warn("[email] RESEND_API_KEY not set — emails will be logged but not sent.");
