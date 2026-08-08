@@ -1,38 +1,69 @@
-import nodemailer from 'nodemailer';
+// Sends via the Gmail REST API over HTTPS instead of raw SMTP sockets —
+// Railway's containers have no IPv6 egress and silently drop outbound SMTP
+// (ports 465/587) over IPv4 too, so nodemailer/SMTP can never work here no
+// matter how it's configured. A normal HTTPS POST isn't subject to that.
+const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const REFRESH_TOKEN = process.env.GOOGLE_REFRESH_TOKEN;
+const GMAIL_USER = process.env.GMAIL_USER;
 
-const transporter = nodemailer.createTransport({
-  // Explicit host/port 587 (STARTTLS) instead of the 'service: gmail' shorthand,
-  // which defaults to port 465 (implicit TLS) — some hosts filter one but not
-  // the other, so this is worth trying on its own merits.
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASSWORD,
-  },
-  // Railway containers have no IPv6 egress — without this, Node can resolve
-  // Gmail's SMTP host to an IPv6 address and fail with ENETUNREACH before
-  // ever attempting IPv4, so every send dies at the connection stage.
-  family: 4,
-  // Fail fast instead of hanging for minutes if the port is filtered —
-  // makes a real block visible in seconds instead of blocking the request
-  // (and the UI) for the full default timeout.
-  connectionTimeout: 10000,
-});
-console.log("[GMAIL_CONFIG] GMAIL_USER:", process.env.GMAIL_USER ? "SET" : "NOT SET");
-console.log("[GMAIL_CONFIG] GMAIL_PASSWORD:", process.env.GMAIL_PASSWORD ? "SET" : "NOT SET");
-async function send({ from, to, subject, html, text }) {
+console.log("[GMAIL_CONFIG] GMAIL_USER:", GMAIL_USER ? "SET" : "NOT SET");
+console.log("[GMAIL_CONFIG] GOOGLE_CLIENT_ID:", CLIENT_ID ? "SET" : "NOT SET");
+console.log("[GMAIL_CONFIG] GOOGLE_CLIENT_SECRET:", CLIENT_SECRET ? "SET" : "NOT SET");
+console.log("[GMAIL_CONFIG] GOOGLE_REFRESH_TOKEN:", REFRESH_TOKEN ? "SET" : "NOT SET");
+
+// Access tokens are short-lived (~1hr); at this send volume it's simpler and
+// safe to just fetch a fresh one per send rather than cache/refresh-on-expiry.
+async function getAccessToken() {
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token: REFRESH_TOKEN,
+      grant_type: "refresh_token",
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error_description || data.error || "Failed to refresh Gmail access token");
+  return data.access_token;
+}
+
+function base64url(input) {
+  return Buffer.from(input).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// RFC 2047-encode the subject so non-ASCII characters (emoji, accents) don't
+// get mangled — cheap to always do, and only matters once someone puts one
+// in a subject line, by which point a plain string would already be broken.
+function buildRawMessage({ from, to, subject, html }) {
+  const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`;
+  const message = [
+    `From: ${from || GMAIL_USER}`,
+    `To: ${to}`,
+    `Subject: ${encodedSubject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/html; charset=UTF-8",
+    "",
+    html,
+  ].join("\r\n");
+  return base64url(message);
+}
+
+async function send({ from, to, subject, html }) {
   try {
-    const result = await transporter.sendMail({
-      from: from || process.env.GMAIL_USER,
-      to,
-      subject,
-      html,
-      text,
+    const accessToken = await getAccessToken();
+    const raw = buildRawMessage({ from, to, subject, html });
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ raw }),
     });
+    const data = await res.json();
+    if (!res.ok) { console.error(`[email ERROR] ${subject}:`, data.error?.message || res.statusText); return { ok: false, error: data.error?.message }; }
     console.log(`[email SENT] ${subject} → ${to}`);
-    return { ok: true, id: result.messageId };
+    return { ok: true, id: data.id };
   } catch (err) {
     console.error(`[email ERROR] ${subject}:`, err.message);
     return { ok: false, error: err.message };
