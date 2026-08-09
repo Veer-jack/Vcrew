@@ -256,7 +256,7 @@ router.post("/forgot-password", async (req, res) => {
   await db.prepare(`INSERT INTO password_reset_tokens (token, role, user_id, expires_at) VALUES (?, 'builder', ?, ?)`)
     .run(token, builder.id, expiresAt);
 
-  await sendPasswordReset({ name: builder.name, email: builder.email, token, role: "builder" });
+  sendPasswordReset({ name: builder.name, email: builder.email, token, role: "builder" }).catch(() => {});
   res.json({ ok: true });
 });
 
