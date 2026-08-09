@@ -1,32 +1,30 @@
-// Sends via Resend (HTTPS API) instead of SMTP — Railway blocks outbound SMTP
-// entirely (proven: nodemailer/Gmail SMTP and the raw Gmail SMTP host both
-// fail with ENETUNREACH/connection timeout, on every port tried). A normal
-// HTTPS POST isn't subject to that block. validationcrew.com is a verified
-// sending domain in Resend, so these addresses are the correct "From".
-import { Resend } from "resend";
+// nodemailer over Resend's SMTP relay, on its alternate port (2587,
+// STARTTLS) instead of the standard 587 — Railway blocks outbound SMTP on
+// the standard mail-submission ports (465/587), confirmed against both
+// Gmail's SMTP host and this one, but lets 2587 through. Keeps the app on
+// nodemailer/SMTP (as originally set up) while still landing on Resend's
+// infrastructure for deliverability + the verified validationcrew.com domain.
+import nodemailer from "nodemailer";
 
 const FROM_BUILDER = "ValidationCrew <builders@validationcrew.com>";
 const FROM_VALIDATOR = "ValidationCrew <crew@validationcrew.com>";
 const FROM_NOREPLY = "ValidationCrew <noreply@validationcrew.com>";
 
-let resend = null;
-if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
-} else {
-  console.warn("[email] RESEND_API_KEY not set — emails will be logged but not sent.");
-}
+const transporter = nodemailer.createTransport({
+  host: "smtp.resend.com",
+  port: 2587,
+  secure: false,
+  auth: { user: "resend", pass: process.env.RESEND_API_KEY },
+  family: 4,
+  connectionTimeout: 10000,
+});
 console.log("[RESEND_CONFIG] RESEND_API_KEY:", process.env.RESEND_API_KEY ? "SET" : "NOT SET");
 
 async function send({ from, to, subject, html }) {
-  if (!resend) {
-    console.log(`[email SKIPPED] ${subject} → ${to}`);
-    return { ok: true, skipped: true };
-  }
   try {
-    const { data, error } = await resend.emails.send({ from: from || FROM_NOREPLY, to, subject, html });
-    if (error) { console.error(`[email ERROR] ${subject}:`, error.message || error); return { ok: false, error: error.message }; }
-    console.log(`[email SENT] ${subject} → ${to} id=${data.id}`);
-    return { ok: true, id: data.id };
+    const result = await transporter.sendMail({ from: from || FROM_NOREPLY, to, subject, html });
+    console.log(`[email SENT] ${subject} → ${to} id=${result.messageId}`);
+    return { ok: true, id: result.messageId };
   } catch (err) {
     console.error(`[email ERROR] ${subject}:`, err.message);
     return { ok: false, error: err.message };
