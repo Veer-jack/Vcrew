@@ -1,7 +1,9 @@
-// TEST: nodemailer over Resend's SMTP relay on its alternate port (2587,
-// STARTTLS) instead of the standard 587 — checking whether Railway blocks
-// SMTP outright or just the standard mail-submission ports. Resend's HTTP
-// API (what main actually runs) already works regardless of this result.
+// nodemailer over Resend's SMTP relay, on its alternate port (2587,
+// STARTTLS) instead of the standard 587 — Railway blocks outbound SMTP on
+// the standard mail-submission ports (465/587), confirmed against both
+// Gmail's SMTP host and this one, but lets 2587 through. Keeps the app on
+// nodemailer/SMTP (as originally set up) while still landing on Resend's
+// infrastructure for deliverability + the verified validationcrew.com domain.
 import nodemailer from "nodemailer";
 
 const FROM_BUILDER = "ValidationCrew <builders@validationcrew.com>";
