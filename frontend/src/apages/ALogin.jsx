@@ -5,6 +5,7 @@ import { BrandMark } from "../components/BrandMark";
 import { Btn, PasswordInput } from "../components/ui";
 import { useAAuth } from "../acontext/AAuthContext";
 import { useTranslation } from "../i18n/index.jsx";
+import { isEmailValid, isPasswordValid } from "../utils/validators.js";
 
 export default function ALogin() {
   const { admin, login, totpSetupStart, totpSetupConfirm, totpVerify } = useAAuth();
@@ -22,6 +23,7 @@ export default function ALogin() {
   const [error, setError] = useState("");
   const [backupCodes, setBackupCodes] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [touched, setTouched] = useState({});
 
   const goToApp = () => navigate(location.state?.from || "/admin", { replace: true });
 
@@ -29,9 +31,18 @@ export default function ALogin() {
   useEffect(() => { if (admin) goToApp(); }, [admin]);
   if (admin) return null;
 
+  const errs = {
+    email: touched.email && !isEmailValid(email) ? t("errors.invalidEmail", null, "Enter a valid email address") : "",
+    password: touched.password && !isPasswordValid(password) ? t("errors.passwordTooShort", null, "Password must be at least 8 characters") : "",
+  };
+  const credentialsValid = isEmailValid(email) && isPasswordValid(password);
+
   const submitCredentials = async (e) => {
     e.preventDefault();
-    setError(""); setBusy(true);
+    setTouched({ email: true, password: true });
+    setError("");
+    if (!credentialsValid) return;
+    setBusy(true);
     try {
       const res = await login(email, password);
       if (res.needsTotpSetup) {
@@ -93,11 +104,13 @@ export default function ALogin() {
             <form onSubmit={submitCredentials} className="col gap-4">
               <div className="fld">
                 <label>{t("auth.email", null, "Email")}</label>
-                <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus />
+                <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={() => setTouched(t => ({ ...t, email: true }))} required autoFocus />
+                {errs.email && <p className="ferr">{errs.email}</p>}
               </div>
               <div className="fld">
                 <label>{t("auth.password", null, "Password")}</label>
-                <PasswordInput className="fin" value={password} onChange={e => setPassword(e.target.value)} required />
+                <PasswordInput className="fin" value={password} onChange={e => setPassword(e.target.value)} onBlur={() => setTouched(t => ({ ...t, password: true }))} required />
+                {errs.password && <p className="ferr">{errs.password}</p>}
               </div>
               <Btn type="submit" variant="primary" size="lg" block disabled={busy}>{busy ? t("auth.signingIn", null, "Signing in…") : t("actions.continue", null, "Continue")}</Btn>
             </form>

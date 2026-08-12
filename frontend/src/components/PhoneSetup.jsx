@@ -126,7 +126,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
             <form onSubmit={verifyCode} className="row gap-2" style={{ alignItems: "flex-end" }}>
               <div className="fld" style={{ flex: 1 }}>
                 <label>{t("auth.enter6DigitCode", null, "Enter the 6-digit code")}</label>
-                <input className="fin" inputMode="numeric" maxLength={6} placeholder="123456" value={code} onChange={e => setCode(e.target.value)} required />
+                <input className="fin" inputMode="numeric" maxLength={6} placeholder="123456" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} required />
               </div>
               <button className="btn btn-primary" disabled={busy} type="submit">{busy ? t("actions.verifying", null, "Verifying…") : t("actions.verify", null, "Verify")}</button>
               <button className="btn btn-quiet" type="button" onClick={reset}>{t("actions.cancel", null, "Cancel")}</button>

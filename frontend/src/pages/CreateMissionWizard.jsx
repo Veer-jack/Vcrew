@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import React from 'react';
@@ -146,12 +147,12 @@ function StepParticipation({ d, set, ptypes }) {
           <input
             className="fin"
             type="number"
-            min="2"
+            min="3"
             max="30"
             value={d.durationDays}
-            onChange={e => set({ durationDays: Math.min(30, Math.max(2, +e.target.value || 7)) })}
+            onChange={e => set({ durationDays: Math.min(30, Math.max(3, +e.target.value || 7)) })}
           />
-          <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end.")}</p>
+          <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end. Choose between 3 and 30 days.")}</p>
         </div>
       )}
     </div>
@@ -431,6 +432,7 @@ export default function CreateMissionWizard() {
   const [step, setStep] = useState(() => missionId ? lastStep : parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [maxReached, setMaxReached] = useState(() => missionId ? lastStep : Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
   const [busy, setBusy] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -600,6 +602,7 @@ export default function CreateMissionWizard() {
       setPublished(true);
       clearDraft();
       await refreshBuilder();
+      toast.success(t("createMission.publishSuccess", null, "Mission published successfully"));
       navigate(`/missions/${mission.id}`);
     } catch (err) {
       setError(err.message || t("createMission.publishError", null, "Couldn't publish this mission"));
@@ -612,16 +615,16 @@ export default function CreateMissionWizard() {
   // draft — that draft is already safely persisted, so there's nothing new
   // to save until the user actually publishes or edits it again).
   const saveDraft = async () => {
-    setBusy(true); setError("");
+    setSavingDraft(true); setError("");
     try {
       await api.createMission(buildMissionPayload("draft"));
       setPublished(true); // stops the scratch-draft autosave/beforeunload — this is now safely persisted
       clearDraft();
-      navigate("/missions?tab=draft");
+      navigate("/missions?tab=draft", { state: { toast: t("missions.draftSaved", null, "Mission saved to draft") } });
     } catch (err) {
       setError(err.message || t("createMission.saveDraftError", null, "Couldn't save this draft"));
     } finally {
-      setBusy(false);
+      setSavingDraft(false);
     }
   };
 
@@ -739,14 +742,14 @@ export default function CreateMissionWizard() {
           {last ? (
             <div className="row gap-2">
               {!missionId && (
-                <Btn variant="ghost" icon="bookmark" disabled={busy} onClick={saveDraft}>
-                  {t("createMission.saveAsDraft", null, "Save as Draft")}
+                <Btn variant="ghost" icon="bookmark" disabled={busy || savingDraft} onClick={saveDraft}>
+                  {savingDraft ? t("createMission.savingDraft", null, "Saving…") : t("createMission.saveAsDraft", null, "Save as Draft")}
                 </Btn>
               )}
               <Btn
                 variant="primary"
                 iconRight="bolt"
-                disabled={insufficientFunds || busy}
+                disabled={insufficientFunds || busy || savingDraft}
                 onClick={goNext}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                   : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}

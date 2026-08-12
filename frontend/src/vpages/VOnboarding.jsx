@@ -106,7 +106,7 @@ function TypeSelector({ onSelect }) {
               <p style={{ margin: "0 0 6px", fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{t(`vOnboarding.types.${ty.key}.desc`, null, ty.desc)}</p>
               <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)" }}>{t("onboarding.missions", null, "Missions:")} {t(`vOnboarding.types.${ty.key}.missions`, null, ty.missions)}</p>
             </div>
-            <Icon name="chevRight" size={18} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+            <Icon name="chevronRight" size={18} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
           </button>
         ))}
       </div>

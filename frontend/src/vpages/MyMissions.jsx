@@ -83,6 +83,15 @@ export default function MyMissions() {
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
 
+  // Re-sync when the URL's tab param changes while already mounted here
+  // (e.g. clicking a notification that deep-links to a tab on this same page) —
+  // the useState above only seeds the initial value on mount.
+  useEffect(() => {
+    if (urlTab && TABS.some(tabObj => tabObj.k === urlTab) && urlTab !== tab) {
+      setTab(urlTab);
+    }
+  }, [urlTab]);
+
   useEffect(() => {
     let active = true;
     setLoading(true);

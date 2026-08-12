@@ -12,6 +12,23 @@ import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 
+// "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
+// datetime-local inputs use for their own value/min, so passing this as
+// `min` blocks past dates AND past times on today's date in one shot
+// (native browser behavior for datetime-local's min boundary).
+function nowLocalDatetimeString() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Native date/datetime-local inputs only open the picker when you click the
+// small calendar glyph — clicking the text itself just places a cursor for
+// manual typing. This makes the whole field open the picker on click too.
+function openPickerOnClick(e) {
+  e.currentTarget.showPicker?.();
+}
+
 function timeAgo(t, dateString) {
   if (!dateString) return t("missionDetail.recently", null, "recently");
   const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
@@ -247,7 +264,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
         })}
       </div>
       <div className="faint" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 24, padding: "12px 16px", background: "var(--accent-weak)", borderRadius: "var(--radius)", color: "var(--accent)" }}>
-        <div style={{ background: "var(--accent)", color: "#fff", borderRadius: "50%", padding: 4, display: 'flex' }}><Icon name="zap" size={12} /></div>
+        <div style={{ background: "var(--accent)", color: "#fff", borderRadius: "50%", padding: 4, display: 'flex' }}><Icon name="bolt" size={12} /></div>
         <b>{t("missionDetail.tip", null, "Tip:")}</b> {t("missionDetail.dragAndDropTip", null, "Drag and drop participants between stages to update their progress.")}
         <a href="#" style={{ marginLeft: 'auto', fontWeight: 600, color: "var(--accent)" }}>{t("missionDetail.learnMorePipeline", null, "Learn more about participant pipeline")} <Icon name="externalLink" size={12} style={{ verticalAlign: -2 }} /></a>
       </div>
@@ -370,7 +387,7 @@ function EditMissionModal({ mission, onClose, onSaved }) {
         </div>
         <div className={`fld ${deadlineInvalid ? "fld-invalid" : ""}`}>
           <label>{t("missionDetail.deadlineLabel", null, "Deadline")}</label>
-          <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} />
+          <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={openPickerOnClick} />
           {deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")}</p>}
         </div>
         <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
@@ -696,6 +713,7 @@ function MissionInterviewsTab({ missionId }) {
     try {
       const input = proposeInputs[validatorId] || {};
       if (!input.scheduledAt) throw new Error(t("missionDetail.pickDateTimeFirst", null, "Pick a date and time first"));
+      if (new Date(input.scheduledAt) < new Date()) throw new Error(t("missionDetail.candidateTimeInPast", null, "Candidate times can't be in the past"));
       await api.proposeInterviewTime(missionId, validatorId, { scheduledAt: input.scheduledAt, meetingLink: input.meetingLink || "" });
       setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "proposed", scheduled_at: input.scheduledAt, meeting_link: input.meetingLink || null } : sc));
     } catch (err) {
@@ -734,7 +752,7 @@ function MissionInterviewsTab({ missionId }) {
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {(!s.status || s.status === "declined") && (
               <>
-                <input className="fin" type="datetime-local" style={{ width: 200 }} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
+                <input className="fin" type="datetime-local" style={{ width: 200 }} min={nowLocalDatetimeString()} onClick={openPickerOnClick} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
                 <input className="fin" style={{ width: 200 }} placeholder={t("missionDetail.meetingLink", null, "Meeting link")} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], meetingLink: e.target.value } }))} />
                 <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => propose(s.validatorId)}>
                   {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : s.status === "declined" ? t("actions.proposeNewTime", null, "Propose new time") : t("actions.proposeTime", null, "Propose time")}
@@ -764,9 +782,23 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
   const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [meetingLink, setMeetingLink] = useState("");
-  const [slotInputs, setSlotInputs] = useState(["", "", "", ""]);
+
+  // Auto-saves the not-yet-submitted poll form so navigating away (or an
+  // accidental reload) doesn't lose what was already typed in — same
+  // scratch-draft pattern used for the mission wizard, just scoped to this
+  // mission's poll instead of a whole mission draft.
+  const POLL_DRAFT_KEY = `vcrew_poll_draft_${missionId}`;
+  const [meetingLink, setMeetingLink] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(POLL_DRAFT_KEY))?.meetingLink || ""; } catch { return ""; }
+  });
+  const [slotInputs, setSlotInputs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(POLL_DRAFT_KEY))?.slotInputs || ["", "", "", ""]; } catch { return ["", "", "", ""]; }
+  });
   const [expandedSlot, setExpandedSlot] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem(POLL_DRAFT_KEY, JSON.stringify({ meetingLink, slotInputs }));
+  }, [meetingLink, slotInputs, POLL_DRAFT_KEY]);
 
   const removeParticipant = async (validatorId) => {
     if (!window.confirm(t("missionDetail.confirmRemove", null, "Are you sure you want to remove this participant from the mission?"))) return;
@@ -800,7 +832,11 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
     try {
       const slots = slotInputs.filter(Boolean).map(s => new Date(s).toISOString());
       if (slots.length < 2) throw new Error(t("missionDetail.enterAtLeast2Times", null, "Enter at least 2 candidate times"));
+      // The datetime-local input's `min` only constrains its native picker widget —
+      // typing a value directly bypasses it, so this is the actual enforcement.
+      if (slots.some(s => new Date(s) < new Date())) throw new Error(t("missionDetail.candidateTimeInPast", null, "Candidate times can't be in the past"));
       await api.createMissionPoll(missionId, { meetingLink, slots });
+      localStorage.removeItem(POLL_DRAFT_KEY);
       load();
     } catch (err) {
       setError(err.message || t("missionDetail.couldntCreatePoll", null, "Couldn't create the poll"));
@@ -838,6 +874,12 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
     setBusy(true);
     try {
       await api.deleteMissionPoll(missionId);
+      // The form that reappears is for a genuinely new poll — clear the old
+      // (now-deleted) poll's dates instead of leaving them pre-filled, since
+      // they're likely already in the past by the time a restart happens.
+      setMeetingLink("");
+      setSlotInputs(["", "", "", ""]);
+      localStorage.removeItem(POLL_DRAFT_KEY);
       load();
     } catch (err) {
       setError(err.message || t("missionDetail.couldntDeletePoll", null, "Couldn't delete the poll"));
@@ -863,7 +905,7 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
         <div className="eyebrow" style={{ marginBottom: 12 }}>{t("missionDetail.createPoll", null, "Create a focus group poll")}</div>
         <input className="fin" style={{ marginBottom: 10 }} placeholder={t("missionDetail.meetingLinkPlaceholder", null, "Meeting link (shared for whichever time is picked)")} value={meetingLink} onChange={e => setMeetingLink(e.target.value)} />
         {slotInputs.map((val, i) => (
-          <input key={i} className="fin" style={{ marginBottom: 10 }} type="datetime-local" value={val} onChange={e => setSlotInputs(inputs => inputs.map((v, idx) => idx === i ? e.target.value : v))} />
+          <input key={i} className="fin" style={{ marginBottom: 10 }} type="datetime-local" min={nowLocalDatetimeString()} value={val} onClick={openPickerOnClick} onChange={e => setSlotInputs(inputs => inputs.map((v, idx) => idx === i ? e.target.value : v))} />
         ))}
         {error && <div className="err-banner" style={{ marginBottom: 10 }}>{error}</div>}
         <button className="btn btn-primary" disabled={busy} onClick={createPoll}>{busy ? t("actions.creating", null, "Creating…") : t("actions.createPoll", null, "Create poll")}</button>
@@ -871,13 +913,29 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
     );
   }
 
+  const allSlotsPast = poll.slots.length > 0 && poll.slots.every(s => new Date(s.scheduledAt) < new Date());
+  const lockedSlot = poll.slots.find(s => s.id === poll.lockedSlotId);
+  const lockedSlotPast = poll.status === "locked" && lockedSlot && new Date(lockedSlot.scheduledAt) < new Date();
+
   return (
     <div className="col gap-3 sec">
       {error && <div className="err-banner">{error}</div>}
-      {poll.status === "open" && poll.slots.some(s => s.tally > 0) && (
+      {poll.status === "open" && poll.slots.some(s => s.tally > 0) && !allSlotsPast && (
         <div style={{ padding: "12px 16px", background: "var(--accent-weak)", color: "var(--accent)", borderRadius: "var(--radius-sm)", fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
           <Icon name="info" size={16} />
           {t("missionDetail.pollTip", null, "The time slot with the most votes is marked as 'Recommended'.")}
+        </div>
+      )}
+      {poll.status === "open" && allSlotsPast && (
+        <div style={{ padding: "12px 16px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
+          <Icon name="alertTriangle" size={16} />
+          {t("missionDetail.allSlotsPast", null, "All candidate times have passed. Restart the poll to propose new times.")}
+        </div>
+      )}
+      {lockedSlotPast && (
+        <div style={{ padding: "12px 16px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, display: "flex", gap: 8, alignItems: "center" }}>
+          <Icon name="alertTriangle" size={16} />
+          {t("missionDetail.lockedSlotPast", null, "This session's scheduled time has passed. Mark it as completed if it happened, or restart the poll to schedule a new time.")}
         </div>
       )}
       <div className="card" style={{ padding: 16 }}>
@@ -888,24 +946,26 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
           </div>
           {poll.status !== "completed" && (
             <button className="btn btn-ghost" style={{ color: "var(--danger)", padding: "4px 8px" }} disabled={busy} onClick={deletePoll}>
-              <Icon name="trash-2" size={16} style={{ marginRight: 6 }} /> {t("actions.restartPoll", null, "Restart Poll")}
+              <Icon name="trash" size={16} style={{ marginRight: 6 }} /> {t("actions.restartPoll", null, "Restart Poll")}
             </button>
           )}
         </div>
         {poll.slots.map(s => {
           const maxTally = Math.max(...poll.slots.map(slot => slot.tally));
           const isRecommended = s.tally > 0 && s.tally === maxTally;
-          
+          const isPast = new Date(s.scheduledAt) < new Date();
+
           return (
           <div key={s.id} style={{ borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", cursor: "pointer" }} onClick={() => setExpandedSlot(expandedSlot === s.id ? null : s.id)}>
-              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon name={expandedSlot === s.id ? "chevron-down" : "chevron-right"} size={16} />
+              <span style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.55 : 1 }}>
+                <Icon name={expandedSlot === s.id ? "chevronDown" : "chevronRight"} size={16} />
                 {new Date(s.scheduledAt).toLocaleString()} — {s.tally} {t("missionDetail.available", null, "available")}
                 {isRecommended && poll.status === "open" && <span className="tag" style={{ background: "var(--accent)", color: "#fff", marginLeft: 8 }}><Icon name="star" size={12} style={{marginRight: 4}}/>{t("status.recommended", null, "Recommended")}</span>}
+                {isPast && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-faint)", marginLeft: 8 }}>{t("status.expired", null, "Expired")}</span>}
               </span>
               <div>
-                {poll.status === "open" && (
+                {poll.status === "open" && !isPast && (
                   <button className="btn btn-quiet" style={{ marginRight: 8 }} disabled={busy} onClick={(e) => { e.stopPropagation(); lock(s.id); }}>{t("actions.lockTime", null, "Lock this time")}</button>
                 )}
                 {s.id === poll.lockedSlotId && <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}>{t("status.locked", null, "Locked")}</span>}
@@ -1029,6 +1089,7 @@ export default function MissionDetail() {
   const mountedRef = useRef(false);
   const [participants, setParticipants] = useState([]);
   const [responses, setResponses] = useState([]);
+  const [checkinsData, setCheckinsData] = useState([]);
   const [error, setError] = useState("");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [waitlist, setWaitlist] = useState([]);
@@ -1076,6 +1137,7 @@ export default function MissionDetail() {
         setData(d);
         setParticipants(d?.participants?.map(p => ({ ...p })) || []);
         setResponses(d?.responses || []);
+        setCheckinsData(d?.checkins || []);
       })
       .catch(err => setError(err.message));
   }, [id, location.state?.refresh]);
@@ -1090,6 +1152,7 @@ export default function MissionDetail() {
         setData(d);
         setParticipants(d?.participants?.map(p => ({ ...p })) || []);
         setResponses(d?.responses || []);
+        setCheckinsData(d?.checkins || []);
       })
       .catch(err => setError(err.message))
       .finally(() => setRefetching(false));
@@ -1114,7 +1177,7 @@ export default function MissionDetail() {
   }
   if (mission.ptype === "trial") {
     const idx3 = tabs.findIndex(t => t.k === "responses") + 1;
-    tabs = [...tabs.slice(0, idx3), { k: "checkins", l: t("missionDetail.tabs.checkins", null, "Check-ins"), ic: "calendar", c: participants.length }, ...tabs.slice(idx3)];
+    tabs = [...tabs.slice(0, idx3), { k: "checkins", l: t("missionDetail.tabs.checkins", null, "Check-ins"), ic: "calendar", c: checkinsData.length }, ...tabs.slice(idx3)];
   }
 
   return (
@@ -1160,7 +1223,7 @@ export default function MissionDetail() {
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
       {tab === "focusgroup" && <MissionFocusGroupTab mission={mission} missionId={id} onParticipantRemoved={handleParticipantRemoved} showToast={showToast} />}
-      {tab === "checkins" && <MissionCheckinsTab responses={responses} />}
+      {tab === "checkins" && <MissionCheckinsTab checkins={checkinsData} />}
       {tab === "files" && <MissionFilesTab missionId={data.mission.id} files={data.files} />}
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
 
@@ -1180,13 +1243,13 @@ export default function MissionDetail() {
   );
 }
 
-function MissionCheckinsTab({ responses }) {
+function MissionCheckinsTab({ checkins }) {
   const { t } = useTranslation();
-  if (!responses || responses.length === 0) return <div className="card rise" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("missionDetail.noCheckinsYet", null, "No validators have submitted check-ins yet.")}</div>;
+  if (!checkins || checkins.length === 0) return <div className="card rise" style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>{t("missionDetail.noCheckinsYet", null, "No validators have submitted check-ins yet.")}</div>;
 
   return (
     <div className="col gap-3 sec">
-      {responses.map(r => (
+      {checkins.map(r => (
         <div key={r.id} className="card rise" style={{ padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
             <div>

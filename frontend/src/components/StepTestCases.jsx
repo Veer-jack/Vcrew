@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
@@ -81,18 +81,18 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
             disabled={idx === 0}
             onClick={() => onMove(idx, -1)}
             style={{ width: 22, height: 20, borderRadius: 5, background: "var(--panel-inset)", border: "1px solid var(--border)", cursor: "pointer", display: "grid", placeItems: "center", opacity: idx === 0 ? 0.28 : 1 }}
-          ><Icon name="chevUp" size={10} /></button>
+          ><Icon name="chevronUp" size={10} /></button>
           <button
             disabled={idx === total - 1}
             onClick={() => onMove(idx, 1)}
             style={{ width: 22, height: 20, borderRadius: 5, background: "var(--panel-inset)", border: "1px solid var(--border)", cursor: "pointer", display: "grid", placeItems: "center", opacity: idx === total - 1 ? 0.28 : 1 }}
-          ><Icon name="chevDown" size={10} /></button>
+          ><Icon name="chevronDown" size={10} /></button>
         </div>
         <button
             onClick={e => { e.stopPropagation(); onDelete(idx); }}
             style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
           ><Icon name="x" size={12} style={{ color: "var(--danger)" }} /></button>
-          <Icon name={expanded ? "chevDown" : "chevRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+          <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
       </div>
 
       {/* Body */}
@@ -219,6 +219,11 @@ export default function StepTestCases({ d, set }) {
   const [urlFetched, setUrlFetched] = useState(false);
   const [urlContext, setUrlContext] = useState(null);
   const [expanded, setExpanded] = useState(null);
+  // The generated test cases render in the right-hand column, which on
+  // narrower viewports sits below the fold relative to the form — scroll it
+  // into view the moment generation starts so the loading state (and then
+  // the results) are immediately visible instead of requiring a manual scroll.
+  const resultsRef = useRef(null);
 
   const tasks = d.tasks || [];
   const patch = (p) => set({ testCaseForm: { ...form, ...p } });
@@ -249,6 +254,7 @@ export default function StepTestCases({ d, set }) {
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
+    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     try {
       const res = await api.post("/missions/generate-tasks", {
         description: form.desc,
@@ -344,13 +350,13 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <Btn variant="primary" block disabled={!canGen || genState === "loading"} onClick={generate} style={{ justifyContent: "center", gap: 10, fontSize: 15 }}>
-            <Icon name="sparkles" size={18} />{genState === "loading" ? t("testCases.generating", null, "Generating…") : hasTasks ? t("testCases.regenerateWithAI", null, "Regenerate test cases with AI ✦") : t("testCases.generateWithAI", null, "Generate test cases with AI ✦")}
+            <Icon name="sparkle" size={18} />{genState === "loading" ? t("testCases.generating", null, "Generating…") : hasTasks ? t("testCases.regenerateWithAI", null, "Regenerate test cases with AI ✦") : t("testCases.generateWithAI", null, "Generate test cases with AI ✦")}
           </Btn>
         </div>
 
       </div>
 
-      <div>
+      <div ref={resultsRef}>
         {genState === "loading" ? (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -395,7 +401,7 @@ export default function StepTestCases({ d, set }) {
         ) : (
           <div className="rise-2" style={{ border: "2px dashed var(--border)", borderRadius: "var(--radius)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "60px 24px", minHeight: 360 }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--accent-weak)", display: "grid", placeItems: "center", marginBottom: 14 }}>
-              <Icon name="sparkles" size={26} style={{ color: "var(--accent)" }} />
+              <Icon name="sparkle" size={26} style={{ color: "var(--accent)" }} />
             </div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 7 }}>{t("testCases.emptyStateTitle", null, "Test cases will appear here")}</div>
             <p style={{ margin: 0, color: "var(--text-faint)", fontSize: 13.5, maxWidth: "36ch" }}>{t("testCases.emptyStateBody", { btn: t("testCases.generateWithAI", null, "Generate test cases with AI ✦") }, `Fill in the form and click "Generate test cases with AI ✦" to create structured tasks for your validators.`)}</p>

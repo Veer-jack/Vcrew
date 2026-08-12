@@ -162,7 +162,7 @@ function SlideOver({ sub, onClose, onAction }) {
                       {b.details.map((dt, didx) => (
                         <div key={didx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
                           <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
-                            <Icon name="helpCircle" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
+                            <Icon name="info" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{dt.label}</div>
                           </div>
                           <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word" }}>
@@ -213,7 +213,7 @@ function SlideOver({ sub, onClose, onAction }) {
         {view === "review" && sub.status === "pending" && (
           <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
             <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
-              <Icon name="messageSquare" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
+              <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
             </button>
             <div style={{ flex: 1 }} />
             <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>

@@ -16,6 +16,19 @@ router.use(validatorAuthMiddleware);
 const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
 fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
+// A participant only ever moves accepted -> started once they've actually
+// done something (first check-in, first interview acceptance, first poll
+// response, first shipment received) — not just on accepting the mission
+// itself. The WHERE clause makes this safe to call from every mission-type
+// action route, repeatedly: it only ever affects a row still sitting at
+// 'accepted', so it can never downgrade someone already further along
+// (started/submitted/rewarded/etc.), and calling it again on repeat actions
+// (e.g. day 2's check-in) is a harmless no-op.
+async function markParticipantStarted(missionId, validatorId) {
+  await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
+    .run(missionId, validatorId);
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => {
@@ -302,9 +315,7 @@ router.patch("/:id/workspace/draft", async (req, res) => {
   await db.prepare(`UPDATE v_my_missions SET progress = ?, updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(progressPercent, req.params.id, req.validator.id);
 
-  // Update participant stage to started if it's currently accepted
-  await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
-    .run(req.params.id, req.validator.id);
+  await markParticipantStarted(req.params.id, req.validator.id);
 
   res.json({ ok: true, progress: progressPercent });
 });
@@ -588,6 +599,7 @@ router.post("/:id/shipment/received", async (req, res) => {
   const updateRes = await db.prepare(`UPDATE sample_shipments SET status = 'received', received_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'shipped'`)
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This sample hasn't been marked as shipped yet" });
+  await markParticipantStarted(req.params.id, req.validator.id);
 
   await db.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'system', 'shipment_received', 'package', 'success', ?, ?, 'Just now', 1, ?)`)
     .run(m.builder_id, "Sample Received", `${req.validator.name} has received the sample for ${m.name}.`, req.params.id);
@@ -620,6 +632,7 @@ router.post("/:id/schedule/accept", async (req, res) => {
   const updateRes = await db.prepare(`UPDATE interview_schedules SET status = 'accepted', responded_at = NOW() WHERE mission_id = ? AND validator_id = ? AND status = 'proposed'`)
     .run(req.params.id, req.validator.id);
   if (updateRes.changes === 0) return res.status(400).json({ error: "No pending time proposal to accept" });
+  await markParticipantStarted(req.params.id, req.validator.id);
 
   const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
   await db.prepare(`
@@ -711,6 +724,7 @@ router.post("/:id/poll/respond", async (req, res) => {
       await tx.prepare(`INSERT INTO focus_group_responses (poll_id, validator_id, slot_id) VALUES (?, ?, ?)`).run(poll.id, req.validator.id, slotId);
     }
   });
+  await markParticipantStarted(req.params.id, req.validator.id);
 
   if (!isUpdate) {
     await db.prepare(`
@@ -767,6 +781,7 @@ router.post("/:id/checkin", async (req, res) => {
       await db.exec(`CREATE TABLE IF NOT EXISTS checkins (id SERIAL PRIMARY KEY, mission_id TEXT, validator_id INTEGER, day_number INTEGER, answers_json TEXT DEFAULT '{}', screenshot_path TEXT, submitted_at TIMESTAMPTZ DEFAULT NOW())`);
       await db.prepare(`INSERT INTO checkins (mission_id, validator_id, day_number, answers_json, screenshot_path, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())`).run(req.params.id, req.validator.id, day || 1, JSON.stringify(answers || {}), screenshot_path || null);
     });
+  await markParticipantStarted(req.params.id, req.validator.id);
 
   const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
   await db.prepare(`

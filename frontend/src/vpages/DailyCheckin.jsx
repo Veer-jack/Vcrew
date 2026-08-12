@@ -109,7 +109,7 @@ export default function DailyCheckin() {
           <button className="btn btn-quiet" style={{ padding: 8 }} onClick={() => navigate("/validator/missions")}><Icon name="arrowLeft" size={18} /></button>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--panel-2)", display: "grid", placeItems: "center" }}>
-              <Icon name="moon" size={16} style={{ color: "var(--accent)" }} />
+              <Icon name="flask" size={16} style={{ color: "var(--accent)" }} />
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}>{mission?.name}</div>
@@ -153,7 +153,7 @@ export default function DailyCheckin() {
 
             {/* Timeline */}
             <div style={{ position: "relative", marginBottom: 40, overflowX: "auto", paddingBottom: 16 }}>
-              <div style={{ display: "flex", minWidth: 700, alignItems: "center", justifyContent: "space-between", position: "relative" }}>
+              <div style={{ display: "flex", minWidth: Math.max(700, totalNodes * 88), alignItems: "center", justifyContent: "space-between", position: "relative" }}>
                 {/* Background dashed line */}
                 <div style={{ position: "absolute", left: 24, right: 24, top: 48, height: 2, background: "repeating-linear-gradient(to right, var(--border) 0, var(--border) 6px, transparent 6px, transparent 12px)", zIndex: 0 }} />
                 
@@ -223,17 +223,22 @@ export default function DailyCheckin() {
               </div>
             </div>
 
-            {/* Legend */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 24, borderTop: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", gap: 20, fontSize: 13, fontWeight: 500, color: "var(--text-muted)" }}>
+            {/* Legend — stacked (legend row, then notice on its own full-width
+                line below) instead of side-by-side, since space-between was
+                squeezing both onto one cramped line. Wrapping lets the legend
+                break across rows naturally regardless of label length in any
+                language, rather than a fixed column count that could look odd
+                once translated. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 20px", fontSize: 13, fontWeight: 500, color: "var(--text-muted)" }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--success)" }} /> {t("status.completed", null, "Completed")}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: 4, background: "var(--accent)" }} /> {t("status.today", null, "Today")}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--danger)" }} /> {t("status.skipped", null, "Skipped")}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--border)" }} /> {t("status.upcoming", null, "Upcoming")}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}><div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--accent-weak)" }} /> {t("status.extraDay", null, "Extra Day")}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-                <Icon name="info" size={14} /> {t("missions.skipDayNotice", null, "Skip a day and your streak extends by 1 extra day (up to 2).")}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
+                <Icon name="info" size={14} style={{ flexShrink: 0, marginTop: 1 }} /> {t("missions.skipDayNotice", null, "Skip a day and your streak extends by 1 extra day (up to 2).")}
               </div>
             </div>
           </div>
@@ -364,23 +369,25 @@ export default function DailyCheckin() {
             
             {/* Visual Diagram */}
             <div style={{ padding: 16, background: "var(--panel)", borderRadius: "var(--radius)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--success)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <span style={{ width: 72, flexShrink: 0, fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>{t("missions.onTimeLabel", null, "On time")}</span>
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--success)", flexShrink: 0 }} />
                 <div style={{ flex: 1, height: 2, background: "var(--border)" }} />
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--accent)" }} />
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />
                 <div style={{ flex: 1, height: 2, background: "var(--border)" }} />
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--border)" }} />
-                <Icon name="arrowRight" size={12} style={{ color: "var(--text-faint)", marginLeft: 16 }} />
-                <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid var(--accent-weak)" }} />
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--border)", flexShrink: 0 }} />
+                <Icon name="arrowRight" size={12} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+                <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid var(--accent-weak)", flexShrink: 0 }} />
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--success)" }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <span style={{ width: 72, flexShrink: 0, fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>{t("missions.skipDayLabel", null, "Skip a day")}</span>
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--success)", flexShrink: 0 }} />
                 <div style={{ flex: 1, height: 2, background: "var(--border)" }} />
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--danger)" }} />
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--danger)", flexShrink: 0 }} />
                 <div style={{ flex: 1, height: 2, background: "var(--border)" }} />
-                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--accent)" }} />
-                <Icon name="arrowRight" size={12} style={{ color: "var(--text-faint)", marginLeft: 16 }} />
-                <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid var(--accent)", background: "var(--accent-weak)" }} />
+                <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />
+                <Icon name="arrowRight" size={12} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+                <div style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid var(--accent)", background: "var(--accent-weak)", flexShrink: 0 }} />
               </div>
               <div style={{ textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{t("missions.plusOneDayAdded", null, "+1 day added")}</div>
             </div>
@@ -416,7 +423,7 @@ export default function DailyCheckin() {
               </div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 14 }}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--text-muted)" }}>
-                  <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--accent-weak)", marginLeft: 2 }} /> {t("missions.extraDaysLeft", null, "Extra Days Left")}
+                  <span style={{ width: 18, height: 18, display: "grid", placeItems: "center", flexShrink: 0 }}><span style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid var(--accent-weak)" }} /></span> {t("missions.extraDaysLeft", null, "Extra Days Left")}
                 </span>
                 <span style={{ fontWeight: 700, color: remainingExtraDays === 0 ? "var(--danger)" : "var(--accent)" }}>{Math.max(0, remainingExtraDays)} {Math.max(0, remainingExtraDays) === 1 ? t("missions.day", null, "day") : t("missions.days", null, "days")}</span>
               </div>

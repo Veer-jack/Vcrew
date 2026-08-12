@@ -7,18 +7,19 @@ const AV_COLORS = ["#4f46e5","#0ea5a4","#d6336c","#c2410c","#2563eb","#7c3aed","
 export const avColor = (s = "") => AV_COLORS[(s.charCodeAt(0) + s.length) % AV_COLORS.length];
 export const initials = (n = "") => n.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
 
-export function PasswordInput({ className, value, onChange, placeholder, required, style }) {
+export function PasswordInput({ className, value, onChange, onBlur, placeholder, required, style }) {
   const { t } = useTranslation();
   const [show, setShow] = useState(false);
   return (
     <div style={{ position: "relative", ...style }}>
-      <input 
-        className={className} 
-        type={show ? "text" : "password"} 
-        value={value} 
-        onChange={onChange} 
-        placeholder={placeholder} 
-        required={required} 
+      <input
+        className={className}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        required={required}
         style={{ paddingRight: 40 }}
       />
       <button 

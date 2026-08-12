@@ -48,10 +48,13 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
     setItems([]);
   };
   
-  const open = async (n) => {
+  const open = (n) => {
+    // Mark-as-read is fire-and-forget — the click should close the panel
+    // and navigate immediately, not wait on a network round-trip first.
+    // Local state updates optimistically so the unread dot clears right away.
     if (n.unread) {
-      if (onRead) await onRead(n.id);
       setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i));
+      if (onRead) onRead(n.id).catch?.(() => {});
     }
     onClose();
     

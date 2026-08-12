@@ -107,7 +107,7 @@ export default function VSettings() {
           <div className="card" style={{ padding: 24 }}>
             <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
               <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="id-card" size={20} />
+                <Icon name="userCheck" size={20} />
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.accountInfo", null, "Account Information")}</h3>
@@ -177,7 +177,7 @@ export default function VSettings() {
           <div className="card" style={{ padding: 24, background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
             <div className="row gap-3" style={{ alignItems: "center" }}>
               <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="sparkles" size={20} />
+                <Icon name="sparkle" size={20} />
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.moreSettings", null, "More settings coming soon")}</h3>
