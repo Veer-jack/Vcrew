@@ -8,6 +8,7 @@ import {
 } from "../auth.js";
 import QRCode from "qrcode";
 import { levelForCompleted } from "../vmeta.js";
+import { isValidEmail, isValidPassword } from "../validators.js";
 
 export const router = Router();
 
@@ -15,7 +16,7 @@ export const router = Router();
 
 router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
+  if (!isValidEmail(email) || !isValidPassword(password)) return res.status(400).json({ error: "Enter a valid email and password" });
   if (!(await checkAdminCredentials(email, password))) return res.status(401).json({ error: "Invalid email or password" });
 
   if (!(await adminHasTotp())) {

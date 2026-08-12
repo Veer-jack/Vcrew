@@ -354,7 +354,7 @@ export default function AudienceExplorer() {
                     )}
                     {m.trust === 0 && (
                       <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none" }}>
-                        <Icon name="zap" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
+                        <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                       </span>
                     )}
                     <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>

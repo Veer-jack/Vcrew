@@ -9,8 +9,8 @@ import { COUNTRIES } from "./countries";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../../firebaseClient";
 import { detectLangFromCountryCode } from "../../i18n/languages.js";
 import { useTranslation } from "../../i18n/index.jsx";
+import { EMAIL_RE } from "../../utils/validators.js";
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
 
 /**

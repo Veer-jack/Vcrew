@@ -23,14 +23,17 @@ export default function InterviewSchedule() {
       try {
         const data = await vapi.get(`/missions/${id}/schedule-status`);
         if (data.schedule?.status === "completed") {
+          // Stay on the loading state — see the matching fix in
+          // FocusGroupPoll.jsx for why flipping loading to false here would
+          // briefly re-render this page with no data before navigating away.
           navigate(`/validator/missions/${id}/workspace`, { replace: true });
           return;
         }
         setMission(data.mission);
         setSchedule(data.schedule);
+        setLoading(false);
       } catch {
         setError(t("missions.couldntLoadInterviewSchedule", null, "Couldn't load interview schedule."));
-      } finally {
         setLoading(false);
       }
     })();

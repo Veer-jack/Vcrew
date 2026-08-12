@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn, Empty, UpdatingBadge } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
@@ -19,6 +19,7 @@ export default function Missions() {
     { k: "archived", l: t("missions.tabArchived", null, "Archived") }
   ];
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { categories } = useMeta();
   const [tab, setTab] = useState(searchParams.get("tab") || "active");
@@ -41,6 +42,15 @@ export default function Missions() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, q, dataVersion]);
 
+  useEffect(() => {
+    if (location.state?.toast) {
+      setToast(location.state.toast);
+      setTimeout(() => setToast(null), 3000);
+      navigate(location.pathname + location.search, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleDelete = (id) => {
     if (window.confirm(t("missions.deleteConfirm", null, "Are you sure you want to delete this mission?"))) {
       api.deleteMission(id).then(() => {
@@ -61,8 +71,8 @@ export default function Missions() {
     <div className="page rise">
       <style>{`
         @keyframes toastSlideIn {
-          from { transform: translateY(-20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
+          from { top: 4px; opacity: 0; }
+          to { top: 24px; opacity: 1; }
         }
         @keyframes toastFadeOut {
           from { opacity: 1; }
@@ -72,7 +82,7 @@ export default function Missions() {
       
       {toast && (
         <div style={{
-          position: "fixed", top: 24, left: 280, background: "var(--panel)", 
+          position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)", background: "var(--panel)",
           border: "1px solid var(--border)", boxShadow: "0 6px 16px rgba(0,0,0,0.08)",
           padding: "12px 20px", borderRadius: 30, zIndex: 100,
           display: "flex", alignItems: "center", gap: 10,

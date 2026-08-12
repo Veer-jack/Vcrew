@@ -23,6 +23,10 @@ export default function FocusGroupPoll() {
       try {
         const data = await vapi.get(`/missions/${id}/poll-status`);
         if (data.poll?.status === "completed" && data.poll?.outcome === "confirmed") {
+          // Stay on the loading state — this component is about to unmount as
+          // the route changes. Flipping loading to false here (e.g. via a
+          // blanket `finally`) would briefly re-render this page with no
+          // poll/mission data before the navigation actually completes.
           navigate(`/validator/missions/${id}/workspace`, { replace: true });
           return;
         }
@@ -30,9 +34,9 @@ export default function FocusGroupPoll() {
         setPoll(data.poll);
         setRestarted(!!data.restarted);
         setSelected(new Set(data.poll?.mySlotIds || []));
+        setLoading(false);
       } catch {
         setError(t("missions.couldntLoadFocusGroupPoll", null, "Couldn't load the focus group poll."));
-      } finally {
         setLoading(false);
       }
     })();

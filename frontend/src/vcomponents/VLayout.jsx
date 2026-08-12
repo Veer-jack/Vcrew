@@ -46,8 +46,14 @@ function VNotifPanel({ onClose, items, setItems }) {
   const markAll = async () => { await vapi.markAllRead(); setItems(its => its.map(i => ({ ...i, unread: false }))); };
   const clearAll = async () => { await vapi.clearAllNotifications(); setItems([]); };
   const navigate = useNavigate();
-  const open = async (n) => {
-    if (n.unread) { await vapi.markRead(n.id); setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i)); }
+  const open = (n) => {
+    // Mark-as-read is fire-and-forget — the click should close the panel
+    // and navigate immediately, not wait on a network round-trip first.
+    // Local state updates optimistically so the unread dot clears right away.
+    if (n.unread) {
+      setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i));
+      vapi.markRead(n.id).catch(() => {});
+    }
     if ((n.type === 'mission_full' || n.type === 'new_mission' || n.type === 'slot_available') && n.target_id) {
       onClose();
       navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
@@ -135,6 +141,7 @@ export default function VLayout() {
   const { t, dataVersion } = useTranslation();
   const { validator, logout } = useVAuth();
   const [bell, setBell] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
   const [notifs, setNotifs] = useState([]);
   const navigate = useNavigate();
@@ -152,7 +159,7 @@ export default function VLayout() {
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""}`}>
-      <div className="mob-scrim" onClick={() => setMobOpen(false)} />
+      <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
       <aside className="side">
         <div className="brand">
           <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
@@ -208,8 +215,34 @@ export default function VLayout() {
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
           </button>
-          <button className="icon-btn" onClick={async () => { await logout(); navigate("/validator/login"); }} title={t("vLayout.logOut", null, "Log out")}><Icon name="logout" size={17} /></button>
-          <VAvatar name={validator?.name || ""} size={38} ring />
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowProfile(p => !p)}
+              title={t("appLayout.profile", null, "Profile")}
+              style={{ all: "unset", cursor: "pointer", display: "block" }}
+            >
+              <VAvatar name={validator?.name || ""} size={38} ring />
+            </button>
+            {showProfile && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowProfile(false)} />
+                <div style={{ position: "absolute", top: 46, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden" }}>
+                  <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{validator?.name}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>{validator?.email}</div>
+                  </div>
+                  <div style={{ padding: "6px 0" }}>
+                    <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0 }} onClick={() => { setShowProfile(false); navigate("/validator/settings"); }}>
+                      <Icon name="settings" size={15} /> {t("nav.settings", null, "Settings")}
+                    </button>
+                    <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0, color: "var(--danger)" }} onClick={async () => { setShowProfile(false); await logout(); navigate("/validator/login"); }}>
+                      <Icon name="logout" size={15} /> {t("vLayout.logOut", null, "Log out")}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </header>
         <Outlet context={{ notifs }} />
       </main>

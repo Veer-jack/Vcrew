@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "./db.js";
+import { isSixDigitCode } from "./validators.js";
 
 import bcrypt from "bcrypt";
 
@@ -161,7 +162,7 @@ export async function generateTotpSecret() {
 }
 
 async function checkTotp(secret, code) {
-  if (!secret || !code) return false;
+  if (!secret || !isSixDigitCode(code)) return false;
   try {
     const result = await verify({ secret, token: String(code), type: "totp" });
     return !!(result && result.valid);

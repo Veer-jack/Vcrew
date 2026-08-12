@@ -286,7 +286,10 @@ if (process.env.SENTRY_DSN) {
 
 app.use((err, req, res, next) => {
   console.error("EXPRESS ERROR:", err?.stack || err?.message || err);
-  res.status(500).json({ error: "Internal server error", detail: err?.message });
+  res.status(500).json({
+    error: "Internal server error",
+    ...(process.env.NODE_ENV !== "production" ? { detail: err?.message } : {}),
+  });
 });
 
 const PORT = process.env.PORT || 4000;

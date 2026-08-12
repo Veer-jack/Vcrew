@@ -269,7 +269,7 @@ export default function Dashboard() {
             marginBottom: 20, display: "flex", alignItems: "flex-start", gap: 12, justifyContent: "space-between"
           }}>
             <div style={{ display: "flex", gap: 12 }}>
-              <Icon name="xOctagon" size={18} style={{ color: "#ef4444", flex: "none", marginTop: 2 }} />
+              <Icon name="alertTriangle" size={18} style={{ color: "#ef4444", flex: "none", marginTop: 2 }} />
               <div>
                 <b style={{ fontSize: 13.5, color: "#991b1b" }}>{t("dashboard.accountRejected", null, "Your account has been rejected")}</b>
                 <p style={{ fontSize: 13, color: "#b91c1c", margin: "3px 0 0", lineHeight: 1.5 }}>

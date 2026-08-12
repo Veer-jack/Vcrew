@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { sendValidatorWelcome } from "../email.js";
+import { isValidEmail, isValidPassword } from "../validators.js";
 import { levelForCompleted } from "../vmeta.js";
 import multer from "multer";
 import path from "path";
@@ -57,8 +58,8 @@ router.post("/signup", async (req, res) => {
   const preferredLanguage = VALID_LANGS.includes(lang) ? lang : "en";
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Enter a valid email address" });
-  if (!password || String(password).trim().length < 8) return res.status(400).json({ error: "Password must be at least 8 characters" });
+  if (!isValidEmail(email)) return res.status(400).json({ error: "Enter a valid email address" });
+  if (!isValidPassword(password)) return res.status(400).json({ error: "Password must be at least 8 characters" });
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
@@ -179,7 +180,7 @@ router.post("/change-password", validatorAuthMiddleware, async (req, res) => {
     return res.status(400).json({ error: "Users registered via Google/GitHub cannot change passwords here." });
   }
 
-  if (!currentPassword || !newPassword || String(newPassword).trim().length < 8) {
+  if (!currentPassword || !isValidPassword(newPassword)) {
     return res.status(400).json({ error: "Current password and a new password (min 8 characters) are required." });
   }
 

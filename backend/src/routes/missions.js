@@ -244,6 +244,37 @@ router.get("/:id", async (req, res) => {
       flagged: !!r.flagged
     };
   });
+  // ---- Daily check-ins (trial/multiday missions only) ----
+  // Deliberately NOT derived from `responses` — a validator can have
+  // submitted real daily check-ins without ever having a `responses` row at
+  // all (that table is for the final single-submission review, which for a
+  // trial mission only exists once, if ever, after every required day is
+  // done). Keying this off `responses` was the root cause of the Check-ins
+  // tab showing empty for every validator still mid-streak, which is most
+  // of a trial mission's lifetime.
+  let checkins = [];
+  if (m.ptype === "trial") {
+    const allCheckins = await db.prepare(`SELECT * FROM checkins WHERE mission_id = ? ORDER BY validator_id, day_number ASC`).all(m.id).catch(() => []);
+    const checkinsByValidator = {};
+    for (const c of allCheckins) {
+      if (!checkinsByValidator[c.validator_id]) checkinsByValidator[c.validator_id] = [];
+      checkinsByValidator[c.validator_id].push({
+        dayNumber: c.day_number,
+        answers: (() => { try { return JSON.parse(c.answers_json || "{}"); } catch { return {}; } })(),
+        screenshotUrl: c.screenshot_path ? `/api/uploads/${c.screenshot_path}` : null,
+        submittedAt: c.submitted_at,
+      });
+    }
+    checkins = participants
+      .filter(p => checkinsByValidator[p.validator_id])
+      .map(p => ({
+        id: p.validator_id,
+        name: p.name || "Validator",
+        trust: p.trust || 50,
+        checkins: checkinsByValidator[p.validator_id],
+      }));
+  }
+
   // ---- Audience snapshot ----
   const audienceFilters = JSON.parse(m.audience_json || "{}");
   const defn = Object.entries(audienceFilters)
@@ -330,6 +361,7 @@ router.get("/:id", async (req, res) => {
     mission,
     participants,
     responses,
+    checkins,
     audience,
     payments,
     files,
@@ -1052,12 +1084,21 @@ router.post("/:id/poll/lock", authMiddleware, async (req, res) => {
   const { slotId } = req.body || {};
   if (!slotId) return res.status(400).json({ error: "slotId is required" });
 
+  // Read-only, purely to give a specific error message — the actual
+  // enforcement is the `scheduled_at > NOW()` guard baked into the atomic
+  // UPDATE below, so a slot can't slip past this check and still get locked
+  // in the gap between this SELECT and that write.
+  const targetSlot = await db.prepare(`SELECT scheduled_at FROM focus_group_slots WHERE id = ?`).get(slotId);
+  if (targetSlot && new Date(targetSlot.scheduled_at) < new Date()) {
+    return res.status(400).json({ error: "This time has already passed — pick a different slot or restart the poll." });
+  }
+
   let updateRes;
   await db.transaction(async (tx) => {
     updateRes = await tx.prepare(`
       UPDATE focus_group_polls SET status = 'locked', locked_slot_id = ?
       WHERE mission_id = ? AND status = 'open'
-        AND EXISTS (SELECT 1 FROM focus_group_slots WHERE id = ? AND poll_id = focus_group_polls.id)
+        AND EXISTS (SELECT 1 FROM focus_group_slots WHERE id = ? AND poll_id = focus_group_polls.id AND scheduled_at > NOW())
     `).run(slotId, req.params.id, slotId);
     
     if (updateRes.changes > 0) {
@@ -1078,7 +1119,7 @@ router.post("/:id/poll/lock", authMiddleware, async (req, res) => {
     }
   });
 
-  if (!updateRes || updateRes.changes === 0) return res.status(400).json({ error: "Cannot lock this poll (already locked, or the slot doesn't belong to this poll)" });
+  if (!updateRes || updateRes.changes === 0) return res.status(400).json({ error: "Cannot lock this poll (already locked, the slot doesn't belong to this poll, or its time has passed)" });
 
   res.json({ ok: true });
 });
