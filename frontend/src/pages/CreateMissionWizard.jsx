@@ -249,6 +249,34 @@ function BalanceCard({ balance }) {
   );
 }
 
+// Nudges an incomplete profile without blocking the wizard — Save as Draft and every
+// step stay usable; only actually publishing is gated (see goNext), matching the same
+// completeness check as the Dashboard banner (builder.profile null = incomplete).
+function ProfileNudgeCard({ builder }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const hasRole = !!builder?.persona;
+  const dest = hasRole ? `/signup?role=${builder.persona}` : "/get-started/feedback";
+  return (
+    <div className="estcard accent" style={{ marginTop: 14 }}>
+      <div className="row gap-2" style={{ alignItems: "flex-start" }}>
+        <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
+        <div>
+          <b style={{ fontSize: 13.5 }}>{t("createMission.completeProfileTitle", null, "Complete your profile to publish")}</b>
+          <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
+            {hasRole
+              ? t("createMission.completeProfileBodyResume", null, "You can keep building this mission, but you'll need to finish setting up your profile before it can go live.")
+              : t("createMission.completeProfileBodyNoRole", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
+          </p>
+        </div>
+      </div>
+      <Btn variant="ghost" icon="user" block onClick={() => navigate(dest)} style={{ marginTop: 12 }}>
+        {t("actions.completeProfile", null, "Complete Profile")}
+      </Btn>
+    </div>
+  );
+}
+
 function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
   const { t } = useTranslation();
   return (
@@ -635,6 +663,10 @@ export default function CreateMissionWizard() {
       return;
     }
     setShowErrors(false); setError("");
+    if (last && !builder?.profile) {
+      setError(t("createMission.profileRequiredToPublish", null, "Complete your profile before publishing — you can still save this mission as a draft."));
+      return;
+    }
     if (last) return publish();
     const next = step + 1;
     setStep(next);
@@ -720,7 +752,10 @@ export default function CreateMissionWizard() {
           ) : step === 0 ? (
             <div className="split-slim">
               <div>{StepBody}</div>
-              <div className="sticky-side"><BalanceCard balance={builder?.balance} /></div>
+              <div className="sticky-side">
+                <BalanceCard balance={builder?.balance} />
+                {!builder?.profile && <ProfileNudgeCard builder={builder} />}
+              </div>
             </div>
           ) : StepBody}
         </div>

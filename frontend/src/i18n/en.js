@@ -144,6 +144,7 @@ const en = {
     loadMoreMembers: "Load more members",
     yesRestoreDefaults: "Yes, restore defaults",
     selectRole: "Select Role",
+    completeProfile: "Complete Profile",
     viewAllSteps: "View all steps →",
     continueSetup: "Continue Setup →",
     changeRole: "Change role",
@@ -1883,6 +1884,10 @@ const en = {
     saveAsDraft: "Save as Draft",
     savingDraft: "Saving…",
     saveDraftError: "Couldn't save this draft",
+    completeProfileTitle: "Complete your profile to publish",
+    completeProfileBodyResume: "You can keep building this mission, but you'll need to finish setting up your profile before it can go live.",
+    completeProfileBodyNoRole: "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.",
+    profileRequiredToPublish: "Complete your profile before publishing — you can still save this mission as a draft.",
   },
   dashboard: {
   personaTitle: {

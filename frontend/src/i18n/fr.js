@@ -143,6 +143,7 @@ const fr = {
     loadMoreMembers: "Charger plus de membres",
     yesRestoreDefaults: "Oui, restaurer les paramètres par défaut",
     selectRole: "Sélectionnez un rôle",
+    completeProfile: "Compléter le profil",
     viewAllSteps: "Afficher toutes les étapes →",
     continueSetup: "Continuer la configuration →",
     changeRole: "Changer de rôle",
@@ -1879,6 +1880,10 @@ const fr = {
     whatHappensNext3: "Suivi depuis votre tableau de bord",
     saveAsDraft: "Enregistrer comme brouillon",
     saveDraftError: "Impossible d'enregistrer ce brouillon",
+    completeProfileTitle: "Complétez votre profil pour publier",
+    completeProfileBodyResume: "Vous pouvez continuer à créer cette mission, mais vous devrez terminer la configuration de votre profil avant qu'elle puisse être mise en ligne.",
+    completeProfileBodyNoRole: "Vous pouvez continuer à créer cette mission, mais vous devrez sélectionner votre rôle et terminer la configuration avant qu'elle puisse être mise en ligne.",
+    profileRequiredToPublish: "Complétez votre profil avant de publier — vous pouvez toujours enregistrer cette mission comme brouillon.",
   },
   dashboard: {
     personaTitle: {

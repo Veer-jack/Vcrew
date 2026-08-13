@@ -143,6 +143,7 @@ const pt = {
     loadMoreMembers: "Carregar mais membros",
     yesRestoreDefaults: "Sim, restaurar padrões",
     selectRole: "Selecione a função",
+    completeProfile: "Completar perfil",
     viewAllSteps: "Ver todas as etapas →",
     continueSetup: "Continuar configuração →",
     changeRole: "Mudar função",
@@ -1879,6 +1880,10 @@ const pt = {
     whatHappensNext3: "Acompanhe pelo seu painel",
     saveAsDraft: "Salvar como rascunho",
     saveDraftError: "Não foi possível salvar este rascunho",
+    completeProfileTitle: "Complete seu perfil para publicar",
+    completeProfileBodyResume: "Você pode continuar criando esta missão, mas precisará terminar de configurar seu perfil antes que ela possa ser publicada.",
+    completeProfileBodyNoRole: "Você pode continuar criando esta missão, mas precisará selecionar sua função e concluir a configuração antes que ela possa ser publicada.",
+    profileRequiredToPublish: "Complete seu perfil antes de publicar — você ainda pode salvar esta missão como rascunho.",
   },
   dashboard: {
     personaTitle: {

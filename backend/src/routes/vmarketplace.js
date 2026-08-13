@@ -7,9 +7,26 @@ import { translateBatch } from "../translate.js";
 export const router = Router();
 router.use(validatorAuthMiddleware);
 
+// Builder-facing `ptype` (backend/src/meta.js PTYPES) has no direct overlap with the
+// Discover taxonomy (backend/src/vmeta.js VTYPES), so real missions always fell back to
+// "mvp". Map by how the validation actually happens rather than forcing every ptype in.
+// "ai" and "prototype" have no reliable signal in ptype/category, so they only populate
+// from legacy vtasks rows or explicit future tagging — that's expected, not a bug.
+const PTYPE_TO_VTYPE = {
+  webtest: "landing",
+  apptest: "mvp",
+  ptest: "mvp",
+  trial: "mvp",
+  video: "mvp",
+  survey: "idea",
+  interview: "idea",
+  focus: "idea",
+};
+
 const resolveType = (typeStr) => {
   if (!typeStr) return "mvp";
   if (VTYPES[typeStr]) return typeStr;
+  if (PTYPE_TO_VTYPE[typeStr]) return PTYPE_TO_VTYPE[typeStr];
   const found = Object.values(VTYPES).find(v => (v.label || "").toLowerCase() === String(typeStr).toLowerCase() || (v.short || "").toLowerCase() === String(typeStr).toLowerCase());
   return found ? found.key : "mvp";
 };

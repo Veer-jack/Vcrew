@@ -245,7 +245,7 @@ export default function OnboardingWizard() {
     try {
       const nameField = PERSONA_NAME_FIELD[role];
       await completeOnboarding({
-        designation: d.designation || null,
+        designation: (d.designation === "Other" ? d.designationOther : d.designation) || null,
         org: d[nameField] || builder?.name,
         website: d.website || null,
         persona: role,
