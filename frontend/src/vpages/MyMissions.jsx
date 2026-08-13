@@ -57,6 +57,9 @@ function MyMissionRow({ m, vtypes, ptypes, navigate }) {
             : (m.category === "sample") ? "shipment"
             : (m.type === "interview") ? "schedule"
             : (m.type === "focus") ? "poll"
+            // Marketplace listings (vtasks) have no multi-task workspace shape —
+            // route them to the rubric-based review form instead (BUG-028).
+            : (m.src === "vtask") ? "rate"
             : "workspace";
           navigate(`/validator/missions/${m.taskId}/${dest}`);
         }}>{t("actions.resume", null, "Resume")} <Icon name="arrowRight" /></button>}

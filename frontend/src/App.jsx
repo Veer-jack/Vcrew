@@ -42,6 +42,7 @@ import MissionReview from "./pages/MissionReview";
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
 import MissionResults from "./vpages/MissionResults";
+import VtaskReview from "./vpages/VtaskReview";
 import Workspace from "./vpages/Workspace";
 import Submitted from "./vpages/Submitted";
 import MyMissions from "./vpages/MyMissions";
@@ -149,6 +150,7 @@ function ValidatorRoutes() {
         <Route index element={<Discover />} />
         <Route path="missions" element={<MyMissions />} />
         <Route path="missions/:id/review" element={<MissionReview />} />
+        <Route path="missions/:id/rate" element={<VtaskReview />} />
       <Route path="missions/:id" element={<MissionDetails />} />
         <Route path="missions/:id/results" element={<MissionResults />} />
         <Route path="missions/:id/submitted" element={<Submitted />} />
