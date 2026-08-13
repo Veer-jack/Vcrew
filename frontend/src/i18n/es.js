@@ -28,6 +28,16 @@ const es = {
     validationsession: "Sesión de validación",
   },
   auth: {
+    errCodeExpired: "Este código ha caducado. Solicita uno nuevo.",
+    errEmailInUse: "Ya existe una cuenta con este correo electrónico.",
+    errInvalidCredentials: "Correo electrónico o contraseña incorrectos.",
+    errInvalidPhone: "Introduce un número de móvil válido.",
+    errRegionNotEnabled: "El inicio de sesión por SMS aún no está disponible en esta región. Prueba otro método de inicio de sesión.",
+    errSendCodeRetry: "Ocurrió un error al enviar el código. Inténtalo de nuevo.",
+    errTooManyRequests: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+    errWeakPassword: "Elige una contraseña más segura (al menos 8 caracteres).",
+    phoneHintIndia: "Introduce tu número de móvil de 10 dígitos, sin el código de país",
+    phoneHintOther: "Introduce tu número de móvil (7–13 dígitos), sin el código de país",
     signIn: "Iniciar sesión",
     signUp: "Crear una cuenta",
     welcomeBack: "Bienvenido de nuevo",
@@ -466,6 +476,8 @@ const es = {
     },
   },
   missions: {
+    cantOpenHere: "No se puede abrir esta misión aquí",
+    revisionRequestedBy: "Revisión solicitada — comentarios del creador",
     createNew: "Crear nueva misión",
     allMissions: "Todas las misiones",
     noMissions: "Aún no hay misiones.",
@@ -734,6 +746,9 @@ const es = {
       surfacesSection: "Superficies de validación",
     },
     audience: {
+    sortBy: "Ordenar por",
+    sortByName: "Ordenar por: Nombre",
+    sortByTrust: "Ordenar por: Confianza",
       title: "¿Quién debería opinar?",
       sub: "Describe a las personas cuya opinión realmente importa — te emparejamos con validadores adecuados, no enviamos a todo el mundo.",
     },
@@ -1789,6 +1804,7 @@ const es = {
     perfectionist: { label: "Perfeccionista", desc: "Alcanza 98% de precisión durante 90 días" },
   },
   createMission: {
+    participantsHintUnverified: "Las cuentas no verificadas están limitadas a {{limit}} participantes por misión. Verifica tu sitio web para desbloquear hasta 500.",
     step1Title: "Información de la misión",
     step1Subtitle: "Nombre y categoría",
     step1Hint: "Dale a tu misión un nombre claro y elige el tipo de validación que necesitas.",
@@ -1993,6 +2009,7 @@ const es = {
     messageName: "Mensaje {{name}}…",
   },
   missionDetail: {
+    participantMoved: "{{name}} se movió a {{stage}}: también lo verán en su lado.",
     recently: "recientemente",
     timeUnit: {
       year: "año",
@@ -2475,6 +2492,11 @@ const es = {
     useDifferentNumber: "Usa un número diferente",
   },
   testCases: {
+    fetchEmpty: "No se encontró contenido útil en esa página — aún puedes generar a partir de tu descripción",
+    fetchNonHtml: "Ese enlace no apunta a una página web (no es HTML) — aún puedes generar a partir de tu descripción",
+    fetchTimeout: "Esta página tardó demasiado en responder — aún puedes generar a partir de tu descripción",
+    missingFieldsHint: "Completa {{fields}} para generar casos de prueba.",
+    urlFormatInvalid: "Introduce una URL válida, que empiece por http:// o https://",
     severityCritical: "Crítico",
     severityImportant: "importante",
     severityNiceToHave: "Es bueno tener",
@@ -3177,6 +3199,20 @@ const es = {
     "3": { q: "¿Cómo se calcula el precio de una misión?", a: "El precio depende del tipo de misión, el número de participantes y el tiempo de entrega. Verás una estimación antes de publicar, y los fondos se retienen en depósito de garantía hasta completarse." },
     "4": { q: "¿Puedo editar el nombre de mi espacio de trabajo o mi correo electrónico?", a: "Sí — ve a Configuración → Editar perfil para actualizar tu nombre, el nombre de tu espacio de trabajo y tu dirección de correo electrónico." },
     "5": { q: "¿Cómo agrego un número de teléfono para iniciar sesión?", a: "Ve a Configuración → Número de teléfono → Agregar teléfono. Una vez verificado, puedes iniciar sesión con un código enviado por SMS, y se usa para verificación adicional en las recargas de billetera." },
+  },
+  vtaskReview: {
+    anythingWrong: "¿Algo salió mal? (opcional)",
+    minutesLabel: "Minutos dedicados",
+    notesLabel: "Notas para el creador",
+    notesPlaceholder: "¿Qué destacó, bueno o malo?",
+    rateAllHint: "Califica cada elemento anterior para enviar",
+    rateExperience: "Califica tu experiencia",
+    rateHint: "Basa esto en lo que realmente hiciste ahora mismo, no en expectativas generales.",
+    submitFailed: "No se pudo enviar tu evaluación — inténtalo de nuevo.",
+    submitReview: "Enviar evaluación",
+    submitted: "¡Evaluación enviada!",
+    submittedDesc: "₹{{reward}} se añadirá a tu saldo pendiente una vez que el creador la revise.",
+    submitting: "Enviando…",
   },
 };
 

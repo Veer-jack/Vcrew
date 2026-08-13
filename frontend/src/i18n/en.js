@@ -28,6 +28,16 @@ const en = {
     validationsession: "Validation session",
   },
   auth: {
+    errCodeExpired: "This code has expired. Please request a new one.",
+    errEmailInUse: "An account with this email already exists.",
+    errInvalidCredentials: "Incorrect email or password.",
+    errInvalidPhone: "Please enter a valid mobile number.",
+    errRegionNotEnabled: "SMS sign-in isn't available for this region yet. Please try a different sign-in method.",
+    errSendCodeRetry: "Something went wrong sending the code. Please try again.",
+    errTooManyRequests: "Too many attempts. Please wait a bit and try again.",
+    errWeakPassword: "Please choose a stronger password (at least 8 characters).",
+    phoneHintIndia: "Enter your 10-digit mobile number, without the country code",
+    phoneHintOther: "Enter your mobile number (7–13 digits), without the country code",
     signIn: "Sign in",
     signUp: "Create account",
     welcomeBack: "Welcome back",
@@ -467,6 +477,8 @@ const en = {
     },
   },
   missions: {
+    cantOpenHere: "Can't open this mission here",
+    revisionRequestedBy: "Revision requested — builder's comments",
     createNew: "Create new mission",
     allMissions: "All missions",
     noMissions: "No missions yet.",
@@ -757,6 +769,9 @@ const en = {
       surfacesSection: "Validation surfaces",
     },
     audience: {
+    sortBy: "Sort by",
+    sortByName: "Sort by: Name",
+    sortByTrust: "Sort by: Trust",
       title: "Who should weigh in?",
       sub: "Describe the people whose opinion actually matters — we match you to validators who fit, we don't blast everyone.",
     },
@@ -1791,6 +1806,7 @@ const en = {
     perfectionist: { label: "Perfectionist", desc: "Hit 98% accuracy over 90 days" },
   },
   createMission: {
+    participantsHintUnverified: "Unverified accounts are limited to {{limit}} participants per mission. Verify your website to unlock up to 500.",
     step1Title: "Mission Information",
     step1Subtitle: "Name & category",
     step1Hint: "Give your mission a clear name and pick the kind of validation you need.",
@@ -1997,6 +2013,7 @@ const en = {
     messageName: "Message {{name}}…",
   },
   missionDetail: {
+    participantMoved: "{{name}} moved to {{stage}} — they'll see this update too.",
     recently: "recently",
     timeUnit: {
       year: "year",
@@ -2479,6 +2496,11 @@ const en = {
     useDifferentNumber: "Use a different number",
   },
   testCases: {
+    fetchEmpty: "Couldn't find any usable content on that page — you can still generate from your description",
+    fetchNonHtml: "That link doesn't point to a webpage (not HTML) — you can still generate from your description",
+    fetchTimeout: "This page took too long to respond — you can still generate from your description",
+    missingFieldsHint: "Fill in {{fields}} to generate test cases.",
+    urlFormatInvalid: "Please enter a valid URL, starting with http:// or https://",
     severityCritical: "Critical",
     severityImportant: "Important",
     severityNiceToHave: "Nice to have",
@@ -3181,6 +3203,20 @@ const en = {
     "3": { q: "How is pricing calculated for a mission?", a: "Pricing depends on mission type, number of participants, and turnaround time. You'll see an estimate before publishing, and funds are held in escrow until completion." },
     "4": { q: "Can I edit my workspace name or email?", a: "Yes — go to Settings → Edit profile to update your name, workspace name, and email address." },
     "5": { q: "How do I add a phone number for sign-in?", a: "Go to Settings → Phone number → Add phone. Once verified, you can sign in with a code sent via SMS, and it's used for extra verification on wallet top-ups." },
+  },
+  vtaskReview: {
+    anythingWrong: "Anything go wrong? (optional)",
+    minutesLabel: "Minutes spent",
+    notesLabel: "Notes for the builder",
+    notesPlaceholder: "What stood out, good or bad?",
+    rateAllHint: "Rate every item above to submit",
+    rateExperience: "Rate your experience",
+    rateHint: "Base this on what you actually did just now, not general expectations.",
+    submitFailed: "Couldn't submit your review — please try again.",
+    submitReview: "Submit review",
+    submitted: "Review submitted!",
+    submittedDesc: "₹{{reward}} will clear to your pending balance once the builder reviews it.",
+    submitting: "Submitting…",
   },
 };
 
