@@ -218,6 +218,8 @@ export default function StepTestCases({ d, set }) {
   const [genState, setGenState] = useState("idle"); // idle | fetching | loading | done
   const [urlFetched, setUrlFetched] = useState(false);
   const [urlContext, setUrlContext] = useState(null);
+  const [urlFormatInvalid, setUrlFormatInvalid] = useState(false);
+  const [fetchFailReason, setFetchFailReason] = useState(null);
   const [expanded, setExpanded] = useState(null);
   // The generated test cases render in the right-hand column, which on
   // narrower viewports sits below the fold relative to the form — scroll it
@@ -231,18 +233,46 @@ export default function StepTestCases({ d, set }) {
     const cur = form[key] || [];
     patch({ [key]: cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val] });
   };
-  const canGen = form.desc.trim().length > 20 || urlFetched;
+  const descOk = form.desc.trim().length > 0;
+  const platformOk = form.platforms.length > 0;
+  const goalsOk = form.goals.length > 0;
+  const usersOk = form.users.trim().length > 0;
+  const canGen = descOk && platformOk && goalsOk && usersOk;
+  const missingFields = [
+    !descOk && t("testCases.whatDidYouBuild", null, "What did you build?"),
+    !platformOk && t("testCases.platform", null, "Platform"),
+    !goalsOk && t("testCases.validationGoals", null, "Validation goals"),
+    !usersOk && t("testCases.targetUsers", null, "Target users"),
+  ].filter(Boolean);
   const hasTasks = tasks.length > 0;
   const totalMins = tasks.reduce((a, t) => a + (t.min_time_seconds || 120), 0);
 
+  const isValidUrl = (u) => {
+    try {
+      const parsed = new URL(u);
+      return parsed.protocol === "http:" || parsed.protocol === "https:";
+    } catch {
+      return false;
+    }
+  };
+
   const fetchUrl = async () => {
     if (!form.url.trim()) return;
+    if (!isValidUrl(form.url.trim())) {
+      setUrlFormatInvalid(true);
+      setUrlFetched(true);
+      setUrlContext(null);
+      return;
+    }
+    setUrlFormatInvalid(false);
     setGenState("fetching");
     try {
       const res = await api.post("/missions/fetch-url-context", { url: form.url });
       setUrlContext(res.context || null);
+      setFetchFailReason(res.context ? null : (res.reason || "unreachable"));
     } catch {
       setUrlContext(null);
+      setFetchFailReason("unreachable");
     } finally {
       setUrlFetched(true);
       setGenState("idle");
@@ -250,6 +280,7 @@ export default function StepTestCases({ d, set }) {
   };
 
   const generate = async () => {
+    if (!canGen) return;
     if (hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
     setGenState("loading");
     set({ tasks: [] });
@@ -270,7 +301,7 @@ export default function StepTestCases({ d, set }) {
       setGenState("done");
       setExpanded(0);
       if (res.fallback) {
-        toast(t("testCases.aiUnavailableFallback", null, "AI generation is temporarily unavailable — showing example test cases you can edit."), { icon: "⚠️" });
+        toast(t("testCases.aiUnavailableFallback", null, "AI generation is temporarily unavailable — showing example test cases you can edit. Click Regenerate to try again."), { icon: "⚠️" });
       }
     } catch (err) {
       set({ tasks: [] });
@@ -300,7 +331,7 @@ export default function StepTestCases({ d, set }) {
         {/* FORM */}
         <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>
-            <label>{t("testCases.whatDidYouBuild", null, "What did you build?")} <span className="opt">{t("testCases.beSpecific", null, "be specific")}</span></label>
+            <label>{t("testCases.whatDidYouBuild", null, "What did you build?")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("testCases.beSpecific", null, "be specific")}</span></label>
             <textarea className="fin" rows={4} placeholder={t("testCases.descPlaceholder", null, "e.g. A subscription app for curated D2C products. Users browse, subscribe, and manage deliveries. We want to test the core shopping flow before launch.")} value={form.desc} onChange={e => patch({ desc: e.target.value })} style={{ minHeight: 108 }} />
           </div>
 
@@ -316,14 +347,21 @@ export default function StepTestCases({ d, set }) {
               </button>
             </div>
             {urlFetched && (
-              urlContext
+              urlFormatInvalid
+                ? <p className="fhint" style={{ color: "var(--danger)", marginTop: 6 }}>{t("testCases.urlFormatInvalid", null, "Please enter a valid URL, starting with http:// or https://")}</p>
+                : urlContext
                 ? <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>{t("testCases.pageAnalysed", null, "✓ Page analysed — context added")}</p>
-                : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>{t("testCases.pageAnalyseFailed", null, "Couldn't analyse this page — you can still generate from your description")}</p>
+                : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>
+                    {fetchFailReason === "timeout" ? t("testCases.fetchTimeout", null, "This page took too long to respond — you can still generate from your description")
+                    : fetchFailReason === "non_html" ? t("testCases.fetchNonHtml", null, "That link doesn't point to a webpage (not HTML) — you can still generate from your description")
+                    : fetchFailReason === "empty" ? t("testCases.fetchEmpty", null, "Couldn't find any usable content on that page — you can still generate from your description")
+                    : t("testCases.pageAnalyseFailed", null, "Couldn't reach that page — you can still generate from your description")}
+                  </p>
             )}
           </div>
 
           <div>
-            <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.platform", null, "Platform")}</b><span className="line" /></div>
+            <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.platform", null, "Platform")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
             <div className="chips">
               {TC_PLATFORMS.map(p => (
                 <button key={p} className={`chip ${form.platforms.includes(p) ? "on" : ""}`} onClick={() => toggleChip("platforms", p)}>
@@ -334,7 +372,7 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <div>
-            <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.validationGoals", null, "Validation goals")}</b><span className="line" /></div>
+            <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.validationGoals", null, "Validation goals")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
             <div className="chips">
               {TC_GOALS.map(g => (
                 <button key={g} className={`chip ${form.goals.includes(g) ? "on" : ""}`} onClick={() => toggleChip("goals", g)}>
@@ -345,13 +383,18 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <div className="fld" style={{ marginBottom: 0 }}>
-            <label>{t("testCases.targetUsers", null, "Target users")}</label>
+            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span></label>
             <input className="fin" placeholder={t("testCases.targetUsersPlaceholder", null, "e.g. Urban millennials, SaaS buyers, first-time app users")} value={form.users} onChange={e => patch({ users: e.target.value })} />
           </div>
 
           <Btn variant="primary" block disabled={!canGen || genState === "loading"} onClick={generate} style={{ justifyContent: "center", gap: 10, fontSize: 15 }}>
             <Icon name="sparkle" size={18} />{genState === "loading" ? t("testCases.generating", null, "Generating…") : hasTasks ? t("testCases.regenerateWithAI", null, "Regenerate test cases with AI ✦") : t("testCases.generateWithAI", null, "Generate test cases with AI ✦")}
           </Btn>
+          {!canGen && missingFields.length > 0 && (
+            <p className="fhint" style={{ textAlign: "center", color: "var(--text-faint)" }}>
+              {t("testCases.missingFieldsHint", { fields: missingFields.join(", ") }, `Fill in ${missingFields.join(", ")} to generate test cases.`)}
+            </p>
+          )}
         </div>
 
       </div>

@@ -117,11 +117,15 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
         <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
-        <FilterGroup
-          key={g} title={g} options={Array.isArray(opts) ? opts : Object.values(opts).flat()} sel={d.filters[g]} toggle={toggle}
-          otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
-          onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
-        />
+        Array.isArray(opts) ? (
+          <FilterGroup
+            key={g} title={g} options={opts} sel={d.filters[g]} toggle={toggle}
+            otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
+            onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
+          />
+        ) : Object.entries(opts).map(([sub, subOpts]) => (
+          <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)} />
+        ))
       ))}
     </div>
   );
@@ -150,7 +154,8 @@ function StepParticipation({ d, set, ptypes }) {
             min="3"
             max="30"
             value={d.durationDays}
-            onChange={e => set({ durationDays: Math.min(30, Math.max(3, +e.target.value || 7)) })}
+            onChange={e => { const v = e.target.value; set({ durationDays: v === "" ? "" : Number(v) }); }}
+            onBlur={() => set({ durationDays: Math.min(30, Math.max(3, Number(d.durationDays) || 7)) })}
           />
           <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end. Choose between 3 and 30 days.")}</p>
         </div>
@@ -159,10 +164,13 @@ function StepParticipation({ d, set, ptypes }) {
   );
 }
 
-function StepReward({ d, set, rewards, showErrors }) {
+const UNVERIFIED_PARTICIPANT_LIMIT = 25;
+
+function StepReward({ d, set, rewards, showErrors, builder }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
+  const overUnverifiedCap = !builder?.verified && d.reward.participants > UNVERIFIED_PARTICIPANT_LIMIT;
   return (
     <div className="rise">
       <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
@@ -186,10 +194,14 @@ function StepReward({ d, set, rewards, showErrors }) {
             </div>
           </div>
         )}
-        <div className="fld">
+        <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`}>
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="number" min="1" max="500" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: Math.min(500, Math.max(1, +e.target.value)) } })} />
-          <p className="fhint">{t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}</p>
+          <p className="fhint">
+            {!builder?.verified
+              ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)
+              : t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}
+          </p>
         </div>
       </div>
     </div>
@@ -583,12 +595,13 @@ export default function CreateMissionWizard() {
   const insufficientFunds = (step === 4 || last) && cost.total > (builder?.balance ?? 0);
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
+  const participantsOk = builder?.verified || d.reward.participants <= UNVERIFIED_PARTICIPANT_LIMIT;
   // Missing required fields keep Continue clickable (so clicking it can
   // explain what's missing via showErrors) — only insufficientFunds hard-
   // disables it, since that one already has its own hover tooltip.
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat))
     && (step !== 2 || (d.tasks && d.tasks.length > 0))
-    && (step !== 4 || rewardAmountOk);
+    && (step !== 4 || (rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
 
   const buildMissionPayload = (status) => {
@@ -687,7 +700,7 @@ export default function CreateMissionWizard() {
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
     <StepAudience d={d} set={set} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
   ][step];
 
@@ -781,29 +794,40 @@ export default function CreateMissionWizard() {
                   {savingDraft ? t("createMission.savingDraft", null, "Saving…") : t("createMission.saveAsDraft", null, "Save as Draft")}
                 </Btn>
               )}
-              <Btn
-                variant="primary"
-                iconRight="bolt"
-                disabled={insufficientFunds || busy || savingDraft}
-                onClick={goNext}
+              <span
+                onClick={() => !fieldsValid && setShowErrors(true)}
+                style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                   : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
               >
-                {busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission")}
-              </Btn>
+                <Btn
+                  variant="primary"
+                  iconRight="bolt"
+                  disabled={insufficientFunds || busy || savingDraft || !fieldsValid}
+                  onClick={goNext}
+                  style={!fieldsValid ? { opacity: 0.5, pointerEvents: "none" } : undefined}
+                >
+                  {busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission")}
+                </Btn>
+              </span>
             </div>
           ) : (
-            <Btn
-              variant="primary"
-              iconRight="arrowRight"
-              disabled={insufficientFunds || busy}
-              onClick={goNext}
+            <span
+              onClick={() => !fieldsValid && setShowErrors(true)}
+              style={{ display: "inline-block" }}
               title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                 : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
-              style={!fieldsValid ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
             >
-              {t("createMission.continue", null, "Continue")}
-            </Btn>
+              <Btn
+                variant="primary"
+                iconRight="arrowRight"
+                disabled={insufficientFunds || busy || !fieldsValid}
+                onClick={goNext}
+                style={!fieldsValid ? { opacity: 0.5, pointerEvents: "none" } : undefined}
+              >
+                {t("createMission.continue", null, "Continue")}
+              </Btn>
+            </span>
           )}
         </div>
       </div>
