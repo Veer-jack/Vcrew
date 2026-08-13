@@ -33,6 +33,10 @@ function friendlyAuthError(err, t) {
   };
   if (map[code]) return map[code];
   if (/recaptcha/i.test(err?.message || "")) return t("auth.errSendCodeRetry", null, "Something went wrong sending the code. Please try again.");
+  // Our own backend (non-Firebase requests, e.g. email/password signup) sends
+  // deliberately user-facing validation text on 4xx responses — show that
+  // directly instead of masking it behind the generic fallback below.
+  if (err?.status >= 400 && err?.status < 500 && err?.message && !/^Request failed/.test(err.message)) return err.message;
   return t("errors.somethingWentWrong");
 }
 
@@ -386,7 +390,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                       <select className="cc-select" value={ccIdx} onChange={handleCcChange}>
                         {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}
                       </select>
-                      <input className="fin" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneErr(""); }} placeholder="98765 43210" />
+                      <input className="fin" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "")); setPhoneErr(""); }} placeholder="98765 43210" />
                     </div>
                     <p className="fhint">{cc === "+91"
                       ? t("auth.phoneHintIndia", null, "Enter your 10-digit mobile number, without the country code")
