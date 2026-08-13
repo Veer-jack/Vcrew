@@ -67,25 +67,30 @@ const MAX_BYTES = 500_000;
 // Fetches a URL and extracts lightweight page context (title, meta
 // description, top headings) for use in AI prompt building. Rejects
 // private/loopback/link-local IPs before making any request (SSRF guard),
-// does not follow redirects, and degrades to `null` on any failure —
-// never throws.
+// does not follow redirects, and degrades to `{ context: null, reason }` on
+// any failure — never throws. `reason` lets the caller tell a bad URL format
+// apart from an unreachable/blocked one instead of collapsing every failure
+// into one generic message (BUG-030). SSRF-blocked targets deliberately
+// report the same "unreachable" reason as a DNS/network failure rather than
+// a distinct "blocked" one, so a caller can't use the message to probe which
+// internal addresses are reachable.
 export async function fetchUrlContext(url) {
   let parsed;
   try {
     parsed = new URL(url);
   } catch {
-    return null;
+    return { context: null, reason: "invalid_url" };
   }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return { context: null, reason: "invalid_url" };
 
   let address;
   try {
     address = (await dns.lookup(parsed.hostname)).address;
   } catch {
-    return null;
+    return { context: null, reason: "unreachable" };
   }
-  if (net.isIPv4(address) && isPrivateIPv4(address)) return null;
-  if (net.isIPv6(address) && isPrivateIPv6(address)) return null;
+  if (net.isIPv4(address) && isPrivateIPv4(address)) return { context: null, reason: "unreachable" };
+  if (net.isIPv6(address) && isPrivateIPv6(address)) return { context: null, reason: "unreachable" };
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -96,10 +101,10 @@ export async function fetchUrlContext(url) {
       redirect: "manual",
       headers: { "User-Agent": "Mozilla/5.0 (compatible; ValidationCrewBot/1.0)" },
     });
-    if (res.status < 200 || res.status >= 300) return null;
+    if (res.status < 200 || res.status >= 300) return { context: null, reason: "unreachable" };
 
     const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("text/html")) return null;
+    if (!contentType.includes("text/html")) return { context: null, reason: "non_html" };
 
     const reader = res.body.getReader();
     const chunks = [];
@@ -117,11 +122,11 @@ export async function fetchUrlContext(url) {
     const description = extractMetaContent(html, "name", "description") || extractMetaContent(html, "property", "og:description");
     const headings = extractHeadings(html);
 
-    if (!title && !description && headings.length === 0) return null;
+    if (!title && !description && headings.length === 0) return { context: null, reason: "empty" };
 
-    return { title, description, headings };
-  } catch {
-    return null;
+    return { context: { title, description, headings }, reason: null };
+  } catch (err) {
+    return { context: null, reason: err?.name === "AbortError" ? "timeout" : "unreachable" };
   } finally {
     clearTimeout(timeout);
   }

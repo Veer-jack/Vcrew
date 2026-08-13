@@ -188,7 +188,7 @@ router.get("/:id", async (req, res) => {
     serialized.steps = serialized.steps.map((s, i) => translated.get(`${entityType}:${entityId}:steps.${i}`) ?? s);
   }
 
-  res.json({ task: serialized, rubric: VTYPES[serialized.type] });
+  res.json({ task: { ...serialized, src: source }, rubric: VTYPES[serialized.type] });
 });
 
 // POST /api/v/marketplace/:id/save  { saved: true|false }
