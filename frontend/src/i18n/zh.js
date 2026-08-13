@@ -143,6 +143,7 @@ const zh = {
     loadMoreMembers: "加载更多会员",
     yesRestoreDefaults: "是的，恢复默认值",
     selectRole: "选择角色",
+    completeProfile: "完善资料",
     viewAllSteps: "查看所有步骤→",
     continueSetup: "继续设置➡️",
     changeRole: "改变角色",
@@ -1879,6 +1880,10 @@ const zh = {
     whatHappensNext3: "在仪表盘中跟踪",
     saveAsDraft: "保存为草稿",
     saveDraftError: "无法保存此草稿",
+    completeProfileTitle: "完善资料以发布任务",
+    completeProfileBodyResume: "您可以继续编辑此任务，但发布前需要先完成个人资料设置。",
+    completeProfileBodyNoRole: "您可以继续编辑此任务，但发布前需要先选择角色并完成设置。",
+    profileRequiredToPublish: "发布前请先完善资料——您仍可以将此任务保存为草稿。",
   },
   dashboard: {
     personaTitle: {

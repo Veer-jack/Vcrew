@@ -94,8 +94,10 @@ function FoPersonal({ d, set, showErrors }) {
     </div>
   );
 }
-function FoCompany({ d, set }) {
+function FoCompany({ d, set, showErrors }) {
   const { t } = useTranslation();
+  const industryOptions = INDUSTRIES(t);
+  const isOtherIndustry = d.industry === industryOptions[industryOptions.length - 1];
   return (
     <div className="rise">
       <StepHead step={t("onboarding.founder.company.step", null, "Step 2 · Company")} title={t("onboarding.founder.company.title", null, "About your company")}
@@ -103,7 +105,12 @@ function FoCompany({ d, set }) {
       <div className="fgrid c2">
         <Field label={t("onboarding.founder.company.nameLabel", null, "Company / product name")}><TextInput value={d.companyName} onChange={(v) => set("companyName", v)} placeholder="Helix Labs" /></Field>
         <Field label={t("onboarding.founder.company.websiteLabel", null, "Website")} optional><TextInput value={d.website} onChange={(v) => set("website", v)} placeholder="helixlabs.com" /></Field>
-        <Field label={t("onboarding.founder.company.industryLabel", null, "Industry")} span><SelectInput value={d.industry} onChange={(v) => set("industry", v)} options={INDUSTRIES(t)} placeholder={t("onboarding.founder.company.industryPlaceholder", null, "Select industry")} /></Field>
+        <Field label={t("onboarding.founder.company.industryLabel", null, "Industry")} span><SelectInput value={d.industry} onChange={(v) => set("industry", v)} options={industryOptions} placeholder={t("onboarding.founder.company.industryPlaceholder", null, "Select industry")} /></Field>
+        {isOtherIndustry && (
+          <Field label={t("onboarding.founder.company.industryOtherLabel", null, "Please specify industry")} span invalid={showErrors && !(d.industryOther || "").trim()}>
+            <TextInput value={d.industryOther} onChange={(v) => set("industryOther", v)} placeholder={t("onboarding.founder.company.industryOtherPlaceholder", null, "e.g. Agritech")} />
+          </Field>
+        )}
       </div>
       <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} />
       <SelCards options={COMPANY_SIZES(t)} value={d.size} onChange={(v) => set("size", v)} cols={3} />
@@ -177,7 +184,7 @@ function FoVerify({ d, set, region }) {
 function foValid(key, d) {
   switch (key) {
     case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation;
-    case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && !!d.stage;
+    case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && !!d.stage && (d.industry !== "Other" || !!(d.industryOther && d.industryOther.trim()));
     case "validate": return (d.vTypes || []).length >= 1;
     case "audience": return (d.ageBands || []).length >= 1;
     default: return true;
@@ -194,31 +201,46 @@ function CoPersonal({ d, set, showErrors }) {
     </div>
   );
 }
-function CoCompany({ d, set }) {
+function CoCompany({ d, set, showErrors }) {
   const { t } = useTranslation();
+  const industryOptions = COMPANY_INDUSTRIES(t);
+  const isOtherIndustry = d.industry === industryOptions[industryOptions.length - 1];
   return (
     <div className="rise">
       <StepHead step={t("onboarding.company.company.step", null, "Step 2 · Company")} title={t("onboarding.company.company.title", null, "About your company")} sub={t("onboarding.company.company.sub", null, "This helps validators recognise who they're giving feedback to.")} />
       <div className="fgrid c2">
         <Field label={t("onboarding.company.company.nameLabel", null, "Company name")}><TextInput value={d.companyName} onChange={(v) => set("companyName", v)} placeholder="Acme Foods" /></Field>
         <Field label={t("onboarding.company.company.websiteLabel", null, "Website")} optional><TextInput value={d.website} onChange={(v) => set("website", v)} placeholder="acmefoods.com" /></Field>
-        <Field label={t("onboarding.company.company.industryLabel", null, "Industry")}><SelectInput value={d.industry} onChange={(v) => set("industry", v)} options={COMPANY_INDUSTRIES(t)} placeholder={t("onboarding.founder.company.industryPlaceholder", null, "Select industry")} /></Field>
+        <Field label={t("onboarding.company.company.industryLabel", null, "Industry")}><SelectInput value={d.industry} onChange={(v) => set("industry", v)} options={industryOptions} placeholder={t("onboarding.founder.company.industryPlaceholder", null, "Select industry")} /></Field>
         <Field label={t("onboarding.company.company.yearFoundedLabel", null, "Year founded")} optional><TextInput value={d.yearFounded} onChange={(v) => set("yearFounded", v.replace(/\D/g, "").slice(0, 4))} placeholder="2019" /></Field>
         <Field label={t("onboarding.company.company.hqLabel", null, "Headquarters")} optional span><TextInput value={d.hq} onChange={(v) => set("hq", v)} placeholder="City, Country" /></Field>
+        {isOtherIndustry && (
+          <Field label={t("onboarding.founder.company.industryOtherLabel", null, "Please specify industry")} span invalid={showErrors && !(d.industryOther || "").trim()}>
+            <TextInput value={d.industryOther} onChange={(v) => set("industryOther", v)} placeholder={t("onboarding.founder.company.industryOtherPlaceholder", null, "e.g. Agritech")} />
+          </Field>
+        )}
       </div>
-      <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} />
+      <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} required />
       <SelCards options={EMP_SIZES(t)} value={d.size} onChange={(v) => set("size", v)} cols={3} />
     </div>
   );
 }
-function CoNeeds({ d, set }) {
+function CoNeeds({ d, set, showErrors }) {
   const { t } = useTranslation();
   const look = d.looking || [];
+  const isOtherLooking = look.includes("other-c");
   return (
     <div className="rise">
       <StepHead step={t("onboarding.company.needs.step", null, "Step 3 · Your needs")} title={t("onboarding.company.needs.title", null, "What are you looking for?")} sub={t("onboarding.company.needs.sub", null, "Pick everything you might want feedback on.")} />
-      <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} />
+      <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} required />
       <SelCards options={COMPANY_LOOKING(t)} value={look} onChange={(v) => set("looking", v)} multi cols={2} />
+      {isOtherLooking && (
+        <div style={{ marginTop: 14, maxWidth: 360 }}>
+          <Field label={t("onboarding.company.needs.otherLabel", null, "Please specify")} invalid={showErrors && !(d.lookingOther || "").trim()}>
+            <TextInput value={d.lookingOther} onChange={(v) => set("lookingOther", v)} placeholder={t("onboarding.company.needs.otherPlaceholder", null, "e.g. Accessibility audit")} />
+          </Field>
+        </div>
+      )}
       <FSection label={t("onboarding.company.needs.aboutProductSection", null, "About your product or service")} />
       <div className="fgrid c2">
         <Field label={t("onboarding.company.needs.productNameLabel", null, "Product / service name")}><TextInput value={d.productName} onChange={(v) => set("productName", v)} placeholder="Acme Protein Bars" /></Field>
@@ -244,8 +266,8 @@ function CoVerify({ d, set, region }) {
 function coValid(key, d) {
   switch (key) {
     case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation;
-    case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size;
-    case "needs": return (d.looking || []).length >= 1 && !!(d.productName && d.productName.trim());
+    case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && (d.industry !== "Other" || !!(d.industryOther && d.industryOther.trim()));
+    case "needs": return (d.looking || []).length >= 1 && !!(d.productName && d.productName.trim()) && (!(d.looking || []).includes("other-c") || !!(d.lookingOther && d.lookingOther.trim()));
     case "audience": return (d.ageBands || []).length >= 1;
     default: return true;
   }
@@ -275,9 +297,12 @@ function ResAcademic({ d, set }) {
     </div>
   );
 }
-function ResResearch({ d, set }) {
+function ResResearch({ d, set, showErrors }) {
   const { t } = useTranslation();
   const support = d.support || [];
+  const areaOptions = RESEARCH_AREAS(t);
+  const otherAreaLabel = areaOptions[areaOptions.length - 1];
+  const isOtherArea = (d.areas || []).includes(otherAreaLabel);
   return (
     <div className="rise">
       <StepHead step={t("onboarding.researcher.research.step", null, "Step 3 · Research")} title={t("onboarding.researcher.research.title", null, "Tell us about your research")} sub={t("onboarding.researcher.research.sub", null, "Enough to match you with participants who genuinely fit it.")} />
@@ -287,7 +312,14 @@ function ResResearch({ d, set }) {
         <Field label={t("onboarding.researcher.research.completionLabel", null, "Expected completion")} optional><TextInput value={d.completion} onChange={(v) => set("completion", v)} placeholder="e.g. Dec 2026" /></Field>
       </div>
       <FSection label={t("onboarding.researcher.research.areaSection", null, "Research area")} count={(d.areas || []).length ? t("onboarding.selectedCount", { count: d.areas.length }, `${d.areas.length} selected`) : null} />
-      <Chips options={RESEARCH_AREAS(t)} value={d.areas} onChange={(v) => set("areas", v)} />
+      <Chips options={areaOptions} value={d.areas} onChange={(v) => set("areas", v)} />
+      {isOtherArea && (
+        <div style={{ marginTop: 14, maxWidth: 360 }}>
+          <Field label={t("onboarding.researcher.research.areaOtherLabel", null, "Please specify")} invalid={showErrors && !(d.areasOther || "").trim()}>
+            <TextInput value={d.areasOther} onChange={(v) => set("areasOther", v)} placeholder={t("onboarding.researcher.research.areaOtherPlaceholder", null, "e.g. Urban planning")} />
+          </Field>
+        </div>
+      )}
       <FSection label={t("onboarding.researcher.research.supportSection", null, "What kind of support do you need?")} count={support.length ? t("onboarding.selectedCount", { count: support.length }, `${support.length} selected`) : null} />
       <SelCards options={SUPPORT_TYPES(t)} value={support} onChange={(v) => set("support", v)} multi cols={2} />
     </div>
@@ -337,7 +369,7 @@ function resValid(key, d) {
   switch (key) {
     case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8;
     case "academic": return !!(d.institution && d.institution.trim()) && !!d.designation && !!d.qualification;
-    case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).length >= 1 && (d.support || []).length >= 1;
+    case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).length >= 1 && (d.support || []).length >= 1 && (!(d.areas || []).includes("Other") || !!(d.areasOther && d.areasOther.trim()));
     case "participants": return !!d.sampleSize && (d.ageBands || []).length >= 1;
     case "ethics": return !!d.ethics;
     default: return true;

@@ -1,5 +1,5 @@
 import { db } from "./db.js";
-import { catOf } from "./meta.js";
+import { ptypeOf } from "./meta.js";
 
 /**
  * Fires asynchronously when a builder publishes a mission.
@@ -35,8 +35,12 @@ export async function notifyMatchingValidators(missionId) {
       roleFilter = `AND role IN ('User', 'Validator')`;
     }
 
-    const catLabel = catOf(mission.category)?.label || "New";
-    const body = `A new ${catLabel} mission was just published by ${mission.builder_org}.`;
+    // Uses ptype (Feedback Format), not category — ptype is what the validator will
+    // actually do (matches the "Feedback Format" label on the mission page), while
+    // category is a separate business classification a builder can pick independently
+    // and inconsistently (e.g. category "Focus Group" + ptype "Live 1:1 Video Call").
+    const ptypeLabel = ptypeOf(mission.ptype)?.label || "New";
+    const body = `A new ${ptypeLabel} mission was just published by ${mission.builder_org}.`;
 
     // Insert notifications only for matching validators.
     // We use INSERT INTO ... SELECT to do this in a single fast, indexed DB query.

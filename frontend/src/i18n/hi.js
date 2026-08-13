@@ -143,6 +143,7 @@ const hi = {
     loadMoreMembers: "अधिक सदस्य लोड करें",
     yesRestoreDefaults: "हां, डिफ़ॉल्ट पुनर्स्थापित करें",
     selectRole: "भूमिका चुनें",
+    completeProfile: "प्रोफ़ाइल पूरी करें",
     viewAllSteps: "सभी चरण देखें →",
     continueSetup: "सेटअप जारी रखें →",
     changeRole: "भूमिका बदलें",
@@ -1879,6 +1880,10 @@ const hi = {
     whatHappensNext3: "अपने डैशबोर्ड से ट्रैक करें",
     saveAsDraft: "ड्राफ्ट के रूप में सहेजें",
     saveDraftError: "यह ड्राफ्ट सहेजा नहीं जा सका",
+    completeProfileTitle: "प्रकाशित करने के लिए अपनी प्रोफ़ाइल पूरी करें",
+    completeProfileBodyResume: "आप इस मिशन पर काम जारी रख सकते हैं, लेकिन इसके लाइव होने से पहले आपको अपनी प्रोफ़ाइल सेटअप पूरी करनी होगी।",
+    completeProfileBodyNoRole: "आप इस मिशन पर काम जारी रख सकते हैं, लेकिन इसके लाइव होने से पहले आपको अपनी भूमिका चुननी होगी और सेटअप पूरा करना होगा।",
+    profileRequiredToPublish: "प्रकाशित करने से पहले अपनी प्रोफ़ाइल पूरी करें — आप अभी भी इस मिशन को ड्राफ्ट के रूप में सहेज सकते हैं।",
   },
   dashboard: {
     personaTitle: {

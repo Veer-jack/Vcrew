@@ -143,6 +143,7 @@ const ur = {
     loadMoreMembers: "مزید ممبرز لوڈ کریں۔",
     yesRestoreDefaults: "ہاں، ڈیفالٹس کو بحال کریں۔",
     selectRole: "کردار منتخب کریں۔",
+    completeProfile: "پروفائل مکمل کریں۔",
     viewAllSteps: "تمام مراحل دیکھیں →",
     continueSetup: "سیٹ اپ جاری رکھیں →",
     changeRole: "کردار بدلیں۔",
@@ -1879,6 +1880,10 @@ const ur = {
     whatHappensNext3: "اپنے ڈیش بورڈ سے ٹریک کریں",
     saveAsDraft: "بطور ڈرافٹ محفوظ کریں",
     saveDraftError: "یہ ڈرافٹ محفوظ نہیں ہو سکا",
+    completeProfileTitle: "شائع کرنے کے لیے اپنا پروفائل مکمل کریں۔",
+    completeProfileBodyResume: "آپ اس مشن پر کام جاری رکھ سکتے ہیں، لیکن لائیو ہونے سے پہلے آپ کو اپنا پروفائل مکمل کرنا ہوگا۔",
+    completeProfileBodyNoRole: "آپ اس مشن پر کام جاری رکھ سکتے ہیں، لیکن لائیو ہونے سے پہلے آپ کو اپنا کردار منتخب کرنا اور سیٹ اپ مکمل کرنا ہوگا۔",
+    profileRequiredToPublish: "شائع کرنے سے پہلے اپنا پروفائل مکمل کریں — آپ اب بھی اس مشن کو بطور ڈرافٹ محفوظ کر سکتے ہیں۔",
   },
   dashboard: {
     personaTitle: {

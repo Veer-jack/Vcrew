@@ -143,6 +143,7 @@ const es = {
     loadMoreMembers: "Cargar más miembros",
     yesRestoreDefaults: "Sí, restaurar los valores predeterminados",
     selectRole: "Seleccionar rol",
+    completeProfile: "Completar perfil",
     viewAllSteps: "Ver todos los pasos →",
     continueSetup: "Continuar configuración →",
     changeRole: "Cambiar rol",
@@ -1879,6 +1880,10 @@ const es = {
     whatHappensNext3: "Síguelo desde tu panel",
     saveAsDraft: "Guardar como borrador",
     saveDraftError: "No se pudo guardar este borrador",
+    completeProfileTitle: "Completa tu perfil para publicar",
+    completeProfileBodyResume: "Puedes seguir creando esta misión, pero deberás terminar de configurar tu perfil antes de que pueda publicarse.",
+    completeProfileBodyNoRole: "Puedes seguir creando esta misión, pero deberás seleccionar tu rol y terminar la configuración antes de que pueda publicarse.",
+    profileRequiredToPublish: "Completa tu perfil antes de publicar; aún puedes guardar esta misión como borrador.",
   },
   dashboard: {
     personaTitle: {

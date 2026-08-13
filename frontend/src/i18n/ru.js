@@ -143,6 +143,7 @@ const ru = {
     loadMoreMembers: "Загрузить больше участников",
     yesRestoreDefaults: "Да, восстановить настройки по умолчанию",
     selectRole: "Выберите роль",
+    completeProfile: "Завершить профиль",
     viewAllSteps: "Просмотреть все шаги →",
     continueSetup: "Продолжить настройку →",
     changeRole: "Изменить роль",
@@ -1879,6 +1880,10 @@ const ru = {
     whatHappensNext3: "Отслеживайте из панели",
     saveAsDraft: "Сохранить как черновик",
     saveDraftError: "Не удалось сохранить черновик",
+    completeProfileTitle: "Заполните профиль, чтобы опубликовать",
+    completeProfileBodyResume: "Вы можете продолжать создавать эту миссию, но перед публикацией нужно будет завершить настройку профиля.",
+    completeProfileBodyNoRole: "Вы можете продолжать создавать эту миссию, но перед публикацией нужно будет выбрать роль и завершить настройку.",
+    profileRequiredToPublish: "Заполните профиль перед публикацией — вы всё ещё можете сохранить эту миссию как черновик.",
   },
   dashboard: {
     personaTitle: {

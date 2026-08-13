@@ -143,6 +143,7 @@ const ar = {
     loadMoreMembers: "تحميل المزيد من الأعضاء",
     yesRestoreDefaults: "نعم، استعادة الإعدادات الافتراضية",
     selectRole: "حدد الدور",
+    completeProfile: "أكمل الملف الشخصي",
     viewAllSteps: "عرض كافة الخطوات →",
     continueSetup: "متابعة الإعداد →",
     changeRole: "تغيير الدور",
@@ -1879,6 +1880,10 @@ const ar = {
     whatHappensNext3: "تابعها من لوحة التحكم",
     saveAsDraft: "حفظ كمسودة",
     saveDraftError: "تعذر حفظ هذه المسودة",
+    completeProfileTitle: "أكمل ملفك الشخصي للنشر",
+    completeProfileBodyResume: "يمكنك الاستمرار في إعداد هذه المهمة، لكن ستحتاج إلى إكمال إعداد ملفك الشخصي قبل أن تصبح متاحة.",
+    completeProfileBodyNoRole: "يمكنك الاستمرار في إعداد هذه المهمة، لكن ستحتاج إلى تحديد دورك وإكمال الإعداد قبل أن تصبح متاحة.",
+    profileRequiredToPublish: "أكمل ملفك الشخصي قبل النشر — يمكنك حفظ هذه المهمة كمسودة.",
   },
   dashboard: {
     personaTitle: {

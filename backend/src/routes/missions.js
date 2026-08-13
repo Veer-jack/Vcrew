@@ -701,7 +701,7 @@ router.patch("/:id", async (req, res) => {
 const MANUAL_PARTICIPANT_STAGES = ["invited", "accepted", "started", "submitted"];
 
 router.patch("/:id/participants/:pid", async (req, res) => {
-  const m = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const m = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   const { stage } = req.body || {};
   if (!stage) return res.status(400).json({ error: "stage is required" });
@@ -713,9 +713,9 @@ router.patch("/:id/participants/:pid", async (req, res) => {
   if (!p) return res.status(404).json({ error: "Participant not found" });
 
   await db.prepare(`UPDATE participants SET stage = ? WHERE id = ?`).run(stage, p.id);
-  
-  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'stage_update', 'info', 'primary', ?, ?, 'Just now', 1)`)
-    .run(p.validator_id, "Status Updated", `Your status for ${m.name} was changed to: ${stage}.`);
+
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'stage_update', 'info', 'primary', ?, ?, 'Just now', 1, ?)`)
+    .run(p.validator_id, "Status Updated", `Your status for ${m.name} was changed to: ${stage}.`, m.id);
 
   res.json({ participant: { ...p, stage } });
 });
@@ -837,7 +837,7 @@ router.get("/:id/shipments", authMiddleware, async (req, res) => {
 
 // POST /api/missions/:id/shipments/:validatorId/ship — builder marks a sample shipped
 router.post("/:id/shipments/:validatorId/ship", authMiddleware, async (req, res) => {
-  const mission = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
+  const mission = await db.prepare(`SELECT id, name FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const { trackingNumber, carrier } = req.body || {};
@@ -845,8 +845,8 @@ router.post("/:id/shipments/:validatorId/ship", authMiddleware, async (req, res)
     .run(trackingNumber || null, carrier || null, req.params.id, req.params.validatorId);
   if (updateRes.changes === 0) return res.status(400).json({ error: "This shipment is not awaiting shipment (already shipped, or the validator hasn't accepted this mission)" });
 
-  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'shipped', 'truck', 'primary', ?, ?, 'Just now', 1)`)
-    .run(req.params.validatorId, "Sample Shipped", `The sample for ${mission.name} has been shipped! Tracking: ${trackingNumber || "N/A"}`);
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'system', 'shipped', 'truck', 'primary', ?, ?, 'Just now', 1, ?)`)
+    .run(req.params.validatorId, "Sample Shipped", `The sample for ${mission.name} has been shipped! Tracking: ${trackingNumber || "N/A"}`, mission.id);
 
   res.json({ ok: true });
 });
