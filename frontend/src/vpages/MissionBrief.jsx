@@ -37,7 +37,7 @@ export default function MissionBrief() {
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
       <h2 style={{ fontSize: 20, marginBottom: 8 }}>{t("missions.missionNotFound", null, "Mission not found")}</h2>
       <p style={{ color: "var(--text-muted)" }}>{t("missions.missionNotFoundDesc", null, "This mission may have been deleted or is unavailable.")}</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/validator/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
@@ -153,7 +153,7 @@ export default function MissionBrief() {
                 </div>
               </div>
               {mission?.description && (
-                <p style={{ margin: "16px 0 0", fontSize: 14, lineHeight: 1.6, color: "var(--text-muted)" }}>{mission.description}</p>
+                <p style={{ margin: "16px 0 0", fontSize: 14, lineHeight: 1.6, color: "var(--text-muted)", overflowWrap: "anywhere", wordBreak: "break-word" }}>{mission.description}</p>
               )}
             </div>
 

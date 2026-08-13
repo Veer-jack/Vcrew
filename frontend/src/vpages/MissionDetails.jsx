@@ -197,7 +197,9 @@ export default function MissionDetails() {
         <button className="btn btn-ghost" onClick={toggleSave}>
           {task.spotsLeft <= 0 && !accepted && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save")}</>}
         </button>
-        <button className="btn btn-quiet" onClick={() => navigate("/validator")}>{t("actions.decline", null, "Decline")}</button>
+        {!task.inviteId && (
+          <button className="btn btn-quiet" onClick={() => navigate("/validator")}>{t("actions.decline", null, "Decline")}</button>
+        )}
         {!reportDone
           ? <button className="btn btn-quiet" style={{ color: "var(--text-faint)", fontSize: 12.5 }} onClick={() => setReportOpen(o => !o)}>
               <Icon name="flag" size={14} />{t("actions.reportMission", null, "Report Mission")}
@@ -223,6 +225,9 @@ export default function MissionDetails() {
                 : (task.category === "sample" && inProgress) ? "shipment"
                 : (task.ptype === "interview" && inProgress) ? "schedule"
                 : (task.ptype === "focus" && inProgress) ? "poll"
+                // Marketplace listings (vtasks) have no multi-task workspace shape —
+                // route them to the rubric-based review form instead (BUG-028).
+                : (task.src === "vtask" && inProgress) ? "rate"
                 : "workspace";
               navigate(`/validator/missions/${task.id}/${dest}`);
             }} style={{
