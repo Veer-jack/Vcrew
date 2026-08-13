@@ -123,9 +123,23 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
             otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
             onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
           />
-        ) : Object.entries(opts).map(([sub, subOpts]) => (
-          <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)} />
-        ))
+        ) : (
+          // Subgroups (e.g. Geography's Global & Remote / India / Asia Pacific / ...) render as
+          // separate FilterGroups but share one selection set — wrap them in one labelled card so
+          // it's visually clear they're all part of the same top-level category, not unrelated filters.
+          <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
+            <div className="row between" style={{ marginBottom: 2 }}>
+              <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
+              {d.filters[g].size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}</span>}
+            </div>
+            {Object.entries(opts).map(([sub, subOpts]) => (
+              <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
+                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v }) : undefined}
+              />
+            ))}
+          </div>
+        )
       ))}
     </div>
   );
