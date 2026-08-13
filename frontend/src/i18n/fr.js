@@ -28,6 +28,16 @@ const fr = {
     validationsession: "Séance de validation",
   },
   auth: {
+    errCodeExpired: "Ce code a expiré. Veuillez en demander un nouveau.",
+    errEmailInUse: "Un compte existe déjà avec cet e-mail.",
+    errInvalidCredentials: "E-mail ou mot de passe incorrect.",
+    errInvalidPhone: "Veuillez saisir un numéro de mobile valide.",
+    errRegionNotEnabled: "La connexion par SMS n'est pas encore disponible dans cette région. Essayez une autre méthode de connexion.",
+    errSendCodeRetry: "Une erreur est survenue lors de l'envoi du code. Veuillez réessayer.",
+    errTooManyRequests: "Trop de tentatives. Veuillez patienter puis réessayer.",
+    errWeakPassword: "Choisissez un mot de passe plus robuste (8 caractères minimum).",
+    phoneHintIndia: "Saisissez votre numéro de mobile à 10 chiffres, sans l'indicatif du pays",
+    phoneHintOther: "Saisissez votre numéro de mobile (7 à 13 chiffres), sans l'indicatif du pays",
     signIn: "Se connecter",
     signUp: "Créer un compte",
     welcomeBack: "Content de te revoir",
@@ -466,6 +476,8 @@ const fr = {
     },
   },
   missions: {
+    cantOpenHere: "Impossible d'ouvrir cette mission ici",
+    revisionRequestedBy: "Révision demandée — commentaires du créateur",
     createNew: "Créer une nouvelle mission",
     allMissions: "Toutes les missions",
     noMissions: "Aucune mission pour l'instant.",
@@ -734,6 +746,9 @@ const fr = {
       surfacesSection: "Domaines de validation",
     },
     audience: {
+    sortBy: "Trier par",
+    sortByName: "Trier par : Nom",
+    sortByTrust: "Trier par : Confiance",
       title: "Qui devrait donner son avis ?",
       sub: "Décrivez les personnes dont l'avis compte réellement — nous vous mettons en relation avec des validateurs pertinents, sans diffusion massive.",
     },
@@ -1789,6 +1804,7 @@ const fr = {
     perfectionist: { label: "Perfectionniste", desc: "Atteignez 98% de précision sur 90 jours" },
   },
   createMission: {
+    participantsHintUnverified: "Les comptes non vérifiés sont limités à {{limit}} participants par mission. Vérifiez votre site pour débloquer jusqu'à 500.",
     step1Title: "Informations sur la mission",
     step1Subtitle: "Nom et catégorie",
     step1Hint: "Donnez un nom clair à votre mission et choisissez le type de validation dont vous avez besoin.",
@@ -1993,6 +2009,7 @@ const fr = {
     messageName: "Message {{name}} …",
   },
   missionDetail: {
+    participantMoved: "{{name}} déplacé(e) vers {{stage}} — cette mise à jour lui sera aussi visible.",
     recently: "récemment",
     timeUnit: {
       year: "année",
@@ -2475,6 +2492,11 @@ const fr = {
     useDifferentNumber: "Utiliser un autre numéro",
   },
   testCases: {
+    fetchEmpty: "Aucun contenu exploitable trouvé sur cette page — vous pouvez toujours générer à partir de votre description",
+    fetchNonHtml: "Ce lien ne pointe pas vers une page web (pas de HTML) — vous pouvez toujours générer à partir de votre description",
+    fetchTimeout: "Cette page a mis trop de temps à répondre — vous pouvez toujours générer à partir de votre description",
+    missingFieldsHint: "Complétez {{fields}} pour générer des cas de test.",
+    urlFormatInvalid: "Veuillez saisir une URL valide, commençant par http:// ou https://",
     severityCritical: "Critique",
     severityImportant: "Important",
     severityNiceToHave: "C'est agréable d'avoir",
@@ -3177,6 +3199,20 @@ const fr = {
     "3": { q: "Comment le prix d'une mission est-il calculé ?", a: "Le prix dépend du type de mission, du nombre de participants et du délai. Vous verrez une estimation avant publication, et les fonds sont conservés en séquestre jusqu'à l'achèvement." },
     "4": { q: "Puis-je modifier le nom de mon espace de travail ou mon e-mail ?", a: "Oui — allez dans Paramètres → Modifier le profil pour mettre à jour votre nom, le nom de votre espace de travail et votre adresse e-mail." },
     "5": { q: "Comment ajouter un numéro de téléphone pour la connexion ?", a: "Allez dans Paramètres → Numéro de téléphone → Ajouter un téléphone. Une fois vérifié, vous pouvez vous connecter avec un code envoyé par SMS, utilisé aussi pour une vérification supplémentaire lors des rechargements du portefeuille." },
+  },
+  vtaskReview: {
+    anythingWrong: "Un problème ? (facultatif)",
+    minutesLabel: "Minutes passées",
+    notesLabel: "Notes pour le créateur",
+    notesPlaceholder: "Qu'est-ce qui vous a marqué, en bien ou en mal ?",
+    rateAllHint: "Notez chaque élément ci-dessus pour valider",
+    rateExperience: "Évaluez votre expérience",
+    rateHint: "Basez-vous sur ce que vous venez réellement de faire, pas sur des attentes générales.",
+    submitFailed: "Impossible d'envoyer votre évaluation — veuillez réessayer.",
+    submitReview: "Envoyer l'évaluation",
+    submitted: "Évaluation envoyée !",
+    submittedDesc: "₹{{reward}} seront ajoutés à votre solde en attente une fois la révision du créateur effectuée.",
+    submitting: "Envoi en cours…",
   },
 };
 

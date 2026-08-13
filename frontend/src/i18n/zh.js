@@ -28,6 +28,16 @@ const zh = {
     validationsession: "验证会话",
   },
   auth: {
+    errCodeExpired: "此验证码已过期，请重新获取。",
+    errEmailInUse: "该邮箱已被注册。",
+    errInvalidCredentials: "邮箱或密码不正确。",
+    errInvalidPhone: "请输入有效的手机号码。",
+    errRegionNotEnabled: "该地区暂不支持短信登录，请尝试其他登录方式。",
+    errSendCodeRetry: "发送验证码时出错，请重试。",
+    errTooManyRequests: "尝试次数过多，请稍后再试。",
+    errWeakPassword: "请选择更安全的密码（至少 8 个字符）。",
+    phoneHintIndia: "请输入 10 位手机号码，无需国家代码",
+    phoneHintOther: "请输入手机号码（7–13 位），无需国家代码",
     signIn: "登入",
     signUp: "创建账户",
     welcomeBack: "欢迎回来",
@@ -466,6 +476,8 @@ const zh = {
     },
   },
   missions: {
+    cantOpenHere: "无法在此处打开此任务",
+    revisionRequestedBy: "已请求修改 — 创建者的意见",
     createNew: "创造新使命",
     allMissions: "所有任务",
     noMissions: "还没有任务。",
@@ -734,6 +746,9 @@ const zh = {
       surfacesSection: "验证范围",
     },
     audience: {
+    sortBy: "排序方式",
+    sortByName: "排序方式：姓名",
+    sortByTrust: "排序方式：信任度",
       title: "谁的意见应该被重视？",
       sub: "描述那些意见真正重要的人 — 我们会为您匹配合适的验证者，而不是群发给所有人。",
     },
@@ -1789,6 +1804,7 @@ const zh = {
     perfectionist: { label: "完美主义者", desc: "90 天内准确率达到 98%" },
   },
   createMission: {
+    participantsHintUnverified: "未验证账户每个任务最多 {{limit}} 名参与者。验证您的网站以解锁最多 500 名。",
     step1Title: "任务信息",
     step1Subtitle: "名称及类别",
     step1Hint: "为您的任务指定一个清晰的名称，并选择您需要的验证类型。",
@@ -1993,6 +2009,7 @@ const zh = {
     messageName: "消息 {{name}} …",
   },
   missionDetail: {
+    participantMoved: "已将{{name}}移动到{{stage}} — 对方也会看到此更新。",
     recently: "最近",
     timeUnit: {
       year: "年",
@@ -2475,6 +2492,11 @@ const zh = {
     useDifferentNumber: "使用不同的号码",
   },
   testCases: {
+    fetchEmpty: "该页面未找到可用内容 — 您仍可根据您的描述生成",
+    fetchNonHtml: "该链接未指向网页（非 HTML）— 您仍可根据您的描述生成",
+    fetchTimeout: "该页面响应超时 — 您仍可根据您的描述生成",
+    missingFieldsHint: "请填写{{fields}}以生成测试用例。",
+    urlFormatInvalid: "请输入有效的网址，以 http:// 或 https:// 开头",
     severityCritical: "关键",
     severityImportant: "重要",
     severityNiceToHave: "很高兴拥有",
@@ -3177,6 +3199,20 @@ const zh = {
     "3": { q: "任务的定价是如何计算的？", a: "定价取决于任务类型、参与人数和完成时间。发布前您会看到预估费用，资金将被托管，直到任务完成。" },
     "4": { q: "我可以编辑我的工作区名称或邮箱吗？", a: "可以——前往「设置」→「编辑资料」以更新您的姓名、工作区名称和邮箱地址。" },
     "5": { q: "我该如何添加用于登录的手机号？", a: "前往「设置」→「手机号」→「添加手机号」。验证后，您可以使用通过短信发送的验证码登录，该手机号也用于钱包充值时的额外验证。" },
+  },
+  vtaskReview: {
+    anythingWrong: "有什么问题吗？（可选）",
+    minutesLabel: "花费分钟数",
+    notesLabel: "给创建者的备注",
+    notesPlaceholder: "有什么突出的地方，好的或不好的？",
+    rateAllHint: "请为以上每一项评分后再提交",
+    rateExperience: "为您的体验评分",
+    rateHint: "请基于您刚刚实际做的事情来评价，而非一般性的预期。",
+    submitFailed: "无法提交您的评价，请重试。",
+    submitReview: "提交评价",
+    submitted: "评价已提交！",
+    submittedDesc: "创建者审核后，₹{{reward}} 将计入您的待结算余额。",
+    submitting: "正在提交…",
   },
 };
 

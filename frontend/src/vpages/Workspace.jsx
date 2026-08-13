@@ -130,6 +130,9 @@ export default function Workspace() {
   const [uploadingProof, setUploadingProof] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [scheduleStatus, setScheduleStatus] = useState(null);
+  const [isRevision, setIsRevision] = useState(false);
+  const [revisionReason, setRevisionReason] = useState("");
+  const [loadError, setLoadError] = useState(null);
 
   const isFirstRender = useRef(true);
   useEffect(() => {
@@ -162,10 +165,18 @@ export default function Workspace() {
           let savedAnswers = t.map(() => ({}));
           let savedIdx = 0;
           if (data.responses && data.isDraft) {
-            savedAnswers = t.map((_, i) => data.responses.answers[i] || {});
-            savedIdx = data.responses.curIdx || 0;
+            // A real draft-save wraps data_json as {answers, curIdx}. A
+            // revision-requested response still holds whatever the last
+            // *submit* stored instead — a bare per-task answers array, with
+            // no curIdx — so detect which shape we actually got.
+            const wrapped = data.responses && !Array.isArray(data.responses) && Array.isArray(data.responses.answers);
+            const rawAnswers = wrapped ? data.responses.answers : (Array.isArray(data.responses) ? data.responses : []);
+            savedAnswers = t.map((_, i) => rawAnswers[i] || {});
+            savedIdx = wrapped ? (data.responses.curIdx || 0) : 0;
             setCurIdx(savedIdx);
           }
+          setIsRevision(!!data.isRevision);
+          setRevisionReason(data.revisionReason || "");
           setAnswers(savedAnswers);
           setStepsDone(t.map((tk, i) => {
              const hasAns = savedAnswers[i] && Object.keys(savedAnswers[i]).length > 0;
@@ -174,9 +185,10 @@ export default function Workspace() {
           setTimerDone(t.map((_, i) => i < savedIdx));
           setProofUploaded(t.map((_, i) => savedAnswers[i]?._proof || false));
         }
-      } catch {
+      } catch (err) {
         // do not fallback to mock
         setTasks([]);
+        if (err?.code === "UNSUPPORTED_WORKSPACE_TASK") setLoadError(err.message);
       } finally {
         setLoading(false);
       }
@@ -188,9 +200,9 @@ export default function Workspace() {
   if (tasks.length === 0) return (
     <div className="page rise" style={{ textAlign: "center", paddingTop: 80 }}>
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
-      <h2 style={{ fontSize: 20, marginBottom: 8 }}>{t("missions.noTasksFound", null, "No tasks found")}</h2>
-      <p style={{ color: "var(--text-muted)" }}>{t("missions.noTasksDesc", null, "This mission does not have any tasks generated yet.")}</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/v/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
+      <h2 style={{ fontSize: 20, marginBottom: 8 }}>{loadError ? t("missions.cantOpenHere", null, "Can't open this mission here") : t("missions.noTasksFound", null, "No tasks found")}</h2>
+      <p style={{ color: "var(--text-muted)" }}>{loadError || t("missions.noTasksDesc", null, "This mission does not have any tasks generated yet.")}</p>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/validator/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
@@ -351,6 +363,14 @@ export default function Workspace() {
 
         {/* Content */}
         <div style={{ padding: "28px 36px 140px", maxWidth: 780, margin: "0 auto", width: "100%" }} className="rise">
+          {isRevision && revisionReason && (
+            <div className="card" style={{ padding: "14px 18px", marginBottom: 18, borderColor: "var(--warning)", background: "var(--warning-weak, color-mix(in srgb, var(--warning) 12%, transparent))" }}>
+              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: ".04em", textTransform: "uppercase", color: "var(--warning)", marginBottom: 6 }}>
+                {t("missions.revisionRequestedBy", null, "Revision requested — builder's comments")}
+              </div>
+              <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>{revisionReason}</p>
+            </div>
+          )}
           <div style={{ marginBottom: 22 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sev.bg, color: sev.color }}>

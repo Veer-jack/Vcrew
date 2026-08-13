@@ -102,6 +102,10 @@ export default function AppLayout() {
     return () => clearInterval(interval);
   }, [dataVersion]);
 
+  useEffect(() => {
+    setShowProfile(false);
+  }, [location.pathname]);
+
   const unreadCount = notifs.filter(n => n.unread).length;
 
   return (
@@ -112,19 +116,21 @@ export default function AppLayout() {
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{t("nav." + pageTitle(location.pathname).toLowerCase(), null, pageTitle(location.pathname))}</h1>
-          <div className="search" style={{ marginLeft: 18 }}>
-            <Icon name="search" size={16} />
-            <input
-              placeholder={t("actions.search", null, "Search missions…")}
-              value={topbarQ}
-              onChange={e => setTopbarQ(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && topbarQ.trim()) {
-                  navigate(`/missions?q=${encodeURIComponent(topbarQ.trim())}`);
-                }
-              }}
-            />
-          </div>
+          {location.pathname !== "/audience" && (
+            <div className="search" style={{ marginLeft: 18 }}>
+              <Icon name="search" size={16} />
+              <input
+                placeholder={t("actions.search", null, "Search missions…")}
+                value={topbarQ}
+                onChange={e => setTopbarQ(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && topbarQ.trim()) {
+                    navigate(`/missions?q=${encodeURIComponent(topbarQ.trim())}`);
+                  }
+                }}
+              />
+            </div>
+          )}
           <span className="topbar-spacer" />
           <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title={t("appLayout.notifications", null, "Notifications")}>
             <Icon name="bell" size={17} />

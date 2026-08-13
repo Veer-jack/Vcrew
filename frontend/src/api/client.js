@@ -29,6 +29,13 @@ async function request(path, { method = "GET", body } = {}) {
     const err = new Error(message);
     err.status = res.status;
     err.code = data && data.code;
+    // A dead/expired session shows up as 401s on whatever the page happens to
+    // be fetching next — clear it and bounce to Sign In instead of leaving
+    // the page stuck showing a blank/retry state.
+    if (res.status === 401 && token) {
+      setToken(null);
+      if (!window.location.pathname.startsWith("/login")) window.location.href = "/login";
+    }
     throw err;
   }
   return data;

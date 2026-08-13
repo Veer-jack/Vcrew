@@ -77,7 +77,7 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
       <div className="col gap-5">
         <div className="card" style={{ padding: 20 }}>
           <span className="eyebrow">{t("missionDetail.theBrief", null, "The brief")}</span>
-          <p style={{ fontSize: 15, lineHeight: 1.65, margin: "10px 0 0" }}>{mission.description || t("missionDetail.noDescription", null, "No description provided yet.")}</p>
+          <p style={{ fontSize: 15, lineHeight: 1.65, margin: "10px 0 0", overflowWrap: "anywhere", wordBreak: "break-word" }}>{mission.description || t("missionDetail.noDescription", null, "No description provided yet.")}</p>
         </div>
         <div className="card" style={{ padding: 20 }}>
           <div className="sec-head"><h3 className="h-md">{t("missionDetail.participantPipeline", null, "Participant pipeline")}</h3><Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setTab("participants")}>{t("actions.openBoard", null, "Open board")}</Btn></div>
@@ -166,6 +166,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
 
   const move = async (id, stage) => {
     let prevStage;
+    const target = participants.find(p => p.id === id);
     setParticipants(ps => ps.map(p => {
       if (p.id !== id) return p;
       prevStage = p.stage;
@@ -173,6 +174,12 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
     }));
     try {
       await api.moveParticipant(mission.id, id, stage);
+      // Drag-and-drop on this board *is* how a participant's stage gets set — make
+      // that change visible instead of it looking like a no-op (BUG-044). The
+      // validator's own status view now updates from the same call too (see the
+      // backend's manual stage-move handler).
+      const stageLabel = STAGES.find(s => s.id === stage)?.label || stage;
+      showToast(t("missionDetail.participantMoved", { name: target?.name || "Participant", stage: stageLabel }, `${target?.name || "Participant"} moved to ${stageLabel} — they'll see this update too.`));
     } catch {
       // Roll back the optimistic move — e.g. the backend rejected a stage it doesn't allow.
       setParticipants(ps => ps.map(p => p.id === id ? { ...p, stage: prevStage } : p));
@@ -182,7 +189,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   return (
     <div>
       <div className="row between" style={{ marginBottom: 14 }}>
-        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("missionDetail.dragParticipants", null, "Drag participants across the pipeline.")} {participants.length} {t("missionDetail.totalInMission", null, "total in this mission.")}</p>
+        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("missionDetail.dragParticipants", null, "Drag a card into a different column to update that participant's stage — they'll see the change on their end too.")} {participants.length} {t("missionDetail.totalInMission", null, "total in this mission.")}</p>
         <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
       </div>
       <div className="kanban">
@@ -1228,7 +1235,15 @@ export default function MissionDetail() {
       {tab === "payments" && <MissionPaymentsTab payments={data.payments} navigate={navigate} missionId={id} />}
 
       {showInviteModal && mission && (
-        <InviteValidatorModal mission={mission} onClose={() => setShowInviteModal(false)} />
+        <InviteValidatorModal mission={mission} onClose={(invited) => {
+          setShowInviteModal(false);
+          if (invited) {
+            api.mission(id).then(d => {
+              setData(d);
+              setParticipants(d?.participants?.map(p => ({ ...p })) || []);
+            });
+          }
+        }} />
       )}
       {showWaitlistModal && mission && waitlist.length > 0 && (
         <WaitlistInviteModal mission={mission} waitlist={waitlist} onClose={() => setShowWaitlistModal(false)} showToast={showToast} />

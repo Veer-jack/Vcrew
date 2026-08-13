@@ -178,7 +178,7 @@ export function InviteValidatorModal({ mission, onClose }) {
         Array.from(selectedIds).map(id => api.inviteValidator(mission.id, id))
       );
       toast.success(t("invite.invitedMembersSuccess", { count: selectedIds.size }, `Invited ${selectedIds.size} members to mission!`));
-      onClose();
+      onClose(true);
     } catch (err) {
       toast.error(err.message || t("invite.failedToSendInvites", null, "Failed to send some invites"));
       setInviting(false);

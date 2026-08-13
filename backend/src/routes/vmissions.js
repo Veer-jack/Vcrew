@@ -104,8 +104,11 @@ router.get("/", async (req, res) => {
   const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0, closed: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
-    if (r.status === "revision") counts.active += Number(r.c);
-    else if (counts[r.status] !== undefined) counts[r.status] = Number(r.c);
+    // "revision" folds into the "active" bucket alongside real 'active' rows
+    // (see line 78's list filter) — always accumulate with += so it doesn't
+    // matter which order Postgres returns the GROUP BY rows in.
+    const bucket = r.status === "revision" ? "active" : r.status;
+    if (counts[bucket] !== undefined) counts[bucket] += Number(r.c);
   }
 
   const missions = rows.map(serializeRow);
@@ -248,7 +251,16 @@ router.get("/:id/workspace", async (req, res) => {
     JOIN builders b ON b.id = m.builder_id
     WHERE m.id = ?
   `).get(req.params.id);
-  if (!m) return res.status(404).json({ error: "Mission not found" });
+  if (!m) {
+    // Marketplace listings (vtasks) use a flat single-task record with no
+    // steps/questions/proof shape — Resume shouldn't have sent them into
+    // this multi-task workspace at all (see MyMissions.jsx's dest picker).
+    // Surface a distinguishable error instead of a bare 404 so the frontend
+    // can say what actually happened rather than a silent blank page.
+    const vtask = await db.prepare(`SELECT id FROM vtasks WHERE id = ?`).get(req.params.id);
+    if (vtask) return res.status(409).json({ error: "This mission type isn't opened from the workspace.", code: "UNSUPPORTED_WORKSPACE_TASK" });
+    return res.status(404).json({ error: "Mission not found" });
+  }
 
   let tasks = [];
   try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
@@ -256,9 +268,16 @@ router.get("/:id/workspace", async (req, res) => {
   const response = await db.prepare(`SELECT data_json, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   let responses = null;
   let isDraft = false;
+  let isRevision = false;
+  let revisionReason = null;
   if (response && response.data_json) {
     try { responses = JSON.parse(response.data_json); } catch {}
-    isDraft = response.status === "draft" || response.status === "revision";
+    isRevision = response.status === "revision";
+    isDraft = response.status === "draft" || isRevision;
+  }
+  if (isRevision) {
+    const mm = await db.prepare(`SELECT reason FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+    revisionReason = mm?.reason || null;
   }
 
   let scheduleStatus = null;
@@ -278,6 +297,8 @@ router.get("/:id/workspace", async (req, res) => {
     tasks,
     responses,
     isDraft,
+    isRevision,
+    revisionReason,
     scheduleStatus,
   });
 });
@@ -811,8 +832,17 @@ router.post("/invitations/:id/accept", async (req, res) => {
       }
 
       await tx.prepare(`UPDATE mission_invitations SET status = 'accepted' WHERE id = ?`).run(invite.id);
-      await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
-        .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
+      // The invite step already creates an 'invited' participants row (see
+      // POST /missions/:id/invite) — flip it to accepted instead of inserting
+      // a second row for the same person. Marketplace-style direct joins
+      // (no prior invite) still fall through to the INSERT.
+      const invitedRow = await tx.prepare(`SELECT id FROM participants WHERE mission_id = ? AND validator_id = ?`).get(m.id, req.validator.id);
+      if (invitedRow) {
+        await tx.prepare(`UPDATE participants SET stage = 'accepted', status = 'active' WHERE id = ?`).run(invitedRow.id);
+      } else {
+        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
+          .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
+      }
       await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status) VALUES (?, ?, 'active')`)
         .run(req.validator.id, m.id);
       
@@ -853,6 +883,7 @@ router.post("/invitations/:id/decline", async (req, res) => {
 
   await db.transaction(async (tx) => {
     await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
+    await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
     if (m) {
       await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
         .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`, m.id);

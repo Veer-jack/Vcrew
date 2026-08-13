@@ -68,6 +68,7 @@ export default function AudienceExplorer() {
   const [visibleCount, setVisibleCount] = useState(50);
   const [usingDefaults, setUsingDefaults] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [sortKey, setSortKey] = useState("match");
 
   useEffect(() => {
     setIsLoading(true);
@@ -180,8 +181,12 @@ export default function AudienceExplorer() {
       
       const qq = !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase());
       return geo && role && occ && int && demo && qq;
-    }).sort((a, b) => b.match - a.match);
-  }, [members, sel, q, filters]);
+    }).sort((a, b) => {
+      if (sortKey === "trust") return (b.trust || 0) - (a.trust || 0);
+      if (sortKey === "name") return a.name.localeCompare(b.name);
+      return b.match - a.match;
+    });
+  }, [members, sel, q, filters, sortKey]);
 
   useEffect(() => {
     const t = setTimeout(() => setVisibleCount(50), 0);
@@ -323,7 +328,16 @@ export default function AudienceExplorer() {
             <div className="seg-search"><Icon name="search" size={16} /><input placeholder={t("audience.searchPlaceholder", null, "Search by name, role, city…")} value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
             <span className="muted" style={{ fontSize: 13 }}>{results.length} {t("audience.results", null, "results")}</span>
             <span className="grow" />
-            <span style={{ fontSize: 13, fontWeight: 500, marginRight: 16 }}>{t("audience.sortByMatch", null, "Sort by: Match")} <Icon name="chevronDown" size={14} style={{ verticalAlign: -2, marginLeft: 4 }}/></span>
+            <select
+              value={sortKey}
+              onChange={e => setSortKey(e.target.value)}
+              aria-label={t("audience.sortBy", null, "Sort by")}
+              style={{ fontSize: 13, fontWeight: 500, marginRight: 16, border: "1px solid var(--border)", borderRadius: 6, padding: "5px 8px", background: "var(--panel)", color: "inherit", cursor: "pointer" }}
+            >
+              <option value="match">{t("audience.sortByMatch", null, "Sort by: Match")}</option>
+              <option value="trust">{t("audience.sortByTrust", null, "Sort by: Trust")}</option>
+              <option value="name">{t("audience.sortByName", null, "Sort by: Name")}</option>
+            </select>
             <Btn variant="ghost" size="sm" icon="download" onClick={exportPDF} disabled={results.length === 0}>{t("actions.exportPdf", null, "Export PDF")}</Btn>
           </div>
           <div style={{ transition: "opacity 0.3s ease", opacity: isLoading ? 0.3 : 1, pointerEvents: isLoading ? "none" : "auto" }}>

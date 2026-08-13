@@ -714,6 +714,18 @@ router.patch("/:id/participants/:pid", async (req, res) => {
 
   await db.prepare(`UPDATE participants SET stage = ? WHERE id = ?`).run(stage, p.id);
 
+  // Keep the Validator's own status view in sync with the Builder's manual
+  // drag. "invited"/"started" have no distinct v_my_missions status (the
+  // validator-side submit/accept flows never gave them one either — see
+  // markParticipantStarted); "accepted"/"submitted" do, and skipping this
+  // write is exactly what left the Validator stuck showing a stale stage
+  // while the Builder's board had already moved on.
+  const STAGE_TO_VMY_STATUS = { accepted: "active", submitted: "submitted" };
+  if (STAGE_TO_VMY_STATUS[stage]) {
+    await db.prepare(`UPDATE v_my_missions SET status = ? WHERE mission_id = ? AND validator_id = ?`)
+      .run(STAGE_TO_VMY_STATUS[stage], m.id, p.validator_id);
+  }
+
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'stage_update', 'info', 'primary', ?, ?, 'Just now', 1, ?)`)
     .run(p.validator_id, "Status Updated", `Your status for ${m.name} was changed to: ${stage}.`, m.id);
 
@@ -805,8 +817,8 @@ router.post("/generate-tasks", authMiddleware, async (req, res) => {
 router.post("/fetch-url-context", authMiddleware, async (req, res) => {
   const { url } = req.body || {};
   if (!url) return res.status(400).json({ error: "URL required" });
-  const context = await fetchUrlContext(url);
-  res.json({ context });
+  const { context, reason } = await fetchUrlContext(url);
+  res.json({ context, reason });
 });
 
 // GET /api/missions/:id/shipments — builder views sample-shipment status for their mission
@@ -1444,7 +1456,7 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
-  const validator = await db.prepare(`SELECT id, name FROM validators WHERE id = ?`).get(req.params.validatorId);
+  const validator = await db.prepare(`SELECT id, name, email, city FROM validators WHERE id = ?`).get(req.params.validatorId);
   if (!validator) return res.status(404).json({ error: "Validator not found" });
 
   // Prevent multiple invites
@@ -1460,6 +1472,12 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
   await db.transaction(async (tx) => {
     await tx.prepare(`INSERT INTO mission_invitations (builder_id, validator_id, mission_id, status) VALUES (?, ?, ?, 'pending')`)
       .run(req.builder.id, req.params.validatorId, req.params.id);
+
+    // Surface the invite in the Participants pipeline immediately — this row
+    // is what BUG-037/036 were missing; without it, "Invited" always read
+    // empty since nothing populated the participants table until acceptance.
+    await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city, stage, status) VALUES (?, ?, ?, ?, 'User', ?, 'invited', 'invited')`)
+      .run(req.params.id, req.params.validatorId, validator.name, validator.email, validator.city || 'Remote');
 
     if (isWaitlist) {
       await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'waitlist_invite', 'star', 'accent', ?, ?, 'Just now', 1, ?)`)
@@ -1506,6 +1524,7 @@ router.delete("/:id/invite/:validatorId", async (req, res) => {
 
   await db.transaction(async (tx) => {
     await tx.prepare(`UPDATE mission_invitations SET status = 'cancelled' WHERE id = ?`).run(invite.id);
+    await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(req.params.id, req.params.validatorId);
     await tx.prepare(`
       INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
       VALUES (?, 'invite', 'invite_cancelled', 'xCircle', 'muted', ?, ?, 'Just now', 1, ?)
