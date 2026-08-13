@@ -36,10 +36,10 @@ export function SelectInput({ value, onChange, options, placeholder }) {
   );
 }
 
-export function FSection({ label, count }) {
+export function FSection({ label, count, required }) {
   return (
     <div className="row between" style={{ margin: "18px 0 10px" }}>
-      <div className="eyebrow" style={{ fontSize: 12 }}>{label}</div>
+      <div className="eyebrow" style={{ fontSize: 12 }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
       {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
     </div>
   );
@@ -152,11 +152,20 @@ export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
 export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
+  const occupationOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
+  // Only the caller-supplied lists are designed with a trailing "Other" catch-all —
+  // the built-in default's last entry is "Any", which means no preference, not "type it in".
+  const isOtherOccupation = !!occOptions && (d.occupations || []).includes(occupationOptions[occupationOptions.length - 1]);
   return (
     <div className="col gap-3">
       {show.occupation && (
         <Field label={t("onboardingFields.occupation", null, "Occupation")}>
-          <Chips options={occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")]} value={d.occupations} onChange={(v) => set("occupations", v)} />
+          <Chips options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />
+        </Field>
+      )}
+      {show.occupation && isOtherOccupation && (
+        <Field label={t("onboardingFields.occupationOtherLabel", null, "Please specify occupation")}>
+          <TextInput value={d.occupationOther} onChange={(v) => set("occupationOther", v)} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} />
         </Field>
       )}
       {show.education && (

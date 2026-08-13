@@ -220,7 +220,7 @@ function CoCompany({ d, set, showErrors }) {
           </Field>
         )}
       </div>
-      <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} />
+      <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} required />
       <SelCards options={EMP_SIZES(t)} value={d.size} onChange={(v) => set("size", v)} cols={3} />
     </div>
   );
@@ -232,7 +232,7 @@ function CoNeeds({ d, set, showErrors }) {
   return (
     <div className="rise">
       <StepHead step={t("onboarding.company.needs.step", null, "Step 3 · Your needs")} title={t("onboarding.company.needs.title", null, "What are you looking for?")} sub={t("onboarding.company.needs.sub", null, "Pick everything you might want feedback on.")} />
-      <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} />
+      <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} required />
       <SelCards options={COMPANY_LOOKING(t)} value={look} onChange={(v) => set("looking", v)} multi cols={2} />
       {isOtherLooking && (
         <div style={{ marginTop: 14, maxWidth: 360 }}>
