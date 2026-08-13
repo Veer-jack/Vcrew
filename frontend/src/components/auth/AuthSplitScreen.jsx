@@ -137,7 +137,12 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       }
       goAfterAuth();
     } catch (err) {
-      setError(friendlyAuthError(err, t));
+      // This is the backend REST signup/login path, not Firebase — the
+      // backend already returns clean, specific copy ("An account with that
+      // email already exists"), so trust err.message here instead of
+      // friendlyAuthError's Firebase-code map, which doesn't apply to these
+      // errors and was swallowing them into a generic "Something went wrong."
+      setError(err.message || t("errors.somethingWentWrong"));
     } finally { setBusy(false); }
   };
 

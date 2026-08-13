@@ -145,26 +145,31 @@ export default function AppLayout() {
             >
               {(builder?.name || "B")[0].toUpperCase()}
             </button>
-            {showProfile && (
-              <>
-                <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowProfile(false)} />
-                <div style={{ position: "absolute", top: 42, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden" }}>
-                <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{builder?.name}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>{builder?.email}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{builder?.org}</div>
-                </div>
-                <div style={{ padding: "6px 0" }}>
-                  <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0 }} onClick={() => { setShowProfile(false); navigate("/settings"); }}>
-                    <Icon name="settings" size={15} /> {t("nav.settings", null, "Settings")}
-                  </button>
-                  <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0, color: "var(--danger)" }} onClick={async () => { setShowProfile(false); await logout(); navigate("/login"); }}>
-                    <Icon name="logout" size={15} /> {t("nav.logout", null, "Sign out")}
-                  </button>
-                </div>
-                </div>
-              </>
-            )}
+            {showProfile && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowProfile(false)} />}
+            <div
+              aria-hidden={!showProfile}
+              style={{
+                position: "absolute", top: 42, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden",
+                opacity: showProfile ? 1 : 0,
+                transform: showProfile ? "translateY(0) scale(1)" : "translateY(-6px) scale(0.97)",
+                transition: "opacity .15s ease, transform .15s ease",
+                pointerEvents: showProfile ? "auto" : "none",
+              }}
+            >
+              <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{builder?.name}</div>
+                <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>{builder?.email}</div>
+                <div style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 2 }}>{builder?.org}</div>
+              </div>
+              <div style={{ padding: "6px 0" }}>
+                <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0 }} onClick={() => { setShowProfile(false); navigate("/settings"); }}>
+                  <Icon name="settings" size={15} /> {t("nav.settings", null, "Settings")}
+                </button>
+                <button className="nav-item" style={{ width: "100%", padding: "9px 16px", justifyContent: "flex-start", borderRadius: 0, color: "var(--danger)" }} onClick={async () => { setShowProfile(false); await logout(); navigate("/login"); }}>
+                  <Icon name="logout" size={15} /> {t("nav.logout", null, "Sign out")}
+                </button>
+              </div>
+            </div>
           </div>
         </header>
         <Outlet />
