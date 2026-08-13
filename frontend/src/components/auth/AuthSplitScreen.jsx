@@ -9,9 +9,32 @@ import { COUNTRIES } from "./countries";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../../firebaseClient";
 import { detectLangFromCountryCode } from "../../i18n/languages.js";
 import { useTranslation } from "../../i18n/index.jsx";
-import { EMAIL_RE } from "../../utils/validators.js";
+import { EMAIL_RE, isPasswordValid } from "../../utils/validators.js";
 
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
+
+// Firebase surfaces raw SDK error codes/messages (e.g. "Firebase: Error
+// (auth/error-code:-39)."); map the common ones to copy a user can act on
+// instead of showing the SDK string verbatim.
+function friendlyAuthError(err, t) {
+  const code = err?.code || "";
+  const map = {
+    "auth/invalid-phone-number": t("auth.errInvalidPhone", null, "Please enter a valid mobile number."),
+    "auth/too-many-requests": t("auth.errTooManyRequests", null, "Too many attempts. Please wait a bit and try again."),
+    "auth/operation-not-allowed": t("auth.errRegionNotEnabled", null, "SMS sign-in isn't available for this region yet. Please try a different sign-in method."),
+    "auth/user-not-found": t("auth.errInvalidCredentials", null, "Incorrect email or password."),
+    "auth/wrong-password": t("auth.errInvalidCredentials", null, "Incorrect email or password."),
+    "auth/invalid-credential": t("auth.errInvalidCredentials", null, "Incorrect email or password."),
+    "auth/email-already-in-use": t("auth.errEmailInUse", null, "An account with this email already exists."),
+    "auth/invalid-email": t("errors.invalidEmail"),
+    "auth/weak-password": t("auth.errWeakPassword", null, "Please choose a stronger password (at least 8 characters)."),
+    "auth/code-expired": t("auth.errCodeExpired", null, "This code has expired. Please request a new one."),
+    "auth/invalid-verification-code": t("auth.incorrectCode", null, "Incorrect code."),
+  };
+  if (map[code]) return map[code];
+  if (/recaptcha/i.test(err?.message || "")) return t("auth.errSendCodeRetry", null, "Something went wrong sending the code. Please try again.");
+  return t("errors.somethingWentWrong");
+}
 
 /**
  * Shared split-screen sign-in / sign-up screen. One component drives both
@@ -45,6 +68,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   const [agree, setAgree] = useState(false);
   const [touched, setTouched] = useState({});
   const [error, setError] = useState("");
+  const [phoneErr, setPhoneErr] = useState("");
   const [busy, setBusy] = useState(false);
 
   const [ccIdx, setCcIdx] = useState(() => COUNTRIES.findIndex((c) => c[1] === "+91"));
@@ -83,16 +107,15 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   }, [resendIn]);
 
   const emailOk = EMAIL_RE.test(email);
-  const passwordTrimmedLen = password.trim().length;
   const errs = {
     name: mode === "signup" && touched.name && !name.trim() ? t("errors.required") : "",
     email: touched.email && !email.trim() ? t("errors.required") : (touched.email && email && !emailOk ? t("errors.invalidEmail") : ""),
-    // A whitespace-only password numerically satisfies length >= 8 but isn't a
-    // real password — check the trimmed length so "8 spaces" doesn't pass.
-    password: touched.password && password.length > 0 && passwordTrimmedLen < 8 ? t("errors.passwordTooShort", null, "Password must be at least 8 characters") : "",
+    password: touched.password && !isPasswordValid(password)
+      ? (password.trim().length === 0 ? t("errors.required") : t("errors.passwordTooShort", null, "Password must be at least 8 characters"))
+      : "",
     agree: mode === "signup" && touched.agree && !agree ? t("auth.mustAcceptTerms", null, "Please accept the Terms & Conditions") : "",
   };
-  const emailFormValid = emailOk && passwordTrimmedLen >= 8 && (mode === "signin" || (name.trim() && agree));
+  const emailFormValid = emailOk && isPasswordValid(password) && (mode === "signin" || (name.trim() && agree));
 
   const goAfterAuth = () => navigate(location.state?.from || homePath, { replace: true });
 
@@ -110,17 +133,26 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       }
       goAfterAuth();
     } catch (err) {
-      setError(err.message || t("errors.somethingWentWrong"));
+      setError(friendlyAuthError(err, t));
     } finally { setBusy(false); }
   };
 
   const phoneDigits = phone.replace(/\D/g, "");
-  const phoneOk = cc === "+91" ? phoneDigits.length === 10 : (phoneDigits.length >= 7 && phoneDigits.length <= 13);
+  // E.164 caps the whole number (country code + subscriber number) at 15
+  // digits — a long country-code prefix (e.g. +1876) plus a 13-digit number
+  // can exceed that even though 13 looks fine in isolation, and that's what
+  // Firebase rejects as "TOO_LONG (auth/invalid-phone-number)".
+  const e164Ok = (cc.replace(/\D/g, "").length + phoneDigits.length) <= 15;
+  const phoneOk = e164Ok && (cc === "+91" ? phoneDigits.length === 10 : (phoneDigits.length >= 7 && phoneDigits.length <= 13));
 
   const sendOtp = async () => {
     setTouched((t) => ({ ...t, name: true, agree: true }));
     setError("");
-    if (!phoneOk) return;
+    setPhoneErr("");
+    if (!phoneOk) {
+      setPhoneErr(phoneDigits.length === 0 ? t("errors.required") : t("auth.enterValidPhoneNumber", null, "Please enter a valid mobile number"));
+      return;
+    }
     if (mode === "signup" && !(name.trim() && agree)) return;
     setBusy(true);
     try {
@@ -131,7 +163,15 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       setOtpSent(true);
       setResendIn(30);
     } catch (err) {
-      setError(err.message || t("auth.couldntSendCode", null, "Couldn't send code"));
+      // A stale/consumed reCAPTCHA widget throws on the next attempt (e.g.
+      // after switching country code) — drop it so the retry gets a fresh one.
+      if (recaptchaRef.current) {
+        recaptchaRef.current.clear();
+        recaptchaRef.current = null;
+      }
+      // Bug report explicitly wants send-code failures shown below the
+      // Mobile Number field, not in the shared top-of-form banner.
+      setPhoneErr(friendlyAuthError(err, t));
     } finally { setBusy(false); }
   };
 
@@ -145,7 +185,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       adapter.onAuthed(res.token, res[adapter.userKey]);
       goAfterAuth();
     } catch (err) {
-      setError(err.message || t("auth.incorrectCode", null, "Incorrect code"));
+      setError(friendlyAuthError(err, t));
     } finally { setBusy(false); }
   };
 
@@ -303,7 +343,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 {errs.password && <p className="ferr">{errs.password}</p>}
                 {mode === "signin" && (
                   <button type="button" className="backlink" style={{ float: "right", marginTop: 6 }}
-                    onClick={() => setStage("forgot")}>
+                    onClick={() => { setError(""); setStage("forgot"); }}>
                     {t("auth.forgotPassword")}
                   </button>
                 )}
@@ -346,8 +386,12 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                       <select className="cc-select" value={ccIdx} onChange={handleCcChange}>
                         {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}
                       </select>
-                      <input className="fin" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98765 43210" />
+                      <input className="fin" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setPhoneErr(""); }} placeholder="98765 43210" />
                     </div>
+                    <p className="fhint">{cc === "+91"
+                      ? t("auth.phoneHintIndia", null, "Enter your 10-digit mobile number, without the country code")
+                      : t("auth.phoneHintOther", null, "Enter your mobile number (7–13 digits), without the country code")}</p>
+                    {phoneErr && <p className="ferr">{phoneErr}</p>}
                   </div>
                   <div ref={containerRef} />
                   <Btn type="button" variant="primary" size="lg" block disabled={busy} onClick={sendOtp}>
