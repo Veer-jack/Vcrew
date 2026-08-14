@@ -11,6 +11,7 @@ import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { FilterGroup } from "./CreateMissionWizard";
 
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
@@ -411,21 +412,38 @@ function EditMissionModal({ mission, onClose, onSaved }) {
 function EditAudienceModal({ mission, audience, onClose, onSaved }) {
   const { t } = useTranslation();
   const { filters } = useMeta();
+  const flatFilters = useState(() => Object.fromEntries(
+    Object.entries(filters).map(([g, opts]) => [g, Array.isArray(opts) ? opts : Object.values(opts).flat()])
+  ))[0];
   const [sel, setSel] = useState(() => Object.fromEntries(
     Object.keys(filters).map(g => [g, new Set(audience.defn.find(d => d.group === g)?.values || [])])
   ));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
-  // Every group starts collapsed except one already carrying a selection —
-  // otherwise every edit opens onto the same long fully-expanded scroll the
-  // search bar/collapse were added to get away from.
-  const [closed, setClosed] = useState(() => new Set(
-    Object.keys(filters).filter(g => (audience.defn.find(d => d.group === g)?.values.length || 0) === 0)
-  ));
+  const [liveCount, setLiveCount] = useState(audience.matched ?? 0);
+  const [isFetchingCount, setIsFetchingCount] = useState(false);
 
   const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
-  const toggleGroup = (g) => setClosed(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
+  const selectAllInGroup = (g, opts) => setSel(p => {
+    const s = new Set(p[g]);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
+    return { ...p, [g]: s };
+  });
+  const selectAllEverywhere = () => setSel(Object.fromEntries(Object.entries(flatFilters).map(([g, opts]) => [g, new Set(opts)])));
+  const clearAllEverywhere = () => setSel(Object.fromEntries(Object.keys(flatFilters).map(g => [g, new Set()])));
+  const anySelected = Object.values(sel).some(s => s.size > 0);
+
+  useEffect(() => {
+    const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
+    setIsFetchingCount(true);
+    api.audienceMatchCount(payload)
+      .then(res => setLiveCount(res.count))
+      .catch(() => {})
+      .finally(() => setIsFetchingCount(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s].sort()])))]);
 
   const save = async () => {
     setBusy(true); setErr("");
@@ -441,48 +459,44 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
     }
   };
 
-  const needle = q.trim().toLowerCase();
   return (
     <Modal title={t("missionDetail.editAudience", null, "Edit audience")} onClose={onClose} width={560}>
       <div style={{ padding: "0 20px 12px" }}>
-        <div className="inw has-pre">
-          <span className="pre"><Icon name="search" size={14} /></span>
-          <input className="fin" placeholder={t("missionDetail.searchAudienceOptions", null, "Search roles, locations, industries…")} value={q} onChange={e => setQ(e.target.value)} />
+        <div className="reach" style={{ marginBottom: 12 }}>
+          <div className="reach-top">
+            <span className="r-ic"><Icon name="users" size={20} /></span>
+            <div style={{ flex: 1, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>
+              <div className="r-num" key={liveCount}>{liveCount.toLocaleString("en-IN")} <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>{t("createMission.matchingMembers", null, "matching members")}</span></div>
+              <div className="r-lab">{t("createMission.availableNow", null, "available right now for this audience")}</div>
+            </div>
+            {isFetchingCount ? (
+              <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("createMission.updating", null, "Updating...")}</span>
+            ) : (
+              <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
+            )}
+          </div>
+        </div>
+        <div className="row gap-2">
+          <div className="inw has-pre" style={{ flex: 1 }}>
+            <span className="pre"><Icon name="search" size={14} /></span>
+            <input className="fin" placeholder={t("missionDetail.searchAudienceOptions", null, "Search roles, locations, industries…")} value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <button type="button" className="backlink" style={{ margin: 0, flexShrink: 0 }} onClick={anySelected ? clearAllEverywhere : selectAllEverywhere}>
+            {anySelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+          </button>
         </div>
       </div>
-      <div className="col gap-4" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
+      <div className="col gap-1" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
         {err && <div className="err-banner">{err}</div>}
         <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>{t("missionDetail.changesOnlyAffect", null, "Changes only affect future matching and invites")} {t("missionDetail.unaffectedValidatorsNote", null, "— validators who already joined this mission are unaffected.")}</p>
-        {Object.entries(filters).map(([g, opts]) => {
-          const flat = Array.isArray(opts) ? opts : Object.values(opts).flat();
-          const visible = needle ? flat.filter(o => o.toLowerCase().includes(needle)) : flat;
-          if (needle && visible.length === 0) return null;
-          const groupOpen = needle ? true : !closed.has(g);
-          const selCount = sel[g]?.size || 0;
-          return (
-            <div key={g}>
-              <button type="button" className="row between" style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 8 }} onClick={() => toggleGroup(g)}>
-                <span className="row gap-2" style={{ alignItems: "center" }}>
-                  <Icon name={groupOpen ? "chevronDown" : "chevronRight"} size={13} style={{ color: "var(--text-faint)" }} />
-                  <span className="eyebrow" style={{ margin: 0 }}>{g}</span>
-                </span>
-                {selCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: selCount }, `${selCount} selected`)}</span>}
-              </button>
-              {groupOpen && (
-                <div className="row gap-2 wrap">
-                  {visible.map(o => {
-                    const on = sel[g]?.has(o);
-                    return (
-                      <button key={o} type="button" className={`fcheck ${on ? "on" : ""}`} onClick={() => toggle(g, o)}>
-                        <span className="box">{on && <Icon name="check" size={11} />}</span>{o}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {Object.entries(flatFilters).map(([g, opts]) => (
+          <FilterGroup
+            key={g} title={g} options={opts} sel={sel[g]} toggle={toggle}
+            onSelectAll={groupOpts => selectAllInGroup(g, groupOpts)}
+            initialExpanded={(sel[g]?.size || 0) > 0}
+            externalQuery={q}
+          />
+        ))}
       </div>
       <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "0 20px 20px" }}>
         <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>

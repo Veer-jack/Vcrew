@@ -60,12 +60,20 @@ function StepInfo({ d, set, categories, showErrors }) {
   );
 }
 
-function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll }) {
+export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
-  const [expanded, setExpanded] = React.useState(true);
-  const showSearch = options.length > 8;
-  const filtered = q.trim() ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options;
+  const [expanded, setExpanded] = React.useState(initialExpanded);
+  // A caller-driven search (e.g. a modal-wide search bar) takes over this
+  // group's own filtering instead of running alongside it — two active
+  // queries at once would be confusing and the caller already decided
+  // matching groups should be forced open.
+  const hasExternalQuery = externalQuery !== undefined;
+  const activeQuery = hasExternalQuery ? externalQuery : q;
+  const showSearch = !hasExternalQuery && options.length > 8;
+  const filtered = activeQuery.trim() ? options.filter(o => o.toLowerCase().includes(activeQuery.toLowerCase())) : options;
+  if (hasExternalQuery && externalQuery.trim() && filtered.length === 0) return null;
+  const isOpen = (hasExternalQuery && externalQuery.trim()) ? true : expanded;
   const showOtherInput = onOtherTextChange && sel.has("Other");
   // Scoped to this group's own options — `sel` is shared across sibling
   // subgroups (e.g. all of Geography's regions share one Set), so counting
@@ -77,7 +85,7 @@ function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
       <div className="row between" style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => setExpanded(v => !v)}>
         <div className="row gap-2" style={{ alignItems: "center" }}>
-          <Icon name={expanded ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
+          <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
           <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
@@ -89,7 +97,7 @@ function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange
           )}
         </div>
       </div>
-      {expanded && (
+      {isOpen && (
         <>
           {showSearch && (
             <input
@@ -106,7 +114,7 @@ function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange
                 <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
               </button>
             ))}
-            {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q }, `No matches for "${q}"`)}</span>}
+            {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
             <input
@@ -775,14 +783,7 @@ export default function CreateMissionWizard() {
     setMaxReached(m => Math.max(m, next));
   };
   const editStep = (i) => { setShowErrors(false); setError(""); setStep(i); };
-  // "Back" on step 0 reads as plain backward navigation, not a deliberate
-  // "abandon this mission" action (that's what the sidebar's "Exit to
-  // dashboard" is for) — so it skips the confirmation and goes straight to
-  // the dashboard. The draft is still auto-saved regardless.
-  const goBack = () => {
-    setShowErrors(false); setError("");
-    if (step === 0) navigate("/"); else setStep(s => s - 1);
-  };
+  const goBack = () => { setShowErrors(false); setError(""); setStep(s => s - 1); };
 
   const StepBody = [
     <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} />,
@@ -865,7 +866,7 @@ export default function CreateMissionWizard() {
 
       <div className="wz-foot">
         <div className="wz-foot-inner">
-          <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
+          {step > 0 && <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>}
           <span className="grow" />
           {step === 2 && !canNext && (
             <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>
