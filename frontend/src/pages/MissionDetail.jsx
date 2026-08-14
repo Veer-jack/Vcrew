@@ -390,7 +390,7 @@ function EditMissionModal({ mission, onClose, onSaved }) {
         <div className="fld"><label>{t("missionDetail.descLabel", null, "Description")}</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
         <div className="row gap-3">
           <div className="fld" style={{ flex: 1 }}><label>{t("missionDetail.regionLabel", null, "Region")}</label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
-          <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value)} /></div>
+          <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value === "" ? "" : Math.max(1, +e.target.value || 0))} /></div>
         </div>
         <div className={`fld ${deadlineInvalid ? "fld-invalid" : ""}`}>
           <label>{t("missionDetail.deadlineLabel", null, "Deadline")}</label>

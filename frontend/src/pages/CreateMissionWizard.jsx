@@ -28,6 +28,7 @@ function wzSteps(t) {
 
 function StepInfo({ d, set, categories, showErrors }) {
   const { t } = useTranslation();
+  const todayStr = new Date().toISOString().slice(0, 10);
   return (
     <div className="rise">
       <div className={`fld ${showErrors && !d.title.trim() ? "fld-invalid" : ""}`} style={{ marginBottom: 18 }}>
@@ -49,57 +50,79 @@ function StepInfo({ d, set, categories, showErrors }) {
           </button>
         ))}
       </div>
-      <div className={`fld ${showErrors && !d.deadline ? "fld-invalid" : ""}`} style={{ marginTop: 24, maxWidth: 280 }}>
+      <div className={`fld ${showErrors && (!d.deadline || d.deadline < todayStr) ? "fld-invalid" : ""}`} style={{ marginTop: 24, maxWidth: 280 }}>
         <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
-        <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={d.deadline} onChange={e => set({ deadline: e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
+        <input className="fin" type="date" min={todayStr} value={d.deadline} onChange={e => set({ deadline: e.target.value < todayStr ? todayStr : e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
         <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
+        {showErrors && d.deadline && d.deadline < todayStr && <p className="ferr">{t("createMission.deadlineInPast", null, "Deadline can't be in the past")}</p>}
       </div>
     </div>
   );
 }
 
-function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange }) {
+function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
+  const [expanded, setExpanded] = React.useState(true);
   const showSearch = options.length > 8;
   const filtered = q.trim() ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options;
   const showOtherInput = onOtherTextChange && sel.has("Other");
+  // Scoped to this group's own options — `sel` is shared across sibling
+  // subgroups (e.g. all of Geography's regions share one Set), so counting
+  // sel.size directly would show the whole category's total on every
+  // subgroup instead of just what's actually selected here.
+  const ownSelectedCount = options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
+  const allSelected = options.length > 0 && options.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
-        {sel.size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: sel.size }, `${sel.size} selected`)}</span>}
+      <div className="row between" style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => setExpanded(v => !v)}>
+        <div className="row gap-2" style={{ alignItems: "center" }}>
+          <Icon name={expanded ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
+          <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
+        </div>
+        <div className="row gap-3" style={{ alignItems: "center" }}>
+          {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
+          {onSelectAll && (
+            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
+              {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+            </button>
+          )}
+        </div>
       </div>
-      {showSearch && (
-        <input
-          className="fin"
-          style={{ marginBottom: 10, fontSize: 13 }}
-          placeholder={t("createMission.searchGroupPlaceholder", { group: title.toLowerCase() }, `Search ${title.toLowerCase()}…`)}
-          value={q}
-          onChange={e => setQ(e.target.value)}
-        />
-      )}
-      <div className="chips">
-        {filtered.map(o => (
-          <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`} onClick={() => toggle(title, o)}>
-            <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
-          </button>
-        ))}
-        {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q }, `No matches for "${q}"`)}</span>}
-      </div>
-      {showOtherInput && (
-        <input
-          className="fin"
-          style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
-          placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
-          value={otherText}
-          onChange={e => onOtherTextChange(e.target.value)}
-        />
+      {expanded && (
+        <>
+          {showSearch && (
+            <input
+              className="fin"
+              style={{ marginBottom: 10, fontSize: 13 }}
+              placeholder={t("createMission.searchGroupPlaceholder", { group: title.toLowerCase() }, `Search ${title.toLowerCase()}…`)}
+              value={q}
+              onChange={e => setQ(e.target.value)}
+            />
+          )}
+          <div className="chips">
+            {filtered.map(o => (
+              <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`} onClick={() => toggle(title, o)}>
+                <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
+              </button>
+            ))}
+            {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q }, `No matches for "${q}"`)}</span>}
+          </div>
+          {showOtherInput && (
+            <input
+              className="fin"
+              style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
+              placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+              value={otherText}
+              onChange={e => onOtherTextChange(e.target.value)}
+            />
+          )}
+        </>
       )}
     </div>
   );
 }
-function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, basePool }) {
+function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, isFetchingCount, basePool }) {
   const { t } = useTranslation();
   const count = liveCount;
   const pct = basePool > 0 ? Math.min(100, Math.round((count / basePool) * 100)) : 0;
@@ -127,6 +150,7 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
             key={g} title={g} options={opts} sel={d.filters[g]} toggle={toggle}
             otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
             onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
+            onSelectAll={opts => selectAllInGroup(g, opts)}
           />
         ) : (
           // Subgroups (e.g. Geography's Global & Remote / India / Asia Pacific / ...) render as
@@ -141,6 +165,7 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
               <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                 otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
                 onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v }) : undefined}
+                onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
               />
             ))}
           </div>
@@ -611,7 +636,13 @@ export default function CreateMissionWizard() {
   const toggle = (group, opt) => setD(p => {
     if (group === GEO_GROUP) {
       if (opt === WORLDWIDE) {
-        const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set(flatOptions(filters[GEO_GROUP]));
+        // Worldwide must stay a standalone "no restriction" marker — the backend
+        // (getRealMatchCount) treats a bare Worldwide/Remote-only selection as
+        // "matches everyone", but expanding it into every individual city/country
+        // instead makes the backend build a restrictive OR-list of ~40 place-name
+        // substrings, which can match FEWER validators than true "no restriction"
+        // (anyone whose location doesn't cleanly match a known place name is excluded).
+        const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
         return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
       }
       const s = new Set(p.filters[GEO_GROUP]);
@@ -620,6 +651,15 @@ export default function CreateMissionWizard() {
       return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
     }
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
+    return { ...p, filters: { ...p.filters, [group]: s } };
+  });
+  // Select-all / clear-all for one category or subcategory's own option list —
+  // toggles based on whether every option in it is already selected, so the
+  // button reads "Select all" until fully checked, then flips to "Clear all".
+  const selectAllInGroup = (group, opts) => setD(p => {
+    const s = new Set(p.filters[group]);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
     return { ...p, filters: { ...p.filters, [group]: s } };
   });
 
@@ -632,8 +672,10 @@ export default function CreateMissionWizard() {
   // Missing required fields keep Continue clickable (so clicking it can
   // explain what's missing via showErrors) — only insufficientFunds hard-
   // disables it, since that one already has its own hover tooltip.
-  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline))
-    && (step !== 2 || (d.tasks && d.tasks.length > 0))
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
+    && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk => tk.steps?.length > 0 && tk.questions?.length > 0)))
+    && (step !== 3 || Object.values(d.filters).some(s => s.size > 0))
     && (step !== 4 || (rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
 
@@ -739,7 +781,7 @@ export default function CreateMissionWizard() {
     <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} />,
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
-    <StepAudience d={d} set={set} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
+    <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
     <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
   ][step];
@@ -817,9 +859,14 @@ export default function CreateMissionWizard() {
       <div className="wz-foot">
         <div className="wz-foot-inner">
           <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
-          <span className="fprog">{t("createMission.stepLabel", null, "Step")} <b>{step + 1}</b> / {WZ_STEPS.length}</span>
           <span className="grow" />
-          {step === 2 && !canNext && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")}</span>}
+          {step === 2 && !canNext && (
+            <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>
+              {!d.tasks?.length
+                ? t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")
+                : t("createMission.needCompleteTasks", null, "Every task needs at least 1 step and 1 question to continue")}
+            </span>
+          )}
           {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{t("createMission.membersCount", { count: liveCount.toLocaleString("en-IN") }, `${liveCount.toLocaleString("en-IN")} members`)}</span>}
           {step === 4 && (
             <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4, color: insufficientFunds ? "var(--danger)" : undefined }}>
