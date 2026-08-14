@@ -14,6 +14,7 @@ const MM_STATUS = {
   completed: { label: "Paid", labelKey: "status.paid", tone: "var(--success)", bg: "var(--success-weak)" },
   rejected:  { label: "Not selected", labelKey: "status.notSelected", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   closed:    { label: "Closed", labelKey: "status.closed", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
+  declined:  { label: "Declined", labelKey: "status.declined", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
 };
 
 const TABS = [
@@ -23,10 +24,12 @@ const TABS = [
   { k: "completed", l: "Completed", lKey: "status.completed" },
   { k: "rejected", l: "Rejected", lKey: "status.rejected" },
   { k: "closed", l: "Closed", lKey: "status.closed" },
+  { k: "declined", l: "Declined", lKey: "status.declined" },
 ];
 
-function MyMissionRow({ m, vtypes, ptypes, navigate }) {
+function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline }) {
   const { t } = useTranslation();
+  const [undeclining, setUndeclining] = useState(false);
   const pt = ptypes?.find(p => p.id === m.type);
   const vType = vtypes[m.type] || (pt ? { icon: pt.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
   const s = MM_STATUS[m.status];
@@ -63,6 +66,12 @@ function MyMissionRow({ m, vtypes, ptypes, navigate }) {
             : "workspace";
           navigate(`/validator/missions/${m.taskId}/${dest}`);
         }}>{t("actions.resume", null, "Resume")} <Icon name="arrowRight" /></button>}
+        {m.status === "declined" && (
+          <button className="btn btn-ghost" disabled={undeclining} onClick={async () => {
+            setUndeclining(true);
+            try { await onUndecline(m.taskId); } finally { setUndeclining(false); }
+          }}>{undeclining ? t("actions.undoing", null, "Undoing…") : t("actions.undoDecline", null, "Undo")}</button>
+        )}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />{t("status.awaiting", null, "Awaiting")}</span>}
         {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />{t("status.inReview", null, "In review")}</span>}
         {m.status === "completed" && <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />{t("status.paid", null, "Paid")}</span>}
@@ -109,6 +118,11 @@ export default function MyMissions() {
 
   const tabs = TABS.map(tabObj => ({ ...tabObj, c: data?.counts?.[tabObj.k] ?? "·" }));
 
+  const undecline = async (taskId) => {
+    try { await vapi.undeclineMission(taskId); } catch { /* best effort */ }
+    vapi.myMissions(tab).then(setData).catch(() => {});
+  };
+
   return (
     <div className="page">
       <div className="row between wrap gap-4 rise" style={{ marginBottom: 20 }}>
@@ -131,12 +145,12 @@ export default function MyMissions() {
       {loading ? <div className="muted">{t("actions.loading", null, "Loading…")}</div> : (!data || data.missions.length === 0)
         ? <div className="card" style={{ padding: 0 }}>
             <VEmpty icon="inbox" title={t("missions.nothingYet", { tab }, `Nothing ${tab} yet`)}
-              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
-              cta={tab !== "completed" && tab !== "rejected" && tab !== "closed" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
+              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : tab === "declined" ? t("missions.emptyDeclined", null, "Missions you decline will collect here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
+              cta={tab !== "completed" && tab !== "rejected" && tab !== "closed" && tab !== "declined" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
           </div>
         : (
             <div className="rise-3" style={{ display: "grid", gap: 12 }}>
-              {data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} />)}
+              {data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} onUndecline={undecline} />)}
               {visibleCount < data.missions.length && (
                 <div style={{ textAlign: "center", marginTop: 12, paddingBottom: 24 }}>
                   <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreMissions", null, "Load more missions")}</button>

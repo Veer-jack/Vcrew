@@ -66,14 +66,27 @@ export default function MissionDetails() {
     } finally { setBusy(false); }
   };
 
-  const declineInvite = async () => {
+  // Shared by both the invited "Decline" button and the plain browse
+  // "Decline" button — declining blocks re-applying/re-accepting until
+  // explicitly undone (see POST /marketplace/:id/decline and :id/undecline).
+  const declineMission = async () => {
+    setBusy(true);
     try {
-      await vapi.post(`/missions/invitations/${task.inviteId}/decline`);
-      setData(d => ({ ...d, task: { ...d.task, inviteId: null } }));
-      navigate("/validator");
+      await vapi.declineMission(task.id);
+      setData(d => ({ ...d, task: { ...d.task, inviteId: null, myStatus: "declined" } }));
     } catch (e) {
-      alert(e.message || t("vMissionDetails.failedToDeclineInvite", null, "Failed to decline invite"));
-    }
+      alert(e.message || t("vMissionDetails.failedToDeclineMission", null, "Failed to decline this mission"));
+    } finally { setBusy(false); }
+  };
+
+  const undeclineMission = async () => {
+    setBusy(true);
+    try {
+      await vapi.undeclineMission(task.id);
+      setData(d => ({ ...d, task: { ...d.task, myStatus: null } }));
+    } catch (e) {
+      alert(e.message || t("vMissionDetails.failedToUndoDecline", null, "Failed to undo decline"));
+    } finally { setBusy(false); }
   };
 
   const toggleSave = async () => {
@@ -195,14 +208,24 @@ export default function MissionDetails() {
         </div>
       </div>
 
+      {task.myStatus === "declined" ? (
+        <div className="row gap-3 wrap rise-2" style={{ position: "sticky", bottom: 0, marginTop: 18, padding: "14px 16px", alignItems: "center",
+          background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
+          border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
+          <Icon name="x" size={16} style={{ color: "var(--text-muted)" }} />
+          <span className="muted" style={{ fontSize: 13.5 }}>{t("vMissionDetails.youDeclinedThisMission", null, "You declined this mission — you can't apply or get invited to it again unless you undo that.")}</span>
+          <span className="grow" />
+          <button className="btn btn-ghost" disabled={busy} onClick={undeclineMission}>{busy ? t("actions.undoing", null, "Undoing…") : t("actions.undoDecline", null, "Undo decline")}</button>
+        </div>
+      ) : (
       <div className="row gap-3 wrap rise-2" style={{ position: "sticky", bottom: 0, marginTop: 18, padding: "14px 16px",
         background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
         border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
         <button className="btn btn-ghost" onClick={toggleSave}>
           {task.spotsLeft <= 0 && !accepted && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save")}</>}
         </button>
-        {!task.inviteId && (
-          <button className="btn btn-quiet" onClick={() => navigate("/validator")}>{t("actions.decline", null, "Decline")}</button>
+        {!task.inviteId && !accepted && (
+          <button className="btn btn-quiet" disabled={busy} onClick={declineMission}>{t("actions.decline", null, "Decline")}</button>
         )}
         {!reportDone
           ? <button className="btn btn-quiet" style={{ color: "var(--text-faint)", fontSize: 12.5 }} onClick={() => setReportOpen(o => !o)}>
@@ -212,10 +235,10 @@ export default function MissionDetails() {
         }
         <span className="grow" />
         <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>{t("missions.earn", null, "Earn")} <b style={{ color: "var(--success)" }}>₹{task.reward}</b> {t("missions.onApproval", null, "on approval")}</span>
-        
+
         {task.inviteId ? (
           <div className="row gap-2">
-            <button className="btn btn-ghost" disabled={busy} onClick={declineInvite} style={{ color: "var(--danger)" }}>{t("actions.decline", null, "Decline")}</button>
+            <button className="btn btn-ghost" disabled={busy} onClick={declineMission} style={{ color: "var(--danger)" }}>{t("actions.decline", null, "Decline")}</button>
             <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : acceptInvite}>
               <Icon name="userplus" />
               {busy ? t("actions.accepting", null, "Accepting…") : task.spotsLeft <= 0 ? t("missions.slotsFilled", null, "Slots Filled") : t("actions.acceptInvitation", null, "Accept Invitation")}
@@ -245,6 +268,7 @@ export default function MissionDetails() {
           </button>
         )}
       </div>
+      )}
 
       {reportOpen && (
         <div ref={reportFormRef} className="card rise" style={{ padding: 16, marginTop: 12, border: "1px solid var(--border-strong)" }}>

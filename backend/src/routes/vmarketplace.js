@@ -230,7 +230,10 @@ router.post("/:id/apply", async (req, res) => {
   } else {
     existing = await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
   }
-  
+
+  if (existing?.status === "declined") {
+    return res.status(400).json({ error: "You declined this mission. Undo that from My Missions if you'd like to apply." });
+  }
   if (existing) return res.json({ myMission: existing });
 
   if (isRealMission) {
@@ -295,6 +298,67 @@ router.post("/:id/apply", async (req, res) => {
   }
   
   res.status(201).json({ myMission });
+});
+
+// POST /api/v/marketplace/:id/decline — validator declines a mission, whether
+// they were invited to it or just browsing it in Discover. Declining blocks
+// re-applying/re-accepting (see the existing check in POST /:id/apply and
+// POST /missions/invitations/:id/accept) until explicitly undone below.
+router.post("/:id/decline", async (req, res) => {
+  let t = await db.prepare(`SELECT id, builder_id, name FROM missions WHERE id = ?`).get(req.params.id);
+  const isRealMission = !!t;
+  if (!t) t = await db.prepare(`SELECT id FROM vtasks WHERE id = ?`).get(req.params.id);
+  if (!t) return res.status(404).json({ error: "Mission not found" });
+
+  const existing = isRealMission
+    ? await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id)
+    : await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
+
+  if (existing && existing.status !== "declined") {
+    return res.status(400).json({ error: "You're already participating in this mission." });
+  }
+
+  await db.transaction(async (tx) => {
+    if (!existing) {
+      if (isRealMission) {
+        await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, t.id);
+      } else {
+        await tx.prepare(`INSERT INTO v_my_missions (validator_id, task_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, t.id);
+      }
+    }
+
+    // A pending invitation for this mission gets declined too, in the same
+    // action — this replaces the old invitation-only decline endpoint's
+    // effect, unified under one Decline button regardless of entry point.
+    if (isRealMission) {
+      const invite = await tx.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND validator_id = ? AND status = 'pending'`).get(t.id, req.validator.id);
+      if (invite) {
+        await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
+        await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
+        await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+          .run(t.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${t.name}.`, t.id);
+      }
+    }
+  });
+
+  res.json({ ok: true });
+});
+
+// POST /api/v/marketplace/:id/undecline — reverses a decline, letting the
+// validator apply/get invited to this mission again like normal.
+router.post("/:id/undecline", async (req, res) => {
+  let t = await db.prepare(`SELECT id FROM missions WHERE id = ?`).get(req.params.id);
+  const isRealMission = !!t;
+  if (!t) t = await db.prepare(`SELECT id FROM vtasks WHERE id = ?`).get(req.params.id);
+  if (!t) return res.status(404).json({ error: "Mission not found" });
+
+  if (isRealMission) {
+    await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
+  } else {
+    await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND task_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
+  }
+
+  res.json({ ok: true });
 });
 
 // POST /api/v/marketplace/:id/report — validator reports a mission for review
