@@ -452,7 +452,12 @@ router.post("/", async (req, res) => {
       missionName: b.name, missionId: id,
     }).catch(() => {});
     automodMission(id); // fire-and-forget, never blocks
-    setImmediate(() => notifyMatchingValidators(id));
+    // Awaited, not fire-and-forget like the two above: this is a single fast
+    // indexed INSERT...SELECT (see notifyMatchingValidators), and a
+    // setImmediate callback that hasn't fired yet is silently dropped if the
+    // process restarts/redeploys in that window — worth the few extra ms to
+    // guarantee it actually runs before the publish response returns.
+    await notifyMatchingValidators(id);
   }
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
@@ -687,7 +692,7 @@ router.patch("/:id", async (req, res) => {
       missionName: m.name, missionId: m.id,
     }).catch(() => {});
     automodMission(m.id);
-    setImmediate(() => notifyMatchingValidators(m.id));
+    await notifyMatchingValidators(m.id);
   }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);

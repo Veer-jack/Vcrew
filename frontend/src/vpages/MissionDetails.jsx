@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VReward, VTypeTag } from "../vcomponents/vui";
@@ -18,6 +18,10 @@ export default function MissionDetails() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [reportBusy, setReportBusy] = useState(false);
+  const reportFormRef = useRef(null);
+  useEffect(() => {
+    if (reportOpen) reportFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [reportOpen]);
   const [reportDone, setReportDone] = useState(false);
 
   const location = useLocation();
@@ -243,7 +247,7 @@ export default function MissionDetails() {
       </div>
 
       {reportOpen && (
-        <div className="card rise" style={{ padding: 16, marginTop: 12, border: "1px solid var(--border-strong)" }}>
+        <div ref={reportFormRef} className="card rise" style={{ padding: 16, marginTop: 12, border: "1px solid var(--border-strong)" }}>
           <b style={{ fontSize: 13.5 }}>{t("support.reportMission", null, "Report this mission")}</b>
           <p className="faint" style={{ fontSize: 12.5, margin: "4px 0 10px" }}>{t("support.reportDesc", null, "Tell us what's wrong — our admin team will review it promptly.")}</p>
           <textarea className="fin" rows={3} placeholder={t("support.reportPlaceholder", null, "e.g. Misleading description, inappropriate content, suspicious payout…")}
