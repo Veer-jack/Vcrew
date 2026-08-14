@@ -3,11 +3,12 @@ import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 import { Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
+import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 
 export default function VSettings() {
   const { t } = useTranslation();
-  const { validator, refresh, logout } = useVAuth();
+  const { validator, refresh, logout, setValidator } = useVAuth();
   const [name, setName] = useState(validator?.name || "");
   const [email, setEmail] = useState(validator?.email || "");
   const [busy, setBusy] = useState(false);
@@ -126,6 +127,9 @@ export default function VSettings() {
               </div>
             </div>
           </div>
+
+          <PhoneSetup client={vapi} phone={validator?.phone} phoneVerified={validator?.phoneVerified}
+            onUpdate={(phone) => setValidator(v => ({ ...v, phone, phoneVerified: !!phone }))} />
         </div>
 
         {/* Right Column */}
