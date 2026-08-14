@@ -52,7 +52,7 @@ function StepRail({ steps, current, maxReached, onJump }) {
 // navigation (not client-side routing) is used deliberately: this component's
 // step/draft state is only initialized on mount, so a same-route search-param
 // change alone wouldn't pick up the new role's data.
-function RoleSwitcher({ currentKey, builder }) {
+function RoleSwitcher({ currentKey, currentName, builder }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const roles = getRoles(t);
@@ -66,16 +66,17 @@ function RoleSwitcher({ currentKey, builder }) {
   };
 
   return (
-    <div style={{ position: "relative", marginRight: 16 }}>
+    <div style={{ position: "relative", marginLeft: 10 }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="faint"
-        style={{ fontSize: 13, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
+        className="pill"
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", border: "none" }}
         aria-expanded={open}
         aria-haspopup="listbox"
+        title={t("actions.changeRole", null, "Change role")}
       >
-        {t("actions.changeRole", null, "Change role")} <Icon name="chevronDown" size={12} />
+        {currentName} <Icon name="chevronDown" size={12} />
       </button>
       {open && (
         <>
@@ -293,10 +294,9 @@ export default function OnboardingWizard() {
       <header className="wiz-top">
         <BrandMark size={28} />
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
-        <span className="pill" style={{ marginLeft: 10 }}>{t(`onboarding.persona.${role}.name`, null, persona.name)}</span>
+        <RoleSwitcher currentKey={role} currentName={t(`onboarding.persona.${role}.name`, null, persona.name)} builder={builder} />
         <div style={{ flex: 1 }} />
         <LanguageSwitcher style={{ marginRight: 16 }} />
-        <RoleSwitcher currentKey={role} builder={builder} />
         <button
           onClick={() => {
             window.__bypassUnload = true;

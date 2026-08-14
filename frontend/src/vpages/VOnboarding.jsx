@@ -64,7 +64,7 @@ const Chips = ({ options, value, onChange, multi = true, getLabel }) => (
           if (multi) { const arr = Array.isArray(value) ? value : []; onChange(on ? arr.filter(x => x !== o) : [...arr, o]); }
           else { onChange(on ? "" : o); }
         }}>
-          <span className="ck"><Icon name="check" size={10} /></span>{getLabel ? getLabel(o, i) : o}
+          <span className={"ck" + (multi ? "" : " radio")}><Icon name="check" size={10} /></span>{getLabel ? getLabel(o, i) : o}
         </button>
       );
     })}

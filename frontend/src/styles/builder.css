@@ -224,8 +224,12 @@ select.fin { appearance: none; -webkit-appearance: none; cursor: pointer; paddin
   font-size: 13px; font-weight: 600; transition: all .13s; }
 html[data-direction="mono"] .chip { border-radius: 6px; }
 .chip:hover { border-color: var(--border-strong); color: var(--text); }
-.chip .ck { width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
+/* Square by default (checkbox: chip groups are multi-select unless marked
+   .radio) — a circular mark read as a radio button on genuinely multi-select
+   groups like Platform/Validation goals, implying only one could be picked. */
+.chip .ck { width: 15px; height: 15px; border-radius: 4px; display: grid; place-items: center;
   border: 1.6px solid var(--border-strong); color: transparent; transition: all .13s; flex: none; }
+.chip .ck.radio { border-radius: 50%; }
 .chip .ck svg { width: 10px; height: 10px; }
 .chip.on { background: var(--accent-weak); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
 html[data-direction="signal"] .chip.on { color: var(--accent-2); }

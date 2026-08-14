@@ -5,7 +5,7 @@ import { Btn } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 
-const TC_PLATFORMS = ["Web", "iOS", "Android", "Both"];
+const TC_PLATFORMS = ["Web", "iOS", "Android"];
 const TC_GOALS = ["Core flow", "UX", "Willingness to pay", "All"];
 
 const SEV = {
@@ -200,7 +200,6 @@ export default function StepTestCases({ d, set }) {
     Web: t("testCases.platformWeb", null, "Web"),
     iOS: t("testCases.platformIOS", null, "iOS"),
     Android: t("testCases.platformAndroid", null, "Android"),
-    Both: t("testCases.platformBoth", null, "Both"),
   };
   const goalLabel = {
     "Core flow": t("testCases.goalCoreFlow", null, "Core flow"),
