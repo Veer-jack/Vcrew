@@ -240,7 +240,11 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
       <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")}>
         <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder={t("onboardingFields.emailPlaceholder", null, "you@company.com")} disabled={emailLocked} />
       </Field>
-      <Field label={t("onboardingFields.mobileNumber", null, "Mobile number")} invalid={showErrors && mobileDigits.length < 8}>
+      <Field
+        label={t("onboardingFields.mobileNumber", null, "Mobile number")}
+        invalid={showErrors && mobileDigits.length < 8}
+        hint={t("onboardingFields.mobileNumberHint", null, "Local or international numbers are accepted — add a country code (e.g. +91) if you're outside India. 8–15 characters total.")}
+      >
         <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
       </Field>
       <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation}>

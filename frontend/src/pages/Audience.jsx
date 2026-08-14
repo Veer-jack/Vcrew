@@ -67,6 +67,7 @@ export default function AudienceExplorer() {
   const [inviteModalValidator, setInviteModalValidator] = useState(null);
   const [visibleCount, setVisibleCount] = useState(50);
   const [usingDefaults, setUsingDefaults] = useState(false);
+  const [citySuggestion, setCitySuggestion] = useState("");
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [sortKey, setSortKey] = useState("match");
 
@@ -114,10 +115,13 @@ export default function AudienceExplorer() {
       } else {
         const profile = builder?.profile;
         setSel(defaultSelFromProfile(res.filters, profile));
-        // Free-text state/city from onboarding carries forward as search text —
-        // there's no matching checkbox for those in this panel's curated city list.
+        // Free-text state/city from onboarding has no matching checkbox in
+        // this panel's curated city list — surface it as a placeholder hint
+        // in the search box rather than an applied filter, since silently
+        // filtering to a city string that doesn't exactly match any
+        // member's city field would zero out results with no explanation.
         if (profile && (profile.district || profile.state)) {
-          setQ(profile.district || profile.state);
+          setCitySuggestion(profile.district || profile.state);
           setUsingDefaults(true);
         }
       }
@@ -325,7 +329,7 @@ export default function AudienceExplorer() {
           )}
           
           <div className="toolbar">
-            <div className="seg-search"><Icon name="search" size={16} /><input placeholder={t("audience.searchPlaceholder", null, "Search by name, role, city…")} value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
+            <div className="seg-search"><Icon name="search" size={16} /><input placeholder={citySuggestion || t("audience.searchPlaceholder", null, "Search by name, role, city…")} value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
             <span className="muted" style={{ fontSize: 13 }}>{results.length} {t("audience.results", null, "results")}</span>
             <span className="grow" />
             <select
@@ -402,11 +406,8 @@ export default function AudienceExplorer() {
                 setIsLoading(true);
                 setTimeout(() => {
                   setSel(defaultSelFromProfile(filters, builder?.profile));
-                  if (builder?.profile?.district || builder?.profile?.state) {
-                    setQ(builder.profile.district || builder.profile.state);
-                  } else {
-                    setQ("");
-                  }
+                  setQ("");
+                  setCitySuggestion(builder?.profile?.district || builder?.profile?.state || "");
                   setUsingDefaults(true);
                   setIsLoading(false);
                 }, 400);

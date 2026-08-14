@@ -72,6 +72,8 @@ export const vapi = {
   saveTask: (id, saved) => request(`/marketplace/${id}/save`, { method: "POST", body: { saved } }),
   applyTask: (id) => request(`/marketplace/${id}/apply`, { method: "POST" }),
   reportMission: (id, reason) => request(`/marketplace/${id}/report`, { method: "POST", body: { reason } }),
+  declineMission: (id) => request(`/marketplace/${id}/decline`, { method: "POST" }),
+  undeclineMission: (id) => request(`/marketplace/${id}/undecline`, { method: "POST" }),
 
   myMissions: (status) => request(`/missions${status ? `?status=${status}` : ""}`),
   invitations: () => request("/missions/invitations"),

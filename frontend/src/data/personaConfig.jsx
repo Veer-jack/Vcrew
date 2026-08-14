@@ -112,9 +112,9 @@ function FoCompany({ d, set, showErrors }) {
           </Field>
         )}
       </div>
-      <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} />
+      <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} required />
       <SelCards options={COMPANY_SIZES(t)} value={d.size} onChange={(v) => set("size", v)} cols={3} />
-      <FSection label={t("onboarding.founder.company.stageSection", null, "Stage")} />
+      <FSection label={t("onboarding.founder.company.stageSection", null, "Stage")} required />
       <SelCards options={COMPANY_STAGES(t)} value={d.stage} onChange={(v) => set("stage", v)} cols={3} />
     </div>
   );
@@ -311,7 +311,7 @@ function ResResearch({ d, set, showErrors }) {
         <Field label={t("onboarding.researcher.research.objectivesLabel", null, "Research objective(s)")} optional span><Textarea value={d.objectives} onChange={(v) => set("objectives", v)} placeholder="What are you trying to find out?" /></Field>
         <Field label={t("onboarding.researcher.research.completionLabel", null, "Expected completion")} optional><TextInput value={d.completion} onChange={(v) => set("completion", v)} placeholder="e.g. Dec 2026" /></Field>
       </div>
-      <FSection label={t("onboarding.researcher.research.areaSection", null, "Research area")} count={(d.areas || []).length ? t("onboarding.selectedCount", { count: d.areas.length }, `${d.areas.length} selected`) : null} />
+      <FSection label={t("onboarding.researcher.research.areaSection", null, "Research area")} count={(d.areas || []).length ? t("onboarding.selectedCount", { count: d.areas.length }, `${d.areas.length} selected`) : null} required />
       <Chips options={areaOptions} value={d.areas} onChange={(v) => set("areas", v)} />
       {isOtherArea && (
         <div style={{ marginTop: 14, maxWidth: 360 }}>
@@ -320,7 +320,7 @@ function ResResearch({ d, set, showErrors }) {
           </Field>
         </div>
       )}
-      <FSection label={t("onboarding.researcher.research.supportSection", null, "What kind of support do you need?")} count={support.length ? t("onboarding.selectedCount", { count: support.length }, `${support.length} selected`) : null} />
+      <FSection label={t("onboarding.researcher.research.supportSection", null, "What kind of support do you need?")} count={support.length ? t("onboarding.selectedCount", { count: support.length }, `${support.length} selected`) : null} required />
       <SelCards options={SUPPORT_TYPES(t)} value={support} onChange={(v) => set("support", v)} multi cols={2} />
     </div>
   );
@@ -337,7 +337,7 @@ function ResParticipants({ d, set, region, showErrors }) {
       <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")}><Chips options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} /></Field>
       <FSection label={t("onboarding.locationSection", null, "Location")} />
       <LocationFields region={region} d={d} set={set} showErrors={showErrors} />
-      <FSection label={t("onboarding.demographicsSection", null, "Demographics")} />
+      <FSection label={t("onboarding.demographicsSection", null, "Demographics")} required />
       <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
       <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} />
       <FSection label={t("onboarding.researcher.participants.additionalFiltersSection", null, "Additional filters")} />
@@ -350,7 +350,7 @@ function ResEthics({ d, set, showErrors }) {
   return (
     <div className="rise">
       <StepHead step={t("onboarding.researcher.ethics.step", null, "Step 5 · Ethics & verification")} title={t("onboarding.researcher.ethics.title", null, "Ethics & verification")} sub={t("onboarding.researcher.ethics.sub", null, "Approved, transparent studies get higher participation.")} />
-      <FSection label={t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?")} />
+      <FSection label={t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?")} required />
       <SelCards options={ETHICS_OPTIONS(t)} value={d.ethics} onChange={(v) => set("ethics", v)} cols={3} />
       {d.ethics === "yes" && (
         <div style={{ marginTop: 14 }}>
@@ -398,7 +398,7 @@ function OrgInfo({ d, set, showErrors }) {
         <Field label={t("onboarding.org.info.yearLabel", null, "Year established")} optional><TextInput value={d.yearFounded} onChange={(v) => set("yearFounded", v.replace(/\D/g, "").slice(0, 4))} placeholder="2012" /></Field>
         <Field label={t("onboarding.company.company.hqLabel", null, "Headquarters")} optional span><TextInput value={d.hq} onChange={(v) => set("hq", v)} placeholder="City, Country" /></Field>
       </div>
-      <FSection label={t("onboarding.org.info.typeSection", null, "Organization type")} />
+      <FSection label={t("onboarding.org.info.typeSection", null, "Organization type")} required />
       <Chips options={ORG_TYPES(t)} value={d.orgType} onChange={(v) => set("orgType", v)} multi={false} />
       {isOtherType && (
         <div style={{ marginTop: 14, maxWidth: 360 }}>
@@ -416,7 +416,7 @@ function OrgGoals({ d, set }) {
   return (
     <div className="rise">
       <StepHead step={t("onboarding.org.goals.step", null, "Step 3 · Goals")} title={t("onboarding.org.goals.title", null, "What would you like to learn?")} sub={t("onboarding.org.goals.sub", null, "Pick everything you'd like to understand.")} />
-      <FSection label={t("onboarding.org.goals.title", null, "What would you like to learn?")} count={learn.length ? t("onboarding.selectedCount", { count: learn.length }, `${learn.length} selected`) : null} />
+      <FSection label={t("onboarding.org.goals.title", null, "What would you like to learn?")} count={learn.length ? t("onboarding.selectedCount", { count: learn.length }, `${learn.length} selected`) : null} required />
       <SelCards options={ORG_LEARN(t)} value={learn} onChange={(v) => set("learn", v)} multi cols={2} />
       <FSection label={t("onboarding.org.goals.initiativeSection", null, "Initiative details")} />
       <Field label={t("onboarding.org.goals.initiativeNameLabel", null, "Initiative / program name")}><TextInput value={d.initiativeName} onChange={(v) => set("initiativeName", v)} placeholder="Rural Digital Literacy Drive" /></Field>

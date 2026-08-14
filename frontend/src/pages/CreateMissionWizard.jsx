@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
@@ -48,6 +48,11 @@ function StepInfo({ d, set, categories, showErrors }) {
             <b>{categoryLabel(t, c)}</b><p>{categoryDesc(t, c)}</p>
           </button>
         ))}
+      </div>
+      <div className={`fld ${showErrors && !d.deadline ? "fld-invalid" : ""}`} style={{ marginTop: 24, maxWidth: 280 }}>
+        <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
+        <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={d.deadline} onChange={e => set({ deadline: e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
+        <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
       </div>
     </div>
   );
@@ -123,9 +128,23 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
             otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
             onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
           />
-        ) : Object.entries(opts).map(([sub, subOpts]) => (
-          <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)} />
-        ))
+        ) : (
+          // Subgroups (e.g. Geography's Global & Remote / India / Asia Pacific / ...) render as
+          // separate FilterGroups but share one selection set — wrap them in one labelled card so
+          // it's visually clear they're all part of the same top-level category, not unrelated filters.
+          <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
+            <div className="row between" style={{ marginBottom: 2 }}>
+              <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
+              {d.filters[g].size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}</span>}
+            </div>
+            {Object.entries(opts).map(([sub, subOpts]) => (
+              <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
+                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v }) : undefined}
+              />
+            ))}
+          </div>
+        )
       ))}
     </div>
   );
@@ -133,6 +152,18 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
 
 function StepParticipation({ d, set, ptypes }) {
   const { t } = useTranslation();
+  const trialFieldRef = useRef(null);
+  const prevPtype = useRef(d.ptype);
+  useEffect(() => {
+    // The duration field only appears once "Multi-Day Diary Study" is
+    // picked, and it renders below the option cards — easy to miss without
+    // scrolling. Scroll it into view right when it appears, not on every
+    // render while it's already selected.
+    if (d.ptype === "trial" && prevPtype.current !== "trial") {
+      trialFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevPtype.current = d.ptype;
+  }, [d.ptype]);
   return (
     <div className="rise">
       <div className="optcards">
@@ -146,7 +177,7 @@ function StepParticipation({ d, set, ptypes }) {
         ))}
       </div>
       {d.ptype === "trial" && (
-        <div className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
+        <div ref={trialFieldRef} className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
           <label>{t("createMission.trialDurationLabel", null, "How many days should this trial run?")}</label>
           <input
             className="fin"
@@ -387,6 +418,7 @@ function missionToDraft(mission, filters, categories, ptypes) {
     filters: emptyF,
     genFor: null,
     durationDays: mission.durationDays || 7,
+    deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
   };
   for (const g of Object.keys(emptyF)) {
@@ -486,6 +518,7 @@ export default function CreateMissionWizard() {
     reward: { type: "fixed", amount: 250, participants: 120 },
     genFor: null,
     durationDays: 7,
+    deadline: "",
   });
 
   const [d, setD] = useState(() => {
@@ -599,7 +632,7 @@ export default function CreateMissionWizard() {
   // Missing required fields keep Continue clickable (so clicking it can
   // explain what's missing via showErrors) — only insufficientFunds hard-
   // disables it, since that one already has its own hover tooltip.
-  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat))
+  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline))
     && (step !== 2 || (d.tasks && d.tasks.length > 0))
     && (step !== 4 || (rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
@@ -619,6 +652,7 @@ export default function CreateMissionWizard() {
       audience,
       tasks: d.tasks,
       durationDays: d.durationDays,
+      deadline: d.deadline || null,
     };
   };
 
@@ -673,11 +707,17 @@ export default function CreateMissionWizard() {
     if (!fieldsValid) {
       setShowErrors(true);
       setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     setShowErrors(false); setError("");
     if (last && !builder?.profile) {
       setError(t("createMission.profileRequiredToPublish", null, "Complete your profile before publishing — you can still save this mission as a draft."));
+      // The Publish button sits at the bottom of a long, scrolled-down review
+      // page, and this warning renders at the top — without scrolling back up,
+      // a user who's been scrolled down the whole time would never see why
+      // nothing happened when they clicked Publish.
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     if (last) return publish();
@@ -795,7 +835,7 @@ export default function CreateMissionWizard() {
                 </Btn>
               )}
               <span
-                onClick={() => !fieldsValid && setShowErrors(true)}
+                onClick={() => !fieldsValid && (setShowErrors(true), window.scrollTo({ top: 0, behavior: "smooth" }))}
                 style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                   : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}

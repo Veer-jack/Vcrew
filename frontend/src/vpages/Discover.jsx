@@ -16,7 +16,32 @@ function myStatusGroup(myStatus) {
   if (myStatus === "submitted") return "submitted";
   if (myStatus === "active" || myStatus === "applied") return "accepted";
   if (myStatus === "rejected") return "rejected";
+  if (myStatus === "declined") return "declined";
   return "open";
+}
+
+// Shared badge/button styling for a validator's relationship to a mission —
+// factored out so "declined" (and any future status) only needs adding once
+// instead of once per duplicated card variant (grid card + featured card).
+const MY_STATUS_META = {
+  completed: { icon: "award", labelKey: "status.approved", labelDefault: "Approved", color: "var(--warning)" },
+  submitted: { icon: "send", labelKey: "status.submitted", labelDefault: "Submitted", color: "var(--accent)" },
+  active: { icon: "checkCircle", labelKey: "status.accepted", labelDefault: "Accepted", color: "var(--success)" },
+  applied: { icon: "checkCircle", labelKey: "status.accepted", labelDefault: "Accepted", color: "var(--success)" },
+  rejected: { icon: "xCircle", labelKey: "status.rejected", labelDefault: "Rejected", color: "var(--danger)" },
+  declined: { icon: "x", labelKey: "status.declined", labelDefault: "Declined", color: "var(--text-muted)" },
+};
+function myStatusButtonStyle(myStatus) {
+  const meta = MY_STATUS_META[myStatus];
+  return meta ? { background: meta.color, borderColor: meta.color, opacity: (myStatus === "rejected" || myStatus === "declined") ? 0.8 : 1 } : undefined;
+}
+function myStatusButtonLabel(t, myStatus, resumeLabel, openLabel) {
+  if (myStatus === "completed") return t("actions.viewResults", null, "View results");
+  if (myStatus === "submitted") return t("actions.viewSubmission", null, "View submission");
+  if (myStatus === "active" || myStatus === "applied") return resumeLabel;
+  if (myStatus === "rejected") return t("actions.viewReason", null, "View reason");
+  if (myStatus === "declined") return t("actions.viewDeclined", null, "Declined");
+  return openLabel;
 }
 
 function RadioRow({ on, onClick, label }) {
@@ -37,11 +62,9 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
   const urgent = deadlineHours(task.deadline) <= 12;
   return (
     <div className="card mkt-cardhover" style={{ position: "relative", overflow: "hidden", padding: "38px 18px 18px", display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
-      {task.myStatus === "completed" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--warning)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="award" size={11} style={{ marginRight: 4 }} />{t("status.approved", null, "Approved")}</span> :
-       task.myStatus === "submitted" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="send" size={11} style={{ marginRight: 4 }} />{t("status.submitted", null, "Submitted")}</span> :
-       (task.myStatus === "active" || task.myStatus === "applied") ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--success)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="checkCircle" size={11} style={{ marginRight: 4 }} />{t("status.accepted", null, "Accepted")}</span> :
-       task.myStatus === "rejected" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--danger)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="xCircle" size={11} style={{ marginRight: 4 }} />{t("status.rejected", null, "Rejected")}</span> :
-       <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={11} style={{ marginRight: 4 }} />{t("status.open", null, "Open")}</span>}
+      {MY_STATUS_META[task.myStatus]
+        ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={11} style={{ marginRight: 4 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
+        : <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={11} style={{ marginRight: 4 }} />{t("status.open", null, "Open")}</span>}
       <div className="row between" style={{ alignItems: "flex-start" }}>
         <div className="row gap-2 wrap">
           <VTypeTag type={task.type} vtypes={vtypes} />
@@ -76,13 +99,8 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
       </div>
       <div className="row between" style={{ marginTop: 2, paddingTop: 11, borderTop: "1px solid var(--border)" }}>
         <div><VReward amount={task.reward} /><span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span></div>
-        <button className="btn btn-primary" style={{ 
-          padding: "8px 14px",
-          background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
-          borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
-          opacity: task.myStatus === "rejected" ? 0.8 : 1
-        }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
-          {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : (task.myStatus === "active" || task.myStatus === "applied") ? t("actions.resume", null, "Resume") : task.myStatus === "rejected" ? t("actions.viewReason", null, "View reason") : t("actions.view", null, "View")}
+        <button className="btn btn-primary" style={{ padding: "8px 14px", ...myStatusButtonStyle(task.myStatus) }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
+          {myStatusButtonLabel(t, task.myStatus, t("actions.resume", null, "Resume"), t("actions.view", null, "View"))}
           <Icon name="arrowRight" size={15} />
         </button>
       </div>
@@ -97,11 +115,9 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
     <div className="card rise-2" onClick={() => onOpen(task)} style={{ padding: 0, overflow: "hidden", cursor: "pointer",
       background: `linear-gradient(120deg, color-mix(in srgb, var(${vt.accentVar}) 13%, var(--panel)), var(--panel) 62%)` }}>
       <div style={{ position: "relative", padding: "42px 24px 22px" }}>
-        {task.myStatus === "completed" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--warning)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="award" size={12} style={{ marginRight: 5 }} />{t("status.approved", null, "Approved")}</span> :
-         task.myStatus === "submitted" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="send" size={12} style={{ marginRight: 5 }} />{t("status.submitted", null, "Submitted")}</span> :
-         (task.myStatus === "active" || task.myStatus === "applied") ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--success)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="checkCircle" size={12} style={{ marginRight: 5 }} />{t("status.accepted", null, "Accepted")}</span> :
-         task.myStatus === "rejected" ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--danger)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="xCircle" size={12} style={{ marginRight: 5 }} />{t("status.rejected", null, "Rejected")}</span> :
-         <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={12} style={{ marginRight: 5 }} />{t("status.open", null, "Open")}</span>}
+        {MY_STATUS_META[task.myStatus]
+          ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={12} style={{ marginRight: 5 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
+          : <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={12} style={{ marginRight: 5 }} />{t("status.open", null, "Open")}</span>}
         <div className="row between wrap gap-3" style={{ alignItems: "flex-start" }}>
           <div className="row gap-2 wrap" style={{ marginBottom: 4 }}>
             <span className="tag" style={{ background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name="bolt" size={12} />{t("status.featured", null, "Featured")}</span>
@@ -131,12 +147,8 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
           </div>
           <div className="row gap-3" style={{ alignItems: "center" }}>
             <div style={{ textAlign: "right" }}><VReward amount={task.reward} big /><div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div></div>
-            <button className="btn btn-primary btn-lg" style={{
-              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
-              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
-              opacity: task.myStatus === "rejected" ? 0.8 : 1
-            }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
-              {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : (task.myStatus === "active" || task.myStatus === "applied") ? t("actions.resumeMission", null, "Resume mission") : task.myStatus === "rejected" ? t("actions.viewReason", null, "View reason") : t("actions.startValidating", null, "Start validating")} <Icon name="arrowRight" />
+            <button className="btn btn-primary btn-lg" style={myStatusButtonStyle(task.myStatus)} onClick={e => { e.stopPropagation(); onOpen(task); }}>
+              {myStatusButtonLabel(t, task.myStatus, t("actions.resumeMission", null, "Resume mission"), t("actions.startValidating", null, "Start validating"))} <Icon name="arrowRight" />
             </button>
           </div>
         </div>
@@ -221,6 +233,7 @@ export default function Discover() {
     { k: "submitted", l: t("status.submitted", null, "Submitted") },
     { k: "approved", l: t("status.approved", null, "Approved") },
     { k: "rejected", l: t("status.rejected", null, "Rejected") },
+    { k: "declined", l: t("status.declined", null, "Declined") },
   ];
   const statusCounts = data.tasks.reduce((acc, x) => {
     const g = myStatusGroup(x.myStatus);

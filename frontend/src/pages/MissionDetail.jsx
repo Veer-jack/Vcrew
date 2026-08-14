@@ -1196,7 +1196,7 @@ export default function MissionDetail() {
           <MissionLogo name={mission.name} cat={mission.category} size={54} />
           <div>
             <div className="row gap-2 wrap" style={{ marginBottom: 7 }}><h1 style={{ fontSize: 23, margin: 0 }}>{mission.name}</h1><StatusTag status={mission.status} /></div>
-            <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {t("missionDetail.closes", null, "Closes")} {mission.deadline}</span></div>
+            <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {t("missionDetail.closes", null, "Closes")} {mission.deadline ? new Date(mission.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : t("missionDetail.closesSoon", null, "Soon")}</span></div>
           </div>
         </div>
         <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>

@@ -70,7 +70,7 @@ router.get("/", async (req, res) => {
     JOIN (
       SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
       UNION ALL
-      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
+      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
     ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ?`;
   const params = [req.validator.id];
@@ -101,7 +101,7 @@ router.get("/", async (req, res) => {
     }
   }
 
-  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0, closed: 0 };
+  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0, closed: 0, declined: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
     // "revision" folds into the "active" bucket alongside real 'active' rows
@@ -843,9 +843,19 @@ router.post("/invitations/:id/accept", async (req, res) => {
         await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
           .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
       }
-      await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status) VALUES (?, ?, 'active')`)
-        .run(req.validator.id, m.id);
-      
+      // A prior decline (see POST /marketplace/:id/decline) left a
+      // 'declined' row here — a fresh invite shouldn't silently bypass
+      // that, so update it in place rather than inserting a second row,
+      // and reject if the validator hasn't explicitly undone the decline.
+      const existingMy = await tx.prepare(`SELECT id, status FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, m.id);
+      if (existingMy?.status === "declined") throw new Error("DECLINED_MISSION");
+      if (existingMy) {
+        await tx.prepare(`UPDATE v_my_missions SET status = 'active' WHERE id = ?`).run(existingMy.id);
+      } else {
+        await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status) VALUES (?, ?, 'active')`)
+          .run(req.validator.id, m.id);
+      }
+
       const newJoined = m.joined + 1;
       await tx.prepare(`UPDATE missions SET joined = ? WHERE id = ?`).run(newJoined, m.id);
       
@@ -869,6 +879,9 @@ router.post("/invitations/:id/accept", async (req, res) => {
   } catch (err) {
     if (err.message === "MISSION_FULL") {
       return res.status(400).json({ error: "Sorry, this mission has just filled all available slots." });
+    }
+    if (err.message === "DECLINED_MISSION") {
+      return res.status(400).json({ error: "You declined this mission. Undo that from My Missions if you'd like to accept it." });
     }
     throw err;
   }
