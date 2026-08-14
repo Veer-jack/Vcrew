@@ -687,11 +687,17 @@ export default function CreateMissionWizard() {
     if (!fieldsValid) {
       setShowErrors(true);
       setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     setShowErrors(false); setError("");
     if (last && !builder?.profile) {
       setError(t("createMission.profileRequiredToPublish", null, "Complete your profile before publishing — you can still save this mission as a draft."));
+      // The Publish button sits at the bottom of a long, scrolled-down review
+      // page, and this warning renders at the top — without scrolling back up,
+      // a user who's been scrolled down the whole time would never see why
+      // nothing happened when they clicked Publish.
+      window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     if (last) return publish();
@@ -809,7 +815,7 @@ export default function CreateMissionWizard() {
                 </Btn>
               )}
               <span
-                onClick={() => !fieldsValid && setShowErrors(true)}
+                onClick={() => !fieldsValid && (setShowErrors(true), window.scrollTo({ top: 0, behavior: "smooth" }))}
                 style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                   : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}

@@ -229,7 +229,14 @@ export default function OnboardingWizard() {
   }
 
   const goNext = async () => {
-    if (!isValid) { setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.")); setShowErrors(true); return; }
+    if (!isValid) {
+      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      setShowErrors(true);
+      // The warning banner renders at the top of the step — scroll there so
+      // it's actually visible instead of silently appearing above the fold.
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
     setError(""); setShowErrors(false);
     if (!isLast) {
       const next = step + 1;
