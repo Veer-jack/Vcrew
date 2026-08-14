@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
@@ -152,6 +152,18 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
 
 function StepParticipation({ d, set, ptypes }) {
   const { t } = useTranslation();
+  const trialFieldRef = useRef(null);
+  const prevPtype = useRef(d.ptype);
+  useEffect(() => {
+    // The duration field only appears once "Multi-Day Diary Study" is
+    // picked, and it renders below the option cards — easy to miss without
+    // scrolling. Scroll it into view right when it appears, not on every
+    // render while it's already selected.
+    if (d.ptype === "trial" && prevPtype.current !== "trial") {
+      trialFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    prevPtype.current = d.ptype;
+  }, [d.ptype]);
   return (
     <div className="rise">
       <div className="optcards">
@@ -165,7 +177,7 @@ function StepParticipation({ d, set, ptypes }) {
         ))}
       </div>
       {d.ptype === "trial" && (
-        <div className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
+        <div ref={trialFieldRef} className="fld" style={{ marginTop: 24, maxWidth: 280 }}>
           <label>{t("createMission.trialDurationLabel", null, "How many days should this trial run?")}</label>
           <input
             className="fin"
