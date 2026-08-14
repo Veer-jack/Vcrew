@@ -4,6 +4,7 @@ import { api } from "../api/client";
 import { Avatar, Btn, PasswordInput } from "../components/ui";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
+import { INDUSTRIES, COMPANY_INDUSTRIES, EMP_SIZES } from "../data/onboarding";
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -25,6 +26,31 @@ export default function Settings() {
   const [pwdSuccess, setPwdSuccess] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+
+  const [editingCompany, setEditingCompany] = useState(false);
+  const [industry, setIndustry] = useState(builder?.profile?.industry || "");
+  const [companySize, setCompanySize] = useState(builder?.profile?.size || "");
+  const [companyBusy, setCompanyBusy] = useState(false);
+  const [companyError, setCompanyError] = useState("");
+  const industryOptions = (builder?.persona === "company" ? COMPANY_INDUSTRIES : INDUSTRIES)(t);
+  const sizeOptions = EMP_SIZES(t);
+
+  const startEditCompany = () => {
+    setIndustry(builder?.profile?.industry || "");
+    setCompanySize(builder?.profile?.size || "");
+    setCompanyError(""); setEditingCompany(true);
+  };
+  const saveCompany = async (e) => {
+    e.preventDefault();
+    setCompanyBusy(true); setCompanyError("");
+    try {
+      const res = await api.updateProfile({ name: builder.name, org: builder.org, email: builder.email, website: builder.website, designation: builder.designation, profile: { industry, size: companySize } });
+      setBuilder(res.builder);
+      setEditingCompany(false);
+    } catch (err) {
+      setCompanyError(err.message || t("settings.errSave", null, "Couldn't save changes"));
+    } finally { setCompanyBusy(false); }
+  };
 
   const sendForgotLink = async () => {
     setForgotBusy(true);
@@ -130,6 +156,59 @@ export default function Settings() {
         <PhoneSetup client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
           prefillPhone={builder?.profile?.mobile}
           onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))} />
+
+        <div className="card" style={{ padding: "var(--pad-card)" }}>
+          <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
+            <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.companyDetails", null, "Company Details")}</h2>
+            {!editingCompany && <Btn variant="ghost" icon="edit" onClick={startEditCompany}>{t("actions.edit", null, "Edit")}</Btn>}
+          </div>
+          {!editingCompany ? (
+            <div className="row gap-3 wrap">
+              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                <label>{t("onboarding.founder.company.industryLabel", null, "Industry")}</label>
+                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.industry ? undefined : "var(--text-faint)" }}>{builder?.profile?.industry || t("settings.notSet", null, "Not set")}</div>
+              </div>
+              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                <label>{t("settings.companySize", null, "Company size")}</label>
+                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.size ? undefined : "var(--text-faint)" }}>{builder?.profile?.size || t("settings.notSet", null, "Not set")}</div>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={saveCompany} className="col gap-4">
+              {companyError && <div className="err-banner">{companyError}</div>}
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t("onboarding.founder.company.industryLabel", null, "Industry")}</label>
+                  <select className="fin" value={industry} onChange={e => setIndustry(e.target.value)}>
+                    <option value="" disabled>{t("onboardingFields.selectPlaceholder", null, "Select…")}</option>
+                    {industryOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t("settings.companySize", null, "Company size")}</label>
+                  <select className="fin" value={companySize} onChange={e => setCompanySize(e.target.value)}>
+                    <option value="" disabled>{t("onboardingFields.selectPlaceholder", null, "Select…")}</option>
+                    {sizeOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="row gap-2">
+                <Btn variant="primary" type="submit" disabled={companyBusy}>{companyBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
+                <Btn variant="quiet" type="button" onClick={() => { setEditingCompany(false); setCompanyError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
+              </div>
+            </form>
+          )}
+          {builder?.profile?.vWebsiteInput && (
+            <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
+              <div className="row between" style={{ alignItems: "center" }}>
+                <b style={{ fontSize: 13.5 }}>{t("settings.verificationWebsite", null, "Verification website")}</b>
+                {builder?.profile?.vWebsite && <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}>{t("onboardingFields.submitted", null, "Submitted")}</span>}
+              </div>
+              <div className="fin" style={{ display: "flex", alignItems: "center", marginTop: 6, color: "var(--text-muted)" }}>{builder.profile.vWebsiteInput}</div>
+              <p className="fhint">{t("settings.verificationLockedHint", null, "Submitted during onboarding and can't be changed here — contact support if this needs to be corrected.")}</p>
+            </div>
+          )}
+        </div>
 
         {!builder?.oauthProvider && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
