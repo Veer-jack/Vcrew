@@ -11,6 +11,7 @@ import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { categoryLabel, ptypeLabel, rewardLabel } from "../bi18n";
 import { FilterGroup } from "./CreateMissionWizard";
 
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
@@ -350,32 +351,45 @@ function ResponseReview({ missionId, responses, setResponses, navigate }) {
   );
 }
 
-function EditMissionModal({ mission, onClose, onSaved }) {
+function EditMissionModal({ mission, onClose, onSaved, onOpenAudience }) {
   const { t } = useTranslation();
+  const { categories, ptypes, rewards } = useMeta();
+  const canFullyEdit = !!mission.canFullyEdit;
   const [name, setName] = useState(mission.name || "");
   const [description, setDescription] = useState(mission.description || "");
-  const [region, setRegion] = useState(mission.region || "");
   const [target, setTarget] = useState(mission.participants.target || 0);
   const [deadline, setDeadline] = useState(mission.deadline ? mission.deadline.slice(0, 10) : "");
+  const [cat, setCat] = useState(mission.category || "");
+  const [ptype, setPtype] = useState(mission.ptype || "");
+  const [rewardType, setRewardType] = useState(mission.reward?.type || "fixed");
+  const [rewardAmount, setRewardAmount] = useState(mission.reward?.amount || 0);
+  const [showTasks, setShowTasks] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
   const nameInvalid = !name.trim();
   const targetInvalid = !(Number(target) >= 1);
-  const regionInvalid = !region.trim();
   const deadlineInvalid = !deadline || deadline < todayStr;
+  const selectedReward = rewards?.find(r => r.id === rewardType);
+  const rewardAmountInvalid = canFullyEdit && selectedReward?.needsAmt && !(Number(rewardAmount) > 0);
 
   const save = async () => {
     setErr("");
     if (nameInvalid) { setShowErrors(true); return setErr(t("missionDetail.errNameRequired", null, "Name is required")); }
-    if (regionInvalid) { setShowErrors(true); return setErr(t("missionDetail.errRegionRequired", null, "Region is required")); }
     if (targetInvalid) { setShowErrors(true); return setErr(t("missionDetail.errTargetMin", null, "Target participants must be at least 1")); }
     if (deadlineInvalid) { setShowErrors(true); return setErr(deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")); }
+    if (rewardAmountInvalid) { setShowErrors(true); return setErr(t("missionDetail.errRewardAmount", null, "Reward amount must be greater than 0")); }
     setShowErrors(false);
     setBusy(true);
     try {
-      const { mission: updated } = await api.updateMission(mission.id, { name, description, region, target: Number(target), deadline: deadline || null });
+      const payload = { name, description, target: Number(target), deadline: deadline || null };
+      if (canFullyEdit) {
+        payload.category = cat;
+        payload.ptype = ptype;
+        payload.reward = { type: rewardType, amount: selectedReward?.needsAmt ? Number(rewardAmount) : 0 };
+      }
+      const { mission: updated } = await api.updateMission(mission.id, payload);
       onSaved(updated);
       onClose();
     } catch (e) {
@@ -386,20 +400,84 @@ function EditMissionModal({ mission, onClose, onSaved }) {
   };
 
   return (
-    <Modal title={t("missionDetail.editMission", null, "Edit mission")} onClose={onClose} width={480}>
+    <Modal title={t("missionDetail.editMission", null, "Edit mission")} onClose={onClose} width={520}>
       <div className="col gap-3" style={{ padding: "0 20px 20px" }}>
         {err && <div className="err-banner">{err}</div>}
+        {!canFullyEdit && (
+          <div className="fhint" style={{ background: "var(--panel-inset)", padding: "10px 12px", borderRadius: "var(--radius)", margin: 0 }}>
+            {t("missionDetail.lockedFieldsHint", null, "Category, participation type, and reward are locked because at least one validator has already accepted this mission — shown below for reference.")}
+          </div>
+        )}
         <div className={`fld ${(showErrors || name) && nameInvalid ? "fld-invalid" : ""}`}><label>{t("missionDetail.nameLabel", null, "Name")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
         <div className="fld"><label>{t("missionDetail.descLabel", null, "Description")}</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
+
         <div className="row gap-3">
-          <div className={`fld ${(showErrors || region) && regionInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.regionLabel", null, "Region")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.categoryLabel", null, "Category")}</label>
+            {canFullyEdit
+              ? <select className="fin" value={cat} onChange={e => setCat(e.target.value)}>{categories?.map(c => <option key={c.id} value={c.id}>{categoryLabel(t, c)}</option>)}</select>
+              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.categoryLabel}</div>}
+          </div>
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.ptypeLabel", null, "Participation type")}</label>
+            {canFullyEdit
+              ? <select className="fin" value={ptype} onChange={e => setPtype(e.target.value)}>{ptypes?.map(p => <option key={p.id} value={p.id}>{ptypeLabel(t, p)}</option>)}</select>
+              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.ptypeLabel}</div>}
+          </div>
+        </div>
+
+        <div className="row gap-3">
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.rewardTypeLabel", null, "Reward type")}</label>
+            {canFullyEdit
+              ? <select className="fin" value={rewardType} onChange={e => setRewardType(e.target.value)}>{rewards?.map(r => <option key={r.id} value={r.id}>{rewardLabel(t, r)}</option>)}</select>
+              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{rewards?.find(r => r.id === mission.reward?.type) ? rewardLabel(t, rewards.find(r => r.id === mission.reward.type)) : mission.reward?.type}</div>}
+          </div>
+          {(canFullyEdit ? selectedReward?.needsAmt : mission.reward?.amount > 0) && (
+            <div className={`fld ${rewardAmountInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}>
+              <label>{t("missionDetail.rewardAmountLabel", null, "Reward amount")}</label>
+              {canFullyEdit
+                ? <input className="fin" type="number" min="1" value={rewardAmount} onChange={e => setRewardAmount(e.target.value === "" ? "" : Math.max(0, +e.target.value || 0))} />
+                : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{inr(mission.reward.amount)}</div>}
+            </div>
+          )}
+        </div>
+
+        <div className="row gap-3">
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.regionLabel", null, "Region")}</label>
+            <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.region || t("missionDetail.regionWorldwide", null, "Worldwide")}</div>
+            <p className="fhint">{t("missionDetail.regionDerivedHint", null, "Set by your Audience filters, not editable here.")} {onOpenAudience && <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={() => { onOpenAudience(); onClose(); }}>{t("missionDetail.editAudience", null, "Edit audience")}</button>}</p>
+          </div>
           <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value === "" ? "" : Math.max(1, +e.target.value || 0))} /></div>
         </div>
+
         <div className={`fld ${(showErrors || deadline) && deadlineInvalid ? "fld-invalid" : ""}`}>
           <label>{t("missionDetail.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={openPickerOnClick} />
           {(showErrors || deadline) && deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")}</p>}
         </div>
+
+        {mission.tasks?.length > 0 && (
+          <div className="fld">
+            <button type="button" className="row between" style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer" }} onClick={() => setShowTasks(v => !v)}>
+              <label style={{ margin: 0, cursor: "pointer" }}>{t("missionDetail.testCasesLabel", { n: mission.tasks.length }, `Test cases (${mission.tasks.length})`)}</label>
+              <Icon name={showTasks ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
+            </button>
+            {showTasks && (
+              <div className="col gap-2" style={{ marginTop: 8 }}>
+                {mission.tasks.map((task, i) => (
+                  <div key={task.id || i} className="card" style={{ padding: 12 }}>
+                    <b style={{ fontSize: 13.5 }}>{i + 1}. {task.title}</b>
+                    {task.steps?.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--text-muted)" }}>{task.steps.map((s, j) => <li key={j}>{s}</li>)}</ul>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!canFullyEdit && <p className="fhint">{t("missionDetail.tasksLockedHint", null, "Test cases can't be regenerated once a validator has accepted — publish a new mission for a different set of tasks.")}</p>}
+          </div>
+        )}
+
         <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
           <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
           <Btn variant="primary" disabled={busy} onClick={save}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
@@ -1295,7 +1373,7 @@ export default function MissionDetail() {
         <WaitlistInviteModal mission={mission} waitlist={waitlist} onClose={() => setShowWaitlistModal(false)} showToast={showToast} />
       )}
       {showEditModal && mission && (
-        <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} />
+        <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} onOpenAudience={() => setShowEditAudience(true)} />
       )}
       {showEditAudience && mission && (
         <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={() => {
