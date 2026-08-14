@@ -70,7 +70,7 @@ router.get("/", async (req, res) => {
     JOIN (
       SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
       UNION ALL
-      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, 'Soon'::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
+      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
     ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
     WHERE mm.validator_id = ?`;
   const params = [req.validator.id];

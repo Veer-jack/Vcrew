@@ -49,6 +49,11 @@ function StepInfo({ d, set, categories, showErrors }) {
           </button>
         ))}
       </div>
+      <div className={`fld ${showErrors && !d.deadline ? "fld-invalid" : ""}`} style={{ marginTop: 24, maxWidth: 280 }}>
+        <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
+        <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={d.deadline} onChange={e => set({ deadline: e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
+        <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
+      </div>
     </div>
   );
 }
@@ -401,6 +406,7 @@ function missionToDraft(mission, filters, categories, ptypes) {
     filters: emptyF,
     genFor: null,
     durationDays: mission.durationDays || 7,
+    deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
   };
   for (const g of Object.keys(emptyF)) {
@@ -500,6 +506,7 @@ export default function CreateMissionWizard() {
     reward: { type: "fixed", amount: 250, participants: 120 },
     genFor: null,
     durationDays: 7,
+    deadline: "",
   });
 
   const [d, setD] = useState(() => {
@@ -613,7 +620,7 @@ export default function CreateMissionWizard() {
   // Missing required fields keep Continue clickable (so clicking it can
   // explain what's missing via showErrors) — only insufficientFunds hard-
   // disables it, since that one already has its own hover tooltip.
-  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat))
+  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline))
     && (step !== 2 || (d.tasks && d.tasks.length > 0))
     && (step !== 4 || (rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
@@ -633,6 +640,7 @@ export default function CreateMissionWizard() {
       audience,
       tasks: d.tasks,
       durationDays: d.durationDays,
+      deadline: d.deadline || null,
     };
   };
 
