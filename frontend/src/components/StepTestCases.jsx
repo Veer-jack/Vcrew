@@ -216,6 +216,7 @@ export default function StepTestCases({ d, set }) {
   // form under already-generated test cases.
   const form = d.testCaseForm || { desc: "", url: "", platforms: [], goals: [], users: "" };
   const [genState, setGenState] = useState("idle"); // idle | fetching | loading | done
+  const [fallbackReason, setFallbackReason] = useState(null); // null when the current tasks came from a real AI generation
   const [urlFetched, setUrlFetched] = useState(false);
   const [urlContext, setUrlContext] = useState(null);
   const [urlFormatInvalid, setUrlFormatInvalid] = useState(false);
@@ -300,15 +301,23 @@ export default function StepTestCases({ d, set }) {
       set({ tasks: res.tasks || [] });
       setGenState("done");
       setExpanded(0);
-      if (res.fallback) {
-        toast(t("testCases.aiUnavailableFallback", null, "AI generation is temporarily unavailable — showing example test cases you can edit. Click Regenerate to try again."), { icon: "⚠️" });
-      }
+      setFallbackReason(res.fallback ? (res.reason || "unknown") : null);
     } catch (err) {
       set({ tasks: [] });
       setGenState("idle");
+      setFallbackReason(null);
       toast.error(t("testCases.generateFailed", null, "Failed to generate test cases. Make sure the backend server is running and AI services are configured."));
     }
     set({ genFor: { cat: d.cat, ptype: d.ptype } });
+  };
+
+  const FALLBACK_REASON_COPY = {
+    not_configured: t("testCases.aiReasonNotConfigured", null, "AI generation isn't configured on this server yet."),
+    rate_limited: t("testCases.aiReasonRateLimited", null, "The AI service is getting too many requests right now."),
+    auth_error: t("testCases.aiReasonAuthError", null, "The AI service rejected the request (a configuration issue on our end)."),
+    invalid_response: t("testCases.aiReasonInvalidResponse", null, "The AI returned something we couldn't read."),
+    service_down: t("testCases.aiReasonServiceDown", null, "The AI service is temporarily down."),
+    unknown: t("testCases.aiReasonUnknown", null, "The AI service didn't respond as expected."),
   };
 
   const moveTask = (idx, dir) => {
@@ -418,6 +427,20 @@ export default function StepTestCases({ d, set }) {
           </div>
         ) : hasTasks ? (
           <div className="rise">
+            {fallbackReason && (
+              <div className="card" style={{ padding: "14px 16px", marginBottom: 14, borderColor: "var(--warning)", background: "var(--warning-weak, color-mix(in srgb, var(--warning) 12%, transparent))", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <Icon name="alertTriangle" size={18} style={{ color: "var(--warning)", flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700 }}>{t("testCases.aiUnavailableTitle", null, "AI generation is unavailable right now")}</div>
+                  <p style={{ margin: "3px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
+                    {FALLBACK_REASON_COPY[fallbackReason] || FALLBACK_REASON_COPY.unknown} {t("testCases.aiUnavailableShowingExamples", null, "Showing example test cases you can edit instead.")}
+                  </p>
+                </div>
+                <button className="btn btn-ghost" style={{ fontSize: 13, flexShrink: 0 }} onClick={generate} disabled={genState === "loading"}>
+                  <Icon name="refresh" size={14} /> {t("actions.retry", null, "Retry")}
+                </button>
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div>
                 <div className="eyebrow">{t("testCases.generatedTestCases", null, "Generated test cases")}</div>

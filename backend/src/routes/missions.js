@@ -808,8 +808,15 @@ router.post("/generate-tasks", authMiddleware, async (req, res) => {
     // type-appropriate hand-written fallback instead of a hard error, so the
     // wizard always shows something useful. "ptest" is the closest thing to
     // a generic hands-on mission, used when ptype is missing/unrecognized.
+    console.error("generate-tasks: AI generation failed —", err?.status || err?.name, err?.message);
     const fallbackTasks = TASK_GUIDANCE[ptype]?.fallback || TASK_GUIDANCE.ptest.fallback;
-    res.json({ tasks: fallbackTasks, fallback: true });
+    let reason = "unknown";
+    if (!process.env.OPENAI_API_KEY) reason = "not_configured";
+    else if (err?.status === 429) reason = "rate_limited";
+    else if (err?.status === 401 || err?.status === 403) reason = "auth_error";
+    else if (err instanceof SyntaxError) reason = "invalid_response";
+    else if (err?.status >= 500) reason = "service_down";
+    res.json({ tasks: fallbackTasks, fallback: true, reason });
   }
 });
 
