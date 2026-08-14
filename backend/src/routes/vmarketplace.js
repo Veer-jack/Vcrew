@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { VTYPES, TYPE_ORDER, deadlineHours } from "../vmeta.js";
 import { translateBatch } from "../translate.js";
+import { getRealJoinedCount } from "../stats.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -237,22 +238,33 @@ router.post("/:id/apply", async (req, res) => {
   if (existing) return res.json({ myMission: existing });
 
   if (isRealMission) {
-    // Atomic check and increment for capacity. target = 0 means unlimited.
-    const updateRes = await db.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ? AND (target = 0 OR joined < target)`).run(t.id);
-    if (updateRes.rowCount === 0) {
-      return res.status(400).json({ error: "Mission has reached its maximum capacity and is no longer available" });
-    }
-
     try {
-      // If two requests pass the 'existing' check, we rely on a manual check right before inserting
-      // to avoid constraint violations if DB doesn't have them. But to be safe we'll re-check existing inside
-      const doubleCheck = await db.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id);
-      if (doubleCheck) throw new Error("Duplicate");
-
       const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
       const missionCategory = await db.prepare(`SELECT name, category FROM missions WHERE id = ?`).get(t.id);
 
       await db.transaction(async (tx) => {
+        // Lock the mission row so a concurrent apply can't pass the capacity
+        // check before this one's participant row actually commits — the
+        // check and the reservation now happen in the same transaction as
+        // the insert itself, instead of a separate pre-step a failed insert
+        // then has to manually compensate for (the old revert-on-failure
+        // path could leave `joined` permanently drifted if the process died
+        // between the increment and the compensating decrement).
+        const mission = await tx.prepare(`SELECT target FROM missions WHERE id = ? FOR UPDATE`).get(t.id);
+        if (!mission) throw new Error("MISSION_NOT_FOUND");
+
+        // If two requests pass the 'existing' check above, re-check inside the
+        // lock to avoid a duplicate participants row.
+        const doubleCheck = await tx.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id);
+        if (doubleCheck) throw new Error("DUPLICATE");
+
+        if (mission.target > 0) {
+          const realJoined = await getRealJoinedCount(t.id, tx);
+          if (realJoined >= mission.target) throw new Error("MISSION_FULL");
+        }
+
+        await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(t.id);
+
         await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
           .run(req.validator.id, t.id);
 
@@ -271,8 +283,13 @@ router.post("/:id/apply", async (req, res) => {
       });
 
     } catch (err) {
-      // Revert the increment if the insertion failed for any reason (duplicate/race condition)
-      await db.prepare(`UPDATE missions SET joined = joined - 1 WHERE id = ?`).run(t.id);
+      if (err.message === "MISSION_FULL") {
+        return res.status(400).json({ error: "Mission has reached its maximum capacity and is no longer available" });
+      }
+      if (err.message === "MISSION_NOT_FOUND") {
+        return res.status(404).json({ error: "Mission not found" });
+      }
+      // DUPLICATE, or any other unexpected failure inside the transaction.
       return res.status(400).json({ error: "You have already accepted this mission" });
     }
   } else {
