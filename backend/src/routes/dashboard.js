@@ -44,7 +44,7 @@ router.get("/", async (req, res) => {
       COALESCE(SUM(spend), 0) AS total_spend,
       COALESCE(AVG(CASE WHEN status = 'active' THEN completion ELSE NULL END), 0) AS avg_completion
     FROM (
-      SELECT m.*, (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited') as real_joined
+      SELECT m.*, (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined
       FROM missions m WHERE builder_id = ?
     ) missions
   `).get(bId);
@@ -129,7 +129,7 @@ router.get("/", async (req, res) => {
   const recentRaw = await db.prepare(`
     SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
-      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited') as real_joined
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined
     FROM missions m WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6
   `).all(bId);
 

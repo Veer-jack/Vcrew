@@ -6,7 +6,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
-import { recalcMissionStats } from "../stats.js";
+import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
 import { translateBatch } from "../translate.js";
 
@@ -354,7 +354,10 @@ router.post("/:id/withdraw", async (req, res) => {
   await db.transaction(async (tx) => {
     // Lock mission to decrement safely
     const mission = await tx.prepare(`SELECT joined, target, name, builder_id FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
-    
+    // Captured before the participant DELETE below, since afterward the
+    // real joined count already reflects this withdrawal.
+    const realJoinedBefore = await getRealJoinedCount(req.params.id, tx);
+
     // Remove the validator's footprint completely
     await tx.prepare(`DELETE FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
     await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
@@ -365,7 +368,7 @@ router.post("/:id/withdraw", async (req, res) => {
     // Ignore checkins to keep historical logs, or delete them if desired.
 
     // Decrement joined
-    const wasFull = mission.joined >= mission.target && mission.target > 0;
+    const wasFull = realJoinedBefore >= mission.target && mission.target > 0;
     await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
 
     // Notify Builder
@@ -827,7 +830,7 @@ router.post("/invitations/:id/accept", async (req, res) => {
       // Lock the mission row to prevent concurrent acceptances exceeding the slot limit
       const m = await tx.prepare(`SELECT * FROM missions WHERE id = ? FOR UPDATE`).get(invite.mission_id);
       if (!m) throw new Error("Mission not found");
-      if (m.joined >= m.target) {
+      if ((await getRealJoinedCount(m.id, tx)) >= m.target) {
         throw new Error("MISSION_FULL");
       }
 

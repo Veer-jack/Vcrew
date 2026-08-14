@@ -11,7 +11,7 @@ import { getRealMatchCount } from "./audience.js";
 import { fetchUrlContext } from "../urlContext.js";
 import { levelForCompleted } from "../vmeta.js";
 import { sendMissionPublished } from "../email.js";
-import { recalcMissionStats } from "../stats.js";
+import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
 import { translateBatch } from "../translate.js";
 
@@ -132,7 +132,7 @@ router.get("/", async (req, res) => {
     SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
-      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited') as real_joined,
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined,
       (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited')) as no_committed_participants
     FROM missions m
     WHERE m.builder_id = ?
@@ -368,7 +368,7 @@ router.get("/:id", async (req, res) => {
   // real `participants` rows (e.g. a backfill that inserts rows directly) —
   // since we already have the full row set here, derive the true count from
   // it instead of trusting the stale column, same as `real_submitted` above.
-  m.real_joined = participants.filter(p => p.stage !== "invited").length;
+  m.real_joined = participants.filter(p => !["invited", "rejected", "failed"].includes(p.stage)).length;
   const mission = serializeMission(m, m.status === "draft" || !participants.some(p => p.stage !== "invited"));
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
@@ -570,8 +570,9 @@ router.patch("/:id", async (req, res) => {
         // nobody has joined yet (never touches an approved/rejected slot's escrow),
         // and refunds exactly that — using the same perSlotEscrow() the approve/reject
         // routes use, so this can't drift into a second, disagreeing accounting rule.
-        if (newTarget < m.joined) {
-          throw new Error(`Cannot reduce target below ${m.joined} — that many validators have already joined this mission.`);
+        const realJoined = await getRealJoinedCount(m.id, tx);
+        if (newTarget < realJoined) {
+          throw new Error(`Cannot reduce target below ${realJoined} — that many validators have already joined this mission.`);
         }
         if (m.reward_type !== "free" && m.reward_amount > 0) {
           const perSlot = perSlotEscrow(m.reward_amount).cost;
@@ -984,6 +985,12 @@ router.delete("/:id/participants/:validatorId", authMiddleware, async (req, res)
 
   try {
     await db.transaction(async (tx) => {
+      // Lock the mission and capture whether it was full *before* this removal —
+      // must happen before the participant DELETE below, since afterward the
+      // real joined count already reflects the departure.
+      const m = await tx.prepare(`SELECT target FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
+      const wasFull = m ? (await getRealJoinedCount(req.params.id, tx)) >= m.target && m.target > 0 : false;
+
       const del = await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.params.validatorId);
       if (del.changes === 0) throw new Error("Participant not found");
 
@@ -993,9 +1000,7 @@ router.delete("/:id/participants/:validatorId", authMiddleware, async (req, res)
       await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'removed', 'xCircle', 'danger', 'Removed from Mission', ?, 'Just now', 1)`)
         .run(req.params.validatorId, `You have been removed from the mission "${mission.name}" for not completing required steps (e.g. scheduling).`);
 
-      const m = await tx.prepare(`SELECT joined, target FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
       if (m) {
-        const wasFull = m.joined >= m.target && m.target > 0;
         await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
 
         if (wasFull) {
@@ -1405,6 +1410,10 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
     const response = await tx.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ? FOR UPDATE`).get(req.params.responseId, req.params.id);
     if (!response) throw new Error("Submission not found");
 
+    // Captured before the participant's stage flips to 'rejected' below —
+    // afterward the real joined count already reflects the departure.
+    const realJoinedBefore = await getRealJoinedCount(req.params.id, tx);
+
     await tx.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
 
     await tx.prepare(`UPDATE v_my_missions SET status = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
@@ -1412,7 +1421,7 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
 
     // Free up the slot since they are rejected
     const updatedMission = await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ? RETURNING joined, target, name`).get(req.params.id);
-    if (updatedMission && updatedMission.joined === Math.max(0, updatedMission.target - 1)) {
+    if (updatedMission && realJoinedBefore === Math.max(0, updatedMission.target)) {
       // The mission just opened up 1 slot from being full! Notify waitlisted validators
       const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
       for (const sv of savedVals) {
