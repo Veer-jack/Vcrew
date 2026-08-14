@@ -80,7 +80,18 @@ function humanSize(bytes) {
 export const router = Router();
 router.use(authMiddleware);
 
-function serializeMission(m) {
+// A mission stays fully editable (category/ptype/reward/audience/tasks, not
+// just the always-editable name/description/region/target/deadline) until
+// someone has actually acted on an invite — a still-"invited" row means
+// nobody has committed to the mission's current shape yet, so changing it
+// costs nothing. Once anyone accepts, those fields lock (but stay visible).
+async function missionCanFullyEdit(missionId, status) {
+  if (status === "draft") return true;
+  const row = await db.prepare(`SELECT 1 FROM participants WHERE mission_id = ? AND stage != 'invited' LIMIT 1`).get(missionId);
+  return !row;
+}
+
+function serializeMission(m, canFullyEdit) {
   return {
     id: m.id,
     name: m.name,
@@ -90,10 +101,11 @@ function serializeMission(m) {
     ptype: m.ptype,
     ptypeLabel: ptypeOf(m.ptype).label,
     status: m.status,
-    participants: { 
-      target: m.target, 
-      joined: m.joined, 
-      submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted 
+    canFullyEdit: !!canFullyEdit,
+    participants: {
+      target: m.target,
+      joined: m.real_joined !== undefined ? Number(m.real_joined) : m.joined,
+      submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted
     },
     reward: { type: m.reward_type, amount: m.reward_amount },
     completion: m.real_submitted !== undefined 
@@ -117,10 +129,12 @@ function serializeMission(m) {
 router.get("/", async (req, res) => {
   const { status, category, q, excludeValidatorId } = req.query;
   let sql = `
-    SELECT m.*, 
+    SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
-      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
-    FROM missions m 
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited') as real_joined,
+      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited')) as no_committed_participants
+    FROM missions m
     WHERE m.builder_id = ?
   `;
   const params = [req.builder.id];
@@ -133,7 +147,7 @@ router.get("/", async (req, res) => {
   }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
-  const missions = rows.map(serializeMission);
+  const missions = rows.map(m => serializeMission(m, m.status === "draft" || m.no_committed_participants));
 
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
@@ -292,7 +306,11 @@ router.get("/:id", async (req, res) => {
 
   const audience = {
     matched: realCount,
-    invited: m.joined,
+    // Every row in `participants` represents someone actually invited to
+    // this mission — `m.joined` (the hand-incremented counter) only tracks
+    // who accepted, and can also drift from a direct table insert (see the
+    // real_joined comment above), so it undercounts "invited" on both counts.
+    invited: participants.length,
     defn,
     segments: segments.length ? segments : [{ l: "Members", v: 100, c: "var(--t-feedback)" }],
   };
@@ -346,7 +364,12 @@ router.get("/:id", async (req, res) => {
     submissions: allSubmissionsFiles,
   };
 
-  const mission = serializeMission(m);
+  // `missions.joined` is a hand-incremented counter that can drift from the
+  // real `participants` rows (e.g. a backfill that inserts rows directly) —
+  // since we already have the full row set here, derive the true count from
+  // it instead of trusting the stale column, same as `real_submitted` above.
+  m.real_joined = participants.filter(p => p.stage !== "invited").length;
+  const mission = serializeMission(m, m.status === "draft" || !participants.some(p => p.stage !== "invited"));
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
     const translated = await translateBatch([
@@ -461,7 +484,7 @@ router.post("/", async (req, res) => {
   }
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
-  res.status(201).json({ mission: serializeMission(m) });
+  res.status(201).json({ mission: serializeMission(m, true) }); // brand new — always fully editable
 });
 
 // PATCH /api/missions/:id  — update status / fields
@@ -516,11 +539,12 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
-  // Category/ptype/reward/tasks/duration are only editable while the mission
-  // is still a draft — once active, changing reward/target goes through the
-  // escrow-aware branches above, and category/ptype/tasks are locked in.
+  // Category/ptype/reward/tasks/duration stay editable until someone has
+  // actually accepted an invite — a mission that's live but still empty costs
+  // nothing to reshape. Reward/target changes on a mission with participants
+  // already go through the escrow-aware branches above regardless.
   const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
-  if (m.status === "draft") allowed.push("category", "ptype", "tasks", "durationDays", "reward");
+  if (await missionCanFullyEdit(m.id, m.status)) allowed.push("category", "ptype", "tasks", "durationDays", "reward");
   const updates = [];
   const params = [];
   let spendDelta = 0;
@@ -696,7 +720,7 @@ router.patch("/:id", async (req, res) => {
   }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
-  res.json({ mission: serializeMission(updated) });
+  res.json({ mission: serializeMission(updated, await missionCanFullyEdit(updated.id, updated.status)) });
 });
 
 // PATCH /api/missions/:id/participants/:pid — move kanban stage

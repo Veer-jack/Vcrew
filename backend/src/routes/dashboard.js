@@ -30,16 +30,23 @@ router.get("/", async (req, res) => {
   const activeMissions = await db.prepare(`SELECT id FROM missions WHERE builder_id = ? AND status = 'active'`).all(bId);
   await Promise.all(activeMissions.map(m => recalcMissionStats(m.id)));
 
+  // `missions.joined` is a hand-incremented counter that can drift from the
+  // real `participants` rows (e.g. a backfill inserting rows directly) — the
+  // `submitted`/`completion` columns are already healed above via
+  // recalcMissionStats, but `joined` isn't, so derive it here from the real
+  // table instead of trusting the stale column.
   const kpiRow = await db.prepare(`
     SELECT
       COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active_missions,
       COALESCE(SUM(CASE WHEN status IN ('completed', 'closed') THEN 1 ELSE 0 END), 0) AS completed_missions,
-      COALESCE(SUM(joined), 0) AS total_participants,
-      COALESCE(SUM(CASE WHEN status = 'active' THEN GREATEST(0, joined - submitted) ELSE 0 END), 0) AS pending_participants,
+      COALESCE(SUM(real_joined), 0) AS total_participants,
+      COALESCE(SUM(CASE WHEN status = 'active' THEN GREATEST(0, real_joined - submitted) ELSE 0 END), 0) AS pending_participants,
       COALESCE(SUM(spend), 0) AS total_spend,
       COALESCE(AVG(CASE WHEN status = 'active' THEN completion ELSE NULL END), 0) AS avg_completion
-    FROM missions
-    WHERE builder_id = ?
+    FROM (
+      SELECT m.*, (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited') as real_joined
+      FROM missions m WHERE builder_id = ?
+    ) missions
   `).get(bId);
 
   // Get sparkline data for the last 8 days
@@ -121,12 +128,14 @@ router.get("/", async (req, res) => {
 
   const recentRaw = await db.prepare(`
     SELECT m.*,
-      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited') as real_joined
     FROM missions m WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6
   `).all(bId);
 
   let recent = recentRaw.map(m => {
     const realSub = m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted;
+    const realJoined = m.real_joined !== undefined ? Number(m.real_joined) : m.joined;
     const realComp = m.real_submitted !== undefined
       ? Math.min(100, Math.round((Number(m.real_submitted) / Math.max(m.target || 1, 1)) * 100))
       : m.completion;
@@ -134,7 +143,7 @@ router.get("/", async (req, res) => {
     return {
       id: m.id, name: m.name, category: m.category, categoryLabel: catOf(m.category).label,
       status: m.status, region: m.region, completion: realComp,
-      participants: { target: m.target, joined: m.joined, submitted: realSub },
+      participants: { target: m.target, joined: realJoined, submitted: realSub },
       reward: { type: m.reward_type, amount: m.reward_amount },
     };
   });
