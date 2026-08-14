@@ -11,6 +11,10 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
   const { t } = useTranslation();
   const [firebaseReady, setFirebaseReady] = useState(true);
   const [editing, setEditing] = useState(false);
+  // Once the user says "use a different number" we must stop re-offering the
+  // stale onboarding number for the rest of this visit — otherwise every
+  // fresh "Add phone" click would silently refill it again.
+  const [prefillDismissed, setPrefillDismissed] = useState(false);
   const [step, setStep] = useState("phone"); // 'phone' | 'code'
   const [phoneInput, setPhoneInput] = useState("");
   const [ccIdx, setCcIdx] = useState(() => {
@@ -86,11 +90,15 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
 
   return (
     <div className="card" style={{ padding: "var(--pad-card)" }}>
-      <div className="row between" style={{ marginBottom: phoneVerified || editing ? 14 : 0 }}>
+      <div className="row between" style={{ marginBottom: phoneVerified || editing || (!prefillDismissed && prefillPhone) ? 14 : 0 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
           <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
-            {phoneVerified ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.") : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
+            {phoneVerified
+              ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
+              : (!prefillDismissed && prefillPhone)
+                ? t("auth.verifyPhoneDesc", null, "We found this number on your profile — verify it to enable login via SMS code and extra verification for withdrawals.")
+                : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
           </p>
         </div>
         {phoneVerified && !editing && (
@@ -99,8 +107,15 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
             <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
           </div>
         )}
-        {!phoneVerified && !editing && firebaseReady && (
-          <button className="btn btn-ghost" onClick={() => { setPhoneInput(prefillPhone || ""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
+        {!phoneVerified && !editing && !prefillDismissed && prefillPhone && (
+          <div className="row gap-2">
+            <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
+            <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
+            <button className="btn btn-quiet" onClick={() => setPrefillDismissed(true)}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
+          </div>
+        )}
+        {!phoneVerified && !editing && (prefillDismissed || !prefillPhone) && firebaseReady && (
+          <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
         )}
       </div>
 
