@@ -222,11 +222,12 @@ function StepParticipation({ d, set, ptypes }) {
 
 const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
-function StepReward({ d, set, rewards, showErrors, builder }) {
+function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
   const overUnverifiedCap = !builder?.verified && d.reward.participants > UNVERIFIED_PARTICIPANT_LIMIT;
+  const overAudienceCount = liveCount > 0 && d.reward.participants > liveCount;
   return (
     <div className="rise">
       <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
@@ -258,6 +259,12 @@ function StepReward({ d, set, rewards, showErrors, builder }) {
               ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)
               : t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}
           </p>
+          {overAudienceCount && (
+            <p className="fhint" style={{ color: "var(--danger)" }}>
+              <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match your selected audience — lower this or widen your audience filters in step 4.`)}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -782,7 +789,7 @@ export default function CreateMissionWizard() {
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
   ][step];
 

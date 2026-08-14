@@ -362,13 +362,15 @@ function EditMissionModal({ mission, onClose, onSaved }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const nameInvalid = !name.trim();
   const targetInvalid = !(Number(target) >= 1);
-  const deadlineInvalid = deadline && deadline < todayStr;
+  const regionInvalid = !region.trim();
+  const deadlineInvalid = !deadline || deadline < todayStr;
 
   const save = async () => {
     setErr("");
     if (nameInvalid) { setShowErrors(true); return setErr(t("missionDetail.errNameRequired", null, "Name is required")); }
+    if (regionInvalid) { setShowErrors(true); return setErr(t("missionDetail.errRegionRequired", null, "Region is required")); }
     if (targetInvalid) { setShowErrors(true); return setErr(t("missionDetail.errTargetMin", null, "Target participants must be at least 1")); }
-    if (deadlineInvalid) { setShowErrors(true); return setErr(t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")); }
+    if (deadlineInvalid) { setShowErrors(true); return setErr(deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")); }
     setShowErrors(false);
     setBusy(true);
     try {
@@ -389,13 +391,13 @@ function EditMissionModal({ mission, onClose, onSaved }) {
         <div className={`fld ${(showErrors || name) && nameInvalid ? "fld-invalid" : ""}`}><label>{t("missionDetail.nameLabel", null, "Name")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
         <div className="fld"><label>{t("missionDetail.descLabel", null, "Description")}</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
         <div className="row gap-3">
-          <div className="fld" style={{ flex: 1 }}><label>{t("missionDetail.regionLabel", null, "Region")}</label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
+          <div className={`fld ${(showErrors || region) && regionInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.regionLabel", null, "Region")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
           <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value === "" ? "" : Math.max(1, +e.target.value || 0))} /></div>
         </div>
-        <div className={`fld ${deadlineInvalid ? "fld-invalid" : ""}`}>
-          <label>{t("missionDetail.deadlineLabel", null, "Deadline")}</label>
+        <div className={`fld ${(showErrors || deadline) && deadlineInvalid ? "fld-invalid" : ""}`}>
+          <label>{t("missionDetail.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={openPickerOnClick} />
-          {deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")}</p>}
+          {(showErrors || deadline) && deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")}</p>}
         </div>
         <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
           <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
@@ -414,8 +416,16 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
   ));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
+  // Every group starts collapsed except one already carrying a selection —
+  // otherwise every edit opens onto the same long fully-expanded scroll the
+  // search bar/collapse were added to get away from.
+  const [closed, setClosed] = useState(() => new Set(
+    Object.keys(filters).filter(g => (audience.defn.find(d => d.group === g)?.values.length || 0) === 0)
+  ));
 
   const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
+  const toggleGroup = (g) => setClosed(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
 
   const save = async () => {
     setBusy(true); setErr("");
@@ -431,26 +441,48 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
     }
   };
 
+  const needle = q.trim().toLowerCase();
   return (
     <Modal title={t("missionDetail.editAudience", null, "Edit audience")} onClose={onClose} width={560}>
+      <div style={{ padding: "0 20px 12px" }}>
+        <div className="inw has-pre">
+          <span className="pre"><Icon name="search" size={14} /></span>
+          <input className="fin" placeholder={t("missionDetail.searchAudienceOptions", null, "Search roles, locations, industries…")} value={q} onChange={e => setQ(e.target.value)} />
+        </div>
+      </div>
       <div className="col gap-4" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
         {err && <div className="err-banner">{err}</div>}
         <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>{t("missionDetail.changesOnlyAffect", null, "Changes only affect future matching and invites")} {t("missionDetail.unaffectedValidatorsNote", null, "— validators who already joined this mission are unaffected.")}</p>
-        {Object.entries(filters).map(([g, opts]) => (
-          <div key={g}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>{g}</div>
-            <div className="row gap-2 wrap">
-              {(Array.isArray(opts) ? opts : Object.values(opts).flat()).map(o => {
-                const on = sel[g]?.has(o);
-                return (
-                  <button key={o} type="button" className={`fcheck ${on ? "on" : ""}`} onClick={() => toggle(g, o)}>
-                    <span className="box">{on && <Icon name="check" size={11} />}</span>{o}
-                  </button>
-                );
-              })}
+        {Object.entries(filters).map(([g, opts]) => {
+          const flat = Array.isArray(opts) ? opts : Object.values(opts).flat();
+          const visible = needle ? flat.filter(o => o.toLowerCase().includes(needle)) : flat;
+          if (needle && visible.length === 0) return null;
+          const groupOpen = needle ? true : !closed.has(g);
+          const selCount = sel[g]?.size || 0;
+          return (
+            <div key={g}>
+              <button type="button" className="row between" style={{ width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 8 }} onClick={() => toggleGroup(g)}>
+                <span className="row gap-2" style={{ alignItems: "center" }}>
+                  <Icon name={groupOpen ? "chevronDown" : "chevronRight"} size={13} style={{ color: "var(--text-faint)" }} />
+                  <span className="eyebrow" style={{ margin: 0 }}>{g}</span>
+                </span>
+                {selCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: selCount }, `${selCount} selected`)}</span>}
+              </button>
+              {groupOpen && (
+                <div className="row gap-2 wrap">
+                  {visible.map(o => {
+                    const on = sel[g]?.has(o);
+                    return (
+                      <button key={o} type="button" className={`fcheck ${on ? "on" : ""}`} onClick={() => toggle(g, o)}>
+                        <span className="box">{on && <Icon name="check" size={11} />}</span>{o}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "0 20px 20px" }}>
         <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
@@ -1252,7 +1284,13 @@ export default function MissionDetail() {
         <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} />
       )}
       {showEditAudience && mission && (
-        <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={(defn) => setData(d => ({ ...d, audience: { ...d.audience, defn } }))} />
+        <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={() => {
+          // A definition-only client-side patch left the "X members match"
+          // count and composition stale — refetch the whole mission so
+          // matched/invited/composition all come back in sync with the
+          // audience filters that were just saved, not just the filter list.
+          api.mission(id).then(d => { setData(d); }).catch(() => {});
+        }} />
       )}
     </div>
   );
