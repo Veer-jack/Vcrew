@@ -1625,7 +1625,7 @@ const en = {
           "1": "Remote / Online only",
         },
         india9Cities: {
-          "0": "India",
+          "0": "Other Indian cities",
           "1": "Bengaluru",
           "2": "Mumbai",
           "3": "Delhi NCR",
@@ -1874,6 +1874,8 @@ const en = {
     participantsSuffix: "{{n}} participants",
     descriptionEyebrow: "Description",
     audienceFiltersEyebrow: "Audience filters",
+    testCasesEyebrow: "Test cases ({{count}})",
+    untitledTask: "Untitled task",
     publishError: "Couldn't publish this mission",
     publishSuccess: "Mission published successfully",
     newMission: "New mission",
@@ -2787,6 +2789,7 @@ const en = {
     },
     hints: {
       lowercaseNoSpaces: "Lowercase, no spaces",
+      handleInfo: "Your unique @username on ValidationCrew — shown to builders on your profile and submissions.",
       bioHint: "Tell builders what makes your feedback valuable",
       companyOptional: "Optional",
       companyRequiredVerification: "Required for verification",

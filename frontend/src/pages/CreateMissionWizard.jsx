@@ -60,7 +60,7 @@ function StepInfo({ d, set, categories, showErrors }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery }) {
+export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
@@ -79,7 +79,7 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
   // subgroups (e.g. all of Geography's regions share one Set), so counting
   // sel.size directly would show the whole category's total on every
   // subgroup instead of just what's actually selected here.
-  const ownSelectedCount = options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
+  const ownSelectedCount = impliedAll ? options.length : options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
   const allSelected = options.length > 0 && options.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
@@ -89,8 +89,8 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
           <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
-          {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
-          {onSelectAll && (
+          {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{impliedAll ? t("createMission.includedViaWorldwide", null, "Included via Worldwide") : t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
+          {onSelectAll && !impliedAll && (
             <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
               {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
@@ -99,7 +99,7 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
       </div>
       {isOpen && (
         <>
-          {showSearch && (
+          {showSearch && !impliedAll && (
             <input
               className="fin"
               style={{ marginBottom: 10, fontSize: 13 }}
@@ -109,11 +109,18 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
             />
           )}
           <div className="chips">
-            {filtered.map(o => (
-              <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`} onClick={() => toggle(title, o)}>
-                <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
-              </button>
-            ))}
+            {filtered.map(o => {
+              // Worldwide itself must stay clickable even while impliedAll is
+              // active — it's the only way to turn "everything included" back off.
+              const lockedByImpliedAll = impliedAll && o !== WORLDWIDE;
+              return (
+                <button key={o} className={`chip ${(impliedAll || sel.has(o)) ? "on" : ""}`} disabled={lockedByImpliedAll}
+                  style={lockedByImpliedAll ? { cursor: "default", opacity: 0.85 } : undefined}
+                  onClick={() => toggle(title, o)}>
+                  <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
+                </button>
+              );
+            })}
             {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
@@ -153,31 +160,35 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
         <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
-        Array.isArray(opts) ? (
-          <FilterGroup
-            key={g} title={g} options={opts} sel={d.filters[g]} toggle={toggle}
-            otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
-            onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
-            onSelectAll={opts => selectAllInGroup(g, opts)}
-          />
-        ) : (
-          // Subgroups (e.g. Geography's Global & Remote / India / Asia Pacific / ...) render as
-          // separate FilterGroups but share one selection set — wrap them in one labelled card so
-          // it's visually clear they're all part of the same top-level category, not unrelated filters.
-          <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
+        // Every top-level category gets the same bordered card, whether it's a
+        // flat option list (Professional, ValidationCrew Role) or a grouped one
+        // (Geography, Interests) — previously only grouped categories had the
+        // wrapper, so flat ones looked like loose, unrelated sections by contrast.
+        <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
+          {!Array.isArray(opts) && (
             <div className="row between" style={{ marginBottom: 2 }}>
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
               {d.filters[g].size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}</span>}
             </div>
-            {Object.entries(opts).map(([sub, subOpts]) => (
+          )}
+          {Array.isArray(opts) ? (
+            <FilterGroup
+              title={g} options={opts} sel={d.filters[g]} toggle={toggle}
+              otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
+              onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
+              onSelectAll={opts => selectAllInGroup(g, opts)}
+            />
+          ) : (
+            Object.entries(opts).map(([sub, subOpts]) => (
               <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                 otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
                 onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v }) : undefined}
                 onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
+                impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
               />
-            ))}
-          </div>
-        )
+            ))
+          )}
+        </div>
       ))}
     </div>
   );
@@ -390,6 +401,18 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
         <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
         <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
         <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
+        {d.tasks?.length > 0 && (
+          <ReviewRow icon="checkCircle" color="--success" label={t("createMission.testCasesEyebrow", { count: d.tasks.length }, `Test cases (${d.tasks.length})`)} onEdit={() => onEditStep(2)}>
+            <div className="col gap-1" style={{ marginTop: 2 }}>
+              {d.tasks.map((tk, i) => (
+                <div key={i} className="row gap-2" style={{ fontSize: 13.5 }}>
+                  <span className="faint mono" style={{ width: 16, flexShrink: 0 }}>{i + 1}.</span>
+                  <span>{tk.title || t("createMission.untitledTask", null, "Untitled task")}</span>
+                </div>
+              ))}
+            </div>
+          </ReviewRow>
+        )}
         {d.desc && (
           <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
             <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
@@ -811,9 +834,18 @@ export default function CreateMissionWizard() {
   return (
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
-        <div className="wz-brand">
+        <div className="wz-brand" style={{ position: "relative" }}>
           <BrandMark size={52} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{missionId ? t("createMission.editDraft", null, "Edit draft") : t("createMission.newMission", null, "New mission")}</div></div>
+          <button
+            type="button"
+            aria-label={t("createMission.exitToDashboard", null, "Exit to dashboard")}
+            title={t("createMission.exitToDashboard", null, "Exit to dashboard")}
+            onClick={() => setShowExitWarning(true)}
+            style={{ position: "absolute", top: 0, right: 0, background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-faint)", display: "flex" }}
+          >
+            <Icon name="x" size={18} />
+          </button>
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
