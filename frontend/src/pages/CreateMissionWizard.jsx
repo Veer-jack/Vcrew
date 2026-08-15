@@ -689,7 +689,10 @@ export default function CreateMissionWizard() {
   // disables it, since that one already has its own hover tooltip.
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
-    && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk => tk.steps?.length > 0 && tk.questions?.length > 0)))
+    && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
+      tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
+      tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+    )))
     && (step !== 3 || Object.values(d.filters).some(s => s.size > 0))
     && (step !== 4 || (rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;

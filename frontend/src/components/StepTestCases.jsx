@@ -17,7 +17,8 @@ const SEV = {
 function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOverCard, onDrop, onDragEnd, expanded, onToggle, onDelete, onEdit }) {
   const { t } = useTranslation();
   const sev = SEV[task.severity] || SEV.imp;
-  const incomplete = task.steps.length === 0 || task.questions.length === 0;
+  const incomplete = task.steps.length === 0 || task.steps.some(s => !s.trim())
+    || task.questions.length === 0 || task.questions.some(q => !q.text?.trim());
   const sevLabel = {
     crit: t("testCases.severityCritical", null, "Critical"),
     imp: t("testCases.severityImportant", null, "Important"),
