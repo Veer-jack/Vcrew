@@ -15,6 +15,7 @@ export default function VSettings() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
 
+  const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -23,6 +24,12 @@ export default function VSettings() {
   const [pwdSuccess, setPwdSuccess] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+
+  const cancelPasswordChange = () => {
+    setChangingPassword(false);
+    setPwdCurrent(""); setPwdNew(""); setPwdConfirm("");
+    setPwdError(""); setForgotSent(false);
+  };
 
   const sendForgotLink = async () => {
     setForgotBusy(true);
@@ -137,43 +144,49 @@ export default function VSettings() {
           {/* Security Card */}
           {!validator?.oauthProvider && (
             <div className="card" style={{ padding: 24 }}>
-              <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
-                <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                  <Icon name="shield" size={20} />
+              <div className="row between" style={{ alignItems: "center", marginBottom: changingPassword ? 24 : 0 }}>
+                <div className="row gap-3" style={{ alignItems: "center" }}>
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                    <Icon name="shield" size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.security", null, "Security")}</h3>
+                    <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.securityDesc", null, "Change your password to keep your account secure.")}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.security", null, "Security")}</h3>
-                  <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.securityDesc", null, "Change your password to keep your account secure.")}</p>
-                </div>
+                {!changingPassword && <Btn variant="ghost" onClick={() => setChangingPassword(true)}>{t("settings.changePassword", null, "Change password")}</Btn>}
               </div>
-              
-              <form onSubmit={savePassword} className="col gap-4">
-                {pwdError && <div className="err-banner" style={{ margin: 0 }}>{pwdError}</div>}
-                {pwdSuccess && <div className="banner success" style={{ margin: 0 }}>{pwdSuccess}</div>}
-                {forgotSent && <div className="banner success" style={{ margin: 0 }}>{t("settings.forgotPwdSent", null, "If an account exists for this email, a reset link is on its way.")}</div>}
-                <div className="fld">
-                  <div className="row between" style={{ alignItems: "baseline" }}>
-                    <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.currentPwd", null, "Current Password")}</label>
-                    <button type="button" className="backlink" style={{ fontSize: 12.5 }} onClick={sendForgotLink} disabled={forgotBusy}>
-                      {forgotBusy ? t("auth.sending", null, "Sending…") : t("settings.forgotCurrentPwd", null, "Forgot it?")}
-                    </button>
+
+              {changingPassword && (
+                <form onSubmit={savePassword} className="col gap-4">
+                  {pwdError && <div className="err-banner" style={{ margin: 0 }}>{pwdError}</div>}
+                  {pwdSuccess && <div className="banner success" style={{ margin: 0 }}>{pwdSuccess}</div>}
+                  {forgotSent && <div className="banner success" style={{ margin: 0 }}>{t("settings.forgotPwdSent", null, "If an account exists for this email, a reset link is on its way.")}</div>}
+                  <div className="fld">
+                    <div className="row between" style={{ alignItems: "baseline" }}>
+                      <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.currentPwd", null, "Current Password")}</label>
+                      <button type="button" className="backlink" style={{ fontSize: 12.5 }} onClick={sendForgotLink} disabled={forgotBusy}>
+                        {forgotBusy ? t("auth.sending", null, "Sending…") : t("settings.forgotCurrentPwd", null, "Forgot it?")}
+                      </button>
+                    </div>
+                    <PasswordInput className="fin" placeholder={t("settings.enterCurrentPwd", null, "Enter current password")} value={pwdCurrent} onChange={e => setPwdCurrent(e.target.value)} required />
                   </div>
-                  <PasswordInput className="fin" placeholder={t("settings.enterCurrentPwd", null, "Enter current password")} value={pwdCurrent} onChange={e => setPwdCurrent(e.target.value)} required />
-                </div>
-                <div className="row gap-3 wrap">
-                  <div className="fld" style={{ flex: 1, minWidth: 160 }}>
-                    <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.newPwd", null, "New Password")}</label>
-                    <PasswordInput className="fin" placeholder={t("settings.enterNewPwd", null, "Enter new password")} value={pwdNew} onChange={e => setPwdNew(e.target.value)} required />
+                  <div className="row gap-3 wrap">
+                    <div className="fld" style={{ flex: 1, minWidth: 160 }}>
+                      <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.newPwd", null, "New Password")}</label>
+                      <PasswordInput className="fin" placeholder={t("settings.enterNewPwd", null, "Enter new password")} value={pwdNew} onChange={e => setPwdNew(e.target.value)} required />
+                    </div>
+                    <div className="fld" style={{ flex: 1, minWidth: 160 }}>
+                      <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.confirmNewPwd", null, "Confirm New Password")}</label>
+                      <PasswordInput className="fin" placeholder={t("settings.confirmNewPwdPlaceholder", null, "Confirm new password")} value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)} required />
+                    </div>
                   </div>
-                  <div className="fld" style={{ flex: 1, minWidth: 160 }}>
-                    <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.confirmNewPwd", null, "Confirm New Password")}</label>
-                    <PasswordInput className="fin" placeholder={t("settings.confirmNewPwdPlaceholder", null, "Confirm new password")} value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)} required />
+                  <div className="row gap-2">
+                    <Btn variant="primary" type="submit" disabled={pwdBusy}>{pwdBusy ? t("actions.saving", null, "Saving…") : t("actions.updatePassword", null, "Update Password")}</Btn>
+                    <Btn variant="quiet" type="button" onClick={cancelPasswordChange}>{t("actions.cancel", null, "Cancel")}</Btn>
                   </div>
-                </div>
-                <div>
-                  <Btn variant="primary" type="submit" disabled={pwdBusy}>{pwdBusy ? t("actions.saving", null, "Saving…") : t("actions.updatePassword", null, "Update Password")}</Btn>
-                </div>
-              </form>
+                </form>
+              )}
             </div>
           )}
 

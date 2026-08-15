@@ -18,6 +18,7 @@ export default function Settings() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
@@ -26,6 +27,12 @@ export default function Settings() {
   const [pwdSuccess, setPwdSuccess] = useState("");
   const [forgotBusy, setForgotBusy] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
+
+  const cancelPasswordChange = () => {
+    setChangingPassword(false);
+    setPwdCurrent(""); setPwdNew(""); setPwdConfirm("");
+    setPwdError(""); setForgotSent(false);
+  };
 
   const [editingCompany, setEditingCompany] = useState(false);
   const [industry, setIndustry] = useState(builder?.profile?.industry || "");
@@ -212,35 +219,43 @@ export default function Settings() {
 
         {!builder?.oauthProvider && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <h2 style={{ fontSize: 18, marginBottom: 8 }}>{t("settings.security", null, "Security")}</h2>
-            <p className="faint mb-5">{t("settings.securityDesc", null, "Change your password to keep your account secure.")}</p>
-            <form onSubmit={savePassword} className="col gap-4">
-              {pwdError && <div className="err-banner">{pwdError}</div>}
-              {pwdSuccess && <div className="banner success">{pwdSuccess}</div>}
-              {forgotSent && <div className="banner success">{t("settings.forgotPwdSent", null, "If an account exists for this email, a reset link is on its way.")}</div>}
-              <div className="fld">
-                <div className="row between" style={{ alignItems: "baseline" }}>
-                  <label>{t("settings.currentPwd", null, "Current Password")}</label>
-                  <button type="button" className="backlink" style={{ fontSize: 12.5 }} onClick={sendForgotLink} disabled={forgotBusy}>
-                    {forgotBusy ? t("auth.sending", null, "Sending…") : t("settings.forgotCurrentPwd", null, "Forgot it?")}
-                  </button>
-                </div>
-                <PasswordInput className="fin" value={pwdCurrent} onChange={e => setPwdCurrent(e.target.value)} required />
-              </div>
-              <div className="row gap-3 wrap">
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.newPwd", null, "New Password")}</label>
-                  <PasswordInput className="fin" value={pwdNew} onChange={e => setPwdNew(e.target.value)} required />
-                </div>
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.confirmNewPwd", null, "Confirm New Password")}</label>
-                  <PasswordInput className="fin" value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)} required />
-                </div>
-              </div>
+            <div className="row between" style={{ alignItems: "center", marginBottom: changingPassword ? 8 : 0 }}>
               <div>
-                <Btn variant="primary" type="submit" disabled={pwdBusy}>{pwdBusy ? t("actions.saving", null, "Saving…") : t("actions.updatePassword", null, "Update password")}</Btn>
+                <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.security", null, "Security")}</h2>
+                <p className="faint mb-5" style={{ margin: "4px 0 0" }}>{t("settings.securityDesc", null, "Change your password to keep your account secure.")}</p>
               </div>
-            </form>
+              {!changingPassword && <Btn variant="ghost" icon="edit" onClick={() => setChangingPassword(true)}>{t("settings.changePassword", null, "Change password")}</Btn>}
+            </div>
+            {changingPassword && (
+              <form onSubmit={savePassword} className="col gap-4">
+                {pwdError && <div className="err-banner">{pwdError}</div>}
+                {pwdSuccess && <div className="banner success">{pwdSuccess}</div>}
+                {forgotSent && <div className="banner success">{t("settings.forgotPwdSent", null, "If an account exists for this email, a reset link is on its way.")}</div>}
+                <div className="fld">
+                  <div className="row between" style={{ alignItems: "baseline" }}>
+                    <label>{t("settings.currentPwd", null, "Current Password")}</label>
+                    <button type="button" className="backlink" style={{ fontSize: 12.5 }} onClick={sendForgotLink} disabled={forgotBusy}>
+                      {forgotBusy ? t("auth.sending", null, "Sending…") : t("settings.forgotCurrentPwd", null, "Forgot it?")}
+                    </button>
+                  </div>
+                  <PasswordInput className="fin" value={pwdCurrent} onChange={e => setPwdCurrent(e.target.value)} required />
+                </div>
+                <div className="row gap-3 wrap">
+                  <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                    <label>{t("settings.newPwd", null, "New Password")}</label>
+                    <PasswordInput className="fin" value={pwdNew} onChange={e => setPwdNew(e.target.value)} required />
+                  </div>
+                  <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                    <label>{t("settings.confirmNewPwd", null, "Confirm New Password")}</label>
+                    <PasswordInput className="fin" value={pwdConfirm} onChange={e => setPwdConfirm(e.target.value)} required />
+                  </div>
+                </div>
+                <div className="row gap-2">
+                  <Btn variant="primary" type="submit" disabled={pwdBusy}>{pwdBusy ? t("actions.saving", null, "Saving…") : t("actions.updatePassword", null, "Update password")}</Btn>
+                  <Btn variant="quiet" type="button" onClick={cancelPasswordChange}>{t("actions.cancel", null, "Cancel")}</Btn>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </div>
