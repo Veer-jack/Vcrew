@@ -205,7 +205,7 @@ export default function Settings() {
                 {builder?.profile?.vWebsite && <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}>{t("onboardingFields.submitted", null, "Submitted")}</span>}
               </div>
               <div className="fin" style={{ display: "flex", alignItems: "center", marginTop: 6, color: "var(--text-muted)" }}>{builder.profile.vWebsiteInput}</div>
-              <p className="fhint">{t("settings.verificationLockedHint", null, "Submitted during onboarding and can't be changed here — contact support if this needs to be corrected.")}</p>
+              <p className="fhint">{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
             </div>
           )}
         </div>
