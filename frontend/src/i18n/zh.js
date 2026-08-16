@@ -1844,6 +1844,7 @@ const zh = {
     missionCategoryLabel: "任务类别",
     pickOne: "选择一个",
     selectedCount: "{{count}} 已选择",
+    includedViaWorldwide: "已通过「全球」纳入",
     searchGroupPlaceholder: "搜索 {{group}} …",
     noMatchesFor: "没有匹配“ {{q}} ”",
     matchingMembers: "匹配会员",

@@ -12,7 +12,7 @@ import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import { categoryLabel, ptypeLabel, rewardLabel } from "../bi18n";
-import { FilterGroup } from "./CreateMissionWizard";
+import { FilterGroup, GEO_GROUP, WORLDWIDE } from "./CreateMissionWizard";
 
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
@@ -181,7 +181,7 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
         <div className="card" style={{ padding: 20 }}>
           <div className="sec-head"><h3 className="h-md">{t("missionDetail.participantPipeline", null, "Participant pipeline")}</h3><Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setTab("participants")}>{t("actions.openBoard", null, "Open board")}</Btn></div>
           <div className="col gap-3" style={{ marginTop: 6 }}>
-            {pipeline.map(s => <div className="geo-row" key={s.id}><span className="gn">{s.label}</span><span className="gbar"><i style={{ width: (s.n / maxN) * 100 + "%", background: s.color }} /></span><span className="gv">{s.n}</span></div>)}
+            {pipeline.map(s => <div className="geo-row" key={s.id}><span className="gn">{t(`status.${s.id}`, null, s.label)}</span><span className="gbar"><i style={{ width: (s.n / maxN) * 100 + "%", background: s.color }} /></span><span className="gv">{s.n}</span></div>)}
           </div>
         </div>
       </div>
@@ -311,7 +311,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               onDrop={e => {
                 e.preventDefault();
                 if ((st.id === "rewarded" || st.id === "rejected") && drag != null) {
-                  showToast(t("missionDetail.reviewToMoveThem", { stage: st.label.toLowerCase() }, "Please review their submission to move them to {{stage}}."), "error");
+                  showToast(t("missionDetail.reviewToMoveThem", { stage: t(`status.${st.id}`, null, st.label).toLowerCase() }, "Please review their submission to move them to {{stage}}."), "error");
                 } else if (droppable && drag != null) {
                   move(drag, st.id);
                 }
@@ -322,7 +322,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               <div className="kcol-h">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span className="kdot" style={{ background: st.color }} />
-                  <b>{st.label}</b>
+                  <b>{t(`status.${st.id}`, null, st.label)}</b>
                   {drag && !droppable && <Icon name="lock" size={13} style={{ color: "var(--warning)" }} title="Review submission to reward" />}
                 </div>
                 <span className="cnt">{col.length}</span>
@@ -600,23 +600,54 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
   const flatFilters = useState(() => Object.fromEntries(
     Object.entries(filters).map(([g, opts]) => [g, Array.isArray(opts) ? opts : Object.values(opts).flat()])
   ))[0];
+  // A custom Geography value (typed alongside the "Other Indian cities"/
+  // "Other" catch-all) isn't one of the known chip options, so it has to be
+  // split out before it lands in `sel` — otherwise it's an unrenderable
+  // phantom entry that never shows as a chip but silently round-trips on save.
+  const geoKnown = new Set(flatFilters[GEO_GROUP]);
   const [sel, setSel] = useState(() => Object.fromEntries(
-    Object.keys(filters).map(g => [g, new Set(audience.defn.find(d => d.group === g)?.values || [])])
+    Object.keys(filters).map(g => {
+      const saved = audience.defn.find(d => d.group === g)?.values || [];
+      return [g, new Set(g === GEO_GROUP ? saved.filter(v => geoKnown.has(v)) : saved)];
+    })
   ));
+  const [otherGeoText, setOtherGeoText] = useState(() => {
+    const saved = audience.defn.find(d => d.group === GEO_GROUP)?.values || [];
+    return saved.find(v => !geoKnown.has(v)) || "";
+  });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
   const [liveCount, setLiveCount] = useState(audience.matched ?? 0);
   const [isFetchingCount, setIsFetchingCount] = useState(false);
 
-  const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
+  const toggle = (g, o) => setSel(p => {
+    if (g === GEO_GROUP) {
+      // Worldwide must stay a standalone "no restriction" marker — same reason
+      // as the creation wizard: expanding it into every individual place
+      // builds a more restrictive backend query than the real no-restriction
+      // marker, and can match fewer people than intended.
+      if (o === WORLDWIDE) {
+        const s = p[g].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
+        return { ...p, [g]: s };
+      }
+      const s = new Set(p[g]);
+      s.has(o) ? s.delete(o) : s.add(o);
+      s.delete(WORLDWIDE);
+      return { ...p, [g]: s };
+    }
+    const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s };
+  });
   const selectAllInGroup = (g, opts) => setSel(p => {
+    // Same no-restriction marker, not a literal 40-way place-name OR-list —
+    // see the toggle() comment above.
+    if (g === GEO_GROUP) return { ...p, [g]: new Set([WORLDWIDE]) };
     const s = new Set(p[g]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
     return { ...p, [g]: s };
   });
-  const selectAllEverywhere = () => setSel(Object.fromEntries(Object.entries(flatFilters).map(([g, opts]) => [g, new Set(opts)])));
+  const selectAllEverywhere = () => setSel(Object.fromEntries(Object.entries(flatFilters).map(([g, opts]) => [g, g === GEO_GROUP ? new Set([WORLDWIDE]) : new Set(opts)])));
   const clearAllEverywhere = () => setSel(Object.fromEntries(Object.keys(flatFilters).map(g => [g, new Set()])));
   const anySelected = Object.values(sel).some(s => s.size > 0);
 
@@ -634,6 +665,10 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
     setBusy(true); setErr("");
     try {
       const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
+      const otherGeo = otherGeoText.trim();
+      if (otherGeo && (payload[GEO_GROUP]?.includes("Other") || payload[GEO_GROUP]?.includes("India"))) {
+        payload[GEO_GROUP] = [...payload[GEO_GROUP], otherGeo];
+      }
       await api.updateMission(mission.id, { audience: payload });
       onSaved(Object.entries(payload).filter(([, values]) => values.length).map(([group, values]) => ({ group, values })));
       onClose();
@@ -645,8 +680,8 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
   };
 
   return (
-    <Modal title={t("missionDetail.editAudience", null, "Edit audience")} onClose={onClose} width={560}>
-      <div style={{ padding: "0 20px 12px" }}>
+    <Modal title={t("missionDetail.editAudience", null, "Edit audience")} onClose={onClose} width={560} bodyScroll={false}>
+      <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
         <div className="reach" style={{ marginBottom: 12 }}>
           <div className="reach-top">
             <span className="r-ic"><Icon name="users" size={20} /></span>
@@ -671,19 +706,23 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
           </button>
         </div>
       </div>
-      <div className="col gap-1" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
+      <div className="col gap-1" style={{ padding: "0 20px 16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
         {err && <div className="err-banner">{err}</div>}
         <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>{t("missionDetail.changesOnlyAffect", null, "Changes only affect future matching and invites")} {t("missionDetail.unaffectedValidatorsNote", null, "— validators who already joined this mission are unaffected.")}</p>
         {Object.entries(flatFilters).map(([g, opts]) => (
           <FilterGroup
             key={g} title={g} options={opts} sel={sel[g]} toggle={toggle}
             onSelectAll={groupOpts => selectAllInGroup(g, groupOpts)}
+            impliedAll={g === GEO_GROUP && sel[GEO_GROUP]?.has(WORLDWIDE)}
             initialExpanded={(sel[g]?.size || 0) > 0}
             externalQuery={q}
+            otherText={g === GEO_GROUP ? otherGeoText : undefined}
+            onOtherTextChange={g === GEO_GROUP ? setOtherGeoText : undefined}
+            otherValue={g === GEO_GROUP ? (sel[GEO_GROUP]?.has("India") ? "India" : "Other") : "Other"}
           />
         ))}
       </div>
-      <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "0 20px 20px" }}>
+      <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "12px 20px 20px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
         <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
         <Btn variant="primary" disabled={busy} onClick={save}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveAudience", null, "Save audience")}</Btn>
       </div>
@@ -704,8 +743,8 @@ function MissionAudienceTab({ audience, onEdit }) {
               <div className="col gap-3" style={{ marginTop: 6 }}>
                 {audience.defn.map((d, i) => (
                   <div key={i} className="row gap-3" style={{ alignItems: "flex-start", paddingTop: i ? 12 : 0, borderTop: i ? "1px solid var(--border)" : "none" }}>
-                    <span className="eyebrow" style={{ width: 140, flex: "none", paddingTop: 4 }}>{d.group}</span>
-                    <div className="row gap-2 wrap">{d.values.map(v => <span key={v} className="mtag">{v}</span>)}</div>
+                    <span className="eyebrow" style={{ width: 140, flex: "none", paddingTop: 4 }}>{trFilterLabel(t, d.group)}</span>
+                    <div className="row gap-2 wrap">{d.values.map(v => <span key={v} className="mtag">{trFilterLabel(t, v)}</span>)}</div>
                   </div>
                 ))}
               </div>

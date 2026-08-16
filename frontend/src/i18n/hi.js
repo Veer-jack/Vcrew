@@ -1844,6 +1844,7 @@ const hi = {
     missionCategoryLabel: "मिशन श्रेणी",
     pickOne: "एक चुनें",
     selectedCount: "{{count}} चयनित",
+    includedViaWorldwide: "वर्ल्डवाइड के ज़रिए शामिल",
     searchGroupPlaceholder: "{{group}} खोजें...",
     noMatchesFor: "\" {{q}} \" के लिए कोई मिलान नहीं",
     matchingMembers: "मेल खाने वाले सदस्य",

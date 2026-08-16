@@ -1844,6 +1844,7 @@ const ar = {
     missionCategoryLabel: "فئة المهمة",
     pickOne: "اختر واحدة",
     selectedCount: "تم تحديد {{count}}",
+    includedViaWorldwide: "مشمول عبر خيار حول العالم",
     searchGroupPlaceholder: "بحث في {{group}}…",
     noMatchesFor: "لا توجد نتائج مطابقة لـ \"{{q}}\"",
     matchingMembers: "أعضاء متطابقين",

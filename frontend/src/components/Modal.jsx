@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { useTranslation } from "../i18n/index.jsx";
 
-export function Modal({ title, children, onClose, width = 500, hideHeader = false, align = "center" }) {
+export function Modal({ title, children, onClose, width = 500, hideHeader = false, align = "center", bodyScroll = true }) {
   const { t } = useTranslation();
   useEffect(() => {
     const handleEsc = (e) => {
@@ -30,7 +30,7 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
               <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
             </div>
           )}
-          {hideHeader ? (
+          {hideHeader || !bodyScroll ? (
             children
           ) : (
             <div style={{ paddingTop: 16, overflowY: "auto", flex: 1 }}>

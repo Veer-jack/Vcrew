@@ -1844,6 +1844,7 @@ const ur = {
     missionCategoryLabel: "مشن کیٹیگری",
     pickOne: "ایک چنو",
     selectedCount: "{{count}} منتخب کیا گیا۔",
+    includedViaWorldwide: "دنیا بھر کے ذریعے شامل",
     searchGroupPlaceholder: "{{group}} تلاش کریں…",
     noMatchesFor: "\"{{q}}\" کے لیے کوئی مماثلت نہیں",
     matchingMembers: "مماثل اراکین",
