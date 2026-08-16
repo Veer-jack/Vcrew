@@ -284,6 +284,19 @@ export default function VOnboarding() {
             <Icon name="logout" size={16} />
           </button>
         </div>
+        {/* Kept right below the logo, before Setup/step-rail — this was the tester's
+            explicit complaint: buried at the bottom of the sidebar meant scrolling
+            (or a smaller screen) to find the one control that lets you switch type. */}
+        {type && <div style={{ padding: 14, background: type.bg, borderRadius: "var(--radius)", marginBottom: 10, border: "1px solid " + type.color + "44" }}><div style={{ fontWeight: 700, fontSize: 13, color: type.color, marginBottom: 4 }}>{t(`vOnboarding.types.${type.key}.title`, null, type.title)}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(`vOnboarding.types.${type.key}.missions`, null, type.missions)}</div></div>}
+        {validatorType && !showPending && (
+          <button className="btn btn-ghost" style={{ justifyContent: "center", color: "var(--text-muted)", marginBottom: 16 }} onClick={() => {
+            if (window.confirm(t("vOnboarding.confirmChangeRole", null, "Are you sure you want to change your role? This will clear all your progress."))) {
+              localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator?.id}`);
+              localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}_${validator?.id}`);
+              setValidatorType(null);
+            }
+          }}>{t("actions.changeRoleStartOver", null, "Change role (Start over)")}</button>
+        )}
         <div style={{ marginBottom: 16 }}><LanguageSwitcher /></div>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 8 }}>{t("onboarding.setup", null, "Setup")}</div>
         <div style={{ display: "grid", gap: 6, marginBottom: 16 }}>
@@ -303,16 +316,6 @@ export default function VOnboarding() {
             );
           })}
         </div>
-        {type && <div style={{ padding: 14, background: type.bg, borderRadius: "var(--radius)", marginBottom: 16, border: "1px solid " + type.color + "44" }}><div style={{ fontWeight: 700, fontSize: 13, color: type.color, marginBottom: 4 }}>{t(`vOnboarding.types.${type.key}.title`, null, type.title)}</div><div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t(`vOnboarding.types.${type.key}.missions`, null, type.missions)}</div></div>}
-        {validatorType && !showPending && (
-          <button className="btn btn-ghost" style={{ justifyContent: "center", color: "var(--text-muted)" }} onClick={() => {
-            if (window.confirm(t("vOnboarding.confirmChangeRole", null, "Are you sure you want to change your role? This will clear all your progress."))) {
-              localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator?.id}`);
-              localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}_${validator?.id}`);
-              setValidatorType(null);
-            }
-          }}>{t("actions.changeRoleStartOver", null, "Change role (Start over)")}</button>
-        )}
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
         {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} /> : !validatorType ? <TypeSelector onSelect={setValidatorType} /> : validatorType === "user" ? <UserOnboarding vid={validator?.id} onDone={handleDone} onBack={() => setValidatorType(null)} /> : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} onDone={handleDone} onBack={() => setValidatorType(null)} error={error} /> : <TesterOnboarding vid={validator?.id} onDone={handleDone} onBack={() => setValidatorType(null)} error={error} />}

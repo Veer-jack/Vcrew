@@ -175,14 +175,14 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
             <FilterGroup
               title={g} options={opts} sel={d.filters[g]} toggle={toggle}
               otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
-              onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
+              onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
               onSelectAll={opts => selectAllInGroup(g, opts)}
             />
           ) : (
             Object.entries(opts).map(([sub, subOpts]) => (
               <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                 otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
-                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v }) : undefined}
+                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
                 onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
                 impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
               />
@@ -479,6 +479,11 @@ function missionToDraft(mission, filters, categories, ptypes) {
       participants: mission.participants?.target || 1,
     },
     filters: emptyF,
+    // Resuming a saved/draft mission means its audience was already set at
+    // some point (even if that set is empty) — not the untouched default a
+    // brand-new freshDraft() starts with, so the Step 4 gate shouldn't ask
+    // this user to re-touch it just because they reopened the wizard.
+    audienceTouched: true,
     genFor: null,
     durationDays: mission.durationDays || 7,
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
@@ -576,7 +581,13 @@ export default function CreateMissionWizard() {
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
+    // Preselecting "Validator" gives the live match-count something sensible to
+    // show immediately, but it must not count as the user having reviewed their
+    // audience — audienceTouched stays false until they actually interact with
+    // a filter, so the Step 4 "must pick an audience" gate isn't satisfied by
+    // a default nobody looked at.
     filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
+    audienceTouched: false,
     ptype: ptypes[0]?.id || "ptest",
     reward: { type: "fixed", amount: 250, participants: 120 },
     genFor: null,
@@ -681,15 +692,15 @@ export default function CreateMissionWizard() {
         // substrings, which can match FEWER validators than true "no restriction"
         // (anyone whose location doesn't cleanly match a known place name is excluded).
         const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
-        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
+        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
       }
       const s = new Set(p.filters[GEO_GROUP]);
       s.has(opt) ? s.delete(opt) : s.add(opt);
       s.delete(WORLDWIDE);
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
     }
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
-    return { ...p, filters: { ...p.filters, [group]: s } };
+    return { ...p, filters: { ...p.filters, [group]: s }, audienceTouched: true };
   });
   // Select-all / clear-all for one category or subcategory's own option list —
   // toggles based on whether every option in it is already selected, so the
@@ -698,7 +709,7 @@ export default function CreateMissionWizard() {
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
-    return { ...p, filters: { ...p.filters, [group]: s } };
+    return { ...p, filters: { ...p.filters, [group]: s }, audienceTouched: true };
   });
 
   const cost = computeCost(d, rewards, platformFeePct);
@@ -716,7 +727,7 @@ export default function CreateMissionWizard() {
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
-    && (step !== 3 || Object.values(d.filters).some(s => s.size > 0))
+    && (step !== 3 || (d.audienceTouched && Object.values(d.filters).some(s => s.size > 0)))
     && (step !== 4 || (rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
 

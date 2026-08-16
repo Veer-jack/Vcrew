@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { Avatar, Btn, PasswordInput } from "../components/ui";
+import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { INDUSTRIES, COMPANY_INDUSTRIES, EMP_SIZES } from "../data/onboarding";
@@ -121,6 +122,12 @@ export default function Settings() {
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 16 }}>{builder?.name}</div>
                   <div className="faint" style={{ fontSize: 13 }}>{builder?.email} · {builder?.org}</div>
+                  {builder?.website && (
+                    <a href={builder.website} target="_blank" rel="noopener noreferrer" className="row gap-1"
+                      style={{ alignItems: "center", fontSize: 12.5, color: "var(--accent)", marginTop: 4, width: "fit-content" }}>
+                      <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
+                    </a>
+                  )}
                 </div>
               </div>
               <Btn variant="ghost" icon="edit" onClick={startEdit}>{t("actions.editProfile", null, "Edit profile")}</Btn>
