@@ -128,7 +128,7 @@ router.get("/", async (req, res) => {
 
   const recentRaw = await db.prepare(`
     SELECT m.*,
-      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined
     FROM missions m WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6
   `).all(bId);

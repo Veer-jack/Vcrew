@@ -32,7 +32,7 @@ export async function recalcMissionStats(missionId, optionalTx) {
 
   const responses = await tx.prepare(`
     SELECT COUNT(*) as c FROM responses
-    WHERE mission_id = ? AND status != 'rejected'
+    WHERE mission_id = ? AND status NOT IN ('rejected', 'draft')
   `).get(missionId);
   const submitted = parseInt(responses.c || 0, 10);
 

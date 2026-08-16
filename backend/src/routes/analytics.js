@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
   const bId = req.builder.id;
   const rawMissions = await db.prepare(`
     SELECT m.*, 
-      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status != 'rejected') as real_submitted,
+      (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
     FROM missions m WHERE builder_id = ?
   `).all(bId);
