@@ -2192,6 +2192,8 @@ const zh = {
   status: {
     rewarded: "奖励",
     rejected: "被拒绝",
+    failed: "失败 — 错过打卡",
+    failedHint: "因未完成每日打卡而被系统自动判定失败——并非建造者拒绝。",
     all: "全部",
     paid: "付费",
     inReview: "审核中",

@@ -211,7 +211,16 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
       </div>
       <div className="kanban">
         {STAGES.map(st => {
-          const col = participants.filter(p => p.stage === st.id);
+          // A validator auto-failed for missing check-ins gets stage 'failed',
+          // not one of the six real Kanban stages — no column for it means no
+          // separate 7th column (would just add more horizontal scroll to an
+          // already-wide board), but it still needs to be visible somewhere
+          // rather than silently vanishing. Folds into Rejected, the other
+          // locked/terminal-and-unsuccessful column, with its own distinct tag
+          // on the card so it doesn't read as the builder having rejected them.
+          const col = st.id === "rejected"
+            ? participants.filter(p => p.stage === "rejected" || p.stage === "failed")
+            : participants.filter(p => p.stage === st.id);
           const droppable = st.id !== "rewarded" && st.id !== "rejected";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
@@ -238,16 +247,16 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected"}
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed"}
                     onDragStart={(e) => {
-                      if (p.stage === "rewarded" || p.stage === "rejected") {
+                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") {
                         e.preventDefault();
                         return;
                       }
                       setDrag(p.id);
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    style={(p.stage === "rewarded" || p.stage === "rejected") ? { cursor: "default", opacity: 0.85 } : {}}>
+                    style={(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? { cursor: "default", opacity: 0.85 } : {}}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -257,7 +266,8 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                         <div className="kl row gap-2" style={{ margin: "2px 0 0" }}>
                           {trFilterLabel(t, p.role)}
                           {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>{t("status.rewarded", null, "Rewarded")}</span>}
-                          {st.id === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
+                          {p.stage === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
+                          {p.stage === "failed" && <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")} style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>{t("status.failed", null, "Failed — missed check-ins")}</span>}
                         </div>
                       </div>
                     </div>
@@ -1413,7 +1423,15 @@ function MissionCheckinsTab({ checkins }) {
         <div key={r.id} className="card rise" style={{ padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+              <div className="row gap-2" style={{ alignItems: "center" }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+                {r.stage === "failed" && (
+                  <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")}
+                    style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>
+                    {t("status.failed", null, "Failed — missed check-ins")}
+                  </span>
+                )}
+              </div>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{t("metrics.trustScore", null, "Trust score:")} {r.trust}%</div>
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>

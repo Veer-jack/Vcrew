@@ -2192,6 +2192,8 @@ const fr = {
   status: {
     rewarded: "Récompensé",
     rejected: "Rejeté",
+    failed: "Échoué — check-ins manqués",
+    failedHint: "Échec automatique du système pour non-réalisation des check-ins quotidiens — ce n'est pas un rejet du builder.",
     all: "Tout",
     paid: "Payé",
     inReview: "En revue",

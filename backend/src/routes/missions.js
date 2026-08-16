@@ -285,6 +285,7 @@ router.get("/:id", async (req, res) => {
         id: p.validator_id,
         name: p.name || "Validator",
         trust: p.trust || 50,
+        stage: p.stage,
         checkins: checkinsByValidator[p.validator_id],
       }));
   }
