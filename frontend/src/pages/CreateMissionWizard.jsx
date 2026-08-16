@@ -40,6 +40,12 @@ function StepInfo({ d, set, categories, showErrors }) {
         <label>{t("createMission.descriptionLabel", null, "Description")} <span className="req-star" aria-hidden="true">*</span></label>
         <textarea className="field" placeholder={t("createMission.descriptionPlaceholder", null, "Describe what you're validating, what participants will do, and what a great submission looks like.")} value={d.desc} onChange={e => set({ desc: e.target.value })} />
       </div>
+      <div className={`fld ${showErrors && (!d.deadline || d.deadline < todayStr) ? "fld-invalid" : ""}`} style={{ marginBottom: 24, maxWidth: 280 }}>
+        <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
+        <input className="fin" type="date" min={todayStr} value={d.deadline} onChange={e => set({ deadline: e.target.value < todayStr ? todayStr : e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
+        <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
+        {showErrors && d.deadline && d.deadline < todayStr && <p className="ferr">{t("createMission.deadlineInPast", null, "Deadline can't be in the past")}</p>}
+      </div>
       <div className="fsec"><b>{t("createMission.missionCategoryLabel", null, "Mission Category")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /><span className="cnt">{t("createMission.pickOne", null, "Pick one")}</span></div>
       <div className="optcards">
         {categories.map(c => (
@@ -49,12 +55,6 @@ function StepInfo({ d, set, categories, showErrors }) {
             <b>{categoryLabel(t, c)}</b><p>{categoryDesc(t, c)}</p>
           </button>
         ))}
-      </div>
-      <div className={`fld ${showErrors && (!d.deadline || d.deadline < todayStr) ? "fld-invalid" : ""}`} style={{ marginTop: 24, maxWidth: 280 }}>
-        <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
-        <input className="fin" type="date" min={todayStr} value={d.deadline} onChange={e => set({ deadline: e.target.value < todayStr ? todayStr : e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
-        <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
-        {showErrors && d.deadline && d.deadline < todayStr && <p className="ferr">{t("createMission.deadlineInPast", null, "Deadline can't be in the past")}</p>}
       </div>
     </div>
   );
