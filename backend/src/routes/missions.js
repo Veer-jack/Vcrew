@@ -997,8 +997,8 @@ router.delete("/:id/participants/:validatorId", authMiddleware, async (req, res)
       await tx.prepare(`UPDATE v_my_missions SET status = 'rejected', reason = 'Removed by builder due to inactivity' WHERE mission_id = ? AND validator_id = ?`)
         .run(req.params.id, req.params.validatorId);
 
-      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'removed', 'xCircle', 'danger', 'Removed from Mission', ?, 'Just now', 1)`)
-        .run(req.params.validatorId, `You have been removed from the mission "${mission.name}" for not completing required steps (e.g. scheduling).`);
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'removed', 'xCircle', 'danger', 'Removed from Mission', ?, 'Just now', 1, ?)`)
+        .run(req.params.validatorId, `You have been removed from the mission "${mission.name}" for not completing required steps (e.g. scheduling).`, req.params.id);
 
       if (m) {
         await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
@@ -1379,8 +1379,8 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
       }
     }
     
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "reward", "submission_approved", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now");
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+      .run(response.validator_id, "reward", "submission_approved", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now", req.params.id);
 
     // Log Activity for Builder
     await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
@@ -1441,8 +1441,8 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
         .run(newRating, count + 1, response.validator_id);
     }
     
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "alert", "submission_rejected", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+      .run(response.validator_id, "alert", "submission_rejected", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now", req.params.id);
 
     await recalcMissionStats(req.params.id, tx);
   }).catch(err => {
@@ -1463,8 +1463,8 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
-  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
-    .run(response.validator_id, "alert", "submission_revision", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+    .run(response.validator_id, "alert", "submission_revision", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now", req.params.id);
 
   await recalcMissionStats(req.params.id);
 
