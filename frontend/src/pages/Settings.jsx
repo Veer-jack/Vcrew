@@ -6,6 +6,11 @@ import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { INDUSTRIES, COMPANY_INDUSTRIES, EMP_SIZES } from "../data/onboarding";
+import { PERSONA_CONFIG } from "../data/personaConfig";
+
+// Same fixed value the onboarding wizard itself uses — no region switcher
+// exists yet, so this isn't a per-builder setting to look up.
+const REGION = "india";
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -58,6 +63,34 @@ export default function Settings() {
     } catch (err) {
       setCompanyError(err.message || t("settings.errSave", null, "Couldn't save changes"));
     } finally { setCompanyBusy(false); }
+  };
+
+  // Onboarding's "audience" step (Researcher's equivalent is keyed
+  // "participants") is already fully built per persona — reused directly
+  // here instead of re-declaring a second copy of its fields, options, and
+  // live reach meter for every persona.
+  const AudienceStep = PERSONA_CONFIG[builder?.persona]?.components?.audience
+    || PERSONA_CONFIG[builder?.persona]?.components?.participants;
+  const [editingAudience, setEditingAudience] = useState(false);
+  const [audienceD, setAudienceD] = useState(() => ({ ...(builder?.profile || {}) }));
+  const [audienceBusy, setAudienceBusy] = useState(false);
+  const [audienceError, setAudienceError] = useState("");
+  const setAudienceField = (k, v) => setAudienceD(s => ({ ...s, [k]: v }));
+
+  const startEditAudience = () => {
+    setAudienceD({ ...(builder?.profile || {}) });
+    setAudienceError(""); setEditingAudience(true);
+  };
+  const saveAudience = async (e) => {
+    e.preventDefault();
+    setAudienceBusy(true); setAudienceError("");
+    try {
+      const res = await api.updateProfile({ name: builder.name, org: builder.org, email: builder.email, website: builder.website, designation: builder.designation, profile: audienceD });
+      setBuilder(res.builder);
+      setEditingAudience(false);
+    } catch (err) {
+      setAudienceError(err.message || t("settings.errSave", null, "Couldn't save changes"));
+    } finally { setAudienceBusy(false); }
   };
 
   const sendForgotLink = async () => {
@@ -223,6 +256,39 @@ export default function Settings() {
             </div>
           )}
         </div>
+
+        {AudienceStep && (
+          <div className="card" style={{ padding: "var(--pad-card)" }}>
+            <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
+              <div>
+                <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.audienceDetails", null, "Audience & Demographics")}</h2>
+                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.audienceDetailsDesc", null, "Who you want to hear from — collected at onboarding, used as the starting point for the Audience Explorer.")}</p>
+              </div>
+              {!editingAudience && <Btn variant="ghost" icon="edit" onClick={startEditAudience}>{t("actions.edit", null, "Edit")}</Btn>}
+            </div>
+            {!editingAudience ? (
+              <div className="row gap-3 wrap" style={{ marginTop: 10 }}>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t("onboardingFields.age", null, "Age")}</label>
+                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.ageBands?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.ageBands?.length ? builder.profile.ageBands.join(", ") : t("settings.notSet", null, "Not set")}</div>
+                </div>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t("onboardingFields.country", null, "Country")}</label>
+                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country ? undefined : "var(--text-faint)" }}>{builder?.profile?.country || t("settings.notSet", null, "Not set")}</div>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={saveAudience} className="col gap-2">
+                {audienceError && <div className="err-banner">{audienceError}</div>}
+                <AudienceStep d={audienceD} set={setAudienceField} region={REGION} showErrors={false} />
+                <div className="row gap-2" style={{ marginTop: 8 }}>
+                  <Btn variant="primary" type="submit" disabled={audienceBusy}>{audienceBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
+                  <Btn variant="quiet" type="button" onClick={() => { setEditingAudience(false); setAudienceError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
 
         {!builder?.oauthProvider && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
