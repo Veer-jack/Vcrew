@@ -718,6 +718,12 @@ export default function CreateMissionWizard() {
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
   const participantsOk = builder?.verified || d.reward.participants <= UNVERIFIED_PARTICIPANT_LIMIT;
+  // Mirrors StepReward's own overAudienceCount warning — requesting more
+  // participants than the selected audience can actually supply isn't just
+  // a bad estimate, it's a mission that can never fully fill, so it blocks
+  // the same way rewardAmountOk/participantsOk do rather than staying a
+  // warning-only nudge.
+  const withinAudienceCount = liveCount === 0 || d.reward.participants <= liveCount;
   // Missing required fields keep Continue clickable (so clicking it can
   // explain what's missing via showErrors) — only insufficientFunds hard-
   // disables it, since that one already has its own hover tooltip.
@@ -728,7 +734,7 @@ export default function CreateMissionWizard() {
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
     && (step !== 3 || (d.audienceTouched && Object.values(d.filters).some(s => s.size > 0)))
-    && (step !== 4 || (rewardAmountOk && participantsOk));
+    && (step !== 4 || (rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
 
   const buildMissionPayload = (status) => {

@@ -81,6 +81,21 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
           <span className="eyebrow">{t("missionDetail.theBrief", null, "The brief")}</span>
           <p style={{ fontSize: 15, lineHeight: 1.65, margin: "10px 0 0", overflowWrap: "anywhere", wordBreak: "break-word" }}>{mission.description || t("missionDetail.noDescription", null, "No description provided yet.")}</p>
         </div>
+        {mission.tasks?.length > 0 && (
+          <div className="card" style={{ padding: 20 }}>
+            <span className="eyebrow">{t("missionDetail.testCasesLabel", { n: mission.tasks.length }, `Test cases (${mission.tasks.length})`)}</span>
+            <div className="col gap-2" style={{ marginTop: 10 }}>
+              {mission.tasks.map((task, i) => (
+                <div key={task.id || i} className="row between" style={{ padding: "8px 0", borderTop: i > 0 ? "1px solid var(--border)" : undefined, alignItems: "baseline" }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600 }}>{i + 1}. {task.title}</span>
+                  <span className="faint" style={{ fontSize: 12, flexShrink: 0, marginLeft: 12 }}>
+                    {t("missionDetail.taskStepsQuestionsCount", { steps: task.steps?.length || 0, questions: task.questions?.length || 0 }, `${task.steps?.length || 0} steps · ${task.questions?.length || 0} questions`)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="card" style={{ padding: 20 }}>
           <div className="sec-head"><h3 className="h-md">{t("missionDetail.participantPipeline", null, "Participant pipeline")}</h3><Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setTab("participants")}>{t("actions.openBoard", null, "Open board")}</Btn></div>
           <div className="col gap-3" style={{ marginTop: 6 }}>
