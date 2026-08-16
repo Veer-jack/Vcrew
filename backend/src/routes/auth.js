@@ -172,7 +172,24 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ? AND id != ?`).get(email, req.builder.id);
   if (existing) return res.status(400).json({ error: "That email is already in use" });
 
-  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, req.builder.id);
+  // Optional partial merge into profile_json (e.g. industry/company size edited
+  // from Settings) — merged onto the EXISTING profile, not replaced wholesale,
+  // and deliberately kept separate from PATCH /onboarding: that route re-files a
+  // verification claim on every call, which would silently duplicate rows if
+  // reused here just to save an unrelated field.
+  let profileJson = req.builder.profile_json || null;
+  if (req.body?.profile && typeof req.body.profile === "object") {
+    let existingProfile = {};
+    if (req.builder.profile_json) {
+      try { existingProfile = JSON.parse(req.builder.profile_json); } catch { existingProfile = {}; }
+    }
+    const merged = { ...existingProfile, ...req.body.profile };
+    const serialized = JSON.stringify(merged);
+    if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
+    profileJson = serialized;
+  }
+
+  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ?, profile_json = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, profileJson, req.builder.id);
 
   const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });

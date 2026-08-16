@@ -35,12 +35,12 @@ export async function runSweepFailures() {
         await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(trial.mission_id);
 
         // 4. Notify the validator
-        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?, 'system', 'alertTriangle', 'danger', 'Mission Failed', 'You have been removed from a trial mission due to inactivity (missing too many daily check-ins).', 'Just now', 1)`).run(trial.validator_id);
+        await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'system', 'alertTriangle', 'danger', 'Mission Failed', 'You have been removed from a trial mission due to inactivity (missing too many daily check-ins).', 'Just now', 1, ?)`).run(trial.validator_id, trial.mission_id);
 
         // 5. Notify the builder too — the inline (self-triggered) checkin-lockout path
         // already does this; this sweep-triggered path was silently skipping it.
-        await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1)`)
-          .run(trial.builder_id, `A validator failed the mission "${trial.mission_name}" due to missed check-ins.`);
+        await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'mission_failed', 'xCircle', 'danger', 'Mission Failed', ?, 'Just now', 1, ?)`)
+          .run(trial.builder_id, `A validator failed the mission "${trial.mission_name}" due to missed check-ins.`, trial.mission_id);
       });
 
       setImmediate(() => notifySavedValidators(trial.mission_id));

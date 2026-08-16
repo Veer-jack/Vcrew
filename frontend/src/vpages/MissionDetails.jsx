@@ -46,11 +46,26 @@ export default function MissionDetails() {
   const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
 
+  // Shared by apply() and acceptInvite() — both actions are now gated
+  // server-side on having a complete-enough profile (see vmarketplace.js /
+  // vmissions.js), so both need the same "go finish onboarding" recovery path.
+  const handleJoinError = (e) => {
+    if (e.code === "ONBOARDING_REQUIRED") {
+      if (window.confirm(t("vMissionDetails.completeProfilePrompt", null, "Complete your profile before joining a mission. Go finish onboarding now?"))) {
+        navigate("/validator/onboarding");
+      }
+    } else {
+      alert(e.message || t("vMissionDetails.failedToJoin", null, "Something went wrong"));
+    }
+  };
+
   const apply = async () => {
     setBusy(true);
     try {
       await vapi.applyTask(task.id);
       setData(d => ({ ...d, task: { ...d.task, myStatus: "active" } }));
+    } catch (e) {
+      handleJoinError(e);
     } finally { setBusy(false); }
   };
 
@@ -60,7 +75,7 @@ export default function MissionDetails() {
       await vapi.post(`/missions/invitations/${task.inviteId}/accept`);
       setData(d => ({ ...d, task: { ...d.task, myStatus: "active", inviteId: null } }));
     } catch (e) {
-      alert(e.message || t("vMissionDetails.failedToAcceptInvite", null, "Failed to accept invite"));
+      handleJoinError(e);
       // refresh task to get updated slots
       vapi.task(id).then(setData);
     } finally { setBusy(false); }

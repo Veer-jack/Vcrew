@@ -11,7 +11,7 @@ import { getRealMatchCount } from "./audience.js";
 import { fetchUrlContext } from "../urlContext.js";
 import { levelForCompleted } from "../vmeta.js";
 import { sendMissionPublished } from "../email.js";
-import { recalcMissionStats } from "../stats.js";
+import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
 import { translateBatch } from "../translate.js";
 
@@ -80,7 +80,18 @@ function humanSize(bytes) {
 export const router = Router();
 router.use(authMiddleware);
 
-function serializeMission(m) {
+// A mission stays fully editable (category/ptype/reward/audience/tasks, not
+// just the always-editable name/description/region/target/deadline) until
+// someone has actually acted on an invite — a still-"invited" row means
+// nobody has committed to the mission's current shape yet, so changing it
+// costs nothing. Once anyone accepts, those fields lock (but stay visible).
+async function missionCanFullyEdit(missionId, status) {
+  if (status === "draft") return true;
+  const row = await db.prepare(`SELECT 1 FROM participants WHERE mission_id = ? AND stage != 'invited' LIMIT 1`).get(missionId);
+  return !row;
+}
+
+function serializeMission(m, canFullyEdit) {
   return {
     id: m.id,
     name: m.name,
@@ -90,10 +101,11 @@ function serializeMission(m) {
     ptype: m.ptype,
     ptypeLabel: ptypeOf(m.ptype).label,
     status: m.status,
-    participants: { 
-      target: m.target, 
-      joined: m.joined, 
-      submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted 
+    canFullyEdit: !!canFullyEdit,
+    participants: {
+      target: m.target,
+      joined: m.real_joined !== undefined ? Number(m.real_joined) : m.joined,
+      submitted: m.real_submitted !== undefined ? Number(m.real_submitted) : m.submitted
     },
     reward: { type: m.reward_type, amount: m.reward_amount },
     completion: m.real_submitted !== undefined 
@@ -117,10 +129,12 @@ function serializeMission(m) {
 router.get("/", async (req, res) => {
   const { status, category, q, excludeValidatorId } = req.query;
   let sql = `
-    SELECT m.*, 
+    SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
-      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating
-    FROM missions m 
+      (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined,
+      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited')) as no_committed_participants
+    FROM missions m
     WHERE m.builder_id = ?
   `;
   const params = [req.builder.id];
@@ -133,7 +147,7 @@ router.get("/", async (req, res) => {
   }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
-  const missions = rows.map(serializeMission);
+  const missions = rows.map(m => serializeMission(m, m.status === "draft" || m.no_committed_participants));
 
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
@@ -271,6 +285,7 @@ router.get("/:id", async (req, res) => {
         id: p.validator_id,
         name: p.name || "Validator",
         trust: p.trust || 50,
+        stage: p.stage,
         checkins: checkinsByValidator[p.validator_id],
       }));
   }
@@ -292,7 +307,11 @@ router.get("/:id", async (req, res) => {
 
   const audience = {
     matched: realCount,
-    invited: m.joined,
+    // Every row in `participants` represents someone actually invited to
+    // this mission — `m.joined` (the hand-incremented counter) only tracks
+    // who accepted, and can also drift from a direct table insert (see the
+    // real_joined comment above), so it undercounts "invited" on both counts.
+    invited: participants.length,
     defn,
     segments: segments.length ? segments : [{ l: "Members", v: 100, c: "var(--t-feedback)" }],
   };
@@ -346,7 +365,12 @@ router.get("/:id", async (req, res) => {
     submissions: allSubmissionsFiles,
   };
 
-  const mission = serializeMission(m);
+  // `missions.joined` is a hand-incremented counter that can drift from the
+  // real `participants` rows (e.g. a backfill that inserts rows directly) —
+  // since we already have the full row set here, derive the true count from
+  // it instead of trusting the stale column, same as `real_submitted` above.
+  m.real_joined = participants.filter(p => !["invited", "rejected", "failed"].includes(p.stage)).length;
+  const mission = serializeMission(m, m.status === "draft" || !participants.some(p => p.stage !== "invited"));
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
     const translated = await translateBatch([
@@ -461,7 +485,7 @@ router.post("/", async (req, res) => {
   }
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(id);
-  res.status(201).json({ mission: serializeMission(m) });
+  res.status(201).json({ mission: serializeMission(m, true) }); // brand new — always fully editable
 });
 
 // PATCH /api/missions/:id  — update status / fields
@@ -516,11 +540,12 @@ router.patch("/:id", async (req, res) => {
     }
   }
 
-  // Category/ptype/reward/tasks/duration are only editable while the mission
-  // is still a draft — once active, changing reward/target goes through the
-  // escrow-aware branches above, and category/ptype/tasks are locked in.
+  // Category/ptype/reward/tasks/duration stay editable until someone has
+  // actually accepted an invite — a mission that's live but still empty costs
+  // nothing to reshape. Reward/target changes on a mission with participants
+  // already go through the escrow-aware branches above regardless.
   const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
-  if (m.status === "draft") allowed.push("category", "ptype", "tasks", "durationDays", "reward");
+  if (await missionCanFullyEdit(m.id, m.status)) allowed.push("category", "ptype", "tasks", "durationDays", "reward");
   const updates = [];
   const params = [];
   let spendDelta = 0;
@@ -546,8 +571,9 @@ router.patch("/:id", async (req, res) => {
         // nobody has joined yet (never touches an approved/rejected slot's escrow),
         // and refunds exactly that — using the same perSlotEscrow() the approve/reject
         // routes use, so this can't drift into a second, disagreeing accounting rule.
-        if (newTarget < m.joined) {
-          throw new Error(`Cannot reduce target below ${m.joined} — that many validators have already joined this mission.`);
+        const realJoined = await getRealJoinedCount(m.id, tx);
+        if (newTarget < realJoined) {
+          throw new Error(`Cannot reduce target below ${realJoined} — that many validators have already joined this mission.`);
         }
         if (m.reward_type !== "free" && m.reward_amount > 0) {
           const perSlot = perSlotEscrow(m.reward_amount).cost;
@@ -696,7 +722,7 @@ router.patch("/:id", async (req, res) => {
   }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
-  res.json({ mission: serializeMission(updated) });
+  res.json({ mission: serializeMission(updated, await missionCanFullyEdit(updated.id, updated.status)) });
 });
 
 // PATCH /api/missions/:id/participants/:pid — move kanban stage
@@ -960,18 +986,22 @@ router.delete("/:id/participants/:validatorId", authMiddleware, async (req, res)
 
   try {
     await db.transaction(async (tx) => {
+      // Lock the mission and capture whether it was full *before* this removal —
+      // must happen before the participant DELETE below, since afterward the
+      // real joined count already reflects the departure.
+      const m = await tx.prepare(`SELECT target FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
+      const wasFull = m ? (await getRealJoinedCount(req.params.id, tx)) >= m.target && m.target > 0 : false;
+
       const del = await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.params.validatorId);
       if (del.changes === 0) throw new Error("Participant not found");
 
       await tx.prepare(`UPDATE v_my_missions SET status = 'rejected', reason = 'Removed by builder due to inactivity' WHERE mission_id = ? AND validator_id = ?`)
         .run(req.params.id, req.params.validatorId);
 
-      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?, 'mission', 'removed', 'xCircle', 'danger', 'Removed from Mission', ?, 'Just now', 1)`)
-        .run(req.params.validatorId, `You have been removed from the mission "${mission.name}" for not completing required steps (e.g. scheduling).`);
+      await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'removed', 'xCircle', 'danger', 'Removed from Mission', ?, 'Just now', 1, ?)`)
+        .run(req.params.validatorId, `You have been removed from the mission "${mission.name}" for not completing required steps (e.g. scheduling).`, req.params.id);
 
-      const m = await tx.prepare(`SELECT joined, target FROM missions WHERE id = ? FOR UPDATE`).get(req.params.id);
       if (m) {
-        const wasFull = m.joined >= m.target && m.target > 0;
         await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(req.params.id);
 
         if (wasFull) {
@@ -1350,8 +1380,8 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
       }
     }
     
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "reward", "submission_approved", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now");
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+      .run(response.validator_id, "reward", "submission_approved", "checkCircle", "success", "Mission Approved!", `Your submission for ${mission.name} was approved! ₹${reward} has been added to your wallet.`, "Just now", req.params.id);
 
     // Log Activity for Builder
     await tx.prepare(`INSERT INTO activity (builder_id, type, title, detail, amount) VALUES (?,?,?,?,?)`)
@@ -1381,6 +1411,10 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
     const response = await tx.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ? FOR UPDATE`).get(req.params.responseId, req.params.id);
     if (!response) throw new Error("Submission not found");
 
+    // Captured before the participant's stage flips to 'rejected' below —
+    // afterward the real joined count already reflects the departure.
+    const realJoinedBefore = await getRealJoinedCount(req.params.id, tx);
+
     await tx.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
 
     await tx.prepare(`UPDATE v_my_missions SET status = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
@@ -1388,7 +1422,7 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
 
     // Free up the slot since they are rejected
     const updatedMission = await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ? RETURNING joined, target, name`).get(req.params.id);
-    if (updatedMission && updatedMission.joined === Math.max(0, updatedMission.target - 1)) {
+    if (updatedMission && realJoinedBefore === Math.max(0, updatedMission.target)) {
       // The mission just opened up 1 slot from being full! Notify waitlisted validators
       const savedVals = await tx.prepare(`SELECT validator_id FROM v_saved WHERE task_id = ?`).all(req.params.id);
       for (const sv of savedVals) {
@@ -1408,8 +1442,8 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
         .run(newRating, count + 1, response.validator_id);
     }
     
-    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
-      .run(response.validator_id, "alert", "submission_rejected", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now");
+    await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+      .run(response.validator_id, "alert", "submission_rejected", "alertTriangle", "critical", "Mission Rejected", `Your submission for ${mission.name} was rejected. Reason: ${req.body.note || 'Did not meet requirements.'}`, "Just now", req.params.id);
 
     await recalcMissionStats(req.params.id, tx);
   }).catch(err => {
@@ -1430,8 +1464,8 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
-  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread) VALUES (?,?,?,?,?,?,?,?,1)`)
-    .run(response.validator_id, "alert", "submission_revision", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now");
+  await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
+    .run(response.validator_id, "alert", "submission_revision", "edit", "warning", "Revision Requested", `The builder requested a revision for ${mission.name}. Note: ${req.body.note}`, "Just now", req.params.id);
 
   await recalcMissionStats(req.params.id);
 

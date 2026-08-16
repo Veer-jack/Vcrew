@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
-import { BrandLogoFull } from "../components/BrandMark";
+import { BrandLogoFull, BrandMark } from "../components/BrandMark";
 import { VAvatar } from "./vui";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
@@ -143,6 +143,11 @@ export default function VLayout() {
   const [bell, setBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("vc_side_collapsed") === "1");
+  const toggleCollapsed = () => setCollapsed(v => {
+    localStorage.setItem("vc_side_collapsed", v ? "0" : "1");
+    return !v;
+  });
   const [notifs, setNotifs] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -158,11 +163,15 @@ export default function VLayout() {
   const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
 
   return (
-    <div className={`app ${mobOpen ? "mob-open" : ""}`}>
+    <div className={`app ${mobOpen ? "mob-open" : ""} ${collapsed ? "side-collapsed" : ""}`}>
       <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
       <aside className="side">
         <div className="brand">
-          <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
+          <a href="/validator" style={{ display: "block" }}>{collapsed ? <BrandMark size={34} /> : <BrandLogoFull height={52} />}</a>
+          <button type="button" className="side-collapse-btn" onClick={toggleCollapsed}
+            title={collapsed ? t("appLayout.expandSidebar", null, "Expand sidebar") : t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
+            <Icon name={collapsed ? "chevronRight" : "chevronLeft"} size={15} />
+          </button>
         </div>
         {NAV_GROUPS.flatMap(g => [
           <div key={g.label} className="nav-group-label">{t("nav." + g.tKey, null, g.label)}</div>,
@@ -175,34 +184,38 @@ export default function VLayout() {
             } else {
               customActive = location.pathname.startsWith(it.to);
             }
+            const itLabel = t("nav." + (it.tKey || it.label.toLowerCase().replace(/ /g, "")), null, it.label);
             return (
               <Link key={it.to} to={it.to} onClick={() => setMobOpen(false)}
+                title={collapsed ? itLabel : undefined}
                 className={`nav-item ${customActive ? "active" : ""}`}>
-                <Icon name={it.icon} />{t("nav." + (it.tKey || it.label.toLowerCase().replace(/ /g, "")), null, it.label)}
+                <Icon name={it.icon} /><span className="nav-label">{itLabel}</span>
                 {it.to === "/validator/support" && supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
               </Link>
             );
           }),
         ])}
         <div className="side-foot">
-          <button onClick={() => navigate("/validator/profile")} style={{ all: "unset", cursor: "pointer", display: "block" }}>
+          <button onClick={() => navigate("/validator/profile")} title={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block" }}>
             <div className="lvl-card">
               <div className="lvl-top">
                 <VAvatar name={validator?.name || ""} size={36} />
-                <div style={{ minWidth: 0 }}>
+                <div className="nav-label" style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{validator?.name}</div>
                   <div className="faint" style={{ fontSize: 11.5 }}>{t("vLayout.lvlPrefix", { level: validator?.level }, `Lvl ${validator?.level}`)} · {validator?.levelName}</div>
                 </div>
               </div>
-              <div className="lvl-meter"><i style={{ width: "72%" }} /></div>
-              <div className="faint" style={{ fontSize: 11, marginTop: 7 }}>{t("vLayout.validationsToElite", { count: validator ? Math.max(0, 400 - (validator.completed || 0)) : 0 }, `${validator ? Math.max(0, 400 - (validator.completed || 0)) : 0} validations to Elite`)}</div>
+              <div className="lvl-meter nav-label"><i style={{ width: "72%" }} /></div>
+              <div className="faint nav-label" style={{ fontSize: 11, marginTop: 7 }}>{t("vLayout.validationsToElite", { count: validator ? Math.max(0, 400 - (validator.completed || 0)) : 0 }, `${validator ? Math.max(0, 400 - (validator.completed || 0)) : 0} validations to Elite`)}</div>
             </div>
           </button>
-          <LanguageSwitcher
-            onSave={(lang) => vapi.setLanguage(lang).catch(() => {})}
-            style={{ marginTop: 8, width: "100%" }}
-            openUp
-          />
+          <div className="nav-label">
+            <LanguageSwitcher
+              onSave={(lang) => vapi.setLanguage(lang).catch(() => {})}
+              style={{ marginTop: 8, width: "100%" }}
+              openUp
+            />
+          </div>
         </div>
       </aside>
 

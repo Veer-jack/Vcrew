@@ -224,8 +224,12 @@ select.fin { appearance: none; -webkit-appearance: none; cursor: pointer; paddin
   font-size: 13px; font-weight: 600; transition: all .13s; }
 html[data-direction="mono"] .chip { border-radius: 6px; }
 .chip:hover { border-color: var(--border-strong); color: var(--text); }
-.chip .ck { width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
+/* Square by default (checkbox: chip groups are multi-select unless marked
+   .radio) — a circular mark read as a radio button on genuinely multi-select
+   groups like Platform/Validation goals, implying only one could be picked. */
+.chip .ck { width: 15px; height: 15px; border-radius: 4px; display: grid; place-items: center;
   border: 1.6px solid var(--border-strong); color: transparent; transition: all .13s; flex: none; }
+.chip .ck.radio { border-radius: 50%; }
 .chip .ck svg { width: 10px; height: 10px; }
 .chip.on { background: var(--accent-weak); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); }
 html[data-direction="signal"] .chip.on { color: var(--accent-2); }
@@ -514,6 +518,10 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
 .split { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .sticky-side { position: sticky; top: 84px; }
 .tc-split { display: grid; grid-template-columns: 380px minmax(0,1fr); gap: 24px; align-items: start; }
+/* Generated test cases scroll in their own column instead of growing the
+   whole page — with several custom tasks added, the form would otherwise
+   scroll far out of view along with the Continue button. */
+.tc-results { max-height: calc(100vh - 180px); overflow-y: auto; padding-right: 4px; }
 /* keeps the main column at its normal ~720px width and puts the side card in
    the extra space, instead of .split's approach of shrinking the main column
    to make room for it */
@@ -576,6 +584,7 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   .wz-foot .fprog { display: none; }
   .m2, .m3, .fgrid.c2, .optcards, .optcards.c2 { grid-template-columns: 1fr; }
   .sticky-side { position: static; }
+  .tc-results { max-height: none; overflow-y: visible; }
   .msg-grid { grid-template-columns: 1fr !important; }
   .msg-grid > div:first-child { display: none; }
   .files-grid { grid-template-columns: repeat(2, 1fr) !important; }

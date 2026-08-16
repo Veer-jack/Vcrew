@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "../i18n/index.jsx";
-import { BrandLogoFull } from "./BrandMark";
+import { BrandLogoFull, BrandMark } from "./BrandMark";
 import NotificationsSidebar from "./NotificationsSidebar";
 
 
@@ -27,32 +27,41 @@ const NAV_GROUPS = [
   ] },
 ];
 
-function Sidebar({ closeMobile, builder }) {
+function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   return (
     <aside className="side">
       <div className="brand">
-        <a href="/" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
+        <a href="/" style={{ display: "block" }}>{collapsed ? <BrandMark size={34} /> : <BrandLogoFull height={52} />}</a>
+        <button type="button" className="side-collapse-btn" onClick={onToggleCollapsed}
+          title={collapsed ? t("appLayout.expandSidebar", null, "Expand sidebar") : t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
+          <Icon name={collapsed ? "chevronRight" : "chevronLeft"} size={15} />
+        </button>
       </div>
-      <Btn variant="primary" icon="plus" onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>{t("builder.createMission", null, "Create Mission")}</Btn>
+      <Btn variant="primary" icon="plus" title={collapsed ? t("builder.createMission", null, "Create Mission") : undefined}
+        onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>
+        <span className="nav-label">{t("builder.createMission", null, "Create Mission")}</span>
+      </Btn>
       {NAV_GROUPS.flatMap(g => [
         <div key={g.label} className="nav-group-label">{t("nav." + g.label.toLowerCase(), null, g.label)}</div>,
         ...g.items.map(it => (
           <NavLink key={it.to} to={it.to} end={it.end} onClick={closeMobile}
+            title={collapsed ? t("nav." + it.label.toLowerCase(), null, it.label) : undefined}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-            <Icon name={it.icon} />{t("nav." + it.label.toLowerCase(), null, it.label)}
+            <Icon name={it.icon} /><span className="nav-label">{t("nav." + it.label.toLowerCase(), null, it.label)}</span>
           </NavLink>
         )),
       ])}
       <div className="side-foot">
         <div className="lvl-card" style={{ marginBottom: 8 }}>
-          <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span style={{ fontWeight: 700, fontSize: 13 }}>{t("nav.wallet", null, "Wallet")}</span><span className="mono faint" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
-          <div className="lvl-meter"><i style={{ width: "68%" }} /></div>
+          <div className="lvl-top"><Icon name="wallet" size={15} style={{ color: "var(--accent)" }} /><span className="nav-label" style={{ fontWeight: 700, fontSize: 13 }}>{t("nav.wallet", null, "Wallet")}</span><span className="mono faint nav-label" style={{ marginLeft: "auto", fontSize: 12 }}>{inrK(builder?.balance)}</span></div>
+          <div className="lvl-meter nav-label"><i style={{ width: "68%" }} /></div>
         </div>
-        <NavLink to="/settings" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}>
+        <NavLink to="/settings" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}
+          title={collapsed ? builder?.name : undefined}>
           <Avatar name={builder?.name || ""} size={30} color={builder?.color} />
-          <div style={{ textAlign: "left", lineHeight: 1.2 }}>
+          <div className="nav-label" style={{ textAlign: "left", lineHeight: 1.2 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{builder?.name}</div>
             <div className="faint" style={{ fontSize: 11 }}>
               {builder?.role} · {builder?.plan}
@@ -63,11 +72,13 @@ function Sidebar({ closeMobile, builder }) {
             </div>
           </div>
         </NavLink>
-        <LanguageSwitcher
-          onSave={(lang) => api.setLanguage(lang).catch(() => {})}
-          style={{ marginTop: 8, width: "100%" }}
-          openUp
-        />
+        <div className="nav-label">
+          <LanguageSwitcher
+            onSave={(lang) => api.setLanguage(lang).catch(() => {})}
+            style={{ marginTop: 8, width: "100%" }}
+            openUp
+          />
+        </div>
       </div>
     </aside>
   );
@@ -90,6 +101,11 @@ export default function AppLayout() {
   const [bell, setBell] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [mobOpen, setMobOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("vc_side_collapsed") === "1");
+  const toggleCollapsed = () => setCollapsed(v => {
+    localStorage.setItem("vc_side_collapsed", v ? "0" : "1");
+    return !v;
+  });
   const [notifs, setNotifs] = useState([]);
   const [topbarQ, setTopbarQ] = useState("");
   const navigate = useNavigate();
@@ -109,9 +125,9 @@ export default function AppLayout() {
   const unreadCount = notifs.filter(n => n.unread).length;
 
   return (
-    <div className={`app ${mobOpen ? "mob-open" : ""}`}>
+    <div className={`app ${mobOpen ? "mob-open" : ""} ${collapsed ? "side-collapsed" : ""}`}>
       <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
-      <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} />
+      <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
       <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>

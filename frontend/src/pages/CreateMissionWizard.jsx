@@ -28,6 +28,7 @@ function wzSteps(t) {
 
 function StepInfo({ d, set, categories, showErrors }) {
   const { t } = useTranslation();
+  const todayStr = new Date().toISOString().slice(0, 10);
   return (
     <div className="rise">
       <div className={`fld ${showErrors && !d.title.trim() ? "fld-invalid" : ""}`} style={{ marginBottom: 18 }}>
@@ -39,6 +40,12 @@ function StepInfo({ d, set, categories, showErrors }) {
         <label>{t("createMission.descriptionLabel", null, "Description")} <span className="req-star" aria-hidden="true">*</span></label>
         <textarea className="field" placeholder={t("createMission.descriptionPlaceholder", null, "Describe what you're validating, what participants will do, and what a great submission looks like.")} value={d.desc} onChange={e => set({ desc: e.target.value })} />
       </div>
+      <div className={`fld ${showErrors && (!d.deadline || d.deadline < todayStr) ? "fld-invalid" : ""}`} style={{ marginBottom: 24, maxWidth: 280 }}>
+        <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
+        <input className="fin" type="date" min={todayStr} value={d.deadline} onChange={e => set({ deadline: e.target.value < todayStr ? todayStr : e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
+        <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
+        {showErrors && d.deadline && d.deadline < todayStr && <p className="ferr">{t("createMission.deadlineInPast", null, "Deadline can't be in the past")}</p>}
+      </div>
       <div className="fsec"><b>{t("createMission.missionCategoryLabel", null, "Mission Category")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /><span className="cnt">{t("createMission.pickOne", null, "Pick one")}</span></div>
       <div className="optcards">
         {categories.map(c => (
@@ -49,57 +56,88 @@ function StepInfo({ d, set, categories, showErrors }) {
           </button>
         ))}
       </div>
-      <div className={`fld ${showErrors && !d.deadline ? "fld-invalid" : ""}`} style={{ marginTop: 24, maxWidth: 280 }}>
-        <label>{t("createMission.deadlineLabel", null, "Mission deadline")} <span className="req-star" aria-hidden="true">*</span></label>
-        <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={d.deadline} onChange={e => set({ deadline: e.target.value })} onClick={e => e.currentTarget.showPicker?.()} />
-        <p className="fhint">{t("createMission.deadlineHint", null, "The last day this mission accepts new participants.")}</p>
-      </div>
     </div>
   );
 }
 
-function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange }) {
+export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
-  const showSearch = options.length > 8;
-  const filtered = q.trim() ? options.filter(o => o.toLowerCase().includes(q.toLowerCase())) : options;
+  const [expanded, setExpanded] = React.useState(initialExpanded);
+  // A caller-driven search (e.g. a modal-wide search bar) takes over this
+  // group's own filtering instead of running alongside it — two active
+  // queries at once would be confusing and the caller already decided
+  // matching groups should be forced open.
+  const hasExternalQuery = externalQuery !== undefined;
+  const activeQuery = hasExternalQuery ? externalQuery : q;
+  const showSearch = !hasExternalQuery && options.length > 8;
+  const filtered = activeQuery.trim() ? options.filter(o => o.toLowerCase().includes(activeQuery.toLowerCase())) : options;
+  if (hasExternalQuery && externalQuery.trim() && filtered.length === 0) return null;
+  const isOpen = (hasExternalQuery && externalQuery.trim()) ? true : expanded;
   const showOtherInput = onOtherTextChange && sel.has("Other");
+  // Scoped to this group's own options — `sel` is shared across sibling
+  // subgroups (e.g. all of Geography's regions share one Set), so counting
+  // sel.size directly would show the whole category's total on every
+  // subgroup instead of just what's actually selected here.
+  const ownSelectedCount = impliedAll ? options.length : options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
+  const allSelected = options.length > 0 && options.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
-      <div className="row between" style={{ marginBottom: 10 }}>
-        <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
-        {sel.size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: sel.size }, `${sel.size} selected`)}</span>}
+      <div className="row between" style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => setExpanded(v => !v)}>
+        <div className="row gap-2" style={{ alignItems: "center" }}>
+          <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
+          <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
+        </div>
+        <div className="row gap-3" style={{ alignItems: "center" }}>
+          {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{impliedAll ? t("createMission.includedViaWorldwide", null, "Included via Worldwide") : t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
+          {onSelectAll && !impliedAll && (
+            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
+              {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+            </button>
+          )}
+        </div>
       </div>
-      {showSearch && (
-        <input
-          className="fin"
-          style={{ marginBottom: 10, fontSize: 13 }}
-          placeholder={t("createMission.searchGroupPlaceholder", { group: title.toLowerCase() }, `Search ${title.toLowerCase()}…`)}
-          value={q}
-          onChange={e => setQ(e.target.value)}
-        />
-      )}
-      <div className="chips">
-        {filtered.map(o => (
-          <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`} onClick={() => toggle(title, o)}>
-            <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
-          </button>
-        ))}
-        {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q }, `No matches for "${q}"`)}</span>}
-      </div>
-      {showOtherInput && (
-        <input
-          className="fin"
-          style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
-          placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
-          value={otherText}
-          onChange={e => onOtherTextChange(e.target.value)}
-        />
+      {isOpen && (
+        <>
+          {showSearch && !impliedAll && (
+            <input
+              className="fin"
+              style={{ marginBottom: 10, fontSize: 13 }}
+              placeholder={t("createMission.searchGroupPlaceholder", { group: title.toLowerCase() }, `Search ${title.toLowerCase()}…`)}
+              value={q}
+              onChange={e => setQ(e.target.value)}
+            />
+          )}
+          <div className="chips">
+            {filtered.map(o => {
+              // Worldwide itself must stay clickable even while impliedAll is
+              // active — it's the only way to turn "everything included" back off.
+              const lockedByImpliedAll = impliedAll && o !== WORLDWIDE;
+              return (
+                <button key={o} className={`chip ${(impliedAll || sel.has(o)) ? "on" : ""}`} disabled={lockedByImpliedAll}
+                  style={lockedByImpliedAll ? { cursor: "default", opacity: 0.85 } : undefined}
+                  onClick={() => toggle(title, o)}>
+                  <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
+                </button>
+              );
+            })}
+            {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
+          </div>
+          {showOtherInput && (
+            <input
+              className="fin"
+              style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
+              placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+              value={otherText}
+              onChange={e => onOtherTextChange(e.target.value)}
+            />
+          )}
+        </>
       )}
     </div>
   );
 }
-function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, basePool }) {
+function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, isFetchingCount, basePool }) {
   const { t } = useTranslation();
   const count = liveCount;
   const pct = basePool > 0 ? Math.min(100, Math.round((count / basePool) * 100)) : 0;
@@ -122,29 +160,35 @@ function StepAudience({ d, set, toggle, filters, liveCount, isFetchingCount, bas
         <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
       {Object.entries(filters).map(([g, opts]) => (
-        Array.isArray(opts) ? (
-          <FilterGroup
-            key={g} title={g} options={opts} sel={d.filters[g]} toggle={toggle}
-            otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
-            onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v }) : undefined}
-          />
-        ) : (
-          // Subgroups (e.g. Geography's Global & Remote / India / Asia Pacific / ...) render as
-          // separate FilterGroups but share one selection set — wrap them in one labelled card so
-          // it's visually clear they're all part of the same top-level category, not unrelated filters.
-          <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
+        // Every top-level category gets the same bordered card, whether it's a
+        // flat option list (Professional, ValidationCrew Role) or a grouped one
+        // (Geography, Interests) — previously only grouped categories had the
+        // wrapper, so flat ones looked like loose, unrelated sections by contrast.
+        <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
+          {!Array.isArray(opts) && (
             <div className="row between" style={{ marginBottom: 2 }}>
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
               {d.filters[g].size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}</span>}
             </div>
-            {Object.entries(opts).map(([sub, subOpts]) => (
+          )}
+          {Array.isArray(opts) ? (
+            <FilterGroup
+              title={g} options={opts} sel={d.filters[g]} toggle={toggle}
+              otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
+              onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+              onSelectAll={opts => selectAllInGroup(g, opts)}
+            />
+          ) : (
+            Object.entries(opts).map(([sub, subOpts]) => (
               <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                 otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
-                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v }) : undefined}
+                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+                onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
+                impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
               />
-            ))}
-          </div>
-        )
+            ))
+          )}
+        </div>
       ))}
     </div>
   );
@@ -197,11 +241,12 @@ function StepParticipation({ d, set, ptypes }) {
 
 const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
-function StepReward({ d, set, rewards, showErrors, builder }) {
+function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
   const overUnverifiedCap = !builder?.verified && d.reward.participants > UNVERIFIED_PARTICIPANT_LIMIT;
+  const overAudienceCount = liveCount > 0 && d.reward.participants > liveCount;
   return (
     <div className="rise">
       <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
@@ -233,6 +278,12 @@ function StepReward({ d, set, rewards, showErrors, builder }) {
               ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)
               : t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}
           </p>
+          {overAudienceCount && (
+            <p className="fhint" style={{ color: "var(--danger)" }}>
+              <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match your selected audience — lower this or widen your audience filters in step 4.`)}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -350,6 +401,18 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
         <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
         <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
         <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
+        {d.tasks?.length > 0 && (
+          <ReviewRow icon="checkCircle" color="--success" label={t("createMission.testCasesEyebrow", { count: d.tasks.length }, `Test cases (${d.tasks.length})`)} onEdit={() => onEditStep(2)}>
+            <div className="col gap-1" style={{ marginTop: 2 }}>
+              {d.tasks.map((tk, i) => (
+                <div key={i} className="row gap-2" style={{ fontSize: 13.5 }}>
+                  <span className="faint mono" style={{ width: 16, flexShrink: 0 }}>{i + 1}.</span>
+                  <span>{tk.title || t("createMission.untitledTask", null, "Untitled task")}</span>
+                </div>
+              ))}
+            </div>
+          </ReviewRow>
+        )}
         {d.desc && (
           <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
             <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
@@ -416,6 +479,11 @@ function missionToDraft(mission, filters, categories, ptypes) {
       participants: mission.participants?.target || 1,
     },
     filters: emptyF,
+    // Resuming a saved/draft mission means its audience was already set at
+    // some point (even if that set is empty) — not the untouched default a
+    // brand-new freshDraft() starts with, so the Step 4 gate shouldn't ask
+    // this user to re-touch it just because they reopened the wizard.
+    audienceTouched: true,
     genFor: null,
     durationDays: mission.durationDays || 7,
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
@@ -513,7 +581,13 @@ export default function CreateMissionWizard() {
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
+    // Preselecting "Validator" gives the live match-count something sensible to
+    // show immediately, but it must not count as the user having reviewed their
+    // audience — audienceTouched stays false until they actually interact with
+    // a filter, so the Step 4 "must pick an audience" gate isn't satisfied by
+    // a default nobody looked at.
     filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
+    audienceTouched: false,
     ptype: ptypes[0]?.id || "ptest",
     reward: { type: "fixed", amount: 250, participants: 120 },
     genFor: null,
@@ -611,16 +685,31 @@ export default function CreateMissionWizard() {
   const toggle = (group, opt) => setD(p => {
     if (group === GEO_GROUP) {
       if (opt === WORLDWIDE) {
-        const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set(flatOptions(filters[GEO_GROUP]));
-        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
+        // Worldwide must stay a standalone "no restriction" marker — the backend
+        // (getRealMatchCount) treats a bare Worldwide/Remote-only selection as
+        // "matches everyone", but expanding it into every individual city/country
+        // instead makes the backend build a restrictive OR-list of ~40 place-name
+        // substrings, which can match FEWER validators than true "no restriction"
+        // (anyone whose location doesn't cleanly match a known place name is excluded).
+        const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
+        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
       }
       const s = new Set(p.filters[GEO_GROUP]);
       s.has(opt) ? s.delete(opt) : s.add(opt);
       s.delete(WORLDWIDE);
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
     }
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
-    return { ...p, filters: { ...p.filters, [group]: s } };
+    return { ...p, filters: { ...p.filters, [group]: s }, audienceTouched: true };
+  });
+  // Select-all / clear-all for one category or subcategory's own option list —
+  // toggles based on whether every option in it is already selected, so the
+  // button reads "Select all" until fully checked, then flips to "Clear all".
+  const selectAllInGroup = (group, opts) => setD(p => {
+    const s = new Set(p.filters[group]);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
+    return { ...p, filters: { ...p.filters, [group]: s }, audienceTouched: true };
   });
 
   const cost = computeCost(d, rewards, platformFeePct);
@@ -629,12 +718,23 @@ export default function CreateMissionWizard() {
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
   const participantsOk = builder?.verified || d.reward.participants <= UNVERIFIED_PARTICIPANT_LIMIT;
+  // Mirrors StepReward's own overAudienceCount warning — requesting more
+  // participants than the selected audience can actually supply isn't just
+  // a bad estimate, it's a mission that can never fully fill, so it blocks
+  // the same way rewardAmountOk/participantsOk do rather than staying a
+  // warning-only nudge.
+  const withinAudienceCount = liveCount === 0 || d.reward.participants <= liveCount;
   // Missing required fields keep Continue clickable (so clicking it can
   // explain what's missing via showErrors) — only insufficientFunds hard-
   // disables it, since that one already has its own hover tooltip.
-  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline))
-    && (step !== 2 || (d.tasks && d.tasks.length > 0))
-    && (step !== 4 || (rewardAmountOk && participantsOk));
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
+    && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
+      tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
+      tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+    )))
+    && (step !== 3 || (d.audienceTouched && Object.values(d.filters).some(s => s.size > 0)))
+    && (step !== 4 || (rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
 
   const buildMissionPayload = (status) => {
@@ -726,21 +826,14 @@ export default function CreateMissionWizard() {
     setMaxReached(m => Math.max(m, next));
   };
   const editStep = (i) => { setShowErrors(false); setError(""); setStep(i); };
-  // "Back" on step 0 reads as plain backward navigation, not a deliberate
-  // "abandon this mission" action (that's what the sidebar's "Exit to
-  // dashboard" is for) — so it skips the confirmation and goes straight to
-  // the dashboard. The draft is still auto-saved regardless.
-  const goBack = () => {
-    setShowErrors(false); setError("");
-    if (step === 0) navigate("/"); else setStep(s => s - 1);
-  };
+  const goBack = () => { setShowErrors(false); setError(""); setStep(s => s - 1); };
 
   const StepBody = [
     <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} />,
     <StepParticipation d={d} set={set} ptypes={ptypes} />,
     <StepTestCases d={d} set={set} />,
-    <StepAudience d={d} set={set} toggle={toggle} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} />,
+    <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
   ][step];
 
@@ -758,9 +851,18 @@ export default function CreateMissionWizard() {
   return (
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
-        <div className="wz-brand">
+        <div className="wz-brand" style={{ position: "relative" }}>
           <BrandMark size={52} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{missionId ? t("createMission.editDraft", null, "Edit draft") : t("createMission.newMission", null, "New mission")}</div></div>
+          <button
+            type="button"
+            aria-label={t("createMission.exitToDashboard", null, "Exit to dashboard")}
+            title={t("createMission.exitToDashboard", null, "Exit to dashboard")}
+            onClick={() => setShowExitWarning(true)}
+            style={{ position: "absolute", top: 0, right: 0, background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-faint)", display: "flex" }}
+          >
+            <Icon name="x" size={18} />
+          </button>
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
@@ -816,10 +918,15 @@ export default function CreateMissionWizard() {
 
       <div className="wz-foot">
         <div className="wz-foot-inner">
-          <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
-          <span className="fprog">{t("createMission.stepLabel", null, "Step")} <b>{step + 1}</b> / {WZ_STEPS.length}</span>
+          {step > 0 && <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>}
           <span className="grow" />
-          {step === 2 && !canNext && <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>{t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")}</span>}
+          {step === 2 && !canNext && (
+            <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>
+              {!d.tasks?.length
+                ? t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")
+                : t("createMission.needCompleteTasks", null, "Every task needs at least 1 step and 1 question to continue")}
+            </span>
+          )}
           {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{t("createMission.membersCount", { count: liveCount.toLocaleString("en-IN") }, `${liveCount.toLocaleString("en-IN")} members`)}</span>}
           {step === 4 && (
             <span className="muted mono" style={{ fontSize: 12.5, marginRight: 4, color: insufficientFunds ? "var(--danger)" : undefined }}>
@@ -881,7 +988,7 @@ export default function CreateMissionWizard() {
               <b style={{ fontSize: 15 }}>{t("createMission.unsavedChangesTitle", null, "Unsaved Changes")}</b>
             </div>
             <div style={{ padding: 20 }}>
-              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress has been auto-saved as a draft, but the mission hasn't been created yet.")}</p>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved in this browser and will be restored if you come back — but it won't appear in your Drafts list or count until you use \"Save as Draft\".")}</p>
               <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
                 <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
                 <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>

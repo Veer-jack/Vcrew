@@ -11,6 +11,8 @@ import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { categoryLabel, ptypeLabel, rewardLabel } from "../bi18n";
+import { FilterGroup } from "./CreateMissionWizard";
 
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
@@ -68,10 +70,97 @@ const TABS = [
   { k: "payments", lk: "missionDetail.tabs.payments", l: "Payments", ic: "wallet" },
 ];
 
+const TC_SEV = {
+  crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
+  imp: { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
+  nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
+};
+const TC_QTYPE_LABEL = {
+  multiple_choice: "Multiple choice", yes_no_detail: "Yes/No + detail", rating: "Rating (1-5)", text: "Open text",
+};
+
+// Read-only mirror of the wizard's TaskCard (StepTestCases.jsx) — same
+// severity badges, steps, and questions, minus every edit/drag/delete
+// control, since a published mission's tasks aren't editable from here.
+function TaskOverviewCard({ task, idx, expanded, onToggle }) {
+  const { t } = useTranslation();
+  const sev = TC_SEV[task.severity] || TC_SEV.imp;
+  const sevLabel = {
+    crit: t("testCases.severityCritical", null, "Critical"),
+    imp: t("testCases.severityImportant", null, "Important"),
+    nice: t("testCases.severityNiceToHave", null, "Nice to have"),
+  };
+  const qTypeLabel = {
+    multiple_choice: t("testCases.qTypeMultipleChoice", null, "Multiple choice"),
+    yes_no_detail: t("testCases.qTypeYesNoDetail", null, "Yes/No + detail"),
+    rating: t("testCases.qTypeRating", null, "Rating (1-5)"),
+    text: t("testCases.qTypeOpenText", null, "Open text"),
+  };
+  return (
+    <div className="card" style={{ overflow: "hidden", marginBottom: 10, border: expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)" }}>
+      <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 11, padding: "13px 14px", cursor: "pointer", userSelect: "none" }}>
+        <span style={{ width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center", fontFamily: "var(--mono)", fontWeight: 600, fontSize: 11.5, background: "var(--accent-weak)", color: "var(--accent)", flexShrink: 0 }}>{idx + 1}</span>
+        <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{task.title}</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sev.bg, color: sev.color }}>
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />
+          {sevLabel[task.severity] || sevLabel.imp}
+        </span>
+        <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+      </div>
+      {expanded && (
+        <div style={{ padding: 14, borderTop: "1px solid var(--border)", background: "var(--panel-2)" }}>
+          {task.steps?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div className="eyebrow" style={{ marginBottom: 9 }}>{t("testCases.steps", null, "Steps")}</div>
+              <div style={{ display: "grid", gap: 7 }}>
+                {task.steps.map((s, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5 }}>
+                    <span style={{ width: 20, height: 20, borderRadius: 6, display: "grid", placeItems: "center", background: "var(--accent-weak)", color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{i + 1}</span>
+                    <span>{s}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {task.questions?.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div className="eyebrow" style={{ marginBottom: 9 }}>{t("testCases.questions", null, "Questions")}</div>
+              <div style={{ display: "grid", gap: 7 }}>
+                {task.questions.map((q, i) => (
+                  <div key={q.id || i} style={{ display: "flex", gap: 9, alignItems: "flex-start", padding: "8px 10px", background: "var(--panel)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", fontSize: 13 }}>
+                    <span style={{ fontFamily: "var(--mono)", fontSize: 10, fontWeight: 600, color: "var(--text-faint)", paddingTop: 2, flexShrink: 0 }}>{t("testCases.questionN", { n: i + 1 }, `Q${i + 1}`)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600 }}>{q.text}</div>
+                      <div className="faint" style={{ fontSize: 11.5, marginTop: 3 }}>{qTypeLabel[q.type] || q.type}</div>
+                      {q.options && (
+                        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                          {q.options.map((o, oi) => (
+                            <span key={oi} style={{ padding: "2px 9px", borderRadius: 20, background: "var(--panel-inset)", border: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>{o}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 4, fontSize: 12.5, color: "var(--text-muted)" }}>
+            <span>{t("testCases.minTimeMin", null, "Min time (min)")}: <b style={{ color: "var(--text)" }}>{Math.ceil((task.min_time_seconds || 120) / 60)}</b></span>
+            {task.proof === "screenshot" && <span className="row gap-1" style={{ alignItems: "center" }}><Icon name="image" size={13} />{t("testCases.requireProof", null, "Require screenshot or video proof")}</span>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MissionOverview({ mission, participants, setTab, navigate }) {
   const { t } = useTranslation();
   const pipeline = STAGES.map(s => ({ ...s, n: participants.filter(p => p.stage === s.id).length }));
   const maxN = Math.max(...pipeline.map(p => p.n), 1);
+  const [expandedTasks, setExpandedTasks] = useState(() => new Set());
+  const toggleTask = (i) => setExpandedTasks(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
   return (
     <div className="split rise">
       <div className="col gap-5">
@@ -79,6 +168,16 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
           <span className="eyebrow">{t("missionDetail.theBrief", null, "The brief")}</span>
           <p style={{ fontSize: 15, lineHeight: 1.65, margin: "10px 0 0", overflowWrap: "anywhere", wordBreak: "break-word" }}>{mission.description || t("missionDetail.noDescription", null, "No description provided yet.")}</p>
         </div>
+        {mission.tasks?.length > 0 && (
+          <div className="card" style={{ padding: 20 }}>
+            <span className="eyebrow">{t("missionDetail.testCasesLabel", { n: mission.tasks.length }, `Test cases (${mission.tasks.length})`)}</span>
+            <div style={{ marginTop: 10 }}>
+              {mission.tasks.map((task, i) => (
+                <TaskOverviewCard key={task.id || i} task={task} idx={i} expanded={expandedTasks.has(i)} onToggle={() => toggleTask(i)} />
+              ))}
+            </div>
+          </div>
+        )}
         <div className="card" style={{ padding: 20 }}>
           <div className="sec-head"><h3 className="h-md">{t("missionDetail.participantPipeline", null, "Participant pipeline")}</h3><Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setTab("participants")}>{t("actions.openBoard", null, "Open board")}</Btn></div>
           <div className="col gap-3" style={{ marginTop: 6 }}>
@@ -194,7 +293,16 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
       </div>
       <div className="kanban">
         {STAGES.map(st => {
-          const col = participants.filter(p => p.stage === st.id);
+          // A validator auto-failed for missing check-ins gets stage 'failed',
+          // not one of the six real Kanban stages — no column for it means no
+          // separate 7th column (would just add more horizontal scroll to an
+          // already-wide board), but it still needs to be visible somewhere
+          // rather than silently vanishing. Folds into Rejected, the other
+          // locked/terminal-and-unsuccessful column, with its own distinct tag
+          // on the card so it doesn't read as the builder having rejected them.
+          const col = st.id === "rejected"
+            ? participants.filter(p => p.stage === "rejected" || p.stage === "failed")
+            : participants.filter(p => p.stage === st.id);
           const droppable = st.id !== "rewarded" && st.id !== "rejected";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
@@ -221,16 +329,16 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected"}
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed"}
                     onDragStart={(e) => {
-                      if (p.stage === "rewarded" || p.stage === "rejected") {
+                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") {
                         e.preventDefault();
                         return;
                       }
                       setDrag(p.id);
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    style={(p.stage === "rewarded" || p.stage === "rejected") ? { cursor: "default", opacity: 0.85 } : {}}>
+                    style={(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? { cursor: "default", opacity: 0.85 } : {}}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -240,7 +348,8 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                         <div className="kl row gap-2" style={{ margin: "2px 0 0" }}>
                           {trFilterLabel(t, p.role)}
                           {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>{t("status.rewarded", null, "Rewarded")}</span>}
-                          {st.id === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
+                          {p.stage === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
+                          {p.stage === "failed" && <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")} style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>{t("status.failed", null, "Failed — missed check-ins")}</span>}
                         </div>
                       </div>
                     </div>
@@ -349,30 +458,45 @@ function ResponseReview({ missionId, responses, setResponses, navigate }) {
   );
 }
 
-function EditMissionModal({ mission, onClose, onSaved }) {
+function EditMissionModal({ mission, onClose, onSaved, onOpenAudience }) {
   const { t } = useTranslation();
+  const { categories, ptypes, rewards } = useMeta();
+  const canFullyEdit = !!mission.canFullyEdit;
   const [name, setName] = useState(mission.name || "");
   const [description, setDescription] = useState(mission.description || "");
-  const [region, setRegion] = useState(mission.region || "");
   const [target, setTarget] = useState(mission.participants.target || 0);
   const [deadline, setDeadline] = useState(mission.deadline ? mission.deadline.slice(0, 10) : "");
+  const [cat, setCat] = useState(mission.category || "");
+  const [ptype, setPtype] = useState(mission.ptype || "");
+  const [rewardType, setRewardType] = useState(mission.reward?.type || "fixed");
+  const [rewardAmount, setRewardAmount] = useState(mission.reward?.amount || 0);
+  const [showTasks, setShowTasks] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const todayStr = new Date().toISOString().slice(0, 10);
   const nameInvalid = !name.trim();
   const targetInvalid = !(Number(target) >= 1);
-  const deadlineInvalid = deadline && deadline < todayStr;
+  const deadlineInvalid = !deadline || deadline < todayStr;
+  const selectedReward = rewards?.find(r => r.id === rewardType);
+  const rewardAmountInvalid = canFullyEdit && selectedReward?.needsAmt && !(Number(rewardAmount) > 0);
 
   const save = async () => {
     setErr("");
     if (nameInvalid) { setShowErrors(true); return setErr(t("missionDetail.errNameRequired", null, "Name is required")); }
     if (targetInvalid) { setShowErrors(true); return setErr(t("missionDetail.errTargetMin", null, "Target participants must be at least 1")); }
-    if (deadlineInvalid) { setShowErrors(true); return setErr(t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")); }
+    if (deadlineInvalid) { setShowErrors(true); return setErr(deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")); }
+    if (rewardAmountInvalid) { setShowErrors(true); return setErr(t("missionDetail.errRewardAmount", null, "Reward amount must be greater than 0")); }
     setShowErrors(false);
     setBusy(true);
     try {
-      const { mission: updated } = await api.updateMission(mission.id, { name, description, region, target: Number(target), deadline: deadline || null });
+      const payload = { name, description, target: Number(target), deadline: deadline || null };
+      if (canFullyEdit) {
+        payload.category = cat;
+        payload.ptype = ptype;
+        payload.reward = { type: rewardType, amount: selectedReward?.needsAmt ? Number(rewardAmount) : 0 };
+      }
+      const { mission: updated } = await api.updateMission(mission.id, payload);
       onSaved(updated);
       onClose();
     } catch (e) {
@@ -383,20 +507,84 @@ function EditMissionModal({ mission, onClose, onSaved }) {
   };
 
   return (
-    <Modal title={t("missionDetail.editMission", null, "Edit mission")} onClose={onClose} width={480}>
+    <Modal title={t("missionDetail.editMission", null, "Edit mission")} onClose={onClose} width={520}>
       <div className="col gap-3" style={{ padding: "0 20px 20px" }}>
         {err && <div className="err-banner">{err}</div>}
+        {!canFullyEdit && (
+          <div className="fhint" style={{ background: "var(--panel-inset)", padding: "10px 12px", borderRadius: "var(--radius)", margin: 0 }}>
+            {t("missionDetail.lockedFieldsHint", null, "Category, participation type, and reward are locked because at least one validator has already accepted this mission — shown below for reference.")}
+          </div>
+        )}
         <div className={`fld ${(showErrors || name) && nameInvalid ? "fld-invalid" : ""}`}><label>{t("missionDetail.nameLabel", null, "Name")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
         <div className="fld"><label>{t("missionDetail.descLabel", null, "Description")}</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
+
         <div className="row gap-3">
-          <div className="fld" style={{ flex: 1 }}><label>{t("missionDetail.regionLabel", null, "Region")}</label><input className="fin" value={region} onChange={e => setRegion(e.target.value)} /></div>
-          <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value)} /></div>
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.categoryLabel", null, "Category")}</label>
+            {canFullyEdit
+              ? <select className="fin" value={cat} onChange={e => setCat(e.target.value)}>{categories?.map(c => <option key={c.id} value={c.id}>{categoryLabel(t, c)}</option>)}</select>
+              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.categoryLabel}</div>}
+          </div>
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.ptypeLabel", null, "Participation type")}</label>
+            {canFullyEdit
+              ? <select className="fin" value={ptype} onChange={e => setPtype(e.target.value)}>{ptypes?.map(p => <option key={p.id} value={p.id}>{ptypeLabel(t, p)}</option>)}</select>
+              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.ptypeLabel}</div>}
+          </div>
         </div>
-        <div className={`fld ${deadlineInvalid ? "fld-invalid" : ""}`}>
-          <label>{t("missionDetail.deadlineLabel", null, "Deadline")}</label>
+
+        <div className="row gap-3">
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.rewardTypeLabel", null, "Reward type")}</label>
+            {canFullyEdit
+              ? <select className="fin" value={rewardType} onChange={e => setRewardType(e.target.value)}>{rewards?.map(r => <option key={r.id} value={r.id}>{rewardLabel(t, r)}</option>)}</select>
+              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{rewards?.find(r => r.id === mission.reward?.type) ? rewardLabel(t, rewards.find(r => r.id === mission.reward.type)) : mission.reward?.type}</div>}
+          </div>
+          {(canFullyEdit ? selectedReward?.needsAmt : mission.reward?.amount > 0) && (
+            <div className={`fld ${rewardAmountInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}>
+              <label>{t("missionDetail.rewardAmountLabel", null, "Reward amount")}</label>
+              {canFullyEdit
+                ? <input className="fin" type="number" min="1" value={rewardAmount} onChange={e => setRewardAmount(e.target.value === "" ? "" : Math.max(0, +e.target.value || 0))} />
+                : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{inr(mission.reward.amount)}</div>}
+            </div>
+          )}
+        </div>
+
+        <div className="row gap-3">
+          <div className="fld" style={{ flex: 1 }}>
+            <label>{t("missionDetail.regionLabel", null, "Region")}</label>
+            <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.region || t("missionDetail.regionWorldwide", null, "Worldwide")}</div>
+            <p className="fhint">{t("missionDetail.regionDerivedHint", null, "Set by your Audience filters, not editable here.")} {onOpenAudience && <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={() => { onOpenAudience(); onClose(); }}>{t("missionDetail.editAudience", null, "Edit audience")}</button>}</p>
+          </div>
+          <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value === "" ? "" : Math.max(1, +e.target.value || 0))} /></div>
+        </div>
+
+        <div className={`fld ${(showErrors || deadline) && deadlineInvalid ? "fld-invalid" : ""}`}>
+          <label>{t("missionDetail.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={openPickerOnClick} />
-          {deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past")}</p>}
+          {(showErrors || deadline) && deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")}</p>}
         </div>
+
+        {mission.tasks?.length > 0 && (
+          <div className="fld">
+            <button type="button" className="row between" style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer" }} onClick={() => setShowTasks(v => !v)}>
+              <label style={{ margin: 0, cursor: "pointer" }}>{t("missionDetail.testCasesLabel", { n: mission.tasks.length }, `Test cases (${mission.tasks.length})`)}</label>
+              <Icon name={showTasks ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
+            </button>
+            {showTasks && (
+              <div className="col gap-2" style={{ marginTop: 8 }}>
+                {mission.tasks.map((task, i) => (
+                  <div key={task.id || i} className="card" style={{ padding: 12 }}>
+                    <b style={{ fontSize: 13.5 }}>{i + 1}. {task.title}</b>
+                    {task.steps?.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--text-muted)" }}>{task.steps.map((s, j) => <li key={j}>{s}</li>)}</ul>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!canFullyEdit && <p className="fhint">{t("missionDetail.tasksLockedHint", null, "Test cases can't be regenerated once a validator has accepted — publish a new mission for a different set of tasks.")}</p>}
+          </div>
+        )}
+
         <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
           <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
           <Btn variant="primary" disabled={busy} onClick={save}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
@@ -409,13 +597,38 @@ function EditMissionModal({ mission, onClose, onSaved }) {
 function EditAudienceModal({ mission, audience, onClose, onSaved }) {
   const { t } = useTranslation();
   const { filters } = useMeta();
+  const flatFilters = useState(() => Object.fromEntries(
+    Object.entries(filters).map(([g, opts]) => [g, Array.isArray(opts) ? opts : Object.values(opts).flat()])
+  ))[0];
   const [sel, setSel] = useState(() => Object.fromEntries(
     Object.keys(filters).map(g => [g, new Set(audience.defn.find(d => d.group === g)?.values || [])])
   ));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [q, setQ] = useState("");
+  const [liveCount, setLiveCount] = useState(audience.matched ?? 0);
+  const [isFetchingCount, setIsFetchingCount] = useState(false);
 
   const toggle = (g, o) => setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; });
+  const selectAllInGroup = (g, opts) => setSel(p => {
+    const s = new Set(p[g]);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
+    return { ...p, [g]: s };
+  });
+  const selectAllEverywhere = () => setSel(Object.fromEntries(Object.entries(flatFilters).map(([g, opts]) => [g, new Set(opts)])));
+  const clearAllEverywhere = () => setSel(Object.fromEntries(Object.keys(flatFilters).map(g => [g, new Set()])));
+  const anySelected = Object.values(sel).some(s => s.size > 0);
+
+  useEffect(() => {
+    const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
+    setIsFetchingCount(true);
+    api.audienceMatchCount(payload)
+      .then(res => setLiveCount(res.count))
+      .catch(() => {})
+      .finally(() => setIsFetchingCount(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s].sort()])))]);
 
   const save = async () => {
     setBusy(true); setErr("");
@@ -433,23 +646,41 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
 
   return (
     <Modal title={t("missionDetail.editAudience", null, "Edit audience")} onClose={onClose} width={560}>
-      <div className="col gap-4" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
+      <div style={{ padding: "0 20px 12px" }}>
+        <div className="reach" style={{ marginBottom: 12 }}>
+          <div className="reach-top">
+            <span className="r-ic"><Icon name="users" size={20} /></span>
+            <div style={{ flex: 1, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>
+              <div className="r-num" key={liveCount}>{liveCount.toLocaleString("en-IN")} <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>{t("createMission.matchingMembers", null, "matching members")}</span></div>
+              <div className="r-lab">{t("createMission.availableNow", null, "available right now for this audience")}</div>
+            </div>
+            {isFetchingCount ? (
+              <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("createMission.updating", null, "Updating...")}</span>
+            ) : (
+              <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
+            )}
+          </div>
+        </div>
+        <div className="row gap-2">
+          <div className="inw has-pre" style={{ flex: 1 }}>
+            <span className="pre"><Icon name="search" size={14} /></span>
+            <input className="fin" placeholder={t("missionDetail.searchAudienceOptions", null, "Search roles, locations, industries…")} value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <button type="button" className="backlink" style={{ margin: 0, flexShrink: 0 }} onClick={anySelected ? clearAllEverywhere : selectAllEverywhere}>
+            {anySelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+          </button>
+        </div>
+      </div>
+      <div className="col gap-1" style={{ padding: "0 20px 16px", maxHeight: "55vh", overflowY: "auto" }}>
         {err && <div className="err-banner">{err}</div>}
         <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>{t("missionDetail.changesOnlyAffect", null, "Changes only affect future matching and invites")} {t("missionDetail.unaffectedValidatorsNote", null, "— validators who already joined this mission are unaffected.")}</p>
-        {Object.entries(filters).map(([g, opts]) => (
-          <div key={g}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>{g}</div>
-            <div className="row gap-2 wrap">
-              {(Array.isArray(opts) ? opts : Object.values(opts).flat()).map(o => {
-                const on = sel[g]?.has(o);
-                return (
-                  <button key={o} type="button" className={`fcheck ${on ? "on" : ""}`} onClick={() => toggle(g, o)}>
-                    <span className="box">{on && <Icon name="check" size={11} />}</span>{o}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        {Object.entries(flatFilters).map(([g, opts]) => (
+          <FilterGroup
+            key={g} title={g} options={opts} sel={sel[g]} toggle={toggle}
+            onSelectAll={groupOpts => selectAllInGroup(g, groupOpts)}
+            initialExpanded={(sel[g]?.size || 0) > 0}
+            externalQuery={q}
+          />
         ))}
       </div>
       <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "0 20px 20px" }}>
@@ -1249,10 +1480,16 @@ export default function MissionDetail() {
         <WaitlistInviteModal mission={mission} waitlist={waitlist} onClose={() => setShowWaitlistModal(false)} showToast={showToast} />
       )}
       {showEditModal && mission && (
-        <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} />
+        <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} onOpenAudience={() => setShowEditAudience(true)} />
       )}
       {showEditAudience && mission && (
-        <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={(defn) => setData(d => ({ ...d, audience: { ...d.audience, defn } }))} />
+        <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={() => {
+          // A definition-only client-side patch left the "X members match"
+          // count and composition stale — refetch the whole mission so
+          // matched/invited/composition all come back in sync with the
+          // audience filters that were just saved, not just the filter list.
+          api.mission(id).then(d => { setData(d); }).catch(() => {});
+        }} />
       )}
     </div>
   );
@@ -1268,7 +1505,15 @@ function MissionCheckinsTab({ checkins }) {
         <div key={r.id} className="card rise" style={{ padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+              <div className="row gap-2" style={{ alignItems: "center" }}>
+                <div style={{ fontWeight: 700, fontSize: 16 }}>{r.name}</div>
+                {r.stage === "failed" && (
+                  <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")}
+                    style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>
+                    {t("status.failed", null, "Failed — missed check-ins")}
+                  </span>
+                )}
+              </div>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>{t("metrics.trustScore", null, "Trust score:")} {r.trust}%</div>
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>

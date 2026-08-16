@@ -5,7 +5,7 @@ import { Btn } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 
-const TC_PLATFORMS = ["Web", "iOS", "Android", "Both"];
+const TC_PLATFORMS = ["Web", "iOS", "Android"];
 const TC_GOALS = ["Core flow", "UX", "Willingness to pay", "All"];
 
 const SEV = {
@@ -14,9 +14,11 @@ const SEV = {
   nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
 };
 
-function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEdit }) {
+function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOverCard, onDrop, onDragEnd, expanded, onToggle, onDelete, onEdit }) {
   const { t } = useTranslation();
   const sev = SEV[task.severity] || SEV.imp;
+  const incomplete = task.steps.length === 0 || task.steps.some(s => !s.trim())
+    || task.questions.length === 0 || task.questions.some(q => !q.text?.trim());
   const sevLabel = {
     crit: t("testCases.severityCritical", null, "Critical"),
     imp: t("testCases.severityImportant", null, "Important"),
@@ -53,11 +55,18 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
   };
 
   return (
-    <div className={`card rise`} style={{
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={e => { e.preventDefault(); onDragOverCard(); }}
+      onDrop={e => { e.preventDefault(); onDrop(); }}
+      onDragEnd={onDragEnd}
+      className={`card rise`} style={{
       overflow: "hidden",
       marginBottom: 10,
-      border: expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-      boxShadow: expanded ? "0 0 0 1px var(--accent)" : undefined,
+      border: incomplete ? "1.5px solid var(--danger)" : expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+      boxShadow: dragOver ? "0 -2px 0 0 var(--accent)" : expanded ? "0 0 0 1px var(--accent)" : undefined,
+      opacity: dragging ? 0.45 : 1,
       animationDelay: `${idx * 0.07}s`,
     }}>
       {/* Header */}
@@ -65,29 +74,24 @@ function TaskCard({ task, idx, total, onMove, expanded, onToggle, onDelete, onEd
         onClick={onToggle}
         style={{ display: "flex", alignItems: "center", gap: 11, padding: "13px 14px", cursor: "pointer", userSelect: "none" }}
       >
+        <span title={t("testCases.dragToReorder", null, "Drag to reorder")} style={{ cursor: "grab", color: "var(--text-faint)", flexShrink: 0, display: "grid", placeItems: "center" }} onClick={e => e.stopPropagation()}>
+          <Icon name="moreVertical" size={14} />
+        </span>
         <span style={{
           width: 26, height: 26, borderRadius: 8, display: "grid", placeItems: "center",
           fontFamily: "var(--mono)", fontWeight: 600, fontSize: 11.5,
           background: "var(--accent-weak)", color: "var(--accent)", flexShrink: 0,
         }}>{idx + 1}</span>
         <span style={{ flex: 1, fontWeight: 700, fontSize: 14 }}>{task.title}</span>
+        {incomplete && (
+          <span title={t("testCases.taskIncomplete", null, "Needs at least 1 step and 1 question")} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: "var(--danger-weak)", color: "var(--danger)" }}>
+            <Icon name="alertTriangle" size={11} />{t("testCases.incomplete", null, "Incomplete")}
+          </span>
+        )}
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sev.bg, color: sev.color }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />
           {sevLabel[task.severity] || sevLabel.imp}
         </span>
-        {/* Move buttons */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }} onClick={e => e.stopPropagation()}>
-          <button
-            disabled={idx === 0}
-            onClick={() => onMove(idx, -1)}
-            style={{ width: 22, height: 20, borderRadius: 5, background: "var(--panel-inset)", border: "1px solid var(--border)", cursor: "pointer", display: "grid", placeItems: "center", opacity: idx === 0 ? 0.28 : 1 }}
-          ><Icon name="chevronUp" size={10} /></button>
-          <button
-            disabled={idx === total - 1}
-            onClick={() => onMove(idx, 1)}
-            style={{ width: 22, height: 20, borderRadius: 5, background: "var(--panel-inset)", border: "1px solid var(--border)", cursor: "pointer", display: "grid", placeItems: "center", opacity: idx === total - 1 ? 0.28 : 1 }}
-          ><Icon name="chevronDown" size={10} /></button>
-        </div>
         <button
             onClick={e => { e.stopPropagation(); onDelete(idx); }}
             style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
@@ -200,7 +204,6 @@ export default function StepTestCases({ d, set }) {
     Web: t("testCases.platformWeb", null, "Web"),
     iOS: t("testCases.platformIOS", null, "iOS"),
     Android: t("testCases.platformAndroid", null, "Android"),
-    Both: t("testCases.platformBoth", null, "Both"),
   };
   const goalLabel = {
     "Core flow": t("testCases.goalCoreFlow", null, "Core flow"),
@@ -320,13 +323,15 @@ export default function StepTestCases({ d, set }) {
     unknown: t("testCases.aiReasonUnknown", null, "The AI service didn't respond as expected."),
   };
 
-  const moveTask = (idx, dir) => {
+  const reorderTask = (from, to) => {
+    if (from === to) return;
     const a = [...tasks];
-    const t = idx + dir;
-    if (t < 0 || t >= a.length) return;
-    [a[idx], a[t]] = [a[t], a[idx]];
+    const [moved] = a.splice(from, 1);
+    a.splice(to, 0, moved);
     set({ tasks: a });
   };
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
 
   const addCustom = () => {
     const newTask = { id: Date.now(), title: t("testCases.customTaskTitle", null, "Custom task"), severity: "imp", steps: [t("testCases.customTaskStep", null, "Describe the action you want the tester to perform")], questions: [{ id: "cq" + Date.now(), text: t("testCases.customTaskQuestion", null, "How did this feel to use?"), type: "rating", scale: 5 }], proof: null, min_time_seconds: 120 };
@@ -336,7 +341,7 @@ export default function StepTestCases({ d, set }) {
 
   return (
     <div className="rise tc-split">
-      <div>
+      <div className="sticky-side">
         {/* FORM */}
         <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>
@@ -392,7 +397,7 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <div className="fld" style={{ marginBottom: 0 }}>
-            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span></label>
+            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span> <Icon name="info" size={13} style={{ verticalAlign: -2, color: "var(--text-faint)", cursor: "help" }} title={t("testCases.targetUsersInfo", null, "Who this mission is meant for — their role, experience level, or context (e.g. \"first-time app users\", \"B2B SaaS buyers\"). This shapes who AI writes the test tasks for.")} /></label>
             <input className="fin" placeholder={t("testCases.targetUsersPlaceholder", null, "e.g. Urban millennials, SaaS buyers, first-time app users")} value={form.users} onChange={e => patch({ users: e.target.value })} />
           </div>
 
@@ -408,7 +413,7 @@ export default function StepTestCases({ d, set }) {
 
       </div>
 
-      <div ref={resultsRef}>
+      <div ref={resultsRef} className="tc-results">
         {genState === "loading" ? (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -457,7 +462,13 @@ export default function StepTestCases({ d, set }) {
               </div>
             )}
             {tasks.map((t, i) => (
-              <TaskCard key={t.id} task={t} idx={i} total={tasks.length} onMove={moveTask} expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} onDelete={(i) => { const a = [...tasks]; a.splice(i, 1); set({ tasks: a }); setExpanded(null); }} onEdit={(i, patch) => { const a = [...tasks]; a[i] = { ...a[i], ...patch }; set({ tasks: a }); }} />
+              <TaskCard key={t.id} task={t} idx={i} total={tasks.length}
+                dragging={dragIdx === i} dragOver={overIdx === i}
+                onDragStart={() => setDragIdx(i)}
+                onDragOverCard={() => dragIdx !== null && dragIdx !== i && setOverIdx(i)}
+                onDrop={() => { if (dragIdx !== null && dragIdx !== i) reorderTask(dragIdx, i); setDragIdx(null); setOverIdx(null); }}
+                onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+                expanded={expanded === i} onToggle={() => setExpanded(expanded === i ? null : i)} onDelete={(i) => { const a = [...tasks]; a.splice(i, 1); set({ tasks: a }); setExpanded(null); }} onEdit={(i, patch) => { const a = [...tasks]; a[i] = { ...a[i], ...patch }; set({ tasks: a }); }} />
             ))}
             <div style={{ marginTop: 12, padding: "12px 14px", background: "var(--success-weak)", border: "1px solid color-mix(in srgb, var(--success) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
               <Icon name="shield" size={15} style={{ color: "var(--success)", flexShrink: 0 }} />
