@@ -521,7 +521,7 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
 /* Generated test cases scroll in their own column instead of growing the
    whole page — with several custom tasks added, the form would otherwise
    scroll far out of view along with the Continue button. */
-.tc-results { max-height: calc(100vh - 180px); overflow-y: auto; padding-right: 4px; }
+.tc-results { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; }
 /* keeps the main column at its normal ~720px width and puts the side card in
    the extra space, instead of .split's approach of shrinking the main column
    to make room for it */
