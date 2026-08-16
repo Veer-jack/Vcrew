@@ -215,6 +215,14 @@ router.post("/:id/save", async (req, res) => {
 
 // POST /api/v/marketplace/:id/apply — apply & immediately start (matches "Apply -> Accepted -> Start now" flow)
 router.post("/:id/apply", async (req, res) => {
+  // A bare signup only captures name/email/password — occupation (along with
+  // every other demographic/professional field builders actually filter on)
+  // stays empty until onboarding, which isn't otherwise enforced. Without this
+  // gate, a validator could join and submit work before the profile Audience
+  // Builder is supposed to be matching against has any real data in it.
+  if (!req.validator.occupation) {
+    return res.status(403).json({ error: "Complete your profile before joining a mission.", code: "ONBOARDING_REQUIRED" });
+  }
   let t = await db.prepare(`SELECT id, builder_id, status FROM missions WHERE id = ?`).get(req.params.id);
   let isRealMission = !!t;
   if (!t) {

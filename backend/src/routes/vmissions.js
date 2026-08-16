@@ -818,6 +818,12 @@ router.post("/:id/checkin", async (req, res) => {
 
 // POST /api/v/missions/invitations/:id/accept
 router.post("/invitations/:id/accept", async (req, res) => {
+  // Same gate as marketplace apply — see comment there. A validator invited
+  // straight off a bare signup shouldn't be able to accept before their
+  // profile has any actual data in it.
+  if (!req.validator.occupation) {
+    return res.status(403).json({ error: "Complete your profile before accepting an invite.", code: "ONBOARDING_REQUIRED" });
+  }
   const invite = await db.prepare(`SELECT * FROM mission_invitations WHERE id = ? AND validator_id = ? AND status = 'pending'`).get(req.params.id, req.validator.id);
   if (!invite) return res.status(404).json({ error: "Invite not found or already processed" });
 
