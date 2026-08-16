@@ -1844,6 +1844,7 @@ const es = {
     missionCategoryLabel: "Categoría de misión",
     pickOne: "Elige uno",
     selectedCount: "{{count}} seleccionado",
+    includedViaWorldwide: "Incluido a través de Mundial",
     searchGroupPlaceholder: "Buscar {{group}}…",
     noMatchesFor: "No hay coincidencias para \" {{q}} \"",
     matchingMembers: "miembros coincidentes",

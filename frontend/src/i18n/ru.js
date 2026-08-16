@@ -1844,6 +1844,7 @@ const ru = {
     missionCategoryLabel: "Категория миссии",
     pickOne: "Выберите один",
     selectedCount: "{{count}} выбрано",
+    includedViaWorldwide: "Включено через «По всему миру»",
     searchGroupPlaceholder: "Поиск {{group}} …",
     noMatchesFor: "Нет совпадений для \"{{q}}\"",
     matchingMembers: "соответствующие члены",

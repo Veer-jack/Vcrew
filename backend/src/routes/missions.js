@@ -184,16 +184,27 @@ router.get("/invitations", async (req, res) => {
   sql += ` ORDER BY mi.created_at DESC`;
 
   const rows = await db.prepare(sql).all(...params);
-  res.json({
-    invitations: rows.map(r => ({
-      id: r.id,
-      status: r.status,
-      createdAt: r.created_at,
-      isWaitlist: r.is_waitlist,
-      mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status },
-      validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city },
-    })),
-  });
+  const invitations = rows.map(r => ({
+    id: r.id,
+    status: r.status,
+    createdAt: r.created_at,
+    isWaitlist: r.is_waitlist,
+    mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status },
+    validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city },
+  }));
+
+  const lang = req.builder.preferred_language;
+  if (lang && lang !== "en" && invitations.length) {
+    const translated = await translateBatch(
+      invitations.map(inv => ({ entityType: "mission", entityId: inv.mission.id, field: "name", text: inv.mission.name })),
+      lang
+    );
+    for (const inv of invitations) {
+      inv.mission.name = translated.get(`mission:${inv.mission.id}:name`) ?? inv.mission.name;
+    }
+  }
+
+  res.json({ invitations });
 });
 
 // GET /api/missions/:id

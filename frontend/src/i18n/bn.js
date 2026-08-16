@@ -1844,6 +1844,7 @@ const bn = {
     missionCategoryLabel: "মিশন বিভাগ",
     pickOne: "একটা বেছে নিন",
     selectedCount: "{{count}} নির্বাচিত হয়েছে৷",
+    includedViaWorldwide: "ওয়ার্ল্ডওয়াইডের মাধ্যমে অন্তর্ভুক্ত",
     searchGroupPlaceholder: "{{group}} অনুসন্ধান করুন …",
     noMatchesFor: "\"{{q}}\" এর জন্য কোন মিল নেই",
     matchingMembers: "মিলিত সদস্য",

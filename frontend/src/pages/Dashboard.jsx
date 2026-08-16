@@ -10,6 +10,32 @@ import { PERSONA_CONFIG, onboardingDraftKey, stepLabel } from "../data/personaCo
 import { useTranslation } from "../i18n/index.jsx";
 import { activityWho, activityText } from "../bi18n";
 
+// A mission draft only ever lives in this browser's localStorage until
+// "Save as Draft" is explicitly clicked (see CreateMissionWizard.jsx) — so
+// leaving the wizard any way other than that button (browser back, closing
+// the tab, the in-app Exit link) doesn't lose anything, but it also won't
+// show up in the real Drafts list. This banner is the lightweight,
+// non-blocking way to surface that: informational only, no confirm dialog.
+function MissionDraftBanner({ builder, nav }) {
+  const { t } = useTranslation();
+  if (!builder?.id) return null;
+  let hasDraft = false;
+  try { hasDraft = !!localStorage.getItem(`vcrew_mission_draft_${builder.id}`); } catch { /* ignore */ }
+  if (!hasDraft) return null;
+
+  return (
+    <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--accent-weak)", background: "var(--accent-weak)" }}>
+      <Icon name="fileText" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+      <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+        {t("dashboard.unsavedMissionDraft", null, "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.")}
+      </p>
+      <button className="btn btn-outline" style={{ flexShrink: 0, fontSize: 12.5 }} onClick={() => nav("/missions/new")}>
+        {t("actions.continue", null, "Continue")}
+      </button>
+    </div>
+  );
+}
+
 function ProfileCompletionBanner({ builder, nav }) {
   const { t } = useTranslation();
   if (builder?.profile) return null; // already completed
@@ -318,6 +344,7 @@ export default function Dashboard() {
         )
       )}
       <ProfileCompletionBanner builder={builder} nav={navigate} />
+      <MissionDraftBanner builder={builder} nav={navigate} />
       <div className="ph">
         <div>
           <span className="eyebrow">{t("dashboard.builderWorkspace", null, "Builder workspace")}</span>

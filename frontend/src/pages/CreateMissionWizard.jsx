@@ -60,7 +60,7 @@ function StepInfo({ d, set, categories, showErrors }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false }) {
+export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other" }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
@@ -74,7 +74,7 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
   const filtered = activeQuery.trim() ? options.filter(o => o.toLowerCase().includes(activeQuery.toLowerCase())) : options;
   if (hasExternalQuery && externalQuery.trim() && filtered.length === 0) return null;
   const isOpen = (hasExternalQuery && externalQuery.trim()) ? true : expanded;
-  const showOtherInput = onOtherTextChange && sel.has("Other");
+  const showOtherInput = onOtherTextChange && sel.has(otherValue);
   // Scoped to this group's own options — `sel` is shared across sibling
   // subgroups (e.g. all of Geography's regions share one Set), so counting
   // sel.size directly would show the whole category's total on every
@@ -179,14 +179,22 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               onSelectAll={opts => selectAllInGroup(g, opts)}
             />
           ) : (
-            Object.entries(opts).map(([sub, subOpts]) => (
-              <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                otherText={subOpts.includes("Other") ? (d.otherGeoText || "") : undefined}
-                onOtherTextChange={subOpts.includes("Other") ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
-                onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
-                impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
-              />
-            ))
+            Object.entries(opts).map(([sub, subOpts]) => {
+              // "India - 9 cities" reuses "India" itself as its catch-all —
+              // there's no literal "Other" in that subgroup's option list, so
+              // the free-text follow-up needs to key off whichever catch-all
+              // value this specific subgroup actually uses.
+              const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
+              return (
+                <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                  otherText={subOther ? (d.otherGeoText || "") : undefined}
+                  onOtherTextChange={subOther ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+                  otherValue={subOther || "Other"}
+                  onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
+                  impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
+                />
+              );
+            })
           )}
         </div>
       ))}
@@ -445,7 +453,7 @@ function flatOptions(opts) {
 function buildAudiencePayload(d) {
   const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
   const otherGeo = (d.otherGeoText || "").trim();
-  if (otherGeo && audience.Geography?.includes("Other")) audience.Geography = [...audience.Geography, otherGeo];
+  if (otherGeo && (audience.Geography?.includes("Other") || audience.Geography?.includes("India"))) audience.Geography = [...audience.Geography, otherGeo];
   return audience;
 }
 
@@ -459,8 +467,8 @@ function computeCost(d, rewards, platformFeePct) {
   return { subtotal, fee, fulfil, total: subtotal + fee + fulfil };
 }
 
-const GEO_GROUP = "Geography";
-const WORLDWIDE = "Worldwide";
+export const GEO_GROUP = "Geography";
+export const WORLDWIDE = "Worldwide";
 
 // Reverse of buildAudiencePayload(): rehydrates a fetched draft mission back
 // into the wizard's internal `d` shape so an existing draft can be resumed
@@ -497,8 +505,14 @@ function missionToDraft(mission, filters, categories, ptypes) {
       const sel = new Set();
       let otherText = "";
       for (const v of vals) {
+        // A known value is a real option (including the "Other" and "India"
+        // catch-alls themselves) and gets kept as-is. An unrecognized value
+        // is the free-text the builder typed alongside whichever catch-all
+        // was selected — that catch-all is already being added from its own
+        // entry in this same array, so this branch only needs to capture the
+        // text, not guess which marker it belongs to.
         if (known.has(v)) sel.add(v);
-        else { sel.add("Other"); otherText = v; }
+        else otherText = v;
       }
       draft.filters[g] = sel;
       if (otherText) draft.otherGeoText = otherText;

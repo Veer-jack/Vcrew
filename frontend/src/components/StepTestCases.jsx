@@ -289,7 +289,12 @@ export default function StepTestCases({ d, set }) {
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
-    resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // scrollIntoView on the results panel alone isn't enough — on the sticky
+    // two-column layout the panel can already be technically "in view" while
+    // scrolled deep into the left form, so the loading state and the actual
+    // generated tasks land off-screen above. Scroll the whole page to the top
+    // instead, so the result is where the user is already looking.
+    window.scrollTo({ top: 0, behavior: "smooth" });
     try {
       const res = await api.post("/missions/generate-tasks", {
         description: form.desc,
