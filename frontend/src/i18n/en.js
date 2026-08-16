@@ -2365,6 +2365,8 @@ const en = {
     verified: "✓ Verified",
     unverified: "· Unverified",
     menu: "Menu",
+    collapseSidebar: "Collapse sidebar",
+    expandSidebar: "Expand sidebar",
     notifications: "Notifications",
     logOut: "Log out",
     profile: "Profile",
