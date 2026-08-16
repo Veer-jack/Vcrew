@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "./Icon";
 import { Avatar, Btn, inrK } from "./ui";
@@ -110,6 +110,19 @@ export default function AppLayout() {
   const [topbarQ, setTopbarQ] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const profileRef = useRef(null);
+
+  // A "cover the whole page and close on click" overlay doesn't work here:
+  // .topbar has backdrop-filter, which makes it the containing block for any
+  // position:fixed descendant, so a fixed overlay nested inside it only ever
+  // spans the topbar strip, not the page below. A document-level listener
+  // isn't affected by that.
+  useEffect(() => {
+    if (!showProfile) return;
+    const onDocClick = (e) => { if (!profileRef.current?.contains(e.target)) setShowProfile(false); };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showProfile]);
 
   useEffect(() => {
     const fetchNotifs = () => api.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
@@ -152,7 +165,7 @@ export default function AppLayout() {
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
           </button>
-          <div style={{ position: "relative" }}>
+          <div ref={profileRef} style={{ position: "relative" }}>
             <button
               className="icon-btn"
               onClick={() => setShowProfile(p => !p)}
@@ -161,7 +174,6 @@ export default function AppLayout() {
             >
               {(builder?.name || "B")[0].toUpperCase()}
             </button>
-            {showProfile && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowProfile(false)} />}
             <div
               aria-hidden={!showProfile}
               style={{

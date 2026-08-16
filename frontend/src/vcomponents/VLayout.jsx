@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandLogoFull, BrandMark } from "../components/BrandMark";
@@ -151,6 +151,7 @@ export default function VLayout() {
   const [notifs, setNotifs] = useState([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const profileRef = useRef(null);
 
   useEffect(() => {
     const fetchNotifs = () => vapi.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
@@ -158,6 +159,20 @@ export default function VLayout() {
     const interval = setInterval(fetchNotifs, 10000);
     return () => clearInterval(interval);
   }, [dataVersion]);
+
+  useEffect(() => { setShowProfile(false); }, [location.pathname]);
+
+  // A "cover the whole page and close on click" overlay doesn't work here:
+  // .topbar has backdrop-filter, which makes it the containing block for any
+  // position:fixed descendant, so a fixed overlay nested inside it only ever
+  // spans the topbar strip, not the page below. A document-level listener
+  // isn't affected by that.
+  useEffect(() => {
+    if (!showProfile) return;
+    const onDocClick = (e) => { if (!profileRef.current?.contains(e.target)) setShowProfile(false); };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [showProfile]);
 
   const unreadCount = notifs.filter(n => n.unread).length;
   const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
@@ -228,7 +243,7 @@ export default function VLayout() {
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
           </button>
-          <div style={{ position: "relative" }}>
+          <div ref={profileRef} style={{ position: "relative" }}>
             <button
               onClick={() => setShowProfile(p => !p)}
               title={t("appLayout.profile", null, "Profile")}
@@ -238,7 +253,6 @@ export default function VLayout() {
             </button>
             {showProfile && (
               <>
-                <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowProfile(false)} />
                 <div style={{ position: "absolute", top: 46, right: 0, width: 240, background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", zIndex: 100, overflow: "hidden" }}>
                   <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{validator?.name}</div>
