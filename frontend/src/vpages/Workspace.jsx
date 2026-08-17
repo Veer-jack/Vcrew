@@ -147,11 +147,26 @@ export default function Workspace() {
     return () => clearTimeout(timerId);
   }, [answers, proofUploaded]);
 
+  // "Time Taken" (shown to the Builder on review) should reflect actual work,
+  // not however long this tab happened to sit open — so we count seconds
+  // only while the tab is genuinely visible, carried forward across draft
+  // saves/reloads via activeSecondsRef, which is restored from the last
+  // saved value on load (see the workspaceData effect below).
+  const activeSecondsRef = useRef(0);
+  useEffect(() => {
+    if (loading || isReadOnly) return;
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") activeSecondsRef.current += 1;
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [loading, isReadOnly]);
+
   useEffect(() => {
     (async () => {
       try {
         const data = await vapi.workspaceData(id);
         const t = data.tasks || [];
+        activeSecondsRef.current = data.activeSeconds || 0;
         setMission(data.mission);
         setTasks(t);
         setScheduleStatus(data.scheduleStatus);
@@ -233,7 +248,7 @@ export default function Workspace() {
         if (proofUploaded[i]) c._proof = proofUploaded[i];
         return c;
       });
-      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx });
+      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx, activeSeconds: activeSecondsRef.current });
     } catch (e) {
       console.warn("Auto-save failed", e);
     }
@@ -248,7 +263,7 @@ export default function Workspace() {
           if (proofUploaded[i]) c._proof = proofUploaded[i];
           return c;
         });
-        await vapi.submitWorkspaceData(id, { answers: finalAnswers });
+        await vapi.submitWorkspaceData(id, { answers: finalAnswers, activeSeconds: activeSecondsRef.current });
       } catch (err) {
         console.error("Submission failed:", err);
       }

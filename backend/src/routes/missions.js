@@ -1320,7 +1320,12 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         status: r.status || "pending",
         quality: r.flagged ? "flagged" : "medium",
         date: new Date(r.submitted_at).toLocaleDateString(),
-        mins: r.joined_at ? Math.max(1, Math.round((new Date(r.submitted_at) - new Date(r.joined_at)) / 60000)) : 20,
+        // Prefer real tracked active time (tab visible + focused) over the
+        // wall-clock join-to-submit span, which balloons to days if the
+        // validator leaves the task open without actually working on it.
+        mins: r.active_seconds != null
+          ? Math.max(1, Math.round(r.active_seconds / 60))
+          : (r.joined_at ? Math.max(1, Math.round((new Date(r.submitted_at) - new Date(r.joined_at)) / 60000)) : 20),
         tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
         breakdown,
         data,

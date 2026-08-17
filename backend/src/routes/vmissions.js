@@ -265,7 +265,7 @@ router.get("/:id/workspace", async (req, res) => {
   let tasks = [];
   try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
 
-  const response = await db.prepare(`SELECT data_json, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  const response = await db.prepare(`SELECT data_json, status, active_seconds FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   let responses = null;
   let isDraft = false;
   let isRevision = false;
@@ -300,12 +300,13 @@ router.get("/:id/workspace", async (req, res) => {
     isRevision,
     revisionReason,
     scheduleStatus,
+    activeSeconds: response?.active_seconds || 0,
   });
 });
 
 // PATCH /api/v/missions/:id/workspace/draft — auto-save workspace draft
 router.patch("/:id/workspace/draft", async (req, res) => {
-  const { answers, curIdx } = req.body || {};
+  const { answers, curIdx, activeSeconds } = req.body || {};
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
@@ -314,22 +315,23 @@ router.patch("/:id/workspace/draft", async (req, res) => {
     const parsedTasks = JSON.parse(m.tasks_json || "[]");
     totalTasks = parsedTasks.length || 1;
   } catch {}
-  
+
   const progressPercent = Math.min(100, Math.max(0, Math.round(((curIdx || 0) / totalTasks) * 100)));
 
   const existing = await db.prepare(`SELECT id, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  
+
   const draftData = { answers: answers || [], curIdx: curIdx || 0 };
-  
+  const activeSecs = Number.isFinite(activeSeconds) ? Math.max(0, Math.round(activeSeconds)) : null;
+
   if (existing) {
     // Only update if it's currently a draft or revision (don't overwrite a submitted mission)
     if (existing.status === "draft" || existing.status === "revision") {
-      await db.prepare(`UPDATE responses SET data_json = ?, submitted_at = NOW() WHERE id = ?`)
-        .run(JSON.stringify(draftData), existing.id);
+      await db.prepare(`UPDATE responses SET data_json = ?, submitted_at = NOW(), active_seconds = COALESCE(?, active_seconds) WHERE id = ?`)
+        .run(JSON.stringify(draftData), activeSecs, existing.id);
     }
   } else {
-    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'draft', NOW())`)
-      .run(req.params.id, req.validator.id, JSON.stringify(draftData));
+    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at, active_seconds) VALUES (?, ?, ?, 'draft', NOW(), ?)`)
+      .run(req.params.id, req.validator.id, JSON.stringify(draftData), activeSecs);
   }
 
   // Atomically sync the integer progress percentage for the Dashboard
@@ -448,7 +450,8 @@ router.post("/:id/checkin/proof", (req, res, next) => {
 
 // PATCH /api/v/missions/:id/workspace/submit — submit workspace responses
 router.patch("/:id/workspace/submit", async (req, res) => {
-  const { answers } = req.body || {};
+  const { answers, activeSeconds } = req.body || {};
+  const activeSecs = Number.isFinite(activeSeconds) ? Math.max(0, Math.round(activeSeconds)) : null;
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.status !== "active" && m.status !== "live" && m.status !== "published") {
@@ -518,11 +521,11 @@ router.patch("/:id/workspace/submit", async (req, res) => {
         VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1, ?)
       `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`, req.params.id);
     }
-    await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
-      .run(JSON.stringify(answers || {}), existing.id);
+    await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW(), active_seconds = COALESCE(?, active_seconds) WHERE id = ?`)
+      .run(JSON.stringify(answers || {}), activeSecs, existing.id);
   } else {
-    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'pending', NOW())`)
-      .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
+    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at, active_seconds) VALUES (?, ?, ?, 'pending', NOW(), ?)`)
+      .run(req.params.id, req.validator.id, JSON.stringify(answers || {}), activeSecs);
     
     await db.prepare(`
       INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
