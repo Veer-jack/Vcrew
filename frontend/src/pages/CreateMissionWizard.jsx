@@ -738,9 +738,6 @@ export default function CreateMissionWizard() {
   // the same way rewardAmountOk/participantsOk do rather than staying a
   // warning-only nudge.
   const withinAudienceCount = liveCount === 0 || d.reward.participants <= liveCount;
-  // Missing required fields keep Continue clickable (so clicking it can
-  // explain what's missing via showErrors) — only insufficientFunds hard-
-  // disables it, since that one already has its own hover tooltip.
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
     && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
@@ -956,7 +953,6 @@ export default function CreateMissionWizard() {
                 </Btn>
               )}
               <span
-                onClick={() => !fieldsValid && (setShowErrors(true), window.scrollTo({ top: 0, behavior: "smooth" }))}
                 style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                   : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
@@ -974,7 +970,6 @@ export default function CreateMissionWizard() {
             </div>
           ) : (
             <span
-              onClick={() => !fieldsValid && setShowErrors(true)}
               style={{ display: "inline-block" }}
               title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                 : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
