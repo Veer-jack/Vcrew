@@ -33,7 +33,7 @@ const es = {
     errInvalidCredentials: "Correo electrónico o contraseña incorrectos.",
     errInvalidPhone: "Introduce un número de móvil válido.",
     errRegionNotEnabled: "El inicio de sesión por SMS aún no está disponible en esta región. Prueba otro método de inicio de sesión.",
-    errSendCodeRetry: "Ocurrió un error al enviar el código. Inténtalo de nuevo.",
+    errSendCodeRetry: "No pudimos enviar el código de verificación. Comprueba tu número de teléfono e inténtalo de nuevo.",
     errTooManyRequests: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
     errWeakPassword: "Elige una contraseña más segura (al menos 8 caracteres).",
     phoneHintIndia: "Introduce tu número de móvil de 10 dígitos, sin el código de país",

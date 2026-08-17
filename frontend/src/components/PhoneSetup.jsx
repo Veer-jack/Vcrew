@@ -55,9 +55,12 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       setInfo(t("auth.codeSentTo", { cc, phoneDigits }, `Code sent to ${cc} ${phoneDigits}`));
       setStep("code");
     } catch (err) {
-      // If reCAPTCHA fails silently or due to an error, we might need to reset it.
+      // clear() itself can throw when the widget is already broken (the exact
+      // case being recovered from) — unguarded, that second exception would
+      // crash this function before setError below ever runs, so the raw
+      // Firebase/reCAPTCHA error reaches the user instead of the fallback text.
       if (recaptchaRef.current) {
-        recaptchaRef.current.clear();
+        try { recaptchaRef.current.clear(); } catch { /* already torn down */ }
         recaptchaRef.current = null;
       }
       setError(err.message || t("auth.couldntSendCodeRetry", null, "Couldn't send code. Please try again."));

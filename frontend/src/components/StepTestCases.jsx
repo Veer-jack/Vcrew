@@ -487,6 +487,9 @@ export default function StepTestCases({ d, set }) {
             </div>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 7 }}>{t("testCases.emptyStateTitle", null, "Test cases will appear here")}</div>
             <p style={{ margin: 0, color: "var(--text-faint)", fontSize: 13.5, maxWidth: "36ch" }}>{t("testCases.emptyStateBody", { btn: t("testCases.generateWithAI", null, "Generate test cases with AI ✦") }, `Fill in the form and click "Generate test cases with AI ✦" to create structured tasks for your validators.`)}</p>
+            <button className="btn btn-ghost" style={{ fontSize: 13, marginTop: 16 }} onClick={addCustom}>
+              <Icon name="plus" size={15} /> {t("testCases.addCustomTask", null, "Add custom task")}
+            </button>
           </div>
         )}
       </div>

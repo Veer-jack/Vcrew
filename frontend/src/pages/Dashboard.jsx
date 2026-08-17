@@ -20,7 +20,18 @@ function MissionDraftBanner({ builder, nav }) {
   const { t } = useTranslation();
   if (!builder?.id) return null;
   let hasDraft = false;
-  try { hasDraft = !!localStorage.getItem(`vcrew_mission_draft_${builder.id}`); } catch { /* ignore */ }
+  try {
+    // The wizard auto-saves on every render from the moment the page mounts,
+    // including its own pristine defaults — so the key exists the instant
+    // someone opens "Create Mission," before they've typed anything. Check
+    // for actual content instead of just key existence, so this banner only
+    // shows once there's really something to resume.
+    const raw = localStorage.getItem(`vcrew_mission_draft_${builder.id}`);
+    if (raw) {
+      const d = JSON.parse(raw);
+      hasDraft = !!(d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0);
+    }
+  } catch { /* ignore */ }
   if (!hasDraft) return null;
 
   return (

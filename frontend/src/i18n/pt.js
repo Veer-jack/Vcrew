@@ -33,7 +33,7 @@ const pt = {
     errInvalidCredentials: "E-mail ou senha incorretos.",
     errInvalidPhone: "Insira um número de celular válido.",
     errRegionNotEnabled: "O login por SMS ainda não está disponível nesta região. Tente outro método de login.",
-    errSendCodeRetry: "Algo deu errado ao enviar o código. Tente novamente.",
+    errSendCodeRetry: "Não foi possível enviar o código de verificação. Verifique seu número de telefone e tente novamente.",
     errTooManyRequests: "Muitas tentativas. Aguarde um pouco e tente novamente.",
     errWeakPassword: "Escolha uma senha mais forte (pelo menos 8 caracteres).",
     phoneHintIndia: "Insira seu número de celular de 10 dígitos, sem o código do país",

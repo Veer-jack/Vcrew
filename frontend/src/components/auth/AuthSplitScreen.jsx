@@ -32,7 +32,7 @@ function friendlyAuthError(err, t) {
     "auth/invalid-verification-code": t("auth.incorrectCode", null, "Incorrect code."),
   };
   if (map[code]) return map[code];
-  if (/recaptcha/i.test(err?.message || "")) return t("auth.errSendCodeRetry", null, "Something went wrong sending the code. Please try again.");
+  if (/recaptcha/i.test(err?.message || "")) return t("auth.errSendCodeRetry", null, "We couldn't send the verification code. Please check your phone number and try again.");
   // Our own backend (non-Firebase requests, e.g. email/password signup) sends
   // deliberately user-facing validation text on 4xx responses — show that
   // directly instead of masking it behind the generic fallback below.
@@ -174,8 +174,13 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
     } catch (err) {
       // A stale/consumed reCAPTCHA widget throws on the next attempt (e.g.
       // after switching country code) — drop it so the retry gets a fresh one.
+      // clear() itself can throw when the widget is already in that broken
+      // state (the exact case we're recovering from) — if it does, that
+      // second, unguarded exception previously crashed this function before
+      // reaching setPhoneErr below, so the user saw the raw Firebase/
+      // reCAPTCHA error instead of the friendly message meant to replace it.
       if (recaptchaRef.current) {
-        recaptchaRef.current.clear();
+        try { recaptchaRef.current.clear(); } catch { /* already torn down */ }
         recaptchaRef.current = null;
       }
       // Bug report explicitly wants send-code failures shown below the

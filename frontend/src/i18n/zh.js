@@ -33,7 +33,7 @@ const zh = {
     errInvalidCredentials: "邮箱或密码不正确。",
     errInvalidPhone: "请输入有效的手机号码。",
     errRegionNotEnabled: "该地区暂不支持短信登录，请尝试其他登录方式。",
-    errSendCodeRetry: "发送验证码时出错，请重试。",
+    errSendCodeRetry: "验证码发送失败，请检查您的手机号码并重试。",
     errTooManyRequests: "尝试次数过多，请稍后再试。",
     errWeakPassword: "请选择更安全的密码（至少 8 个字符）。",
     phoneHintIndia: "请输入 10 位手机号码，无需国家代码",

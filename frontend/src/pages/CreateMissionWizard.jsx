@@ -280,7 +280,9 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
         )}
         <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`}>
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")} <span className="req-star" aria-hidden="true">*</span></label>
-          <input className="fin" type="number" min="1" max="500" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: Math.min(500, Math.max(1, +e.target.value)) } })} />
+          <input className="fin" type="number" min="1" max="500" value={d.reward.participants}
+            onChange={e => set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } })}
+            onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }} />
           <p className="fhint">
             {!builder?.verified
               ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)

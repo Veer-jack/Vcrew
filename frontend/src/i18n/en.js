@@ -33,7 +33,7 @@ const en = {
     errInvalidCredentials: "Incorrect email or password.",
     errInvalidPhone: "Please enter a valid mobile number.",
     errRegionNotEnabled: "SMS sign-in isn't available for this region yet. Please try a different sign-in method.",
-    errSendCodeRetry: "Something went wrong sending the code. Please try again.",
+    errSendCodeRetry: "We couldn't send the verification code. Please check your phone number and try again.",
     errTooManyRequests: "Too many attempts. Please wait a bit and try again.",
     errWeakPassword: "Please choose a stronger password (at least 8 characters).",
     phoneHintIndia: "Enter your 10-digit mobile number, without the country code",

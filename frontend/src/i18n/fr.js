@@ -33,7 +33,7 @@ const fr = {
     errInvalidCredentials: "E-mail ou mot de passe incorrect.",
     errInvalidPhone: "Veuillez saisir un numéro de mobile valide.",
     errRegionNotEnabled: "La connexion par SMS n'est pas encore disponible dans cette région. Essayez une autre méthode de connexion.",
-    errSendCodeRetry: "Une erreur est survenue lors de l'envoi du code. Veuillez réessayer.",
+    errSendCodeRetry: "Nous n'avons pas pu envoyer le code de vérification. Vérifiez votre numéro de téléphone et réessayez.",
     errTooManyRequests: "Trop de tentatives. Veuillez patienter puis réessayer.",
     errWeakPassword: "Choisissez un mot de passe plus robuste (8 caractères minimum).",
     phoneHintIndia: "Saisissez votre numéro de mobile à 10 chiffres, sans l'indicatif du pays",
