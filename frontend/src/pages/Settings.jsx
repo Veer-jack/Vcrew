@@ -274,7 +274,7 @@ export default function Settings() {
                 </div>
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("onboardingFields.country", null, "Country")}</label>
-                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country ? undefined : "var(--text-faint)" }}>{builder?.profile?.country || t("settings.notSet", null, "Not set")}</div>
+                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country?.length ? undefined : "var(--text-faint)" }}>{(Array.isArray(builder?.profile?.country) ? builder.profile.country.join(", ") : builder?.profile?.country) || t("settings.notSet", null, "Not set")}</div>
                 </div>
               </div>
             ) : (

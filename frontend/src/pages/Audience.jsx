@@ -13,6 +13,18 @@ import { trFilterLabel } from "../data/audienceFilterLabels";
 
 const EMPTY_SEL = (filters) => Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 
+const COUNTRY_MAP = {
+  "India": ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"]
+};
+
+// Country used to be a single string on the profile; it's now multi-select,
+// but older saved profiles still have the scalar shape — normalize both to
+// an array so every reader below can treat it uniformly.
+const profileCountries = (profile) => {
+  const c = profile?.country;
+  return Array.isArray(c) ? c.filter(Boolean) : (c ? [c] : []);
+};
+
 // Defaults the filter panel to whatever the builder picked on the Audience step during
 // onboarding (real values, same taxonomy — Demographics/Professional/Interests match
 // exactly). State/City were free text there, not checkboxes here, so those carry
@@ -26,13 +38,11 @@ function defaultSelFromProfile(filters, profile) {
   add("Demographics", profile.incomeBands);
   add("Professional", profile.occupations);
   add("Interests", profile.interests);
-  if (profile.country && profile.country.trim().toLowerCase() === "india") sel.Geography.add("India");
+  // Only countries with a known city breakdown map onto a Geography chip —
+  // others have no equivalent checkbox to select (same limitation as before).
+  profileCountries(profile).forEach(c => { if (COUNTRY_MAP[c]) sel.Geography.add(c); });
   return sel;
 }
-
-const COUNTRY_MAP = {
-  "India": ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"]
-};
 
 const matchOption = (m, g, o) => {
   if (g === "Geography") {
@@ -106,17 +116,15 @@ export default function AudienceExplorer() {
           for (const k of Object.keys(parsed.sel || {})) {
             restoredSel[k] = new Set(parsed.sel[k]);
           }
-          // The country on file can change after this tab's snapshot was
+          // The country(ies) on file can change after this tab's snapshot was
           // taken (e.g. edited in Settings > Audience & Demographics after
           // an earlier Explorer visit already cached a stale sessionStorage
-          // entry) — resync just that delta so the new country shows up
-          // without discarding the rest of the user's custom filter picks.
-          const savedCountry = (parsed.profileCountry || "").trim().toLowerCase();
-          const liveCountry = (builder?.profile?.country || "").trim().toLowerCase();
-          if (savedCountry !== liveCountry) {
-            if (savedCountry === "india") restoredSel.Geography?.delete("India");
-            if (liveCountry === "india") restoredSel.Geography?.add("India");
-          }
+          // entry) — resync just that delta so new countries show up without
+          // discarding the rest of the user's custom filter picks.
+          const savedCountries = new Set((parsed.profileCountries || []).filter(c => COUNTRY_MAP[c]));
+          const liveCountries = new Set(profileCountries(builder?.profile).filter(c => COUNTRY_MAP[c]));
+          for (const c of savedCountries) if (!liveCountries.has(c)) restoredSel.Geography?.delete(c);
+          for (const c of liveCountries) if (!savedCountries.has(c)) restoredSel.Geography?.add(c);
           setSel(restoredSel);
           setQ(parsed.q || "");
           setUsingDefaults(parsed.usingDefaults || false);
@@ -151,7 +159,7 @@ export default function AudienceExplorer() {
         sel: serializedSel,
         q: q,
         usingDefaults: usingDefaults,
-        profileCountry: builder?.profile?.country || ""
+        profileCountries: profileCountries(builder?.profile)
       }));
     }
   }, [sel, q, usingDefaults, isLoading, builder]);

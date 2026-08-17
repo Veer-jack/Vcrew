@@ -22,7 +22,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // does a real substring match against actual validator location data.
 export function buildAudienceQuery(d) {
   return {
-    Geography: [d.district, d.state, d.country].filter(Boolean),
+    Geography: [d.district, d.state, ...(Array.isArray(d.country) ? d.country : [d.country])].filter(Boolean),
     Demographics: [...(d.ageBands || []), ...(d.genders || []).filter(g => g !== "Any"), ...(d.incomeBands || [])],
     Professional: (d.occupations || []),
     Interests: (d.interests || []),
