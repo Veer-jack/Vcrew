@@ -168,7 +168,7 @@ export default function MissionDetails() {
 
         <div style={{ padding: "var(--pad-card)" }}>
           <div className="eyebrow" style={{ marginBottom: 9 }}>{t("missions.aboutThisMission", null, "About this mission")}</div>
-          <p style={{ margin: "0 0 22px", fontSize: 15, lineHeight: 1.6 }}>{task.brief}</p>
+          <p style={{ margin: "0 0 22px", fontSize: 15, lineHeight: 1.6, overflowWrap: "anywhere", wordBreak: "break-word" }}>{task.brief}</p>
           <div className="m2" style={{ gap: 22 }}>
             <div>
               <div className="eyebrow" style={{ marginBottom: 11 }}>{t("missions.whatYoullDo", null, "What you'll do")}</div>
@@ -176,7 +176,7 @@ export default function MissionDetails() {
                 {task.steps.map((s, i) => (
                   <div key={i} className="row gap-3" style={{ alignItems: "flex-start" }}>
                     <span className="mono" style={{ width: 22, height: 22, flex: "none", borderRadius: 6, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 600, background: "var(--accent-weak)", color: "var(--accent)" }}>{i + 1}</span>
-                    <span style={{ fontSize: 14 }}>{s}</span>
+                    <span style={{ fontSize: 14, overflowWrap: "anywhere", wordBreak: "break-word" }}>{s}</span>
                   </div>
                 ))}
               </div>
