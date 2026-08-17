@@ -106,6 +106,17 @@ export default function AudienceExplorer() {
           for (const k of Object.keys(parsed.sel || {})) {
             restoredSel[k] = new Set(parsed.sel[k]);
           }
+          // The country on file can change after this tab's snapshot was
+          // taken (e.g. edited in Settings > Audience & Demographics after
+          // an earlier Explorer visit already cached a stale sessionStorage
+          // entry) — resync just that delta so the new country shows up
+          // without discarding the rest of the user's custom filter picks.
+          const savedCountry = (parsed.profileCountry || "").trim().toLowerCase();
+          const liveCountry = (builder?.profile?.country || "").trim().toLowerCase();
+          if (savedCountry !== liveCountry) {
+            if (savedCountry === "india") restoredSel.Geography?.delete("India");
+            if (liveCountry === "india") restoredSel.Geography?.add("India");
+          }
           setSel(restoredSel);
           setQ(parsed.q || "");
           setUsingDefaults(parsed.usingDefaults || false);
@@ -139,10 +150,11 @@ export default function AudienceExplorer() {
       sessionStorage.setItem("audienceFilters", JSON.stringify({
         sel: serializedSel,
         q: q,
-        usingDefaults: usingDefaults
+        usingDefaults: usingDefaults,
+        profileCountry: builder?.profile?.country || ""
       }));
     }
-  }, [sel, q, usingDefaults, isLoading]);
+  }, [sel, q, usingDefaults, isLoading, builder]);
 
   const toggle = (g, o) => { setUsingDefaults(false); setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; }); };
   const toggleGroup = (g) => setClosed(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
