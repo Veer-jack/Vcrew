@@ -16,7 +16,7 @@ const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMa
 // Firebase surfaces raw SDK error codes/messages (e.g. "Firebase: Error
 // (auth/error-code:-39)."); map the common ones to copy a user can act on
 // instead of showing the SDK string verbatim.
-function friendlyAuthError(err, t) {
+export function friendlyAuthError(err, t, fallback) {
   const code = err?.code || "";
   const map = {
     "auth/invalid-phone-number": t("auth.errInvalidPhone", null, "Please enter a valid mobile number."),
@@ -37,7 +37,11 @@ function friendlyAuthError(err, t) {
   // deliberately user-facing validation text on 4xx responses — show that
   // directly instead of masking it behind the generic fallback below.
   if (err?.status >= 400 && err?.status < 500 && err?.message && !/^Request failed/.test(err.message)) return err.message;
-  return t("errors.somethingWentWrong");
+  // Any other unrecognized Firebase code (e.g. a captcha-check-failed variant
+  // whose message doesn't literally contain "recaptcha") still falls through
+  // here — callers in a specific context (like "we were sending a code") can
+  // pass a fallback tailored to that instead of the generic default below.
+  return fallback || t("errors.somethingWentWrong");
 }
 
 /**
@@ -184,8 +188,11 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
         recaptchaRef.current = null;
       }
       // Bug report explicitly wants send-code failures shown below the
-      // Mobile Number field, not in the shared top-of-form banner.
-      setPhoneErr(friendlyAuthError(err, t));
+      // Mobile Number field, not in the shared top-of-form banner. Any
+      // unrecognized failure here still happened while sending the code, so
+      // it gets the code-sending-specific message instead of a bare
+      // "Something went wrong" that doesn't tell the user what to do.
+      setPhoneErr(friendlyAuthError(err, t, t("auth.errSendCodeRetry", null, "We couldn't send the verification code. Please check your phone number and try again.")));
     } finally { setBusy(false); }
   };
 

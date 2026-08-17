@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../firebaseClient";
 import { COUNTRIES } from "./auth/countries";
 import { useTranslation } from "../i18n/index.jsx";
+import { friendlyAuthError } from "./auth/AuthSplitScreen";
 
 // `client` is either the builder `api` or validator `vapi` object — both expose
 // the same firebaseConfig/phoneLink/phoneRemove methods. `phone`/`phoneVerified`
@@ -63,7 +64,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
         try { recaptchaRef.current.clear(); } catch { /* already torn down */ }
         recaptchaRef.current = null;
       }
-      setError(err.message || t("auth.couldntSendCodeRetry", null, "Couldn't send code. Please try again."));
+      setError(friendlyAuthError(err, t, t("auth.errSendCodeRetry", null, "We couldn't send the verification code. Please check your phone number and try again.")));
     } finally { setBusy(false); }
   };
 
@@ -77,7 +78,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       onUpdate?.(res.phone);
       reset();
     } catch (err) {
-      setError(err.message || t("auth.couldntVerifyCode", null, "Couldn't verify code"));
+      setError(friendlyAuthError(err, t, t("auth.couldntVerifyCode", null, "Couldn't verify code")));
     } finally { setBusy(false); }
   };
 
