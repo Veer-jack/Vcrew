@@ -20,10 +20,28 @@ export default function Missions() {
   ];
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { categories } = useMeta();
   const [tab, setTab] = useState(searchParams.get("tab") || "active");
   const [q, setQ] = useState(searchParams.get("q") || "");
+
+  // Only the initial mount read the tab from the URL — a notification link
+  // to a tab (e.g. /missions?tab=draft) while the Missions page was already
+  // open wouldn't remount the component, so this state never picked it up
+  // and the URL and the visible tab silently disagreed.
+  useEffect(() => {
+    const urlTab = searchParams.get("tab") || "active";
+    setTab(prev => (prev === urlTab ? prev : urlTab));
+  }, [searchParams]);
+
+  const selectTab = (k) => {
+    setTab(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
   const [missions, setMissions] = useState([]);
   const [counts, setCounts] = useState({});
   const [loading, setLoading] = useState(true);
@@ -100,7 +118,7 @@ export default function Missions() {
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn></div>
       </div>
       <div className="toolbar">
-        <div className="tabs">{TABS.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}>{t.l}<span className="cnt">{counts[t.k] ?? "·"}</span></button>)}</div>
+        <div className="tabs">{TABS.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}>{t.l}<span className="cnt">{counts[t.k] ?? "·"}</span></button>)}</div>
         <span className="grow" />
         <div className="seg-search"><Icon name="search" size={16} /><input placeholder={t("missions.searchPlaceholder", null, "Search missions…")} value={q} onChange={e => setQ(e.target.value)} /></div>
       </div>

@@ -140,10 +140,28 @@ const getTicketStatus = (t) => ({
 
 export default function Support() {
   const { t } = useTranslation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState(searchParams.get("tab") || "help");
   const { notifs } = useOutletContext() || { notifs: [] };
-  const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
+  // 'support_update'/"Support Update" never matched anything real — the
+  // actual notification is type 'ticket_reply', title "Support Reply".
+  const supportUnreadCount = notifs.filter(n => n.unread && n.type === 'ticket_reply').length;
+
+  // Re-sync when the URL's tab param changes while this page is already
+  // open (no remount) — e.g. a ticket_reply notification deep-link.
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (urlTab && urlTab !== tab) setTab(urlTab);
+  }, [searchParams]);
+
+  const selectTab = (k) => {
+    setTab(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(null);
   const [raising, setRaising] = useState(false);
@@ -173,7 +191,7 @@ export default function Support() {
       <div className="row between wrap gap-3 rise-2" style={{ marginBottom: 18 }}>
         <div className="row gap-2">
           {[{ k: "help", l: t("support.helpArticles", null, "Help articles") }, { k: "tickets", l: t("support.myTickets", null, "My tickets") }].map(tDef => (
-            <button key={tDef.k} className="pill" onClick={() => setTab(tDef.k)} style={{ cursor: "pointer", fontWeight: 700, position: "relative",
+            <button key={tDef.k} className="pill" onClick={() => selectTab(tDef.k)} style={{ cursor: "pointer", fontWeight: 700, position: "relative",
               background: tab === tDef.k ? "var(--accent)" : "var(--panel)", borderColor: tab === tDef.k ? "var(--accent)" : "var(--border)", color: tab === tDef.k ? "#fff" : "var(--text-muted)" }}>
               {tDef.l}
               {tDef.k === "tickets" && supportUnreadCount > 0 && <span className="bell-unread-dot blink" style={{ position: "absolute", top: -2, right: -2 }} />}

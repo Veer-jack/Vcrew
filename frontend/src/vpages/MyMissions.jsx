@@ -15,6 +15,7 @@ const MM_STATUS = {
   rejected:  { label: "Not selected", labelKey: "status.notSelected", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   closed:    { label: "Closed", labelKey: "status.closed", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   declined:  { label: "Declined", labelKey: "status.declined", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
+  saved:     { label: "Saved", labelKey: "status.saved", tone: "var(--accent)", bg: "var(--accent-weak)" },
 };
 
 const TABS = [
@@ -25,6 +26,8 @@ const TABS = [
   { k: "rejected", l: "Rejected", lKey: "status.rejected" },
   { k: "closed", l: "Closed", lKey: "status.closed" },
   { k: "declined", l: "Declined", lKey: "status.declined" },
+  { k: "invited", l: "Invited", lKey: "status.invited" },
+  { k: "saved", l: "Saved", lKey: "status.saved" },
 ];
 
 function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline }) {
@@ -83,7 +86,7 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline }) {
 export default function MyMissions() {
   const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { vtypes, ptypes } = useVMeta();
   
   // Use the search param tab if it exists and is valid, otherwise default to "active"
@@ -118,6 +121,15 @@ export default function MyMissions() {
 
   const tabs = TABS.map(tabObj => ({ ...tabObj, c: data?.counts?.[tabObj.k] ?? "·" }));
 
+  const selectTab = (k) => {
+    setTab(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
+
   const undecline = async (taskId) => {
     try { await vapi.undeclineMission(taskId); } catch { /* best effort */ }
     vapi.myMissions(tab).then(setData).catch(() => {});
@@ -135,7 +147,7 @@ export default function MyMissions() {
 
       <div className="row gap-2 wrap rise-2" style={{ marginBottom: 18 }}>
         {tabs.map(tabObj => (
-          <button key={tabObj.k} className="pill" onClick={() => setTab(tabObj.k)} style={{ cursor: "pointer", fontWeight: 700,
+          <button key={tabObj.k} className="pill" onClick={() => selectTab(tabObj.k)} style={{ cursor: "pointer", fontWeight: 700,
             background: tab === tabObj.k ? "var(--accent)" : "var(--panel)", borderColor: tab === tabObj.k ? "var(--accent)" : "var(--border)", color: tab === tabObj.k ? "#fff" : "var(--text-muted)" }}>
             {t(tabObj.lKey, null, tabObj.l)}<span style={{ opacity: .7, fontFamily: "var(--mono)", fontSize: 11 }}>{tabObj.c}</span>
           </button>

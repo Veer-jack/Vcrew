@@ -48,6 +48,22 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
     setItems([]);
   };
   
+  // Each entry builds the /missions/:id path (with a tab where one applies)
+  // for a target_id-bearing notification, keyed by its real `type` column
+  // instead of guessing from title substrings (title wording drifts, type
+  // doesn't).
+  const MISSION_TAB_ROUTE = {
+    participant_joined: id => `/missions/${id}?tab=participants`,
+    invite_declined: id => `/missions/${id}?tab=participants`,
+    user_minus: id => `/missions/${id}?tab=participants`,
+    mission_failed: id => `/missions/${id}?tab=participants`,
+    shipment_received: id => `/missions/${id}?tab=shipments`,
+    schedule_accepted: id => `/missions/${id}?tab=interviews`,
+    schedule_declined: id => `/missions/${id}?tab=interviews`,
+    checkin: id => `/missions/${id}?tab=checkins`,
+    mission_full_submissions: id => `/missions/${id}?tab=responses`,
+  };
+
   const open = (n) => {
     // Mark-as-read is fire-and-forget — the click should close the panel
     // and navigate immediately, not wait on a network round-trip first.
@@ -57,26 +73,32 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
       if (onRead) onRead(n.id).catch?.(() => {});
     }
     onClose();
-    
+    const go = (path) => navigate(path, { state: { refresh: Date.now() } });
+
     if (n.link) {
-      navigate(n.link, { state: { refresh: Date.now() } });
+      go(n.link);
       return;
     }
-    
+
     if (n.type === "new_message") {
-      navigate(n.target_id ? `/messages?thread=${n.target_id}` : "/messages", { state: { refresh: Date.now() } });
-    } else if (n.title.includes("Participant") || n.type === "participant") {
-      navigate(n.missionId ? `/missions/${n.missionId}?tab=participants` : "/missions", { state: { refresh: Date.now() } });
-    } else if (n.title.includes("Interview")) {
-      navigate(n.missionId ? `/missions/${n.missionId}?tab=interviews` : "/missions", { state: { refresh: Date.now() } });
-    } else if (n.title.includes("Focus Group")) {
-      navigate(n.missionId ? `/missions/${n.missionId}?tab=focusgroup` : "/missions", { state: { refresh: Date.now() } });
-    } else if (n.title.includes("Submission") || n.type === "submission") {
-      navigate(n.missionId ? `/missions/${n.missionId}?tab=responses` : "/missions", { state: { refresh: Date.now() } });
+      go(n.target_id ? `/messages?thread=${n.target_id}` : "/messages");
+    } else if (n.type === "verification") {
+      go("/settings");
+    } else if (n.type === "ticket_reply") {
+      go("/support?tab=tickets");
+    } else if (n.type === "submission" && n.missionId) {
+      // "submission" also covers a Focus Group availability submission —
+      // same type, different tab, title is the only thing that tells them apart.
+      go(`/missions/${n.missionId}?tab=${n.title?.includes("Focus Group") ? "focusgroup" : "responses"}`);
+    } else if (n.type && MISSION_TAB_ROUTE[n.type] && n.missionId) {
+      go(MISSION_TAB_ROUTE[n.type](n.missionId));
     } else if (n.missionId) {
-      navigate(`/missions/${n.missionId}`, { state: { refresh: Date.now() } });
-    } else if (n.type === "application" || n.title.includes("Accepted") || n.title.includes("Approved") || n.title.includes("Rejected")) {
-      navigate("/missions", { state: { refresh: Date.now() } });
+      go(`/missions/${n.missionId}`);
+    } else {
+      // No target to deep-link to (invite_expired, the account-created
+      // welcomes) — dashboard beats doing nothing when the panel already
+      // closed on click.
+      go("/");
     }
   };
 
