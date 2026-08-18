@@ -87,7 +87,19 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     try {
       await client.phoneRemove();
       onUpdate?.(null);
+      // Without this, removing a verified number just falls back to the
+      // onboarding prefill chip — the user would see the number they just
+      // removed pop right back up as "Verify this number" instead of a
+      // clean "Add phone" state.
+      setPrefillDismissed(true);
     } finally { setBusy(false); }
+  };
+
+  // Explicit "forget this number" — clears whatever's in the field and, like
+  // Remove, stops the onboarding number from being re-suggested afterwards.
+  const deleteEntry = () => {
+    setPrefillDismissed(true);
+    reset();
   };
 
   if (!firebaseReady && !phoneVerified) return null;
@@ -140,6 +152,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
               </div>
               <button className="btn btn-primary" disabled={busy} type="submit">{busy ? t("actions.sending", null, "Sending…") : t("actions.sendCode", null, "Send code")}</button>
               <button className="btn btn-quiet" type="button" onClick={reset}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-quiet" type="button" style={{ color: "var(--danger)" }} disabled={busy} onClick={deleteEntry}>{t("actions.delete", null, "Delete")}</button>
             </form>
           ) : (
             <form onSubmit={verifyCode} className="row gap-2" style={{ alignItems: "flex-end" }}>

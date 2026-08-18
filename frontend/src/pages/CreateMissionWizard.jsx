@@ -927,12 +927,17 @@ export default function CreateMissionWizard() {
             </button>
           ))}
         </div>
-        {step === 0 && (
-          <div className="wz-rail-foot">
-            {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
+        <div className="wz-rail-foot">
+          {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
+          {step === 0 ? (
             <button className="btn outline" style={{ width: "100%", marginTop: 8 }} onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
-          </div>
-        )}
+          ) : (
+            <div className="row gap-2" style={{ alignItems: "center", marginTop: 8 }}>
+              <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
+              <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+            </div>
+          )}
+        </div>
       </aside>
 
       <div className="wz-main">
@@ -975,12 +980,6 @@ export default function CreateMissionWizard() {
 
       <div className="wz-foot">
         <div className="wz-foot-inner">
-          {step > 0 && (
-            <div className="row gap-2" style={{ alignItems: "center" }}>
-              <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
-              <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
-            </div>
-          )}
           <span className="grow" />
           {step === 2 && !canNext && (
             <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>
