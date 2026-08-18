@@ -190,14 +190,14 @@ export default function VLayout() {
             // Same slot does double duty, like ChatGPT's sidebar: the logo mark
             // sits there at rest, and swaps to the expand icon on hover instead
             // of permanently showing a separate toggle button next to it.
-            <button type="button" className="brand-swap" onClick={toggleCollapsed} title={t("appLayout.expandSidebar", null, "Expand sidebar")}>
+            <button type="button" className="brand-swap" onClick={toggleCollapsed} data-tooltip={t("appLayout.expandSidebar", null, "Expand sidebar")}>
               <span className="brand-swap-logo"><BrandMark size={34} /></span>
               <span className="brand-swap-toggle"><Icon name="sidebarPanel" size={16} /></span>
             </button>
           ) : (
             <>
               <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
-              <button type="button" className="side-collapse-btn" onClick={toggleCollapsed} title={t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
+              <button type="button" className="side-collapse-btn" onClick={toggleCollapsed} data-tooltip={t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
                 <Icon name="sidebarPanel" size={15} />
               </button>
             </>
@@ -217,7 +217,7 @@ export default function VLayout() {
             const itLabel = t("nav." + (it.tKey || it.label.toLowerCase().replace(/ /g, "")), null, it.label);
             return (
               <Link key={it.to} to={it.to} onClick={() => setMobOpen(false)}
-                title={collapsed ? itLabel : undefined}
+                data-tooltip={collapsed ? itLabel : undefined}
                 className={`nav-item ${customActive ? "active" : ""}`}>
                 <Icon name={it.icon} /><span className="nav-label">{itLabel}</span>
                 {it.to === "/validator/support" && supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
@@ -227,7 +227,7 @@ export default function VLayout() {
           }),
         ])}
         <div className="side-foot">
-          <button onClick={() => navigate("/validator/profile")} title={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block" }}>
+          <button onClick={() => navigate("/validator/profile")} data-tooltip={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block" }}>
             <div className="lvl-card">
               <div className="lvl-top">
                 <VAvatar name={validator?.name || ""} size={36} />

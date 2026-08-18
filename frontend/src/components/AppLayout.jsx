@@ -37,14 +37,14 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
           // Same slot does double duty, like ChatGPT's sidebar: the logo mark
           // sits there at rest, and swaps to the expand icon on hover instead
           // of permanently showing a separate toggle button next to it.
-          <button type="button" className="brand-swap" onClick={onToggleCollapsed} title={t("appLayout.expandSidebar", null, "Expand sidebar")}>
+          <button type="button" className="brand-swap" onClick={onToggleCollapsed} data-tooltip={t("appLayout.expandSidebar", null, "Expand sidebar")}>
             <span className="brand-swap-logo"><BrandMark size={34} /></span>
             <span className="brand-swap-toggle"><Icon name="sidebarPanel" size={16} /></span>
           </button>
         ) : (
           <>
             <a href="/" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
-            <button type="button" className="side-collapse-btn" onClick={onToggleCollapsed} title={t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
+            <button type="button" className="side-collapse-btn" onClick={onToggleCollapsed} data-tooltip={t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
               <Icon name="sidebarPanel" size={15} />
             </button>
           </>
@@ -58,7 +58,7 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
         <div key={g.label} className="nav-group-label">{t("nav." + g.label.toLowerCase(), null, g.label)}</div>,
         ...g.items.map(it => (
           <NavLink key={it.to} to={it.to} end={it.end} onClick={closeMobile}
-            title={collapsed ? t("nav." + it.label.toLowerCase(), null, it.label) : undefined}
+            data-tooltip={collapsed ? t("nav." + it.label.toLowerCase(), null, it.label) : undefined}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
             <Icon name={it.icon} /><span className="nav-label">{t("nav." + it.label.toLowerCase(), null, it.label)}</span>
             {it.to === "/messages" && messageUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{messageUnreadCount}</span>}
@@ -71,7 +71,7 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
           <div className="lvl-meter nav-label"><i style={{ width: "68%" }} /></div>
         </div>
         <NavLink to="/settings" className="nav-item" style={{ width: "100%" }} onClick={closeMobile}
-          title={collapsed ? builder?.name : undefined}>
+          data-tooltip={collapsed ? builder?.name : undefined}>
           <Avatar name={builder?.name || ""} size={30} color={builder?.color} />
           <div className="nav-label" style={{ textAlign: "left", lineHeight: 1.2 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>{builder?.name}</div>

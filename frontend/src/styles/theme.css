@@ -130,6 +130,20 @@ a { color: inherit; text-decoration: none; }
 .brand-swap:hover .brand-swap-logo { opacity: 0; }
 .brand-swap:hover .brand-swap-toggle { opacity: 1; }
 
+/* Styled hover tooltip via a data-tooltip attribute, instead of the native
+   browser title tooltip — shows instantly and matches the app's look.
+   Used on icon-only controls (collapsed sidebar nav items, the collapse
+   toggle) where there's no visible text label to explain the icon. */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%) scale(.96);
+  background: var(--text); color: var(--bg);
+  padding: 6px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s, transform .12s; z-index: 200;
+}
+[data-tooltip]:hover::after { opacity: 1; transform: translateY(-50%) scale(1); }
+
 /* Icon-only sidebar — desktop only; the sub-980px breakpoint already turns the
    sidebar into a slide-out overlay with its own width, so this must never
    apply there or its higher specificity (.app.side-collapsed vs. that
