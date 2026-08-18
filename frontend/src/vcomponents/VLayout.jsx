@@ -54,7 +54,10 @@ function VNotifPanel({ onClose, items, setItems }) {
       setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i));
       vapi.markRead(n.id).catch(() => {});
     }
-    if ((n.type === 'mission_full' || n.type === 'new_mission' || n.type === 'slot_available') && n.target_id) {
+    if (n.type === 'new_message') {
+      onClose();
+      navigate(n.target_id ? `/validator/messages?thread=${n.target_id}` : "/validator/messages", { state: { refresh: Date.now() } });
+    } else if ((n.type === 'mission_full' || n.type === 'new_mission' || n.type === 'slot_available') && n.target_id) {
       onClose();
       navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
     } else if (n.type === 'submission_approved' || n.type === 'mission_completed') {
@@ -176,6 +179,7 @@ export default function VLayout() {
 
   const unreadCount = notifs.filter(n => n.unread).length;
   const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
+  const messageUnreadCount = notifs.filter(n => n.unread && n.type === 'new_message').length;
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""} ${collapsed ? "side-collapsed" : ""}`}>
@@ -206,6 +210,7 @@ export default function VLayout() {
                 className={`nav-item ${customActive ? "active" : ""}`}>
                 <Icon name={it.icon} /><span className="nav-label">{itLabel}</span>
                 {it.to === "/validator/support" && supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
+                {it.to === "/validator/messages" && messageUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{messageUnreadCount}</span>}
               </Link>
             );
           }),

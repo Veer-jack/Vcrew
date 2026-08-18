@@ -81,7 +81,7 @@ router.post("/threads/:id/messages", async (req, res) => {
   await db.prepare(`UPDATE threads SET created_at = NOW() WHERE id = ?`).run(t.id);
 
   // Notify the Builder
-  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name));
+  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name, t.id));
   
   res.status(201).json({ message: { from: "me", text, time: "Just now" } });
 });
@@ -95,7 +95,7 @@ router.post("/threads/:id/attachment", upload.single("file"), async (req, res) =
     .run(t.id, req.validator.id, req.file.filename, req.file.originalname);
   await db.prepare(`UPDATE threads SET created_at = NOW() WHERE id = ?`).run(t.id);
 
-  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name));
+  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name, t.id));
 
   res.status(201).json({ message: { from: "me", attachment: { url: `/api/uploads/${req.file.filename}`, name: req.file.originalname }, time: "Just now" } });
 });

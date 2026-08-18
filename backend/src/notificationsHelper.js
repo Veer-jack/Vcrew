@@ -88,12 +88,12 @@ export async function notifySavedValidators(missionId) {
 /**
  * Fires asynchronously when a builder replies in a thread.
  */
-export async function notifyNewMessage(validatorId, builderOrg) {
+export async function notifyNewMessage(validatorId, builderOrg, threadId) {
   try {
     await db.prepare(`
-      INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread)
-      VALUES (?, 'message', 'messageCircle', 'primary', 'new_message', 'New Message', ?, 'Just now', 1)
-    `).run(validatorId, `You have a new message from ${builderOrg}.`);
+      INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
+      VALUES (?, 'message', 'message', 'primary', 'new_message', 'New Message', ?, 'Just now', 1, ?)
+    `).run(validatorId, `You have a new message from ${builderOrg}.`, threadId);
   } catch (error) {
     console.error("notifyNewMessage error:", error);
   }
@@ -102,12 +102,12 @@ export async function notifyNewMessage(validatorId, builderOrg) {
 /**
  * Fires asynchronously when a validator replies in a thread.
  */
-export async function notifyBuilderNewMessage(builderId, validatorName) {
+export async function notifyBuilderNewMessage(builderId, validatorName, threadId) {
   try {
     await db.prepare(`
-      INSERT INTO notifications (builder_id, cat, icon, tone, type, title, body, time_label, unread)
-      VALUES (?, 'system', 'messageCircle', 'primary', 'new_message', 'New Message', ?, 'Just now', 1)
-    `).run(builderId, `You have a new message from ${validatorName}.`);
+      INSERT INTO notifications (builder_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
+      VALUES (?, 'message', 'message', 'primary', 'new_message', 'New Message', ?, 'Just now', 1, ?)
+    `).run(builderId, `You have a new message from ${validatorName}.`, threadId);
   } catch (error) {
     console.error("notifyBuilderNewMessage error:", error);
   }

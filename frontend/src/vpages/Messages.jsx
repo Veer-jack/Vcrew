@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VAvatar } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
@@ -7,6 +8,8 @@ import { trFilterLabel } from "../data/audienceFilterLabels";
 
 export default function Messages() {
   const { t, dataVersion } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const requestedThreadId = searchParams.get("thread");
   const [threads, setThreads] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [active, setActive] = useState(null);
@@ -21,9 +24,30 @@ export default function Messages() {
   useEffect(() => { setVisibleMessagesCount(50); }, [activeId]);
 
   useEffect(() => {
-    vapi.threads().then(d => { setThreads(d.threads); setActiveId(prev => prev ?? (d.threads.length ? d.threads[0].id : null)); });
-  }, [dataVersion]);
+    vapi.threads().then(d => {
+      setThreads(d.threads);
+      const requested = requestedThreadId && d.threads.find(t => String(t.id) === requestedThreadId);
+      setActiveId(prev => {
+        if (requested) return requested.id;
+        if (prev && d.threads.some(t => t.id === prev)) return prev;
+        return d.threads.length ? d.threads[0].id : null;
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedThreadId, dataVersion]);
   useEffect(() => { if (activeId) vapi.thread(activeId).then(d => setActive(d.thread)); }, [activeId, dataVersion]);
+
+  // No WebSocket/push infra in this app yet — polling the open thread is the
+  // lazy stand-in for "real time": a few seconds of lag instead of a socket
+  // server, connection handling, and auth-over-socket for one feature.
+  useEffect(() => {
+    if (!activeId) return;
+    const interval = setInterval(() => {
+      vapi.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread)));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeId]);
+
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [active?.messages?.length]);
 
   const send = async () => {

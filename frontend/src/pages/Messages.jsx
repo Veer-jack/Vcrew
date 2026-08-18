@@ -50,6 +50,17 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, dataVersion]);
 
+  // No WebSocket/push infra in this app yet — polling the open thread is the
+  // lazy stand-in for "real time": a few seconds of lag instead of a socket
+  // server, connection handling, and auth-over-socket for one feature.
+  useEffect(() => {
+    if (!activeId) return;
+    const interval = setInterval(() => {
+      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread)));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeId]);
+
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [active?.messages?.length]);

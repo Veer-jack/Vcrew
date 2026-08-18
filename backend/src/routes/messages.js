@@ -103,7 +103,7 @@ router.post("/threads/:id/messages", async (req, res) => {
   
   // Bridge: Trigger notification to the validator
   if (t.validator_id) {
-    setImmediate(() => notifyNewMessage(t.validator_id, req.builder.name));
+    setImmediate(() => notifyNewMessage(t.validator_id, req.builder.name, t.id));
   }
 
   res.status(201).json({ message: { from: "me", text, time: "Just now" } });
@@ -119,7 +119,7 @@ router.post("/threads/:id/attachment", upload.single("file"), async (req, res) =
   await db.prepare(`UPDATE threads SET created_at = NOW() WHERE id = ?`).run(t.id);
 
   if (t.validator_id) {
-    setImmediate(() => notifyNewMessage(t.validator_id, req.builder.name));
+    setImmediate(() => notifyNewMessage(t.validator_id, req.builder.name, t.id));
   }
 
   res.status(201).json({ message: { from: "me", attachment: { url: `/api/uploads/${req.file.filename}`, name: req.file.originalname }, time: "Just now" } });

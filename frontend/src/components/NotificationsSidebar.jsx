@@ -63,7 +63,9 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
       return;
     }
     
-    if (n.title.includes("Participant") || n.type === "participant") {
+    if (n.type === "new_message") {
+      navigate(n.target_id ? `/messages?thread=${n.target_id}` : "/messages", { state: { refresh: Date.now() } });
+    } else if (n.title.includes("Participant") || n.type === "participant") {
       navigate(n.missionId ? `/missions/${n.missionId}?tab=participants` : "/missions", { state: { refresh: Date.now() } });
     } else if (n.title.includes("Interview")) {
       navigate(n.missionId ? `/missions/${n.missionId}?tab=interviews` : "/missions", { state: { refresh: Date.now() } });

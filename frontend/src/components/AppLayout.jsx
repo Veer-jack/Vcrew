@@ -27,7 +27,7 @@ const NAV_GROUPS = [
   ] },
 ];
 
-function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed }) {
+function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUnreadCount }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   return (
@@ -50,6 +50,7 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed }) {
             title={collapsed ? t("nav." + it.label.toLowerCase(), null, it.label) : undefined}
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
             <Icon name={it.icon} /><span className="nav-label">{t("nav." + it.label.toLowerCase(), null, it.label)}</span>
+            {it.to === "/messages" && messageUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{messageUnreadCount}</span>}
           </NavLink>
         )),
       ])}
@@ -136,11 +137,12 @@ export default function AppLayout() {
   }, [location.pathname]);
 
   const unreadCount = notifs.filter(n => n.unread).length;
+  const messageUnreadCount = notifs.filter(n => n.unread && n.type === "new_message").length;
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""} ${collapsed ? "side-collapsed" : ""}`}>
       <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
-      <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} />
+      <Sidebar mobOpen={mobOpen} closeMobile={() => setMobOpen(false)} builder={builder} collapsed={collapsed} onToggleCollapsed={toggleCollapsed} messageUnreadCount={messageUnreadCount} />
       <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
