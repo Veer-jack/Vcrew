@@ -42,6 +42,7 @@ async function serializeThread(t, withMessages, lang) {
     const last = msgs[msgs.length - 1];
     const lastText = last ? (bodyOf(last) || (last.attachment_path ? `📎 ${last.attachment_name}` : "")) : "";
     out.last = last ? (last.sender_role === "validator" ? `You: ${lastText}` : lastText) : "";
+    out.unread = last && last.sender_role !== "validator" && (!t.validator_read_at || new Date(last.created_at) > new Date(t.validator_read_at)) ? 1 : 0;
   }
   return out;
 }
@@ -72,6 +73,7 @@ router.get("/threads/:id", async (req, res) => {
   // clear its unread notification — otherwise the Messages sidebar badge
   // stays stuck until the user happens to open the bell panel separately.
   await db.prepare(`UPDATE v_notifications SET unread = 0 WHERE validator_id = ? AND type = 'new_message' AND target_id = ?`).run(req.validator.id, t.id);
+  await db.prepare(`UPDATE threads SET validator_read_at = NOW() WHERE id = ?`).run(t.id);
   res.json({ thread: await serializeThread(t, true, req.validator.preferred_language) });
 });
 

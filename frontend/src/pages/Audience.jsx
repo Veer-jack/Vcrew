@@ -349,8 +349,11 @@ export default function AudienceExplorer() {
           {Object.entries(filters).map(([g, opts]) => (
             <div key={g} className={`fgroup ${closed.has(g) ? "closed" : ""}`}>
               <button className="fgroup-h" onClick={() => toggleGroup(g)}>
-                <span>{trFilterLabel(t, g)}{sel[g]?.size > 0 && <span className="mono" style={{ color: "var(--accent)", fontWeight: 700, textTransform: "none" }}> ({sel[g].size})</span>}</span>
-                <Icon name="chevronDown" size={15} />
+                <span>{trFilterLabel(t, g)}</span>
+                <span className="row gap-2" style={{ alignItems: "center", flexShrink: 0 }}>
+                  {sel[g]?.size > 0 && <span className="mono" style={{ color: "var(--accent)", fontWeight: 700, textTransform: "none" }}>({sel[g].size})</span>}
+                  <Icon name="chevronDown" size={15} />
+                </span>
               </button>
               <div className="fgroup-body">
                 {Array.isArray(opts) ? opts.map(o => {
@@ -430,20 +433,14 @@ export default function AudienceExplorer() {
                     <MatchRing value={m.match} />
                   </div>
                   <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
-                  <div className="aud-sub">{trFilterLabel(t, m.occ)} · {trFilterLabel(t, m.city)}<br /><span className="mono">{trFilterLabel(t, m.role)}</span></div>
+                  <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
                   <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
                   <div className="aud-trust-row">
-                    {m.trust >= 90 && (
+                    {m.trust > 0 ? (
                       <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
-                        <Icon name="award" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.trust", null, "Trust")} 90+
+                        <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
                       </span>
-                    )}
-                    {m.trust > 0 && m.trust < 90 && (
-                      <span className="mtag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)", border: "none" }}>
-                        {t("audience.trust", null, "Trust")} {m.trust}
-                      </span>
-                    )}
-                    {m.trust === 0 && (
+                    ) : (
                       <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none" }}>
                         <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                       </span>
@@ -451,8 +448,8 @@ export default function AudienceExplorer() {
                   </div>
                   <div className="muted" style={{ fontSize: 11.5 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</div>
                   <div className="aud-card-actions">
-                    <Btn variant="outline" size="sm" icon="eye" onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
-                    <Btn variant="outline" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
+                    <Btn variant="ghost" size="sm" icon="eye" onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
+                    <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
                   </div>
                 </div>
               ))}

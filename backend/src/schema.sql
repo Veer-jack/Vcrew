@@ -299,7 +299,9 @@ CREATE TABLE IF NOT EXISTS threads (
   validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
   mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL,
   subject TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  builder_read_at TIMESTAMPTZ,
+  validator_read_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS thread_messages (

@@ -1574,6 +1574,7 @@ const ur = {
     thMatch: "میچ %",
     thVerified: "تصدیق شدہ",
     establishingTrust: "ٹرسٹ کا قیام",
+    buildingTrust: "ٹرسٹ کی تعمیر",
     yes: "جی ہاں",
     no: "نہیں",
     discovery: "دریافت",

@@ -61,7 +61,7 @@ function StepInfo({ d, set, categories, showErrors }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other" }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other", clearableWhenImplied = false }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
@@ -103,9 +103,12 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{impliedAll ? t("createMission.includedViaWorldwide", null, "Included via Worldwide") : t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
-          {onSelectAll && !impliedAll && (
+          {onSelectAll && (!impliedAll || clearableWhenImplied) && (
             <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
-              {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+              {/* impliedAll means every chip already reads as selected via Worldwide,
+                  not via this group's own Set — allSelected wouldn't reflect that,
+                  so the label has to check impliedAll first. */}
+              {impliedAll || allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
         </div>
@@ -205,9 +208,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
               {d.filters[g].size > 0 && (
                 <span className="cnt mono" style={{ color: "var(--accent)" }}>
-                  {g === GEO_GROUP && d.filters[GEO_GROUP].has(WORLDWIDE)
-                    ? t("createMission.includedViaWorldwide", null, "Included via Worldwide")
-                    : t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
+                  {t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
                 </span>
               )}
             </div>
@@ -233,6 +234,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                   otherValue={subOther || "Other"}
                   onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
                   impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
+                  clearableWhenImplied={subOpts.includes(WORLDWIDE)}
                 />
               );
             })

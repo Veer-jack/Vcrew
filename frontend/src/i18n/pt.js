@@ -1574,6 +1574,7 @@ const pt = {
     thMatch: "% de correspondência",
     thVerified: "Verificado",
     establishingTrust: "Estabelecendo Confiança",
+    buildingTrust: "Construindo Confiança",
     yes: "Sim",
     no: "Não",
     discovery: "Descoberta",

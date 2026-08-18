@@ -1574,6 +1574,7 @@ const bn = {
     thMatch: "মিল %",
     thVerified: "যাচাই করা হয়েছে",
     establishingTrust: "ট্রাস্ট প্রতিষ্ঠা করা",
+    buildingTrust: "ট্রাস্ট গড়ে তোলা",
     yes: "হ্যাঁ",
     no: "না",
     discovery: "আবিষ্কার",

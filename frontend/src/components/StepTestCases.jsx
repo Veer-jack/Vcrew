@@ -333,7 +333,7 @@ export default function StepTestCases({ d, set }) {
       setFallbackReason(null);
       toast.error(t("testCases.generateFailed", null, "Failed to generate test cases. Make sure the backend server is running and AI services are configured."));
     }
-    set({ genFor: { cat: d.cat, ptype: d.ptype, platforms: form.platforms, goals: form.goals, users: form.users } });
+    set({ genFor: { cat: d.cat, ptype: d.ptype, desc: form.desc, url: form.url, platforms: form.platforms, goals: form.goals, users: form.users } });
   };
 
   const FALLBACK_REASON_COPY = {
@@ -484,13 +484,15 @@ export default function StepTestCases({ d, set }) {
               </div>
             )}
             {d.genFor && !(d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
-              JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms)
+              d.genFor.desc !== form.desc
+              || d.genFor.url !== form.url
+              || JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms)
               || JSON.stringify(d.genFor.goals) !== JSON.stringify(form.goals)
               || d.genFor.users !== form.users
             ) && (
               <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
                 <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
-                <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.filtersChangedWarning", null, "Platform, validation goals or target users changed since these were generated — regenerate to match your latest selections.")}</span>
+                <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.filtersChangedWarning", null, "Something changed since these were generated — regenerate to match your latest inputs.")}</span>
               </div>
             )}
             {tasks.map((t, i) => (

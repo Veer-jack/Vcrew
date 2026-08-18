@@ -44,7 +44,10 @@ async function serializeThread(t, withMessages, lang) {
     const last = msgs[msgs.length - 1];
     const lastText = last ? (bodyOf(last) || (last.attachment_path ? `📎 ${last.attachment_name}` : "")) : "";
     out.last = last ? (last.sender_role === "builder" ? `You: ${lastText}` : lastText) : "";
-    out.unread = last && last.sender_role === "validator" ? 1 : 0;
+    // Real read-tracking, not just "last message wasn't mine" — that older
+    // heuristic never cleared once you'd actually read a reply, so a thread
+    // stayed marked unread forever after the other person's last message.
+    out.unread = last && last.sender_role !== "builder" && (!t.builder_read_at || new Date(last.created_at) > new Date(t.builder_read_at)) ? 1 : 0;
   }
   return out;
 }
@@ -93,6 +96,7 @@ router.get("/threads/:id", async (req, res) => {
   // clear its unread notification — otherwise the Messages sidebar badge
   // stays stuck until the user happens to open the bell panel separately.
   await db.prepare(`UPDATE notifications SET unread = 0 WHERE builder_id = ? AND type = 'new_message' AND target_id = ?`).run(req.builder.id, t.id);
+  await db.prepare(`UPDATE threads SET builder_read_at = NOW() WHERE id = ?`).run(t.id);
   res.json({ thread: await serializeThread(t, true, req.builder.preferred_language) });
 });
 

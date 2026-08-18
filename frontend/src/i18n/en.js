@@ -1576,6 +1576,7 @@ const en = {
     thMatch: "Match %",
     thVerified: "Verified",
     establishingTrust: "Establishing Trust",
+    buildingTrust: "Building Trust",
     yes: "Yes",
     no: "No",
     discovery: "Discovery",

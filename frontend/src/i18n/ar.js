@@ -1574,6 +1574,7 @@ const ar = {
     thMatch: "نسبة المطابقة",
     thVerified: "تم التحقق منه",
     establishingTrust: "بناء الثقة",
+    buildingTrust: "تعزيز الثقة",
     yes: "نعم",
     no: "لا",
     discovery: "اكتشاف",

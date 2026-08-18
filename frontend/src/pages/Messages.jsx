@@ -61,6 +61,18 @@ export default function Messages() {
     return () => clearInterval(interval);
   }, [activeId]);
 
+  // The message poll above only refreshes the thread that's currently open —
+  // a new message landing in a *different* conversation wouldn't move it up
+  // or update its preview until the page was reloaded. Keeps activeId as-is,
+  // unlike the initial load effect, so this doesn't fight the user's own
+  // thread selection.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      api.threads().then(d => setThreads(d.threads));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Keyed on activeId too, not just message count — a notification deep-link
   // into a thread that was already open (same id, new message just polled
   // in) never changed messages.length by the time this ran, so the view
@@ -110,7 +122,10 @@ export default function Messages() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="row between" style={{ gap: 6 }}><b style={{ fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.name}</b><span className="feed-time" style={{ flex: "none" }}>{th.time}</span></div>
                 <div className="faint" style={{ fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.mission}</div>
-                <div className="muted" style={{ fontSize: 12.5, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.last}</div>
+                <div className="row between" style={{ gap: 6, marginTop: 3 }}>
+                  <div className={th.unread ? undefined : "muted"} style={{ fontSize: 12.5, fontWeight: th.unread ? 700 : 400, color: th.unread ? "var(--text)" : undefined, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.last}</div>
+                  {!!th.unread && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />}
+                </div>
               </div>
             </button>
           ))}

@@ -1574,6 +1574,7 @@ const ru = {
     thMatch: "% совпадений",
     thVerified: "Проверено",
     establishingTrust: "Установление доверия",
+    buildingTrust: "Наращивание доверия",
     yes: "Да",
     no: "Нет",
     discovery: "Открытие",

@@ -1574,6 +1574,7 @@ const hi = {
     thMatch: "मिलान %",
     thVerified: "सत्यापित",
     establishingTrust: "ट्रस्ट की स्थापना",
+    buildingTrust: "ट्रस्ट का निर्माण",
     yes: "हाँ",
     no: "नहीं",
     discovery: "खोज",

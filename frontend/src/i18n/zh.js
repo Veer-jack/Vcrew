@@ -1574,6 +1574,7 @@ const zh = {
     thMatch: "匹配%",
     thVerified: "已验证",
     establishingTrust: "建立信任",
+    buildingTrust: "信任提升中",
     yes: "是的",
     no: "否",
     discovery: "发现",
