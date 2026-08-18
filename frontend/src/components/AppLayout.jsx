@@ -8,6 +8,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { useTranslation } from "../i18n/index.jsx";
 import { BrandLogoFull, BrandMark } from "./BrandMark";
 import NotificationsSidebar from "./NotificationsSidebar";
+import HoverTooltips from "./HoverTooltips";
 
 
 
@@ -30,8 +31,10 @@ const NAV_GROUPS = [
 function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUnreadCount }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const sideRef = useRef(null);
   return (
-    <aside className="side">
+    <aside className="side" ref={sideRef}>
+      <HoverTooltips containerRef={sideRef} />
       <div className="brand">
         {collapsed ? (
           // Same slot does double duty, like ChatGPT's sidebar: the logo mark
