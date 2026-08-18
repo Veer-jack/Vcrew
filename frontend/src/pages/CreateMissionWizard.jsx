@@ -279,7 +279,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
             </div>
           </div>
         )}
-        <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`}>
+        <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="number" min="1" max="500" value={d.reward.participants}
             onChange={e => set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } })}
@@ -292,7 +292,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
           {overAudienceCount && (
             <p className="fhint" style={{ color: "var(--danger)" }}>
               <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match your selected audience — lower this or widen your audience filters in step 4.`)}
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience — widen your filters in step 4.`)}
             </p>
           )}
         </div>

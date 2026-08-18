@@ -1867,7 +1867,7 @@ const ru = {
     perParticipant: "за участника",
     numberOfParticipantsLabel: "Количество участников",
     participantsHint: "Мы рекомендуем 80–150 для статистически полезной обратной связи. Максимум 500 участников.",
-    participantsExceedAudience: "Только {{count}} валидаторов соответствуют выбранной аудитории — уменьшите число или расширьте фильтры аудитории на шаге 4.",
+    participantsExceedAudience: "Только {{count}} валидаторов соответствуют этой аудитории — расширьте фильтры на шаге 4.",
     liveCostEstimate: "Прямая оценка стоимости",
     perParticipantsBreakdown: "Участники {{per}} × {{n}}",
     sampleFulfilmentBreakdown: "Образец выполнения × {{n}}",

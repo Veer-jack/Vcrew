@@ -1867,7 +1867,7 @@ const hi = {
     perParticipant: "प्रति प्रतिभागी",
     numberOfParticipantsLabel: "प्रतिभागियों की संख्या",
     participantsHint: "हम सांख्यिकीय रूप से उपयोगी फीडबैक के लिए 80-150 की अनुशंसा करते हैं। अधिकतम 500 प्रतिभागी.",
-    participantsExceedAudience: "आपके चुने गए ऑडियंस से केवल {{count}} वैलिडेटर मेल खाते हैं — इसे कम करें या चरण 4 में अपने ऑडियंस फ़िल्टर बढ़ाएं।",
+    participantsExceedAudience: "इस ऑडियंस से केवल {{count}} वैलिडेटर मेल खाते हैं — चरण 4 में फ़िल्टर बढ़ाएं।",
     liveCostEstimate: "लाइव लागत अनुमान",
     perParticipantsBreakdown: "{{per}} × {{n}} प्रतिभागी",
     sampleFulfilmentBreakdown: "नमूना पूर्ति × {{n}}",

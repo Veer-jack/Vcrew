@@ -1867,7 +1867,7 @@ const ur = {
     perParticipant: "فی شریک",
     numberOfParticipantsLabel: "شرکاء کی تعداد",
     participantsHint: "ہم شماریاتی طور پر مفید تاثرات کے لیے 80-150 تجویز کرتے ہیں۔ زیادہ سے زیادہ 500 شرکاء۔",
-    participantsExceedAudience: "آپ کے منتخب کردہ سامعین سے صرف {{count}} تصدیق کنندگان میل کھاتے ہیں — یہ تعداد کم کریں یا مرحلہ 4 میں سامعین کے فلٹرز کو وسیع کریں۔",
+    participantsExceedAudience: "اس سامعین سے صرف {{count}} تصدیق کنندگان میل کھاتے ہیں — مرحلہ 4 میں فلٹرز کو وسیع کریں۔",
     liveCostEstimate: "لائیو لاگت کا تخمینہ",
     perParticipantsBreakdown: "{{per}} × {{n}} شرکاء",
     sampleFulfilmentBreakdown: "نمونہ کی تکمیل × {{n}}",

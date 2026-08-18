@@ -1867,7 +1867,7 @@ const zh = {
     perParticipant: "每个参与者",
     numberOfParticipantsLabel: "参加人数",
     participantsHint: "我们建议 80-150 以获得统计上有用的反馈。最多 500 名参与者。",
-    participantsExceedAudience: "只有 {{count}} 名验证者符合您所选的受众——请减少人数，或在第 4 步扩大受众筛选范围。",
+    participantsExceedAudience: "只有 {{count}} 名验证者符合此受众——请在第 4 步扩大筛选范围。",
     liveCostEstimate: "生活成本估算",
     perParticipantsBreakdown: "{{per}} × {{n}} 参与者",
     sampleFulfilmentBreakdown: "样品履行 × {{n}}",

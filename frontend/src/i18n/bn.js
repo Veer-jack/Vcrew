@@ -1867,7 +1867,7 @@ const bn = {
     perParticipant: "প্রতি অংশগ্রহণকারী",
     numberOfParticipantsLabel: "অংশগ্রহণকারীদের সংখ্যা",
     participantsHint: "পরিসংখ্যানগতভাবে কার্যকর প্রতিক্রিয়ার জন্য আমরা 80-150 সুপারিশ করি। সর্বোচ্চ 500 জন অংশগ্রহণকারী।",
-    participantsExceedAudience: "আপনার নির্বাচিত অডিয়েন্সের সাথে মাত্র {{count}} জন ভ্যালিডেটর মেলে — এই সংখ্যা কমান বা ধাপ ৪-এ আপনার অডিয়েন্স ফিল্টার প্রসারিত করুন।",
+    participantsExceedAudience: "এই অডিয়েন্সের সাথে মাত্র {{count}} জন ভ্যালিডেটর মেলে — ধাপ ৪-এ ফিল্টার প্রসারিত করুন।",
     liveCostEstimate: "লাইভ খরচ অনুমান",
     perParticipantsBreakdown: "{{per}} × {{n}} অংশগ্রহণকারীরা",
     sampleFulfilmentBreakdown: "নমুনা পূর্ণতা × {{n}}",
