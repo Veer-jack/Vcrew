@@ -301,6 +301,11 @@ html[data-direction="signal"] .wz-head .step-of { color: var(--accent-2); }
 .wz-foot { position: fixed; bottom: 0; left: 0; right: 0; z-index: 35; display: flex; align-items: center; gap: 14px;
   padding: 13px 28px; background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px) saturate(1.4); border-top: var(--hairline) solid var(--border); }
+/* The rail layout's footer previously centered itself across the *full*
+   viewport width, ignoring the 264px sidebar sitting on top of it — so its
+   left-aligned Back/Cancel buttons landed under/behind the sidebar instead
+   of lining up with the content column above them. */
+.wz[data-layout="rail"] .wz-foot { left: 264px; }
 .wz-foot-inner { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 1100px; margin: 0 auto; }
 .wz-foot .fprog { font-family: var(--mono); font-size: 12px; color: var(--text-faint); }
 .wz-foot .fprog b { color: var(--text); }
@@ -585,6 +590,7 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   .wz-head h2 { font-size: 22px; }
   .wz-head { margin-bottom: 20px; }
   .wz-foot { padding: 11px 18px; }
+  .wz[data-layout="rail"] .wz-foot { left: 0; }
   .wz-foot .fprog { display: none; }
   .m2, .m3, .fgrid.c2, .optcards, .optcards.c2 { grid-template-columns: 1fr; }
   .sticky-side { position: static; }

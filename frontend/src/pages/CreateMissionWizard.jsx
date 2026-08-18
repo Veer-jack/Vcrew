@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
+import { Modal } from "../components/Modal";
 import React from 'react';
 import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
@@ -1039,22 +1040,15 @@ export default function CreateMissionWizard() {
       </div>
 
       {showExitWarning && (
-        <div style={{ display: "contents" }}>
-          <div className="notif-overlay" onClick={() => setShowExitWarning(false)} />
-          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 400, maxWidth: "92vw", zIndex: 61,
-            background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
-            <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
-              <b style={{ fontSize: 15 }}>{t("createMission.unsavedChangesTitle", null, "Unsaved Changes")}</b>
-            </div>
-            <div style={{ padding: 20 }}>
-              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved and will be restored if you come back.")}</p>
-              <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-                <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
-                <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
-              </div>
+        <Modal title={t("createMission.unsavedChangesTitle", null, "Unsaved Changes")} onClose={() => setShowExitWarning(false)} width={400} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved and will be restored if you come back.")}</p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
+              <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
