@@ -40,12 +40,42 @@ function VNotifPanel({ onClose, items, setItems }) {
   const cats = [
     { k: "all", l: t("vLayout.catAll", null, "All") }, { k: "invite", l: t("vLayout.catInvitations", null, "Invitations") },
     { k: "mission", l: t("vLayout.catMissions", null, "Missions") }, { k: "alert", l: t("vLayout.catApplications", null, "Applications") },
+    { k: "message", l: t("vLayout.catMessages", null, "Messages") },
     { k: "reward", l: t("vLayout.catRewards", null, "Rewards") }, { k: "system", l: t("vLayout.catSystem", null, "System") },
   ];
 
   const markAll = async () => { await vapi.markAllRead(); setItems(its => its.map(i => ({ ...i, unread: false }))); };
   const clearAll = async () => { await vapi.clearAllNotifications(); setItems([]); };
   const navigate = useNavigate();
+
+  // Each entry builds the path for a target_id-bearing mission notification.
+  // Routes to the dedicated workflow page for that action where one exists
+  // (schedule/poll/shipment/workspace) instead of dumping everyone on the
+  // generic mission page regardless of what actually happened.
+  const MISSION_TAB_ROUTE = {
+    mission_full: id => `/validator/missions/${id}`,
+    new_mission: id => `/validator/missions/${id}`,
+    slot_available: id => `/validator/missions/${id}`,
+    waitlist_invite: id => `/validator/missions/${id}`,
+    mission_invite: id => `/validator/missions/${id}`,
+    mission_updated: id => `/validator/missions/${id}`,
+    removed: () => `/validator/missions`,
+    invite_cancelled: () => `/validator/missions`,
+    stage_update: id => `/validator/missions/${id}/workspace`,
+    interview_completed: id => `/validator/missions/${id}/workspace`,
+    focus_completed: id => `/validator/missions/${id}/workspace`,
+    shipped: id => `/validator/missions/${id}/shipment`,
+    schedule_proposed: id => `/validator/missions/${id}/schedule`,
+    poll_created: id => `/validator/missions/${id}/poll`,
+    poll_restarted: id => `/validator/missions/${id}/poll`,
+    poll_locked: id => `/validator/missions/${id}/poll`,
+    submission_approved: () => `/validator/missions?tab=completed`,
+    mission_completed: () => `/validator/missions?tab=completed`,
+    submission_rejected: () => `/validator/missions?tab=rejected`,
+    submission_revision: () => `/validator/missions?tab=active`,
+    mission_failed: () => `/validator/missions?tab=closed`,
+  };
+
   const open = (n) => {
     // Mark-as-read is fire-and-forget — the click should close the panel
     // and navigate immediately, not wait on a network round-trip first.
@@ -54,24 +84,37 @@ function VNotifPanel({ onClose, items, setItems }) {
       setItems(its => its.map(i => i.id === n.id ? { ...i, unread: false } : i));
       vapi.markRead(n.id).catch(() => {});
     }
-    if ((n.type === 'mission_full' || n.type === 'new_mission' || n.type === 'slot_available') && n.target_id) {
-      onClose();
-      navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
-    } else if (n.type === 'submission_approved' || n.type === 'mission_completed') {
-      onClose();
-      navigate(`/validator/missions?tab=completed`, { state: { refresh: Date.now() } });
-    } else if (n.type === 'submission_rejected') {
-      onClose();
-      navigate(`/validator/missions?tab=rejected`, { state: { refresh: Date.now() } });
-    } else if (n.type === 'submission_revision') {
-      onClose();
-      navigate(`/validator/missions?tab=active`, { state: { refresh: Date.now() } });
-    } else if (n.type === 'support_update' || n.title?.includes("Support Update")) {
-      onClose();
-      navigate(`/validator/support?tab=tickets`, { state: { refresh: Date.now() } });
+    onClose();
+    const go = (path) => navigate(path, { state: { refresh: Date.now() } });
+
+    if (n.type === 'new_message') {
+      go(n.target_id ? `/validator/messages?thread=${n.target_id}` : "/validator/messages");
+    } else if (n.type === 'ticket_reply') {
+      go(`/validator/support?tab=tickets`);
+    } else if (n.type === 'verified') {
+      go(`/validator/profile`);
+    } else if (n.type === 'payout') {
+      go(`/validator/earnings`);
+    } else if (n.type && MISSION_TAB_ROUTE[n.type]) {
+      go(MISSION_TAB_ROUTE[n.type](n.target_id));
+    // Everything below has no `type` column at all (see notificationsHelper.js
+    // call sites without one, and the untyped inserts in missions.js/vearnings.js/
+    // sweepFailures.js) — title is the only signal available to route them.
+    } else if (!n.type && n.title?.includes("Submission received") && n.target_id) {
+      go(`/validator/missions/${n.target_id}/submitted`);
+    } else if (!n.type && n.title === "Mission Failed") {
+      go(`/validator/missions?tab=closed`);
+    } else if (!n.type && n.title?.includes("Level Up")) {
+      go(`/validator/profile`);
+    } else if (!n.type && n.title?.includes("Withdrawal")) {
+      go(`/validator/earnings`);
     } else if (n.target_id) {
-      onClose();
-      navigate(`/validator/missions/${n.target_id}`, { state: { refresh: Date.now() } });
+      go(`/validator/missions/${n.target_id}`);
+    } else {
+      // No target to deep-link to (tester-application decision, the
+      // account-created welcomes) — dashboard beats doing nothing when the
+      // panel already closed on click.
+      go("/validator");
     }
   };
 
@@ -175,18 +218,32 @@ export default function VLayout() {
   }, [showProfile]);
 
   const unreadCount = notifs.filter(n => n.unread).length;
-  const supportUnreadCount = notifs.filter(n => n.unread && (n.type === 'support_update' || n.title?.includes("Support Update"))).length;
+  // 'support_update'/"Support Update" never matched anything real — the
+  // actual notification is type 'ticket_reply', title "Support Reply".
+  const supportUnreadCount = notifs.filter(n => n.unread && n.type === 'ticket_reply').length;
+  const messageUnreadCount = notifs.filter(n => n.unread && n.type === 'new_message').length;
 
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""} ${collapsed ? "side-collapsed" : ""}`}>
       <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
       <aside className="side">
         <div className="brand">
-          <a href="/validator" style={{ display: "block" }}>{collapsed ? <BrandMark size={34} /> : <BrandLogoFull height={52} />}</a>
-          <button type="button" className="side-collapse-btn" onClick={toggleCollapsed}
-            title={collapsed ? t("appLayout.expandSidebar", null, "Expand sidebar") : t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
-            <Icon name={collapsed ? "chevronRight" : "chevronLeft"} size={15} />
-          </button>
+          {collapsed ? (
+            // Same slot does double duty, like ChatGPT's sidebar: the logo mark
+            // sits there at rest, and swaps to the expand icon on hover instead
+            // of permanently showing a separate toggle button next to it.
+            <button type="button" className="brand-swap" onClick={toggleCollapsed} data-tooltip={t("appLayout.expandSidebar", null, "Open sidebar")}>
+              <span className="brand-swap-logo"><BrandMark size={34} /></span>
+              <span className="brand-swap-toggle"><Icon name="sidebarPanel" size={16} /></span>
+            </button>
+          ) : (
+            <>
+              <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
+              <button type="button" className="side-collapse-btn" onClick={toggleCollapsed} data-tooltip={t("appLayout.collapseSidebar", null, "Close sidebar")}>
+                <Icon name="sidebarPanel" size={15} />
+              </button>
+            </>
+          )}
         </div>
         {NAV_GROUPS.flatMap(g => [
           <div key={g.label} className="nav-group-label">{t("nav." + g.tKey, null, g.label)}</div>,
@@ -202,16 +259,17 @@ export default function VLayout() {
             const itLabel = t("nav." + (it.tKey || it.label.toLowerCase().replace(/ /g, "")), null, it.label);
             return (
               <Link key={it.to} to={it.to} onClick={() => setMobOpen(false)}
-                title={collapsed ? itLabel : undefined}
+                data-tooltip={collapsed ? itLabel : undefined}
                 className={`nav-item ${customActive ? "active" : ""}`}>
                 <Icon name={it.icon} /><span className="nav-label">{itLabel}</span>
                 {it.to === "/validator/support" && supportUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{supportUnreadCount}</span>}
+                {it.to === "/validator/messages" && messageUnreadCount > 0 && <span className="nav-badge" style={{ marginLeft: "auto", background: "var(--danger)", color: "#fff", padding: "2px 6px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>{messageUnreadCount}</span>}
               </Link>
             );
           }),
         ])}
         <div className="side-foot">
-          <button onClick={() => navigate("/validator/profile")} title={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block" }}>
+          <button onClick={() => navigate("/validator/profile")} data-tooltip={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block" }}>
             <div className="lvl-card">
               <div className="lvl-top">
                 <VAvatar name={validator?.name || ""} size={36} />

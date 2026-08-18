@@ -13,6 +13,18 @@ import { trFilterLabel } from "../data/audienceFilterLabels";
 
 const EMPTY_SEL = (filters) => Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 
+const COUNTRY_MAP = {
+  "India": ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"]
+};
+
+// Country used to be a single string on the profile; it's now multi-select,
+// but older saved profiles still have the scalar shape — normalize both to
+// an array so every reader below can treat it uniformly.
+const profileCountries = (profile) => {
+  const c = profile?.country;
+  return Array.isArray(c) ? c.filter(Boolean) : (c ? [c] : []);
+};
+
 // Defaults the filter panel to whatever the builder picked on the Audience step during
 // onboarding (real values, same taxonomy — Demographics/Professional/Interests match
 // exactly). State/City were free text there, not checkboxes here, so those carry
@@ -21,18 +33,43 @@ function defaultSelFromProfile(filters, profile) {
   const sel = EMPTY_SEL(filters);
   if (!profile) return sel;
   const add = (group, values) => { (values || []).forEach(v => v && sel[group] && sel[group].add(v)); };
-  add("Demographics", profile.ageBands);
-  add("Demographics", (profile.genders || []).filter(g => g !== "Any"));
-  add("Demographics", profile.incomeBands);
+  // Demographics specifically also gets checked against the *current* known
+  // option list — selToProfilePatch's reverse mapping below does the same
+  // filtering, and without this the two directions are asymmetric: a stale
+  // ageBand/gender/income value from before the option list changed would
+  // load into sel fine, then silently vanish from the saved profile the
+  // moment the reverse sync runs, even with zero user interaction.
+  const addKnown = (group, values, known) => { (values || []).forEach(v => v && known?.includes(v) && sel[group] && sel[group].add(v)); };
+  addKnown("Demographics", profile.ageBands, filters.Demographics?.Age);
+  addKnown("Demographics", (profile.genders || []).filter(g => g !== "Any"), filters.Demographics?.Gender);
+  addKnown("Demographics", profile.incomeBands, filters.Demographics?.["Income Bracket"]);
   add("Professional", profile.occupations);
   add("Interests", profile.interests);
-  if (profile.country && profile.country.trim().toLowerCase() === "india") sel.Geography.add("India");
+  add("ValidationCrew Role", profile.validatorTypes);
+  // Only countries with a known city breakdown map onto a Geography chip —
+  // others have no equivalent checkbox to select (same limitation as before).
+  profileCountries(profile).forEach(c => { if (COUNTRY_MAP[c]) sel.Geography.add(c); });
   return sel;
 }
 
-const COUNTRY_MAP = {
-  "India": ["Bengaluru", "Mumbai", "Delhi NCR", "Hyderabad", "Chennai", "Pune", "Kolkata", "Ahmedabad", "Jaipur"]
-};
+// Reverse of the above — the fields Settings understands, derived from the
+// current Explorer selection, for the bidirectional sync (Explorer edits
+// should update the saved profile, not just read from it). Geography city-
+// level picks and the Demographics-only Marital Status/Has Kids subgroups
+// have no Settings equivalent, so they stay Explorer-local and aren't synced.
+function selToProfilePatch(sel, filters) {
+  const demo = sel.Demographics || new Set();
+  const pick = (list) => [...demo].filter(o => (list || []).includes(o));
+  return {
+    ageBands: pick(filters.Demographics?.Age),
+    genders: pick(filters.Demographics?.Gender),
+    incomeBands: pick(filters.Demographics?.["Income Bracket"]),
+    occupations: [...(sel.Professional || [])],
+    interests: [...(sel.Interests || [])],
+    country: [...(sel.Geography || [])].filter(c => COUNTRY_MAP[c]),
+    validatorTypes: [...(sel["ValidationCrew Role"] || [])],
+  };
+}
 
 const matchOption = (m, g, o) => {
   if (g === "Geography") {
@@ -56,7 +93,7 @@ const matchOption = (m, g, o) => {
 export default function AudienceExplorer() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { builder } = useAuth();
+  const { builder, setBuilder } = useAuth();
   const [members, setMembers] = useState([]);
   const [filters, setFilters] = useState({});
   const [sel, setSel] = useState({});
@@ -65,6 +102,7 @@ export default function AudienceExplorer() {
   const [q, setQ] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [inviteModalValidator, setInviteModalValidator] = useState(null);
+  const [viewProfileValidator, setViewProfileValidator] = useState(null);
   const [visibleCount, setVisibleCount] = useState(50);
   const [usingDefaults, setUsingDefaults] = useState(false);
   const [citySuggestion, setCitySuggestion] = useState("");
@@ -106,6 +144,15 @@ export default function AudienceExplorer() {
           for (const k of Object.keys(parsed.sel || {})) {
             restoredSel[k] = new Set(parsed.sel[k]);
           }
+          // The country(ies) on file can change after this tab's snapshot was
+          // taken (e.g. edited in Settings > Audience & Demographics after
+          // an earlier Explorer visit already cached a stale sessionStorage
+          // entry) — resync just that delta so new countries show up without
+          // discarding the rest of the user's custom filter picks.
+          const savedCountries = new Set((parsed.profileCountries || []).filter(c => COUNTRY_MAP[c]));
+          const liveCountries = new Set(profileCountries(builder?.profile).filter(c => COUNTRY_MAP[c]));
+          for (const c of savedCountries) if (!liveCountries.has(c)) restoredSel.Geography?.delete(c);
+          for (const c of liveCountries) if (!savedCountries.has(c)) restoredSel.Geography?.add(c);
           setSel(restoredSel);
           setQ(parsed.q || "");
           setUsingDefaults(parsed.usingDefaults || false);
@@ -139,10 +186,32 @@ export default function AudienceExplorer() {
       sessionStorage.setItem("audienceFilters", JSON.stringify({
         sel: serializedSel,
         q: q,
-        usingDefaults: usingDefaults
+        usingDefaults: usingDefaults,
+        profileCountries: profileCountries(builder?.profile)
       }));
     }
-  }, [sel, q, usingDefaults, isLoading]);
+  }, [sel, q, usingDefaults, isLoading, builder]);
+
+  // Bidirectional sync: any Explorer filter change also writes back to the
+  // saved profile, so Settings and Explorer always agree — not just the
+  // read direction (profile -> Explorer defaults) above. Skips the write
+  // when nothing the profile understands actually changed, so this doesn't
+  // fire a redundant PATCH on every mount just from re-deriving the same
+  // sel that was itself seeded from the profile a moment ago.
+  useEffect(() => {
+    if (isLoading) return;
+    const timer = setTimeout(() => {
+      const patch = selToProfilePatch(sel, filters);
+      const current = builder?.profile || {};
+      const norm = (v) => JSON.stringify([...(v || [])].sort());
+      const changed = ["ageBands", "genders", "incomeBands", "occupations", "interests", "validatorTypes"].some(k => norm(current[k]) !== norm(patch[k]))
+        || norm(profileCountries(current)) !== norm(patch.country);
+      if (!changed) return;
+      api.updateProfile({ profile: patch }).then(res => setBuilder(res.builder)).catch(() => {});
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel, isLoading, filters]);
 
   const toggle = (g, o) => { setUsingDefaults(false); setSel(p => { const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s }; }); };
   const toggleGroup = (g) => setClosed(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
@@ -272,14 +341,20 @@ export default function AudienceExplorer() {
       <div className="aud">
         <div className="filter-panel">
           <div className="row between" style={{ marginBottom: 16, alignItems: 'center' }}>
-            <b style={{ fontSize: 15, fontWeight: 800 }}>{t("audience.filters", null, "Filters")}</b>
+            <b style={{ fontSize: 15, fontWeight: 800 }}>{t("audience.filters", null, "Filters")}{activeFilters > 0 && <span className="mono" style={{ color: "var(--accent)", fontWeight: 700 }}> ({activeFilters})</span>}</b>
             <button style={{ border: '1px solid var(--border)', borderRadius: 6, padding: '5px 6px', background: 'var(--panel)', color: 'var(--text-muted)', cursor: 'pointer' }}>
               <Icon name="filter" size={14} />
             </button>
           </div>
           {Object.entries(filters).map(([g, opts]) => (
             <div key={g} className={`fgroup ${closed.has(g) ? "closed" : ""}`}>
-              <button className="fgroup-h" onClick={() => toggleGroup(g)}>{trFilterLabel(t, g)}<Icon name="chevronDown" size={15} /></button>
+              <button className="fgroup-h" onClick={() => toggleGroup(g)}>
+                <span>{trFilterLabel(t, g)}</span>
+                <span className="row gap-2" style={{ alignItems: "center", flexShrink: 0 }}>
+                  {sel[g]?.size > 0 && <span className="mono" style={{ color: "var(--accent)", fontWeight: 700, textTransform: "none" }}>({sel[g].size})</span>}
+                  <Icon name="chevronDown" size={15} />
+                </span>
+              </button>
               <div className="fgroup-body">
                 {Array.isArray(opts) ? opts.map(o => {
                   const on = sel[g]?.has(o);
@@ -314,16 +389,18 @@ export default function AudienceExplorer() {
         <div>
           {activeFilters > 0 && (
             <div className="active-filters-bar">
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)" }}>{t("audience.activeFilters", null, "Active Filters")}</span>
-              <div className="row" style={{ flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <div className="row between" style={{ alignItems: "center" }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)" }}>{t("audience.activeFilters", null, "Active Filters")} <span className="mono" style={{ color: "var(--accent)" }}>({activeFilters})</span></span>
+                <button className="backlink" style={{ flexShrink: 0, fontSize: 13, color: "var(--accent)" }} onClick={() => { setSel(EMPTY_SEL(filters)); setUsingDefaults(false); }}>
+                  <Icon name="trash" size={13} style={{ marginRight: 4, verticalAlign: -2 }}/>{t("actions.clearAll", null, "Clear all")}
+                </button>
+              </div>
+              <div className="row afilter-scroll" style={{ gap: 8, alignItems: "center" }}>
                 {Object.entries(sel).map(([g, s]) => [...s].map(o => (
                   <div key={g+o} className="afilter-chip">
                     {trFilterLabel(t, o)} <button onClick={() => toggle(g, o)}><Icon name="x" size={12} /></button>
                   </div>
                 )))}
-                <button className="backlink" style={{ marginLeft: "auto", fontSize: 13, color: "var(--accent)" }} onClick={() => { setSel(EMPTY_SEL(filters)); setUsingDefaults(false); }}>
-                  <Icon name="trash" size={13} style={{ marginRight: 4, verticalAlign: -2 }}/>{t("actions.clearAll", null, "Clear all")}
-                </button>
               </div>
             </div>
           )}
@@ -348,33 +425,30 @@ export default function AudienceExplorer() {
             {results.length === 0 && !isLoading ? (
               <Empty icon="users" title={t("audience.noMembersMatch", null, "No members match these filters")} action={<Btn variant="ghost" icon="refresh" onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); }}>{t("actions.resetFilters", null, "Reset filters")}</Btn>}>{t("audience.tryWidening", null, "Try widening your geography or removing an interest to grow the pool.")}</Empty>
             ) : (
-              <div className="col gap-3">
+              <div className="aud-grid">
                 {results.slice(0, visibleCount).map((m) => (
                   <div className="aud-card rise" key={m.id}>
-                  <Avatar name={m.name} size={46} />
-                  <div className="aud-meta">
-                    <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={14} /> {t("badge.verifiedBuilder", null, "Verified")}</span>}</div>
-                    <div className="aud-sub">{trFilterLabel(t, m.occ)} · {trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
-                    <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
-                    <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</div>
-                  </div>
-                  <div className="aud-right">
+                  <div className="aud-card-top">
+                    <Avatar name={m.name} size={44} />
                     <MatchRing value={m.match} />
-                    {m.trust >= 90 && (
+                  </div>
+                  <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
+                  <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
+                  <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
+                  <div className="aud-trust-row">
+                    {m.trust > 0 ? (
                       <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
-                        <Icon name="award" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.trust", null, "Trust")} 90+
+                        <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
                       </span>
-                    )}
-                    {m.trust > 0 && m.trust < 90 && (
-                      <span className="mtag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)", border: "none" }}>
-                        {t("audience.trust", null, "Trust")} {m.trust}
-                      </span>
-                    )}
-                    {m.trust === 0 && (
+                    ) : (
                       <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none" }}>
                         <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                       </span>
                     )}
+                  </div>
+                  <div className="muted" style={{ fontSize: 11.5 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</div>
+                  <div className="aud-card-actions">
+                    <Btn variant="ghost" size="sm" icon="eye" onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
                     <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
                   </div>
                 </div>
@@ -392,6 +466,39 @@ export default function AudienceExplorer() {
       
       {inviteModalValidator && (
         <InviteToMissionModal validator={inviteModalValidator} onClose={() => setInviteModalValidator(null)} />
+      )}
+      {viewProfileValidator && (
+        <Modal title={t("audience.viewProfileTitle", null, "Validator Profile")} onClose={() => setViewProfileValidator(null)} width={440}>
+          <div style={{ padding: "0 20px 20px" }}>
+            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 18 }}>
+              <Avatar name={viewProfileValidator.name} size={52} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", gap: 6 }}>
+                  {viewProfileValidator.name}
+                  {viewProfileValidator.verified && <span className="verif"><Icon name="checkCircle" size={14} /> {t("badge.verifiedBuilder", null, "Verified")}</span>}
+                </div>
+                <div className="muted" style={{ fontSize: 13 }}>{trFilterLabel(t, viewProfileValidator.occ)} · {trFilterLabel(t, viewProfileValidator.city)} · <span className="mono">{trFilterLabel(t, viewProfileValidator.role)}</span></div>
+              </div>
+            </div>
+            <div className="row gap-3" style={{ marginBottom: 18 }}>
+              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
+                <MatchRing value={viewProfileValidator.match} />
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.matchScore", null, "Match")}</div>
+              </div>
+              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
+                <b style={{ fontSize: 20 }}>{viewProfileValidator.trust > 0 ? viewProfileValidator.trust : "—"}</b>
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.trustScore", null, "Trust score")}</div>
+              </div>
+              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
+                <b style={{ fontSize: 20 }}>{viewProfileValidator.profileCompletion}%</b>
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.profileCompleteShort", null, "Profile complete")}</div>
+              </div>
+            </div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>{t("audience.expertiseTags", null, "Expertise")}</div>
+            <div className="aud-tags" style={{ marginBottom: 20 }}>{(viewProfileValidator.expertise || []).map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
+            <Btn variant="primary" style={{ width: "100%" }} icon="userplus" onClick={() => { setInviteModalValidator(viewProfileValidator); setViewProfileValidator(null); }}>{t("actions.invite", null, "Invite")}</Btn>
+          </div>
+        </Modal>
       )}
       {showRestoreModal && (
         <Modal title={t("audience.restoreTitle", null, "Restore your default audience?")} onClose={() => setShowRestoreModal(false)} width={420}>

@@ -62,26 +62,42 @@ function serializeRow(row) {
 }
 
 // GET /api/v/missions?status=active
+const TASK_UNION = `
+  SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
+  UNION ALL
+  SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
+`;
+
 router.get("/", async (req, res) => {
   const { status } = req.query;
-  let sql = `
-    SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, mm.created_at, mm.updated_at,
-           t.* FROM v_my_missions mm 
-    JOIN (
-      SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
-      UNION ALL
-      SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
-    ) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
-    WHERE mm.validator_id = ?`;
-  const params = [req.validator.id];
-  if (status === "active") {
-    sql += ` AND mm.status IN ('active', 'revision')`;
-  } else if (status) { 
-    sql += ` AND mm.status = ?`; 
-    params.push(status); 
+  let rows;
+  if (status === "saved") {
+    // Bookmarked tasks/missions have no v_my_missions row at all (the
+    // validator never applied) -- joins against v_saved instead, with the
+    // same synthesized status shape serializeRow already expects.
+    rows = await db.prepare(`
+      SELECT NULL::int as mm_id, 'saved'::text as status, NULL::int as progress, NULL::text as quality, NULL::text as reason, NULL::text as status_label,
+             t.* FROM v_saved vs
+      JOIN (${TASK_UNION}) t ON (t.id = vs.task_id)
+      WHERE vs.validator_id = ?
+      ORDER BY vs.id DESC
+    `).all(req.validator.id);
+  } else {
+    let sql = `
+      SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, mm.created_at, mm.updated_at,
+             t.* FROM v_my_missions mm
+      JOIN (${TASK_UNION}) t ON (t.id = mm.task_id OR t.id = mm.mission_id)
+      WHERE mm.validator_id = ?`;
+    const params = [req.validator.id];
+    if (status === "active") {
+      sql += ` AND mm.status IN ('active', 'revision')`;
+    } else if (status) {
+      sql += ` AND mm.status = ?`;
+      params.push(status);
+    }
+    sql += ` ORDER BY mm.updated_at DESC`;
+    rows = await db.prepare(sql).all(...params);
   }
-  sql += ` ORDER BY mm.updated_at DESC`;
-  const rows = await db.prepare(sql).all(...params);
 
   const interviewMissions = rows.filter(r => r.type === "interview").map(r => r.id);
   if (interviewMissions.length > 0) {
@@ -101,7 +117,7 @@ router.get("/", async (req, res) => {
     }
   }
 
-  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0, closed: 0, declined: 0 };
+  const counts = { applied: 0, active: 0, submitted: 0, completed: 0, rejected: 0, closed: 0, declined: 0, saved: 0, invited: 0 };
   const countRows = await db.prepare(`SELECT status, COUNT(*) as c FROM v_my_missions WHERE validator_id = ? GROUP BY status`).all(req.validator.id);
   for (const r of countRows) {
     // "revision" folds into the "active" bucket alongside real 'active' rows
@@ -110,6 +126,10 @@ router.get("/", async (req, res) => {
     const bucket = r.status === "revision" ? "active" : r.status;
     if (counts[bucket] !== undefined) counts[bucket] += Number(r.c);
   }
+  const savedCount = await db.prepare(`SELECT COUNT(*) as c FROM v_saved WHERE validator_id = ?`).get(req.validator.id);
+  counts.saved = Number(savedCount.c) || 0;
+  const invitedCount = await db.prepare(`SELECT COUNT(*) as c FROM mission_invitations WHERE validator_id = ? AND status = 'pending'`).get(req.validator.id);
+  counts.invited = Number(invitedCount.c) || 0;
 
   const missions = rows.map(serializeRow);
 
@@ -232,8 +252,10 @@ router.post("/:taskId/submit", async (req, res) => {
     WHERE id = ?
   `).run(req.validator.id);
 
+  // cat 'mission' (not 'application') \u2014 VNotifPanel's tabs have no
+  // 'application' category, so this would only ever show under "All".
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,1,?)`)
-    .run(req.validator.id, "application", "clock", "accent", "Submission received", `Your validation for ${t.product} is now in review. \u20b9${t.reward} will clear once approved.`, "Just now", t.id);
+    .run(req.validator.id, "mission", "clock", "accent", "Submission received", `Your validation for ${t.product} is now in review. \u20b9${t.reward} will clear once approved.`, "Just now", t.id);
 
   const updated = await db.prepare(`
     SELECT mm.id as mm_id, mm.status, mm.progress, mm.quality, mm.reason, mm.status_label, mm.score, t.*
@@ -265,7 +287,7 @@ router.get("/:id/workspace", async (req, res) => {
   let tasks = [];
   try { tasks = m.tasks_json ? JSON.parse(m.tasks_json) : []; } catch {}
 
-  const response = await db.prepare(`SELECT data_json, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
+  const response = await db.prepare(`SELECT data_json, status, active_seconds FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   let responses = null;
   let isDraft = false;
   let isRevision = false;
@@ -300,12 +322,13 @@ router.get("/:id/workspace", async (req, res) => {
     isRevision,
     revisionReason,
     scheduleStatus,
+    activeSeconds: response?.active_seconds || 0,
   });
 });
 
 // PATCH /api/v/missions/:id/workspace/draft — auto-save workspace draft
 router.patch("/:id/workspace/draft", async (req, res) => {
-  const { answers, curIdx } = req.body || {};
+  const { answers, curIdx, activeSeconds } = req.body || {};
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
@@ -314,22 +337,23 @@ router.patch("/:id/workspace/draft", async (req, res) => {
     const parsedTasks = JSON.parse(m.tasks_json || "[]");
     totalTasks = parsedTasks.length || 1;
   } catch {}
-  
+
   const progressPercent = Math.min(100, Math.max(0, Math.round(((curIdx || 0) / totalTasks) * 100)));
 
   const existing = await db.prepare(`SELECT id, status FROM responses WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  
+
   const draftData = { answers: answers || [], curIdx: curIdx || 0 };
-  
+  const activeSecs = Number.isFinite(activeSeconds) ? Math.max(0, Math.round(activeSeconds)) : null;
+
   if (existing) {
     // Only update if it's currently a draft or revision (don't overwrite a submitted mission)
     if (existing.status === "draft" || existing.status === "revision") {
-      await db.prepare(`UPDATE responses SET data_json = ?, submitted_at = NOW() WHERE id = ?`)
-        .run(JSON.stringify(draftData), existing.id);
+      await db.prepare(`UPDATE responses SET data_json = ?, submitted_at = NOW(), active_seconds = COALESCE(?, active_seconds) WHERE id = ?`)
+        .run(JSON.stringify(draftData), activeSecs, existing.id);
     }
   } else {
-    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'draft', NOW())`)
-      .run(req.params.id, req.validator.id, JSON.stringify(draftData));
+    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at, active_seconds) VALUES (?, ?, ?, 'draft', NOW(), ?)`)
+      .run(req.params.id, req.validator.id, JSON.stringify(draftData), activeSecs);
   }
 
   // Atomically sync the integer progress percentage for the Dashboard
@@ -448,7 +472,8 @@ router.post("/:id/checkin/proof", (req, res, next) => {
 
 // PATCH /api/v/missions/:id/workspace/submit — submit workspace responses
 router.patch("/:id/workspace/submit", async (req, res) => {
-  const { answers } = req.body || {};
+  const { answers, activeSeconds } = req.body || {};
+  const activeSecs = Number.isFinite(activeSeconds) ? Math.max(0, Math.round(activeSeconds)) : null;
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.status !== "active" && m.status !== "live" && m.status !== "published") {
@@ -518,11 +543,11 @@ router.patch("/:id/workspace/submit", async (req, res) => {
         VALUES (?, 'application', 'submission', 'check', 'primary', 'Mission Submitted', ?, 'Just now', 1, ?)
       `).run(m.builder_id, `A validator has completed and submitted their response for ${m.name}.`, req.params.id);
     }
-    await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW() WHERE id = ?`)
-      .run(JSON.stringify(answers || {}), existing.id);
+    await db.prepare(`UPDATE responses SET data_json = ?, status = 'pending', submitted_at = NOW(), active_seconds = COALESCE(?, active_seconds) WHERE id = ?`)
+      .run(JSON.stringify(answers || {}), activeSecs, existing.id);
   } else {
-    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at) VALUES (?, ?, ?, 'pending', NOW())`)
-      .run(req.params.id, req.validator.id, JSON.stringify(answers || {}));
+    await db.prepare(`INSERT INTO responses (mission_id, validator_id, data_json, status, submitted_at, active_seconds) VALUES (?, ?, ?, 'pending', NOW(), ?)`)
+      .run(req.params.id, req.validator.id, JSON.stringify(answers || {}), activeSecs);
     
     await db.prepare(`
       INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)

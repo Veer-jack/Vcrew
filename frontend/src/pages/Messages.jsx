@@ -50,9 +50,37 @@ export default function Messages() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, dataVersion]);
 
+  // No WebSocket/push infra in this app yet — polling the open thread is the
+  // lazy stand-in for "real time": a few seconds of lag instead of a socket
+  // server, connection handling, and auth-over-socket for one feature.
+  useEffect(() => {
+    if (!activeId) return;
+    const interval = setInterval(() => {
+      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread)));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeId]);
+
+  // The message poll above only refreshes the thread that's currently open —
+  // a new message landing in a *different* conversation wouldn't move it up
+  // or update its preview until the page was reloaded. Keeps activeId as-is,
+  // unlike the initial load effect, so this doesn't fight the user's own
+  // thread selection.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      api.threads().then(d => setThreads(d.threads));
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Keyed on activeId too, not just message count — a notification deep-link
+  // into a thread that was already open (same id, new message just polled
+  // in) never changed messages.length by the time this ran, so the view
+  // stayed scrolled wherever it happened to be instead of jumping to the
+  // newest message.
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [active?.messages?.length]);
+  }, [activeId, active?.messages?.length]);
 
   const send = async () => {
     const text = draft.trim();
@@ -94,7 +122,10 @@ export default function Messages() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="row between" style={{ gap: 6 }}><b style={{ fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.name}</b><span className="feed-time" style={{ flex: "none" }}>{th.time}</span></div>
                 <div className="faint" style={{ fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.mission}</div>
-                <div className="muted" style={{ fontSize: 12.5, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.last}</div>
+                <div className="row between" style={{ gap: 6, marginTop: 3 }}>
+                  <div className={th.unread ? undefined : "muted"} style={{ fontSize: 12.5, fontWeight: th.unread ? 700 : 400, color: th.unread ? "var(--text)" : undefined, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{th.last}</div>
+                  {!!th.unread && <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />}
+                </div>
               </div>
             </button>
           ))}

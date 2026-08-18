@@ -204,7 +204,12 @@ CREATE TABLE IF NOT EXISTS responses (
   submitted_at TIMESTAMPTZ DEFAULT NOW(),
   score REAL,
   flagged INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'pending'
+  status TEXT DEFAULT 'pending',
+  -- Accumulated seconds the validator actually had this task's tab visible
+  -- and focused, tracked client-side and reported on every draft save and
+  -- final submit — distinct from submitted_at - joined_at, which counts
+  -- wall-clock time including however long the task sat open unattended.
+  active_seconds INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS activity (
@@ -294,7 +299,9 @@ CREATE TABLE IF NOT EXISTS threads (
   validator_id INTEGER REFERENCES validators(id) ON DELETE CASCADE,
   mission_id TEXT REFERENCES missions(id) ON DELETE SET NULL,
   subject TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  builder_read_at TIMESTAMPTZ,
+  validator_read_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS thread_messages (

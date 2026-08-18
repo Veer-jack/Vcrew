@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { useTranslation } from "../i18n/index.jsx";
 
-export function Modal({ title, children, onClose, width = 500, hideHeader = false, align = "center", bodyScroll = true }) {
+export function Modal({ title, children, onClose, width = 500, hideHeader = false, hideCloseIcon = false, align = "center", bodyScroll = true }) {
   const { t } = useTranslation();
   useEffect(() => {
     const handleEsc = (e) => {
@@ -27,7 +27,7 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
           {!hideHeader && (
             <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)", flexShrink: 0 }}>
               <b style={{ fontSize: 16 }}>{title}</b>
-              <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>
+              {!hideCloseIcon && <button className="icon-btn" aria-label={t("actions.close", null, "Close")} style={{ width: 30, height: 30 }} onClick={onClose}><Icon name="x" size={15} /></button>}
             </div>
           )}
           {hideHeader || !bodyScroll ? (

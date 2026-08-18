@@ -428,8 +428,13 @@ router.post("/", async (req, res) => {
       });
     }
 
+    // A draft's target isn't consuming real capacity yet — it's still being
+    // shaped (and the wizard now silently auto-promotes a new mission to a
+    // draft the moment it has any content, well before the Reward step's
+    // default target of 120 has been reviewed) — so only an actually-active
+    // mission needs to respect the unverified cap here.
     const requestedTarget = Number(b.target) || 0;
-    if (requestedTarget > UNVERIFIED_PARTICIPANT_LIMIT) {
+    if (status === "active" && requestedTarget > UNVERIFIED_PARTICIPANT_LIMIT) {
       return res.status(403).json({
         error: `Unverified accounts can target a maximum of ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock larger campaigns.`,
         code: "VERIFICATION_REQUIRED",
@@ -1320,7 +1325,12 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         status: r.status || "pending",
         quality: r.flagged ? "flagged" : "medium",
         date: new Date(r.submitted_at).toLocaleDateString(),
-        mins: r.joined_at ? Math.max(1, Math.round((new Date(r.submitted_at) - new Date(r.joined_at)) / 60000)) : 20,
+        // Prefer real tracked active time (tab visible + focused) over the
+        // wall-clock join-to-submit span, which balloons to days if the
+        // validator leaves the task open without actually working on it.
+        mins: r.active_seconds != null
+          ? Math.max(1, Math.round(r.active_seconds / 60))
+          : (r.joined_at ? Math.max(1, Math.round((new Date(r.submitted_at) - new Date(r.joined_at)) / 60000)) : 20),
         tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
         breakdown,
         data,

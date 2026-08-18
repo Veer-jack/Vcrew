@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
+import { Modal } from "../components/Modal";
 import React from 'react';
 import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
@@ -60,10 +61,14 @@ function StepInfo({ d, set, categories, showErrors }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other" }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other", clearableWhenImplied = false }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
+  // Uncommitted text for a new "Other" entry — separate from the saved
+  // otherEntries array below, so typing doesn't add a filter until Save.
+  const [draftOther, setDraftOther] = React.useState("");
+  const [addingOther, setAddingOther] = React.useState(false);
   // A caller-driven search (e.g. a modal-wide search bar) takes over this
   // group's own filtering instead of running alongside it — two active
   // queries at once would be confusing and the caller already decided
@@ -74,7 +79,15 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
   const filtered = activeQuery.trim() ? options.filter(o => o.toLowerCase().includes(activeQuery.toLowerCase())) : options;
   if (hasExternalQuery && externalQuery.trim() && filtered.length === 0) return null;
   const isOpen = (hasExternalQuery && externalQuery.trim()) ? true : expanded;
-  const showOtherInput = onOtherTextChange && sel.has(otherValue);
+  const showOtherInput = onOtherEntriesChange && sel.has(otherValue);
+  const savedOther = otherEntries || [];
+  const saveOther = () => {
+    const v = draftOther.trim();
+    if (!v) return;
+    onOtherEntriesChange([...savedOther, v]);
+    setDraftOther("");
+    setAddingOther(false);
+  };
   // Scoped to this group's own options — `sel` is shared across sibling
   // subgroups (e.g. all of Geography's regions share one Set), so counting
   // sel.size directly would show the whole category's total on every
@@ -90,9 +103,12 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{impliedAll ? t("createMission.includedViaWorldwide", null, "Included via Worldwide") : t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
-          {onSelectAll && !impliedAll && (
+          {onSelectAll && (!impliedAll || clearableWhenImplied) && (
             <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
-              {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+              {/* impliedAll means every chip already reads as selected via Worldwide,
+                  not via this group's own Set — allSelected wouldn't reflect that,
+                  so the label has to check impliedAll first. */}
+              {impliedAll || allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
         </div>
@@ -124,13 +140,35 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
             {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
-            <input
-              className="fin"
-              style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
-              placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
-              value={otherText}
-              onChange={e => onOtherTextChange(e.target.value)}
-            />
+            <div style={{ marginTop: 10 }}>
+              {savedOther.length > 0 && (
+                <div className="row" style={{ flexWrap: "wrap", gap: 8, marginBottom: savedOther.length ? 8 : 0 }}>
+                  {savedOther.map((val, i) => (
+                    <div key={i} className="afilter-chip">
+                      {val} <button onClick={() => onOtherEntriesChange(savedOther.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(savedOther.length === 0 || addingOther) ? (
+                <div className="row gap-2" style={{ alignItems: "center" }}>
+                  <input
+                    className="fin"
+                    style={{ fontSize: 13, maxWidth: 220 }}
+                    placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+                    value={draftOther}
+                    onChange={e => setDraftOther(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
+                  />
+                  <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
+                  <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); }}>{t("actions.cancel", null, "Cancel")}</button>
+                </div>
+              ) : (
+                <button type="button" className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={() => setAddingOther(true)}>
+                  <Icon name="plus" size={13} style={{ verticalAlign: -2, marginRight: 4 }} />{t("createMission.addAnotherOther", null, "Add more")}
+                </button>
+              )}
+            </div>
           )}
         </>
       )}
@@ -168,14 +206,18 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           {!Array.isArray(opts) && (
             <div className="row between" style={{ marginBottom: 2 }}>
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
-              {d.filters[g].size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}</span>}
+              {d.filters[g].size > 0 && (
+                <span className="cnt mono" style={{ color: "var(--accent)" }}>
+                  {t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
+                </span>
+              )}
             </div>
           )}
           {Array.isArray(opts) ? (
             <FilterGroup
               title={g} options={opts} sel={d.filters[g]} toggle={toggle}
-              otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
-              onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+              otherEntries={d.otherEntries?.[g]}
+              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries }, audienceTouched: true })}
               onSelectAll={opts => selectAllInGroup(g, opts)}
             />
           ) : (
@@ -187,11 +229,12 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
               return (
                 <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                  otherText={subOther ? (d.otherGeoText || "") : undefined}
-                  onOtherTextChange={subOther ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+                  otherEntries={subOther ? d.otherEntries?.[g] : undefined}
+                  onOtherEntriesChange={subOther ? (entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries }, audienceTouched: true }) : undefined}
                   otherValue={subOther || "Other"}
                   onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
                   impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
+                  clearableWhenImplied={subOpts.includes(WORLDWIDE)}
                 />
               );
             })
@@ -278,9 +321,11 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
             </div>
           </div>
         )}
-        <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`}>
+        <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")} <span className="req-star" aria-hidden="true">*</span></label>
-          <input className="fin" type="number" min="1" max="500" value={d.reward.participants} onChange={e => set({ reward: { ...d.reward, participants: Math.min(500, Math.max(1, +e.target.value)) } })} />
+          <input className="fin" type="number" min="1" max="500" value={d.reward.participants}
+            onChange={e => set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } })}
+            onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }} />
           <p className="fhint">
             {!builder?.verified
               ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)
@@ -289,7 +334,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
           {overAudienceCount && (
             <p className="fhint" style={{ color: "var(--danger)" }}>
               <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match your selected audience — lower this or widen your audience filters in step 4.`)}
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience — widen your filters in step 4.`)}
             </p>
           )}
         </div>
@@ -397,9 +442,8 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
   const pt = ptypes.find(p => p.id === d.ptype);
   const rw = rewards.find(r => r.id === d.reward.type);
   const count = liveCount;
-  const allFilters = Object.entries(d.filters).flatMap(([g, s]) =>
-    [...s].map(v => (g === "Geography" && v === "Other" && d.otherGeoText?.trim()) ? d.otherGeoText.trim() : v)
-  );
+  const allFilters = Object.entries(d.filters).flatMap(([, s]) => [...s]);
+  for (const entries of Object.values(d.otherEntries || {})) allFilters.push(...(entries || []));
   const descLong = d.desc && d.desc.length > 160;
   return (
     <div className="rise">
@@ -445,15 +489,18 @@ function flatOptions(opts) {
   return Array.isArray(opts) ? opts : Object.values(opts).flat();
 }
 
-// The backend already free-text substring-matches Geography (see
-// getRealMatchCount in backend/src/routes/audience.js), so the "Other"
-// chip's typed value can be sent straight through as its own entry —
-// no need to swap it in for the literal "Other" marker (the backend treats
-// "Other" itself as a no-op, same as "Worldwide"/"Remote").
+// The backend already free-text substring-matches these groups (see
+// getRealMatchCount in backend/src/routes/audience.js), so each "Other"
+// chip's typed entries can be sent straight through as their own entries —
+// no need to swap them in for the literal "Other" marker (the backend
+// treats "Other" itself as a no-op, same as "Worldwide"/"Remote").
 function buildAudiencePayload(d) {
   const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
-  const otherGeo = (d.otherGeoText || "").trim();
-  if (otherGeo && (audience.Geography?.includes("Other") || audience.Geography?.includes("India"))) audience.Geography = [...audience.Geography, otherGeo];
+  for (const [group, entries] of Object.entries(d.otherEntries || {})) {
+    if (!entries?.length) continue;
+    const triggered = audience[group]?.includes("Other") || (group === GEO_GROUP && audience[group]?.includes("India"));
+    if (triggered) audience[group] = [...audience[group], ...entries];
+  }
   return audience;
 }
 
@@ -497,29 +544,29 @@ function missionToDraft(mission, filters, categories, ptypes) {
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
   };
+  const otherEntries = {};
   for (const g of Object.keys(emptyF)) {
     const vals = audience[g];
     if (!Array.isArray(vals)) continue;
-    if (g === GEO_GROUP) {
-      const known = new Set(flatOptions(filters[GEO_GROUP]));
+    const flatOpts = flatOptions(filters[g]);
+    if (flatOpts.includes("Other")) {
+      // A known value is a real option (including the "Other" and "India"
+      // catch-alls themselves) and gets kept as-is. Unrecognized values are
+      // the free text the builder typed alongside whichever catch-all was
+      // selected — those catch-alls are already being added from their own
+      // entries in this same array, so this branch only needs to collect
+      // the text, not guess which marker each one belongs to.
+      const known = new Set(flatOpts);
       const sel = new Set();
-      let otherText = "";
-      for (const v of vals) {
-        // A known value is a real option (including the "Other" and "India"
-        // catch-alls themselves) and gets kept as-is. An unrecognized value
-        // is the free-text the builder typed alongside whichever catch-all
-        // was selected — that catch-all is already being added from its own
-        // entry in this same array, so this branch only needs to capture the
-        // text, not guess which marker it belongs to.
-        if (known.has(v)) sel.add(v);
-        else otherText = v;
-      }
+      const entries = [];
+      for (const v of vals) { if (known.has(v)) sel.add(v); else entries.push(v); }
       draft.filters[g] = sel;
-      if (otherText) draft.otherGeoText = otherText;
+      if (entries.length) otherEntries[g] = entries;
     } else {
       draft.filters[g] = new Set(vals);
     }
   }
+  draft.otherEntries = otherEntries;
   return draft;
 }
 
@@ -563,6 +610,7 @@ function clearDraftIfFreshReload(draftKey) {
     localStorage.removeItem(draftKey);
     localStorage.removeItem(draftKey + "_step");
     localStorage.removeItem(draftKey + "_maxReached");
+    localStorage.removeItem(draftKey + "_promotedId");
   } catch { /* ignore */ }
 }
 
@@ -592,6 +640,11 @@ export default function CreateMissionWizard() {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [loadingMission, setLoadingMission] = useState(!!missionId);
+  // Set once this brand-new mission's scratch draft has been silently
+  // promoted to a real backend draft (see the auto-save effect below) —
+  // read from localStorage first so a page reload resumes updating the same
+  // row instead of creating a duplicate.
+  const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
@@ -654,7 +707,7 @@ export default function CreateMissionWizard() {
       .then(res => setLiveCount(res.count))
       .catch(() => {})
       .finally(() => setIsFetchingCount(false));
-  }, [d.filters, d.otherGeoText]);
+  }, [d.filters, d.otherEntries]);
 
   // Auto-save to localStorage — survives reload/tab-close by design, so the
   // exit-warning copy ("your progress has been auto-saved") stays true.
@@ -681,14 +734,35 @@ export default function CreateMissionWizard() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [published]);
 
+  // Browser back/swipe-back can't be reliably intercepted with a blocking
+  // confirm dialog (no clean way to hook a trackpad swipe), so instead of
+  // trying to stop it, flag that it happened — the Dashboard checks this
+  // once on mount and shows a brief toast confirming the draft is still
+  // there, instead of leaving the user to wonder if it's gone.
+  useEffect(() => {
+    if (published) return;
+    const handlePopState = () => {
+      try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [published]);
+
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
     localStorage.removeItem(DRAFT_KEY + "_step");
     localStorage.removeItem(DRAFT_KEY + "_maxReached");
+    localStorage.removeItem(DRAFT_KEY + "_promotedId");
   };
 
   const startFresh = () => {
     if (!window.confirm(t("createMission.startFreshConfirm", null, "Start a new mission from scratch? This discards your current draft."))) return;
+    // "Start fresh" is the one explicit discard action — unlike Leave Page,
+    // which deliberately keeps the draft recoverable — so a silently
+    // auto-promoted backend draft needs to be cleaned up here too, not just
+    // the local scratch copy.
+    if (promotedId) api.deleteMission(promotedId).catch(() => {});
+    setPromotedId(null);
     clearDraft();
     setD(freshDraft());
     setStep(0);
@@ -720,6 +794,15 @@ export default function CreateMissionWizard() {
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
   const selectAllInGroup = (group, opts) => setD(p => {
+    // "Global & Remote" is the one subgroup that itself contains Worldwide —
+    // selecting-all on it must route through the same exclusivity rule as a
+    // direct click, or it'd add Worldwide *and* Remote/Online together into
+    // the Set, an inconsistent state impliedAll (and everything downstream
+    // that assumes Worldwide is always the sole entry) was never built for.
+    if (group === GEO_GROUP && opts.includes(WORLDWIDE)) {
+      const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
+    }
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
@@ -738,9 +821,6 @@ export default function CreateMissionWizard() {
   // the same way rewardAmountOk/participantsOk do rather than staying a
   // warning-only nudge.
   const withinAudienceCount = liveCount === 0 || d.reward.participants <= liveCount;
-  // Missing required fields keep Continue clickable (so clicking it can
-  // explain what's missing via showErrors) — only insufficientFunds hard-
-  // disables it, since that one already has its own hover tooltip.
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
     && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
@@ -770,24 +850,44 @@ export default function CreateMissionWizard() {
     };
   };
 
-  // Autosave while resuming an existing draft: edits are already backed by a
-  // real row (unlike a brand-new mission's localStorage scratch draft), so
-  // there's no separate "Save as Draft" click to hang them on — debounce and
-  // PATCH the draft in place instead. Silently ignored on failure, same as
-  // any other autosave; the next successful edit/publish will catch it up.
+  // Silently promotes a brand-new mission's localStorage-only scratch draft
+  // to a real backend draft once it has content worth not losing — same
+  // threshold as the Dashboard's "unsaved mission" banner. One-shot: once
+  // promotedId is set, this effect stops firing and the update effect below
+  // takes over keeping that same row current.
   useEffect(() => {
-    if (!missionId || loadingMission || published) return;
+    if (missionId || promotedId || published) return;
+    const hasContent = d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0;
+    if (!hasContent) return;
     const timer = setTimeout(() => {
-      api.updateMission(missionId, buildMissionPayload("draft")).catch(() => {});
+      api.createMission(buildMissionPayload("draft")).then(({ mission }) => {
+        localStorage.setItem(DRAFT_KEY + "_promotedId", String(mission.id));
+        setPromotedId(mission.id);
+      }).catch(() => { /* stays localStorage-only; retries on the next content change */ });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [d, missionId, promotedId, published]);
+
+  // Autosave while resuming an existing draft, or once a new mission has been
+  // auto-promoted above: edits are already backed by a real row, so there's
+  // no separate "Save as Draft" click to hang them on — debounce and PATCH
+  // the draft in place instead. Silently ignored on failure, same as any
+  // other autosave; the next successful edit/publish will catch it up.
+  useEffect(() => {
+    const id = missionId || promotedId;
+    if (!id || loadingMission || published) return;
+    const timer = setTimeout(() => {
+      api.updateMission(id, buildMissionPayload("draft")).catch(() => {});
     }, 800);
     return () => clearTimeout(timer);
-  }, [d, missionId, loadingMission, published]);
+  }, [d, missionId, promotedId, loadingMission, published]);
 
   const publish = async () => {
     setBusy(true); setError("");
     try {
       const payload = buildMissionPayload("active");
-      const { mission } = missionId ? await api.updateMission(missionId, payload) : await api.createMission(payload);
+      const existingId = missionId || promotedId;
+      const { mission } = existingId ? await api.updateMission(existingId, payload) : await api.createMission(payload);
       setPublished(true);
       clearDraft();
       await refreshBuilder();
@@ -806,7 +906,10 @@ export default function CreateMissionWizard() {
   const saveDraft = async () => {
     setSavingDraft(true); setError("");
     try {
-      await api.createMission(buildMissionPayload("draft"));
+      // Might already be a real row via the silent auto-promote effect above
+      // — update it in place instead of creating a duplicate draft.
+      if (promotedId) await api.updateMission(promotedId, buildMissionPayload("draft"));
+      else await api.createMission(buildMissionPayload("draft"));
       setPublished(true); // stops the scratch-draft autosave/beforeunload — this is now safely persisted
       clearDraft();
       navigate("/missions?tab=draft", { state: { toast: t("missions.draftSaved", null, "Mission saved to draft") } });
@@ -865,18 +968,9 @@ export default function CreateMissionWizard() {
   return (
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
-        <div className="wz-brand" style={{ position: "relative" }}>
+        <div className="wz-brand">
           <BrandMark size={52} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{missionId ? t("createMission.editDraft", null, "Edit draft") : t("createMission.newMission", null, "New mission")}</div></div>
-          <button
-            type="button"
-            aria-label={t("createMission.exitToDashboard", null, "Exit to dashboard")}
-            title={t("createMission.exitToDashboard", null, "Exit to dashboard")}
-            onClick={() => setShowExitWarning(true)}
-            style={{ position: "absolute", top: 0, right: 0, background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-faint)", display: "flex" }}
-          >
-            <Icon name="x" size={18} />
-          </button>
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
@@ -888,7 +982,14 @@ export default function CreateMissionWizard() {
         </div>
         <div className="wz-rail-foot">
           {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
-          <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> {t("createMission.exitToDashboard", null, "Exit to dashboard")}</button>
+          {step === 0 ? (
+            <button className="btn outline" style={{ width: "100%", marginTop: 8 }} onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+          ) : (
+            <div className="row gap-2" style={{ alignItems: "center", marginTop: 8 }}>
+              <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
+              <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -932,7 +1033,6 @@ export default function CreateMissionWizard() {
 
       <div className="wz-foot">
         <div className="wz-foot-inner">
-          {step > 0 && <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>}
           <span className="grow" />
           {step === 2 && !canNext && (
             <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>
@@ -956,7 +1056,6 @@ export default function CreateMissionWizard() {
                 </Btn>
               )}
               <span
-                onClick={() => !fieldsValid && (setShowErrors(true), window.scrollTo({ top: 0, behavior: "smooth" }))}
                 style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                   : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
@@ -974,7 +1073,6 @@ export default function CreateMissionWizard() {
             </div>
           ) : (
             <span
-              onClick={() => !fieldsValid && setShowErrors(true)}
               style={{ display: "inline-block" }}
               title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
                 : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
@@ -994,22 +1092,15 @@ export default function CreateMissionWizard() {
       </div>
 
       {showExitWarning && (
-        <div style={{ display: "contents" }}>
-          <div className="notif-overlay" onClick={() => setShowExitWarning(false)} />
-          <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 400, maxWidth: "92vw", zIndex: 61,
-            background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
-            <div className="row between" style={{ padding: "16px 20px", borderBottom: "var(--hairline) solid var(--border)" }}>
-              <b style={{ fontSize: 15 }}>{t("createMission.unsavedChangesTitle", null, "Unsaved Changes")}</b>
-            </div>
-            <div style={{ padding: 20 }}>
-              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved in this browser and will be restored if you come back — but it won't appear in your Drafts list or count until you use \"Save as Draft\".")}</p>
-              <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-                <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
-                <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
-              </div>
+        <Modal title={t("createMission.unsavedChangesTitle", null, "Unsaved Changes")} onClose={() => setShowExitWarning(false)} width={400} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved and will be restored if you come back.")}</p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
+              <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

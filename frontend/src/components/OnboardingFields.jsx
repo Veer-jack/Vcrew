@@ -2,6 +2,7 @@ import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
 import { COUNTRIES } from "./auth/countries";
+import { FilterGroup } from "../pages/CreateMissionWizard";
 
 const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
 
@@ -117,12 +118,23 @@ export function ReachMeter({ reach, base, firstLoad, updating }) {
 
 export function LocationFields({ region, d, set, withCity, showErrors }) {
   const { t } = useTranslation();
-  const country = d.country || (region === "india" ? "India" : "");
+  // Older saved profiles still have `country` as a single string — coerce
+  // to an array so this keeps working for builders who onboarded before
+  // Country became multi-select.
+  const rawCountry = d.country;
+  const countries = Array.isArray(rawCountry) ? rawCountry : (rawCountry ? [rawCountry] : (region === "india" ? ["India"] : []));
+  const countrySel = new Set(countries);
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.country", null, "Country")} invalid={showErrors && !country}>
-        <SelectInput value={country} onChange={(v) => set("country", v)} options={COUNTRY_NAMES} placeholder={t("onboardingFields.selectCountry", null, "Select country")} />
-      </Field>
+      <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
+        <FilterGroup
+          title={t("onboardingFields.country", null, "Country")}
+          options={COUNTRY_NAMES}
+          sel={countrySel}
+          toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
+          onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
+        />
+      </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
         <TextInput value={d.state} onChange={(v) => set("state", v)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
       </Field>

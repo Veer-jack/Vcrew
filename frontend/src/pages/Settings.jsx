@@ -274,14 +274,17 @@ export default function Settings() {
                 </div>
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("onboardingFields.country", null, "Country")}</label>
-                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country ? undefined : "var(--text-faint)" }}>{builder?.profile?.country || t("settings.notSet", null, "Not set")}</div>
+                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country?.length ? undefined : "var(--text-faint)" }}>{(Array.isArray(builder?.profile?.country) ? builder.profile.country.join(", ") : builder?.profile?.country) || t("settings.notSet", null, "Not set")}</div>
                 </div>
               </div>
             ) : (
               <form onSubmit={saveAudience} className="col gap-2">
                 {audienceError && <div className="err-banner">{audienceError}</div>}
                 <AudienceStep d={audienceD} set={setAudienceField} region={REGION} showErrors={false} />
-                <div className="row gap-2" style={{ marginTop: 8 }}>
+                {/* Sticky, not just marginTop — the Country list alone runs to ~190
+                    checkboxes, so a normal inline row scrolled out of view long
+                    before the bottom, making Save look like it wasn't there at all. */}
+                <div className="row gap-2" style={{ marginTop: 8, position: "sticky", bottom: 0, padding: "10px 0", background: "var(--panel)" }}>
                   <Btn variant="primary" type="submit" disabled={audienceBusy}>{audienceBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
                   <Btn variant="quiet" type="button" onClick={() => { setEditingAudience(false); setAudienceError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
                 </div>

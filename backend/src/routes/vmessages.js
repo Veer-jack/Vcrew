@@ -42,6 +42,7 @@ async function serializeThread(t, withMessages, lang) {
     const last = msgs[msgs.length - 1];
     const lastText = last ? (bodyOf(last) || (last.attachment_path ? `📎 ${last.attachment_name}` : "")) : "";
     out.last = last ? (last.sender_role === "validator" ? `You: ${lastText}` : lastText) : "";
+    out.unread = last && last.sender_role !== "validator" && (!t.validator_read_at || new Date(last.created_at) > new Date(t.validator_read_at)) ? 1 : 0;
   }
   return out;
 }
@@ -68,6 +69,11 @@ router.get("/threads/:id", async (req, res) => {
   `).get(req.params.id, req.validator.id);
   
   if (!t) return res.status(404).json({ error: "Thread not found" });
+  // Opening the thread here (not just via the notification bell) should also
+  // clear its unread notification — otherwise the Messages sidebar badge
+  // stays stuck until the user happens to open the bell panel separately.
+  await db.prepare(`UPDATE v_notifications SET unread = 0 WHERE validator_id = ? AND type = 'new_message' AND target_id = ?`).run(req.validator.id, t.id);
+  await db.prepare(`UPDATE threads SET validator_read_at = NOW() WHERE id = ?`).run(t.id);
   res.json({ thread: await serializeThread(t, true, req.validator.preferred_language) });
 });
 
@@ -81,7 +87,7 @@ router.post("/threads/:id/messages", async (req, res) => {
   await db.prepare(`UPDATE threads SET created_at = NOW() WHERE id = ?`).run(t.id);
 
   // Notify the Builder
-  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name));
+  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name, t.id, text));
   
   res.status(201).json({ message: { from: "me", text, time: "Just now" } });
 });
@@ -95,7 +101,7 @@ router.post("/threads/:id/attachment", upload.single("file"), async (req, res) =
     .run(t.id, req.validator.id, req.file.filename, req.file.originalname);
   await db.prepare(`UPDATE threads SET created_at = NOW() WHERE id = ?`).run(t.id);
 
-  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name));
+  setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name, t.id));
 
   res.status(201).json({ message: { from: "me", attachment: { url: `/api/uploads/${req.file.filename}`, name: req.file.originalname }, time: "Just now" } });
 });

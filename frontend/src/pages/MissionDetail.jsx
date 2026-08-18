@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
@@ -611,9 +611,16 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
       return [g, new Set(g === GEO_GROUP ? saved.filter(v => geoKnown.has(v)) : saved)];
     })
   ));
-  const [otherGeoText, setOtherGeoText] = useState(() => {
-    const saved = audience.defn.find(d => d.group === GEO_GROUP)?.values || [];
-    return saved.find(v => !geoKnown.has(v)) || "";
+  const [otherEntries, setOtherEntries] = useState(() => {
+    const result = {};
+    for (const g of Object.keys(flatFilters)) {
+      if (!flatFilters[g]?.includes("Other")) continue;
+      const known = new Set(flatFilters[g]);
+      const saved = audience.defn.find(d => d.group === g)?.values || [];
+      const entries = saved.filter(v => !known.has(v));
+      if (entries.length) result[g] = entries;
+    }
+    return result;
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -665,9 +672,10 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
     setBusy(true); setErr("");
     try {
       const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
-      const otherGeo = otherGeoText.trim();
-      if (otherGeo && (payload[GEO_GROUP]?.includes("Other") || payload[GEO_GROUP]?.includes("India"))) {
-        payload[GEO_GROUP] = [...payload[GEO_GROUP], otherGeo];
+      for (const [group, entries] of Object.entries(otherEntries)) {
+        if (!entries?.length) continue;
+        const triggered = payload[group]?.includes("Other") || (group === GEO_GROUP && payload[group]?.includes("India"));
+        if (triggered) payload[group] = [...payload[group], ...entries];
       }
       await api.updateMission(mission.id, { audience: payload });
       onSaved(Object.entries(payload).filter(([, values]) => values.length).map(([group, values]) => ({ group, values })));
@@ -716,8 +724,8 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
             impliedAll={g === GEO_GROUP && sel[GEO_GROUP]?.has(WORLDWIDE)}
             initialExpanded={(sel[g]?.size || 0) > 0}
             externalQuery={q}
-            otherText={g === GEO_GROUP ? otherGeoText : undefined}
-            onOtherTextChange={g === GEO_GROUP ? setOtherGeoText : undefined}
+            otherEntries={otherEntries[g]}
+            onOtherEntriesChange={(entries) => setOtherEntries(p => ({ ...p, [g]: entries }))}
             otherValue={g === GEO_GROUP ? (sel[GEO_GROUP]?.has("India") ? "India" : "Other") : "Other"}
           />
         ))}
@@ -1359,8 +1367,9 @@ export default function MissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { categories } = useMeta();
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState(() => searchParams.get("tab") || "overview");
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
   const mountedRef = useRef(false);
@@ -1436,6 +1445,33 @@ export default function MissionDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataVersion]);
 
+  // Notification links deep-link here with ?tab=participants etc. — without
+  // this, the URL param was only ever read once by the useState initializer
+  // above, so a click while this page was already open (no remount) landed
+  // on the right mission but silently showed Overview instead of the tab
+  // the notification was actually about. Which tabs are valid depends on
+  // the mission's category/ptype, so this waits for `data` before applying.
+  useEffect(() => {
+    const urlTab = searchParams.get("tab");
+    if (!urlTab || !data?.mission) return;
+    const mission = data.mission;
+    const validKeys = ["overview", "audience", "participants", "responses", "files", "payments"];
+    if (mission.category === "sample") validKeys.push("shipments");
+    if (mission.ptype === "interview") validKeys.push("interviews");
+    if (mission.ptype === "focus") validKeys.push("focusgroup");
+    if (mission.ptype === "trial") validKeys.push("checkins");
+    if (validKeys.includes(urlTab)) setTab(prev => (prev === urlTab ? prev : urlTab));
+  }, [searchParams, data]);
+
+  const selectTab = (k) => {
+    setTab(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
+
   if (error) return <div className="page rise"><Icon name="layers" /> <span className="muted">{error}</span></div>;
   if (!data) return <div className="page rise"><div className="muted">{t("missionDetail.loading", null, "Loading…")}</div></div>;
 
@@ -1491,9 +1527,9 @@ export default function MissionDetail() {
         <KpiCard label={t("metrics.spend", null, "Spend")} value={inrK(mission.spend)} icon="wallet" />
       </div>
 
-      <div className="utabs sec">{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => setTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
+      <div className="utabs sec">{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
-      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={setTab} navigate={navigate} />}
+      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => setShowEditAudience(true)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
       {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} navigate={navigate} />}

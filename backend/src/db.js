@@ -127,6 +127,8 @@ export async function initDb() {
     // replacement poll is created — lets validators be told "restarted,
     // new times coming soon" instead of the generic first-time-waiting copy.
     if (!mCols.includes('focus_group_poll_restarted_at')) await client.query('ALTER TABLE missions ADD COLUMN focus_group_poll_restarted_at TIMESTAMPTZ');
+    const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
+    if (!rCols.rows.map(r => r.column_name).includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);

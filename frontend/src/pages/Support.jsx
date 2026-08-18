@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Empty, UpdatingBadge } from "../components/ui";
 import { api } from "../api/client";
@@ -139,8 +140,26 @@ const getTicketStatus = (t) => ({
 
 export default function Support() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState("help");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => (searchParams.get("tab") === "tickets" ? "tickets" : "help"));
   const [q, setQ] = useState("");
+
+  // The ticket_reply notification deep-links to ?tab=tickets — re-sync when
+  // the param changes while this page is already open (no remount), same
+  // gap the Missions/Mission Detail pages had.
+  useEffect(() => {
+    const urlTab = searchParams.get("tab") === "tickets" ? "tickets" : "help";
+    setTab(prev => (prev === urlTab ? prev : urlTab));
+  }, [searchParams]);
+
+  const selectTab = (k) => {
+    setTab(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
   const [open, setOpen] = useState(null);
   const [raising, setRaising] = useState(false);
   const [viewingTicket, setViewingTicket] = useState(null);
@@ -172,7 +191,7 @@ export default function Support() {
       <div className="row between wrap gap-3 rise-2" style={{ marginBottom: 18 }}>
         <div className="row gap-2">
           {[{ k: "help", l: t("support.helpArticles", null, "Help articles") }, { k: "tickets", l: t("support.myTickets", null, "My tickets") }].map(t => (
-            <button key={t.k} className="pill" onClick={() => setTab(t.k)} style={{ cursor: "pointer", fontWeight: 700,
+            <button key={t.k} className="pill" onClick={() => selectTab(t.k)} style={{ cursor: "pointer", fontWeight: 700,
               background: tab === t.k ? "var(--accent)" : "var(--panel)", borderColor: tab === t.k ? "var(--accent)" : "var(--border)", color: tab === t.k ? "#fff" : "var(--text-muted)" }}>{t.l}</button>
           ))}
         </div>

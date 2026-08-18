@@ -3,6 +3,7 @@ import Icon from "./Icon";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../firebaseClient";
 import { COUNTRIES } from "./auth/countries";
 import { useTranslation } from "../i18n/index.jsx";
+import { friendlyAuthError } from "./auth/AuthSplitScreen";
 
 // `client` is either the builder `api` or validator `vapi` object — both expose
 // the same firebaseConfig/phoneLink/phoneRemove methods. `phone`/`phoneVerified`
@@ -55,12 +56,15 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       setInfo(t("auth.codeSentTo", { cc, phoneDigits }, `Code sent to ${cc} ${phoneDigits}`));
       setStep("code");
     } catch (err) {
-      // If reCAPTCHA fails silently or due to an error, we might need to reset it.
+      // clear() itself can throw when the widget is already broken (the exact
+      // case being recovered from) — unguarded, that second exception would
+      // crash this function before setError below ever runs, so the raw
+      // Firebase/reCAPTCHA error reaches the user instead of the fallback text.
       if (recaptchaRef.current) {
-        recaptchaRef.current.clear();
+        try { recaptchaRef.current.clear(); } catch { /* already torn down */ }
         recaptchaRef.current = null;
       }
-      setError(err.message || t("auth.couldntSendCodeRetry", null, "Couldn't send code. Please try again."));
+      setError(friendlyAuthError(err, t, t("auth.errSendCodeRetry", null, "We couldn't send the verification code. Please check your phone number and try again.")));
     } finally { setBusy(false); }
   };
 
@@ -74,7 +78,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       onUpdate?.(res.phone);
       reset();
     } catch (err) {
-      setError(err.message || t("auth.couldntVerifyCode", null, "Couldn't verify code"));
+      setError(friendlyAuthError(err, t, t("auth.couldntVerifyCode", null, "Couldn't verify code")));
     } finally { setBusy(false); }
   };
 
@@ -83,7 +87,19 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     try {
       await client.phoneRemove();
       onUpdate?.(null);
+      // Without this, removing a verified number just falls back to the
+      // onboarding prefill chip — the user would see the number they just
+      // removed pop right back up as "Verify this number" instead of a
+      // clean "Add phone" state.
+      setPrefillDismissed(true);
     } finally { setBusy(false); }
+  };
+
+  // Explicit "forget this number" — clears whatever's in the field and, like
+  // Remove, stops the onboarding number from being re-suggested afterwards.
+  const deleteEntry = () => {
+    setPrefillDismissed(true);
+    reset();
   };
 
   if (!firebaseReady && !phoneVerified) return null;
@@ -136,6 +152,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
               </div>
               <button className="btn btn-primary" disabled={busy} type="submit">{busy ? t("actions.sending", null, "Sending…") : t("actions.sendCode", null, "Send code")}</button>
               <button className="btn btn-quiet" type="button" onClick={reset}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-quiet" type="button" style={{ color: "var(--danger)" }} disabled={busy} onClick={deleteEntry}>{t("actions.delete", null, "Delete")}</button>
             </form>
           ) : (
             <form onSubmit={verifyCode} className="row gap-2" style={{ alignItems: "flex-end" }}>
