@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { catOf } from "../meta.js";
+import { translateBatch } from "../translate.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -65,6 +66,21 @@ router.get("/", async (req, res) => {
     LIMIT 6
   `).all();
   const geo = geoRows.map(r => ({ l: r.city, v: r.cnt }));
+  // City names are free text (whatever the validator typed in their profile),
+  // not a fixed list with static i18n keys -- same mechanism used for mission
+  // names/descriptions elsewhere, cached per unique city name so translating
+  // "Rajamundry" once serves every builder's Analytics view after that.
+  const lang = req.builder.preferred_language;
+  if (lang && lang !== "en" && geo.length) {
+    const translated = await translateBatch(
+      geo.map(g => ({ entityType: "city", entityId: g.l, field: "name", text: g.l })),
+      lang
+    );
+    for (const g of geo) {
+      const hit = translated.get(`city:${g.l}:name`);
+      if (hit) g.l = hit;
+    }
+  }
 
   // Completion trend across missions, ordered by creation date
   const trend = missions
