@@ -367,26 +367,30 @@ html[data-direction="signal"] .reach .r-ic { color: var(--accent-2); }
 .subgroup .fcheck { padding: 5px 6px; }
 
 .active-filters-bar { padding: 4px 0 24px 0; display: flex; flex-direction: column; gap: 10px; }
-.afilter-chip { display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--accent); border-radius: 20px; font-size: 12.5px; font-weight: 600; }
+.afilter-scroll { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; }
+.afilter-chip { display: flex; align-items: center; gap: 6px; padding: 5px 12px; background: color-mix(in srgb, var(--accent) 6%, transparent); color: var(--accent); border-radius: 20px; font-size: 12.5px; font-weight: 600; flex-shrink: 0; white-space: nowrap; }
 .afilter-chip button { border: none; background: none; padding: 0; color: var(--accent); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; transition: background .2s; }
 .afilter-chip button:hover { background: rgba(0,0,0,0.1); }
 .fcheck.on { color: var(--text); font-weight: 600; }
 .fcheck.on .box { background: var(--accent); border-color: var(--accent); color: #fff; }
 .fcheck .cnt { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
 
-.aud-card { display: flex; gap: 14px; padding: 15px 16px; border: var(--hairline) solid var(--border); border-radius: var(--radius);
-  background: var(--panel); box-shadow: var(--shadow-sm); align-items: flex-start; transition: all .14s; }
+.aud-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.aud-card { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: var(--hairline) solid var(--border); border-radius: var(--radius);
+  background: var(--panel); box-shadow: var(--shadow-sm); transition: all .14s; }
 .aud-card:hover { border-color: var(--border-strong); box-shadow: var(--shadow-md); }
+.aud-card-top { display: flex; align-items: center; justify-content: space-between; }
 .av { width: 46px; height: 46px; border-radius: 50%; flex: none; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px; }
-.aud-meta { flex: 1; min-width: 0; }
-.aud-name { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
-.verif { display: inline-flex; align-items: center; gap: 4px; color: var(--success); font-size: 11.5px; font-weight: 700; }
-.verif svg { width: 14px; height: 14px; }
-.aud-sub { font-size: 12.5px; color: var(--text-faint); margin: 2px 0 8px; }
+.aud-name { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 15px; }
+.verif { display: inline-flex; align-items: center; color: var(--success); }
+.verif svg { width: 13px; height: 13px; }
+.aud-sub { font-size: 12.5px; color: var(--text-faint); line-height: 1.55; }
 .aud-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .mtag { font-size: 11px; font-weight: 700; color: var(--text-muted); background: var(--panel-inset); border: var(--hairline) solid var(--border); padding: 3px 9px; border-radius: 20px; }
 html[data-direction="mono"] .mtag { border-radius: 4px; }
-.aud-right { flex: none; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 7px; }
+.aud-trust-row { display: flex; }
+.aud-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+.aud-card-actions .btn { flex: 1; }
 
 /* match ring */
 .ring { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center;

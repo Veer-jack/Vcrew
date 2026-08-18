@@ -26,6 +26,7 @@ export function buildAudienceQuery(d) {
     Demographics: [...(d.ageBands || []), ...(d.genders || []).filter(g => g !== "Any"), ...(d.incomeBands || [])],
     Professional: (d.occupations || []),
     Interests: (d.interests || []),
+    "ValidationCrew Role": (d.validatorTypes || []),
   };
 }
 
@@ -53,7 +54,7 @@ function useAudienceReach(d) {
     }, 300);
     return () => clearTimeout(debounceRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify([d.ageBands, d.genders, d.incomeBands, d.occupations, d.interests, d.country, d.state, d.district])]);
+  }, [JSON.stringify([d.ageBands, d.genders, d.incomeBands, d.occupations, d.interests, d.country, d.state, d.district, d.validatorTypes])]);
 
   return { reach: reach ?? 0, base: base ?? 1, firstLoad: reach === null, updating: loading && reach !== null };
 }
@@ -140,6 +141,8 @@ function GenericAudience({ d, set, region, title, sub, showErrors }) {
     <div className="rise">
       <StepHead step={t("onboarding.audienceStep", null, "Audience")} title={title} sub={sub} />
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
+      <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+      <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
       <FSection label={t("onboarding.demographicsSection", null, "Demographics")} />
       <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
       <FSection label={t("onboarding.locationSection", null, "Location")} />
