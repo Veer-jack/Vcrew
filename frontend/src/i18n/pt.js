@@ -1920,6 +1920,8 @@ const pt = {
     profileRequiredToPublish: "Complete seu perfil antes de publicar — você ainda pode salvar esta missão como rascunho.",
   },
   dashboard: {
+  unsavedMissionDraft: "Você tem uma missão não salva em andamento — ela é mantida neste navegador até que você continue ou a salve explicitamente como rascunho.",
+  draftSavedBackNav: "O rascunho da sua missão foi salvo — Continue a partir daqui quando quiser.",
     personaTitle: {
       founder: "Fundador / Startup",
       company: "Empresa",

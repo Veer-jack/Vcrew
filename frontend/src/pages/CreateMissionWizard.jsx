@@ -565,6 +565,7 @@ function clearDraftIfFreshReload(draftKey) {
     localStorage.removeItem(draftKey);
     localStorage.removeItem(draftKey + "_step");
     localStorage.removeItem(draftKey + "_maxReached");
+    localStorage.removeItem(draftKey + "_promotedId");
   } catch { /* ignore */ }
 }
 
@@ -594,6 +595,11 @@ export default function CreateMissionWizard() {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [loadingMission, setLoadingMission] = useState(!!missionId);
+  // Set once this brand-new mission's scratch draft has been silently
+  // promoted to a real backend draft (see the auto-save effect below) —
+  // read from localStorage first so a page reload resumes updating the same
+  // row instead of creating a duplicate.
+  const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
@@ -683,14 +689,35 @@ export default function CreateMissionWizard() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [published]);
 
+  // Browser back/swipe-back can't be reliably intercepted with a blocking
+  // confirm dialog (no clean way to hook a trackpad swipe), so instead of
+  // trying to stop it, flag that it happened — the Dashboard checks this
+  // once on mount and shows a brief toast confirming the draft is still
+  // there, instead of leaving the user to wonder if it's gone.
+  useEffect(() => {
+    if (published) return;
+    const handlePopState = () => {
+      try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [published]);
+
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
     localStorage.removeItem(DRAFT_KEY + "_step");
     localStorage.removeItem(DRAFT_KEY + "_maxReached");
+    localStorage.removeItem(DRAFT_KEY + "_promotedId");
   };
 
   const startFresh = () => {
     if (!window.confirm(t("createMission.startFreshConfirm", null, "Start a new mission from scratch? This discards your current draft."))) return;
+    // "Start fresh" is the one explicit discard action — unlike Leave Page,
+    // which deliberately keeps the draft recoverable — so a silently
+    // auto-promoted backend draft needs to be cleaned up here too, not just
+    // the local scratch copy.
+    if (promotedId) api.deleteMission(promotedId).catch(() => {});
+    setPromotedId(null);
     clearDraft();
     setD(freshDraft());
     setStep(0);
@@ -769,24 +796,44 @@ export default function CreateMissionWizard() {
     };
   };
 
-  // Autosave while resuming an existing draft: edits are already backed by a
-  // real row (unlike a brand-new mission's localStorage scratch draft), so
-  // there's no separate "Save as Draft" click to hang them on — debounce and
-  // PATCH the draft in place instead. Silently ignored on failure, same as
-  // any other autosave; the next successful edit/publish will catch it up.
+  // Silently promotes a brand-new mission's localStorage-only scratch draft
+  // to a real backend draft once it has content worth not losing — same
+  // threshold as the Dashboard's "unsaved mission" banner. One-shot: once
+  // promotedId is set, this effect stops firing and the update effect below
+  // takes over keeping that same row current.
   useEffect(() => {
-    if (!missionId || loadingMission || published) return;
+    if (missionId || promotedId || published) return;
+    const hasContent = d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0;
+    if (!hasContent) return;
     const timer = setTimeout(() => {
-      api.updateMission(missionId, buildMissionPayload("draft")).catch(() => {});
+      api.createMission(buildMissionPayload("draft")).then(({ mission }) => {
+        localStorage.setItem(DRAFT_KEY + "_promotedId", String(mission.id));
+        setPromotedId(mission.id);
+      }).catch(() => { /* stays localStorage-only; retries on the next content change */ });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [d, missionId, promotedId, published]);
+
+  // Autosave while resuming an existing draft, or once a new mission has been
+  // auto-promoted above: edits are already backed by a real row, so there's
+  // no separate "Save as Draft" click to hang them on — debounce and PATCH
+  // the draft in place instead. Silently ignored on failure, same as any
+  // other autosave; the next successful edit/publish will catch it up.
+  useEffect(() => {
+    const id = missionId || promotedId;
+    if (!id || loadingMission || published) return;
+    const timer = setTimeout(() => {
+      api.updateMission(id, buildMissionPayload("draft")).catch(() => {});
     }, 800);
     return () => clearTimeout(timer);
-  }, [d, missionId, loadingMission, published]);
+  }, [d, missionId, promotedId, loadingMission, published]);
 
   const publish = async () => {
     setBusy(true); setError("");
     try {
       const payload = buildMissionPayload("active");
-      const { mission } = missionId ? await api.updateMission(missionId, payload) : await api.createMission(payload);
+      const existingId = missionId || promotedId;
+      const { mission } = existingId ? await api.updateMission(existingId, payload) : await api.createMission(payload);
       setPublished(true);
       clearDraft();
       await refreshBuilder();
@@ -805,7 +852,10 @@ export default function CreateMissionWizard() {
   const saveDraft = async () => {
     setSavingDraft(true); setError("");
     try {
-      await api.createMission(buildMissionPayload("draft"));
+      // Might already be a real row via the silent auto-promote effect above
+      // — update it in place instead of creating a duplicate draft.
+      if (promotedId) await api.updateMission(promotedId, buildMissionPayload("draft"));
+      else await api.createMission(buildMissionPayload("draft"));
       setPublished(true); // stops the scratch-draft autosave/beforeunload — this is now safely persisted
       clearDraft();
       navigate("/missions?tab=draft", { state: { toast: t("missions.draftSaved", null, "Mission saved to draft") } });

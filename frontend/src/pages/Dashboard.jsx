@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn, KpiCard, UpdatingBadge, inr, inrK } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
@@ -16,23 +17,23 @@ import { activityWho, activityText } from "../bi18n";
 // the tab, the in-app Exit link) doesn't lose anything, but it also won't
 // show up in the real Drafts list. This banner is the lightweight,
 // non-blocking way to surface that: informational only, no confirm dialog.
+// The wizard auto-saves on every render from the moment the page mounts,
+// including its own pristine defaults — so the key exists the instant
+// someone opens "Create Mission," before they've typed anything. Check for
+// actual content instead of just key existence.
+function hasMissionDraft(builderId) {
+  if (!builderId) return false;
+  try {
+    const raw = localStorage.getItem(`vcrew_mission_draft_${builderId}`);
+    if (!raw) return false;
+    const d = JSON.parse(raw);
+    return !!(d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0);
+  } catch { return false; }
+}
+
 function MissionDraftBanner({ builder, nav }) {
   const { t } = useTranslation();
-  if (!builder?.id) return null;
-  let hasDraft = false;
-  try {
-    // The wizard auto-saves on every render from the moment the page mounts,
-    // including its own pristine defaults — so the key exists the instant
-    // someone opens "Create Mission," before they've typed anything. Check
-    // for actual content instead of just key existence, so this banner only
-    // shows once there's really something to resume.
-    const raw = localStorage.getItem(`vcrew_mission_draft_${builder.id}`);
-    if (raw) {
-      const d = JSON.parse(raw);
-      hasDraft = !!(d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0);
-    }
-  } catch { /* ignore */ }
-  if (!hasDraft) return null;
+  if (!hasMissionDraft(builder?.id)) return null;
 
   return (
     <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--accent-weak)", background: "var(--accent-weak)" }}>
@@ -275,6 +276,19 @@ export default function Dashboard() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+  // One-shot: the wizard flags this when left via browser back/swipe-back
+  // (which can't be reliably intercepted with a confirm dialog) instead of
+  // leaving the user to wonder whether their in-progress mission is gone.
+  useEffect(() => {
+    let flagged = false;
+    try { flagged = sessionStorage.getItem("vcrew_mission_draft_backnav") === "1"; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
+    if (hasMissionDraft(builder?.id)) {
+      toast(t("dashboard.draftSavedBackNav", null, "Your mission draft was saved — Continue from here anytime."), { icon: "📝" });
+    }
+  }, [builder?.id, t]);
 
   useEffect(() => {
     refreshBuilder().catch(() => {});

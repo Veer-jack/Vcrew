@@ -1920,6 +1920,8 @@ const es = {
     profileRequiredToPublish: "Completa tu perfil antes de publicar; aún puedes guardar esta misión como borrador.",
   },
   dashboard: {
+  unsavedMissionDraft: "Tienes una misión sin guardar en curso — se mantiene en este navegador hasta que continúes o la guardes explícitamente como borrador.",
+  draftSavedBackNav: "Tu borrador de misión se guardó — Continúa desde aquí cuando quieras.",
     personaTitle: {
       founder: "Fundador / Startup",
       company: "Empresa",

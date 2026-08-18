@@ -428,8 +428,13 @@ router.post("/", async (req, res) => {
       });
     }
 
+    // A draft's target isn't consuming real capacity yet — it's still being
+    // shaped (and the wizard now silently auto-promotes a new mission to a
+    // draft the moment it has any content, well before the Reward step's
+    // default target of 120 has been reviewed) — so only an actually-active
+    // mission needs to respect the unverified cap here.
     const requestedTarget = Number(b.target) || 0;
-    if (requestedTarget > UNVERIFIED_PARTICIPANT_LIMIT) {
+    if (status === "active" && requestedTarget > UNVERIFIED_PARTICIPANT_LIMIT) {
       return res.status(403).json({
         error: `Unverified accounts can target a maximum of ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock larger campaigns.`,
         code: "VERIFICATION_REQUIRED",

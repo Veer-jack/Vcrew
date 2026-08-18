@@ -1920,6 +1920,8 @@ const fr = {
     profileRequiredToPublish: "Complétez votre profil avant de publier — vous pouvez toujours enregistrer cette mission comme brouillon.",
   },
   dashboard: {
+  unsavedMissionDraft: "Vous avez une mission non enregistrée en cours — elle est conservée dans ce navigateur jusqu'à ce que vous continuiez ou l'enregistriez explicitement comme brouillon.",
+  draftSavedBackNav: "Le brouillon de votre mission a été enregistré — Continuez à tout moment depuis ici.",
     personaTitle: {
       founder: "Fondateur / Startup",
       company: "Entreprise",

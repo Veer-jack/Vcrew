@@ -1924,6 +1924,8 @@ const en = {
     profileRequiredToPublish: "Complete your profile before publishing — you can still save this mission as a draft.",
   },
   dashboard: {
+  unsavedMissionDraft: "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.",
+  draftSavedBackNav: "Your mission draft was saved — Continue from here anytime.",
   personaTitle: {
     founder: "Founder / Startup",
     company: "Company",

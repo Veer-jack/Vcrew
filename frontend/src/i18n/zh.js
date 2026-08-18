@@ -1920,6 +1920,8 @@ const zh = {
     profileRequiredToPublish: "发布前请先完善资料——您仍可以将此任务保存为草稿。",
   },
   dashboard: {
+  unsavedMissionDraft: "您有一个未保存的任务正在进行中——它会保存在此浏览器中，直到您继续操作或明确将其保存为草稿。",
+  draftSavedBackNav: "您的任务草稿已保存——可随时从此处继续。",
     personaTitle: {
       founder: "创始人 / 初创公司",
       company: "公司",
