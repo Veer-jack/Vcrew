@@ -169,7 +169,13 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           {!Array.isArray(opts) && (
             <div className="row between" style={{ marginBottom: 2 }}>
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
-              {d.filters[g].size > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}</span>}
+              {d.filters[g].size > 0 && (
+                <span className="cnt mono" style={{ color: "var(--accent)" }}>
+                  {g === GEO_GROUP && d.filters[GEO_GROUP].has(WORLDWIDE)
+                    ? t("createMission.includedViaWorldwide", null, "Included via Worldwide")
+                    : t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
+                </span>
+              )}
             </div>
           )}
           {Array.isArray(opts) ? (
@@ -750,6 +756,15 @@ export default function CreateMissionWizard() {
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
   const selectAllInGroup = (group, opts) => setD(p => {
+    // "Global & Remote" is the one subgroup that itself contains Worldwide —
+    // selecting-all on it must route through the same exclusivity rule as a
+    // direct click, or it'd add Worldwide *and* Remote/Online together into
+    // the Set, an inconsistent state impliedAll (and everything downstream
+    // that assumes Worldwide is always the sole entry) was never built for.
+    if (group === GEO_GROUP && opts.includes(WORLDWIDE)) {
+      const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
+    }
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
