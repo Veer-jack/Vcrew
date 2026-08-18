@@ -1898,7 +1898,7 @@ const en = {
     publishMission: "Publish Mission",
     continue: "Continue",
     unsavedChangesTitle: "Unsaved Changes",
-    unsavedChangesBody: "Are you sure you want to leave? Your progress has been auto-saved as a draft, but the mission hasn't been created yet.",
+    unsavedChangesBody: "Are you sure you want to leave? Your progress is saved and will be restored if you come back.",
     leavePage: "Leave Page",
     stayOnPage: "Stay on Page",
     startFresh: "Start fresh",

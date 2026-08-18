@@ -1895,7 +1895,7 @@ const pt = {
     publishMission: "Publicar missão",
     continue: "Continuar",
     unsavedChangesTitle: "Alterações não salvas",
-    unsavedChangesBody: "Tem certeza de que deseja sair? Seu progresso foi salvo automaticamente como rascunho, mas a missão ainda não foi criada.",
+    unsavedChangesBody: "Tem certeza de que deseja sair? Seu progresso foi salvo e será restaurado se você voltar.",
     leavePage: "Sair da página",
     stayOnPage: "Fique na página",
     startFresh: "Começar do zero",

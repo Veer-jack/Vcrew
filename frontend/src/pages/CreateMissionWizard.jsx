@@ -1047,7 +1047,7 @@ export default function CreateMissionWizard() {
               <b style={{ fontSize: 15 }}>{t("createMission.unsavedChangesTitle", null, "Unsaved Changes")}</b>
             </div>
             <div style={{ padding: 20 }}>
-              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved in this browser and will be restored if you come back — but it won't appear in your Drafts list or count until you use \"Save as Draft\".")}</p>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved and will be restored if you come back.")}</p>
               <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
                 <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
                 <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>

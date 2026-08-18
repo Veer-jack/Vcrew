@@ -1895,7 +1895,7 @@ const ar = {
     publishMission: "نشر المهمة",
     continue: "متابعة",
     unsavedChangesTitle: "التغييرات غير المحفوظة",
-    unsavedChangesBody: "هل أنت متأكد أنك تريد المغادرة؟ تم حفظ تقدمك تلقائيًا كمسودة، ولكن لم يتم إنشاء المهمة بعد.",
+    unsavedChangesBody: "هل أنت متأكد أنك تريد المغادرة؟ تم حفظ تقدمك وسيتم استعادته عند عودتك.",
     leavePage: "مغادرة الصفحة",
     stayOnPage: "البقاء على الصفحة",
     startFresh: "البدء من جديد",

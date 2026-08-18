@@ -1895,7 +1895,7 @@ const zh = {
     publishMission: "发布使命",
     continue: "继续",
     unsavedChangesTitle: "未保存的更改",
-    unsavedChangesBody: "您确定要离开吗？您的进度已自动保存为草稿，但任务尚未创建。",
+    unsavedChangesBody: "您确定要离开吗？您的进度已保存，返回时将会恢复。",
     leavePage: "离开页面",
     stayOnPage: "留在页面上",
     startFresh: "重新开始",

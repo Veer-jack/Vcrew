@@ -1895,7 +1895,7 @@ const es = {
     publishMission: "Publicar misión",
     continue: "Continuar",
     unsavedChangesTitle: "Cambios no guardados",
-    unsavedChangesBody: "¿Estás seguro de que quieres irte? Tu progreso se ha guardado automáticamente como borrador, pero la misión aún no se ha creado.",
+    unsavedChangesBody: "¿Estás seguro de que quieres irte? Tu progreso está guardado y se restaurará si regresas.",
     leavePage: "Salir de la página",
     stayOnPage: "Permanecer en la página",
     startFresh: "Empezar de nuevo",

@@ -1895,7 +1895,7 @@ const fr = {
     publishMission: "Publier la mission",
     continue: "Continuer",
     unsavedChangesTitle: "Modifications non enregistrées",
-    unsavedChangesBody: "Êtes-vous sûr de vouloir partir ? Votre progression a été automatiquement enregistrée en tant que brouillon, mais la mission n'a pas encore été créée.",
+    unsavedChangesBody: "Êtes-vous sûr de vouloir partir ? Votre progression est enregistrée et sera restaurée si vous revenez.",
     leavePage: "Quitter la page",
     stayOnPage: "Restez sur la page",
     startFresh: "Recommencer",
