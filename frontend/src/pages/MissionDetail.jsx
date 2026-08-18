@@ -369,7 +369,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                     </div>
                     <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
                     <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
-                    {(st.id === "rewarded" || st.id === "rejected") && (
+                    {st.id === "rejected" && (
                       <Btn variant="quiet" size="sm" onClick={() => navigate(`/missions/${mission.id}/submissions`)} style={{ marginTop: 8 }}>{t("actions.reviewSubmissions", null, "Review submissions")}</Btn>
                     )}
                   </div>
