@@ -33,11 +33,22 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
   return (
     <aside className="side">
       <div className="brand">
-        <a href="/" style={{ display: "block" }}>{collapsed ? <BrandMark size={34} /> : <BrandLogoFull height={52} />}</a>
-        <button type="button" className="side-collapse-btn" onClick={onToggleCollapsed}
-          title={collapsed ? t("appLayout.expandSidebar", null, "Expand sidebar") : t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
-          <Icon name={collapsed ? "chevronRight" : "chevronLeft"} size={15} />
-        </button>
+        {collapsed ? (
+          // Same slot does double duty, like ChatGPT's sidebar: the logo mark
+          // sits there at rest, and swaps to the expand icon on hover instead
+          // of permanently showing a separate toggle button next to it.
+          <button type="button" className="brand-swap" onClick={onToggleCollapsed} title={t("appLayout.expandSidebar", null, "Expand sidebar")}>
+            <span className="brand-swap-logo"><BrandMark size={34} /></span>
+            <span className="brand-swap-toggle"><Icon name="sidebarPanel" size={16} /></span>
+          </button>
+        ) : (
+          <>
+            <a href="/" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
+            <button type="button" className="side-collapse-btn" onClick={onToggleCollapsed} title={t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
+              <Icon name="sidebarPanel" size={15} />
+            </button>
+          </>
+        )}
       </div>
       <Btn variant="primary" icon="plus" title={collapsed ? t("builder.createMission", null, "Create Mission") : undefined}
         onClick={() => { navigate("/missions/new"); closeMobile(); }} style={{ margin: "2px 4px 8px", width: "calc(100% - 8px)" }}>
