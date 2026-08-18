@@ -85,15 +85,26 @@ export async function notifySavedValidators(missionId) {
   }
 }
 
+// Message text as-is, truncated so a long paste doesn't blow out the
+// notification list's fixed row height — matches how thread previews are
+// already shortened in serializeThread's `last` field.
+function notifPreview(text) {
+  if (!text) return "📎 Attachment";
+  return text.length > 80 ? text.slice(0, 80) + "…" : text;
+}
+
 /**
- * Fires asynchronously when a builder replies in a thread.
+ * Fires asynchronously when a builder replies in a thread. Title is the
+ * sender's name and body is the actual message (like a phone's native
+ * message notification), not a generic "New Message" — so the notification
+ * list reads like a chat list instead of one undifferentiated row per ping.
  */
-export async function notifyNewMessage(validatorId, builderOrg, threadId) {
+export async function notifyNewMessage(validatorId, builderOrg, threadId, text) {
   try {
     await db.prepare(`
       INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
-      VALUES (?, 'message', 'message', 'primary', 'new_message', 'New Message', ?, 'Just now', 1, ?)
-    `).run(validatorId, `You have a new message from ${builderOrg}.`, threadId);
+      VALUES (?, 'message', 'message', 'primary', 'new_message', ?, ?, 'Just now', 1, ?)
+    `).run(validatorId, builderOrg, notifPreview(text), threadId);
   } catch (error) {
     console.error("notifyNewMessage error:", error);
   }
@@ -102,12 +113,12 @@ export async function notifyNewMessage(validatorId, builderOrg, threadId) {
 /**
  * Fires asynchronously when a validator replies in a thread.
  */
-export async function notifyBuilderNewMessage(builderId, validatorName, threadId) {
+export async function notifyBuilderNewMessage(builderId, validatorName, threadId, text) {
   try {
     await db.prepare(`
       INSERT INTO notifications (builder_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
-      VALUES (?, 'message', 'message', 'primary', 'new_message', 'New Message', ?, 'Just now', 1, ?)
-    `).run(builderId, `You have a new message from ${validatorName}.`, threadId);
+      VALUES (?, 'message', 'message', 'primary', 'new_message', ?, ?, 'Just now', 1, ?)
+    `).run(builderId, validatorName, notifPreview(text), threadId);
   } catch (error) {
     console.error("notifyBuilderNewMessage error:", error);
   }

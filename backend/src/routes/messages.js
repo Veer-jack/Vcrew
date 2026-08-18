@@ -89,6 +89,10 @@ router.get("/threads/:id", async (req, res) => {
   `).get(req.params.id, req.builder.id);
   
   if (!t) return res.status(404).json({ error: "Thread not found" });
+  // Opening the thread here (not just via the notification bell) should also
+  // clear its unread notification — otherwise the Messages sidebar badge
+  // stays stuck until the user happens to open the bell panel separately.
+  await db.prepare(`UPDATE notifications SET unread = 0 WHERE builder_id = ? AND type = 'new_message' AND target_id = ?`).run(req.builder.id, t.id);
   res.json({ thread: await serializeThread(t, true, req.builder.preferred_language) });
 });
 
@@ -103,7 +107,7 @@ router.post("/threads/:id/messages", async (req, res) => {
   
   // Bridge: Trigger notification to the validator
   if (t.validator_id) {
-    setImmediate(() => notifyNewMessage(t.validator_id, req.builder.name, t.id));
+    setImmediate(() => notifyNewMessage(t.validator_id, req.builder.name, t.id, text));
   }
 
   res.status(201).json({ message: { from: "me", text, time: "Just now" } });

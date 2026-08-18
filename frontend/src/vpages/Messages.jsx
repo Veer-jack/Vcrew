@@ -48,7 +48,12 @@ export default function Messages() {
     return () => clearInterval(interval);
   }, [activeId]);
 
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [active?.messages?.length]);
+  // Keyed on activeId too, not just message count — a notification deep-link
+  // into a thread that was already open (same id, new message just polled
+  // in) never changed messages.length by the time this ran, so the view
+  // stayed scrolled wherever it happened to be instead of jumping to the
+  // newest message.
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [activeId, active?.messages?.length]);
 
   const send = async () => {
     const text = draft.trim();
