@@ -8,6 +8,7 @@ import { MetaProvider } from "./context/MetaContext";
 import { api } from "./api/client";
 import { vapi } from "./vapi/client";
 import AppLayout from "./components/AppLayout";
+import HoverTooltips from "./components/HoverTooltips";
 import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import IntentFork from "./pages/IntentFork";
@@ -243,6 +244,7 @@ export default function App() {
         <SkipLink />
         <FreshDeskWidget />
         <RouteTracker />
+        <HoverTooltips />
         <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
         <Routes>
           <Route path="/validator/*" element={

@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-// A plain CSS ::after tooltip on [data-tooltip] elements gets clipped by the
-// sidebar's own overflow-y:auto (which forces overflow-x to clip too, per
-// spec, once either axis is non-visible) — it can never render past the
-// sidebar's right edge. This delegates hover on data-tooltip descendants of
-// `containerRef` and renders one portaled, position:fixed tooltip instead,
-// placed from the hovered element's real bounding box so it floats above
-// the page like ChatGPT's, not clipped behind it.
+// A plain CSS ::after tooltip on [data-tooltip] elements risks getting
+// clipped by any scrollable ancestor (overflow-y:auto forces overflow-x to
+// clip too, per spec, once either axis is non-visible) — it can silently
+// stop rendering past that ancestor's edge. This delegates hover on
+// data-tooltip descendants of `containerRef` (or the whole document, if
+// omitted — mount one instance at the app root to cover every page) and
+// renders one portaled, position:fixed tooltip instead, placed from the
+// hovered element's real bounding box so it always floats above the page.
 export default function HoverTooltips({ containerRef }) {
   const [tip, setTip] = useState(null);
 
   useEffect(() => {
-    const root = containerRef.current;
-    if (!root) return;
+    const root = containerRef?.current || document;
     const onOver = (e) => {
       const el = e.target.closest("[data-tooltip]");
       if (!el || !el.dataset.tooltip) return;

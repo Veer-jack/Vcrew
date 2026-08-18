@@ -5,7 +5,7 @@ import { Btn } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 
-const TC_PLATFORMS = ["Web", "iOS", "Android"];
+const TC_PLATFORMS = ["Web", "iOS", "Android", "All"];
 const TC_GOALS = ["Core flow", "UX", "Willingness to pay", "All"];
 
 const SEV = {
@@ -92,10 +92,13 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />
           {sevLabel[task.severity] || sevLabel.imp}
         </span>
-        <button
-            onClick={e => { e.stopPropagation(); onDelete(idx); }}
-            style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
-          ><Icon name="x" size={12} style={{ color: "var(--danger)" }} /></button>
+        {!expanded && (
+          <button
+              onClick={e => { e.stopPropagation(); onDelete(idx); }}
+              data-tooltip={t("testCases.deleteTask", null, "Delete Task")}
+              style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
+            ><Icon name="trash" size={13} style={{ color: "var(--danger)" }} /></button>
+        )}
           <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
       </div>
 
@@ -204,6 +207,7 @@ export default function StepTestCases({ d, set }) {
     Web: t("testCases.platformWeb", null, "Web"),
     iOS: t("testCases.platformIOS", null, "iOS"),
     Android: t("testCases.platformAndroid", null, "Android"),
+    All: t("testCases.goalAll", null, "All"),
   };
   const goalLabel = {
     "Core flow": t("testCases.goalCoreFlow", null, "Core flow"),
@@ -233,9 +237,22 @@ export default function StepTestCases({ d, set }) {
 
   const tasks = d.tasks || [];
   const patch = (p) => set({ testCaseForm: { ...form, ...p } });
-  const toggleChip = (key, val) => {
+  // "All" is a real chip, not just a label — clicking it selects/clears every
+  // other option in the group, and it also stays in sync the other way: if
+  // every individual option ends up checked one-by-one, "All" auto-checks
+  // too, and unchecking any single one auto-unchecks "All" — otherwise "All"
+  // could show checked while one option underneath isn't.
+  const toggleChip = (key, val, options) => {
     const cur = form[key] || [];
-    patch({ [key]: cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val] });
+    const real = options.filter(o => o !== "All");
+    if (val === "All") {
+      patch({ [key]: cur.includes("All") ? [] : options });
+      return;
+    }
+    let next = cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val];
+    next = next.filter(v => v !== "All");
+    if (real.every(o => next.includes(o))) next = [...next, "All"];
+    patch({ [key]: next });
   };
   const descOk = form.desc.trim().length > 0;
   const platformOk = form.platforms.length > 0;
@@ -316,7 +333,7 @@ export default function StepTestCases({ d, set }) {
       setFallbackReason(null);
       toast.error(t("testCases.generateFailed", null, "Failed to generate test cases. Make sure the backend server is running and AI services are configured."));
     }
-    set({ genFor: { cat: d.cat, ptype: d.ptype } });
+    set({ genFor: { cat: d.cat, ptype: d.ptype, platforms: form.platforms, goals: form.goals, users: form.users } });
   };
 
   const FALLBACK_REASON_COPY = {
@@ -383,7 +400,7 @@ export default function StepTestCases({ d, set }) {
             <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.platform", null, "Platform")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
             <div className="chips">
               {TC_PLATFORMS.map(p => (
-                <button key={p} className={`chip ${form.platforms.includes(p) ? "on" : ""}`} onClick={() => toggleChip("platforms", p)}>
+                <button key={p} className={`chip ${form.platforms.includes(p) ? "on" : ""}`} onClick={() => toggleChip("platforms", p, TC_PLATFORMS)}>
                   <span className="ck"><Icon name="check" size={10} /></span>{platformLabel[p] || p}
                 </button>
               ))}
@@ -394,7 +411,7 @@ export default function StepTestCases({ d, set }) {
             <div className="fsec" style={{ marginTop: 0 }}><b>{t("testCases.validationGoals", null, "Validation goals")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
             <div className="chips">
               {TC_GOALS.map(g => (
-                <button key={g} className={`chip ${form.goals.includes(g) ? "on" : ""}`} onClick={() => toggleChip("goals", g)}>
+                <button key={g} className={`chip ${form.goals.includes(g) ? "on" : ""}`} onClick={() => toggleChip("goals", g, TC_GOALS)}>
                   <span className="ck"><Icon name="check" size={10} /></span>{goalLabel[g] || g}
                 </button>
               ))}
@@ -402,7 +419,7 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <div className="fld" style={{ marginBottom: 0 }}>
-            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span> <Icon name="info" size={13} style={{ verticalAlign: -2, color: "var(--text-faint)", cursor: "help" }} title={t("testCases.targetUsersInfo", null, "Who this mission is meant for — their role, experience level, or context (e.g. \"first-time app users\", \"B2B SaaS buyers\"). This shapes who AI writes the test tasks for.")} /></label>
+            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span> <span style={{ display: "inline-flex", verticalAlign: -2, cursor: "help" }} data-tooltip={t("testCases.targetUsersInfo", null, "Who this mission is meant for — their role, experience level, or context (e.g. \"first-time app users\", \"B2B SaaS buyers\"). This shapes who AI writes the test tasks for.")}><Icon name="info" size={13} style={{ color: "var(--text-faint)" }} /></span></label>
             <input className="fin" placeholder={t("testCases.targetUsersPlaceholder", null, "e.g. Urban millennials, SaaS buyers, first-time app users")} value={form.users} onChange={e => patch({ users: e.target.value })} />
           </div>
 
@@ -464,6 +481,16 @@ export default function StepTestCases({ d, set }) {
               <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
                 <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
                 <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.categoryChangedWarning", null, "Category or participation type changed since these were generated — regenerate to match.")}</span>
+              </div>
+            )}
+            {d.genFor && !(d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
+              JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms)
+              || JSON.stringify(d.genFor.goals) !== JSON.stringify(form.goals)
+              || d.genFor.users !== form.users
+            ) && (
+              <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
+                <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
+                <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.filtersChangedWarning", null, "Platform, validation goals or target users changed since these were generated — regenerate to match your latest selections.")}</span>
               </div>
             )}
             {tasks.map((t, i) => (

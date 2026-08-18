@@ -7,7 +7,6 @@ import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
 import LanguageSwitcher from "../components/LanguageSwitcher";
-import HoverTooltips from "../components/HoverTooltips";
 
 function timeAgo(dateString, t) {
   if (!dateString) return null;
@@ -156,7 +155,6 @@ export default function VLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const profileRef = useRef(null);
-  const sideRef = useRef(null);
 
   useEffect(() => {
     const fetchNotifs = () => vapi.notifications().then(d => setNotifs(d.notifications || [])).catch(() => {});
@@ -186,8 +184,7 @@ export default function VLayout() {
   return (
     <div className={`app ${mobOpen ? "mob-open" : ""} ${collapsed ? "side-collapsed" : ""}`}>
       <div className="mob-scrim" onClick={() => { setMobOpen(false); setShowProfile(false); }} />
-      <aside className="side" ref={sideRef}>
-        <HoverTooltips containerRef={sideRef} />
+      <aside className="side">
         <div className="brand">
           {collapsed ? (
             // Same slot does double duty, like ChatGPT's sidebar: the logo mark
