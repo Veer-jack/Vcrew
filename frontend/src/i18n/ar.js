@@ -1885,6 +1885,7 @@ const ar = {
     publishError: "لا يمكن نشر هذه المهمة",
     newMission: "مهمة جديدة",
     exitToDashboard: "الخروج إلى لوحة القيادة",
+    cancel: "إلغاء",
     stepOfTotal: "الخطوة {{current}} من {{total}}",
     back: "العودة",
     stepLabel: "خطوة",

@@ -1885,6 +1885,7 @@ const hi = {
     publishError: "इस मिशन को प्रकाशित नहीं किया जा सका",
     newMission: "नया मिशन",
     exitToDashboard: "डैशबोर्ड से बाहर निकलें",
+    cancel: "रद्द करें",
     stepOfTotal: "{{total}} का चरण {{current}}",
     back: "वापस",
     stepLabel: "कदम",

@@ -1885,6 +1885,7 @@ const fr = {
     publishError: "Impossible de publier cette mission",
     newMission: "Nouvelle mission",
     exitToDashboard: "Quitter au tableau de bord",
+    cancel: "Annuler",
     stepOfTotal: "Étape {{current}} de {{total}}",
     back: "Retour",
     stepLabel: "Étape",

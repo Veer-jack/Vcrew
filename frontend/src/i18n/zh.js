@@ -1885,6 +1885,7 @@ const zh = {
     publishError: "无法发布此任务",
     newMission: "新使命",
     exitToDashboard: "退出到仪表板",
+    cancel: "取消",
     stepOfTotal: "{{total}} 的步骤 {{current}}",
     back: "返回",
     stepLabel: "步骤",

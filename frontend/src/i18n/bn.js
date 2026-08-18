@@ -1885,6 +1885,7 @@ const bn = {
     publishError: "এই মিশন প্রকাশ করতে পারেনি",
     newMission: "নতুন মিশন",
     exitToDashboard: "ড্যাশবোর্ডে প্রস্থান করুন",
+    cancel: "বাতিল করুন",
     stepOfTotal: "{{total}} এর {{current}} ধাপ",
     back: "ব্যাক",
     stepLabel: "ধাপ",

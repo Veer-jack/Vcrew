@@ -1885,6 +1885,7 @@ const ru = {
     publishError: "Не удалось опубликовать эту миссию",
     newMission: "Новая миссия",
     exitToDashboard: "Выход на панель управления",
+    cancel: "Отмена",
     stepOfTotal: "Шаг {{current}} из {{total}}",
     back: "Назад",
     stepLabel: "Шаг",

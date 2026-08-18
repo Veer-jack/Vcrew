@@ -1885,6 +1885,7 @@ const ur = {
     publishError: "اس مشن کو شائع نہیں کیا جا سکا",
     newMission: "نیا مشن",
     exitToDashboard: "ڈیش بورڈ پر نکلیں۔",
+    cancel: "منسوخ کریں",
     stepOfTotal: "{{total}} کا مرحلہ {{current}}",
     back: "پیچھے",
     stepLabel: "قدم",

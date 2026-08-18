@@ -1885,6 +1885,7 @@ const es = {
     publishError: "No se pudo publicar esta misión",
     newMission: "Nueva misión",
     exitToDashboard: "Salir al tablero",
+    cancel: "Cancelar",
     stepOfTotal: "Paso {{current}} de {{total}}",
     back: "Atrás",
     stepLabel: "paso",

@@ -864,18 +864,9 @@ export default function CreateMissionWizard() {
   return (
     <div className="wz" data-layout="rail">
       <aside className="wz-rail">
-        <div className="wz-brand" style={{ position: "relative" }}>
+        <div className="wz-brand">
           <BrandMark size={52} />
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{missionId ? t("createMission.editDraft", null, "Edit draft") : t("createMission.newMission", null, "New mission")}</div></div>
-          <button
-            type="button"
-            aria-label={t("createMission.exitToDashboard", null, "Exit to dashboard")}
-            title={t("createMission.exitToDashboard", null, "Exit to dashboard")}
-            onClick={() => setShowExitWarning(true)}
-            style={{ position: "absolute", top: 0, right: 0, background: "none", border: "none", cursor: "pointer", padding: 6, color: "var(--text-faint)", display: "flex" }}
-          >
-            <Icon name="x" size={18} />
-          </button>
         </div>
         <div className="wz-steps">
           {WZ_STEPS.map((s, i) => (
@@ -885,10 +876,12 @@ export default function CreateMissionWizard() {
             </button>
           ))}
         </div>
-        <div className="wz-rail-foot">
-          {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
-          <button className="backlink" onClick={() => setShowExitWarning(true)}><Icon name="arrowLeft" size={16} /> {t("createMission.exitToDashboard", null, "Exit to dashboard")}</button>
-        </div>
+        {step === 0 && (
+          <div className="wz-rail-foot">
+            {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
+            <button className="btn outline" style={{ width: "100%", marginTop: 8 }} onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+          </div>
+        )}
       </aside>
 
       <div className="wz-main">
@@ -931,7 +924,12 @@ export default function CreateMissionWizard() {
 
       <div className="wz-foot">
         <div className="wz-foot-inner">
-          {step > 0 && <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>}
+          {step > 0 && (
+            <div className="row gap-2" style={{ alignItems: "center" }}>
+              <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
+              <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+            </div>
+          )}
           <span className="grow" />
           {step === 2 && !canNext && (
             <span className="muted" style={{ fontSize: 12.5, marginRight: 4 }}>

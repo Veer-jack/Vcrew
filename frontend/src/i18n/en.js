@@ -1888,6 +1888,7 @@ const en = {
     publishSuccess: "Mission published successfully",
     newMission: "New mission",
     exitToDashboard: "Exit to dashboard",
+    cancel: "Cancel",
     stepOfTotal: "Step {{current}} of {{total}}",
     back: "Back",
     stepLabel: "Step",
