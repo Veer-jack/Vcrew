@@ -1911,6 +1911,7 @@ const ur = {
     insufficientBalance: "والٹ بیلنس سے زیادہ ہے",
     insufficientBalanceHint: "آپ کے والٹ کا بیلنس اس ریوارڈ سیٹ اپ کو پورا کرنے کے لیے کافی نہیں ہے — جاری رکھنے کے لیے اپنا والٹ ری چارج کریں یا لاگت کم کریں۔",
     otherGeoPlaceholder: "مثلاً نیپال، سری لنکا…",
+    addAnotherOther: "مزید شامل کریں",
     editDraft: "ڈرافٹ میں ترمیم کریں",
     loadingDraft: "ڈرافٹ لوڈ ہو رہا ہے…",
     whatHappensNextTitle: "آگے کیا ہوگا؟",

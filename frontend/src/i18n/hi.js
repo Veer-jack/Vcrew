@@ -1911,6 +1911,7 @@ const hi = {
     insufficientBalance: "वॉलेट बैलेंस से अधिक है",
     insufficientBalanceHint: "आपका वॉलेट बैलेंस इस रिवॉर्ड सेटअप को कवर करने के लिए पर्याप्त नहीं है — जारी रखने के लिए अपना वॉलेट रिचार्ज करें या लागत कम करें।",
     otherGeoPlaceholder: "जैसे नेपाल, श्रीलंका…",
+    addAnotherOther: "और जोड़ें",
     editDraft: "ड्राफ्ट संपादित करें",
     loadingDraft: "ड्राफ्ट लोड हो रहा है…",
     whatHappensNextTitle: "आगे क्या होगा?",

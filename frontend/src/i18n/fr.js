@@ -1911,6 +1911,7 @@ const fr = {
     insufficientBalance: "dépasse le solde du portefeuille",
     insufficientBalanceHint: "Le solde de votre portefeuille n'est pas suffisant pour couvrir cette configuration de récompense — rechargez votre portefeuille ou réduisez le coût pour continuer.",
     otherGeoPlaceholder: "ex. Népal, Sri Lanka…",
+    addAnotherOther: "Ajouter plus",
     editDraft: "Modifier le brouillon",
     loadingDraft: "Chargement du brouillon…",
     whatHappensNextTitle: "Que se passe-t-il ensuite ?",

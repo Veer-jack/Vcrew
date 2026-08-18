@@ -1911,6 +1911,7 @@ const ru = {
     insufficientBalance: "превышает баланс кошелька",
     insufficientBalanceHint: "Баланса вашего кошелька недостаточно для покрытия этой настройки вознаграждения — пополните кошелёк или снизьте стоимость, чтобы продолжить.",
     otherGeoPlaceholder: "напр. Непал, Шри-Ланка…",
+    addAnotherOther: "Добавить ещё",
     editDraft: "Редактировать черновик",
     loadingDraft: "Загрузка черновика…",
     whatHappensNextTitle: "Что будет дальше?",

@@ -611,9 +611,16 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
       return [g, new Set(g === GEO_GROUP ? saved.filter(v => geoKnown.has(v)) : saved)];
     })
   ));
-  const [otherGeoText, setOtherGeoText] = useState(() => {
-    const saved = audience.defn.find(d => d.group === GEO_GROUP)?.values || [];
-    return saved.find(v => !geoKnown.has(v)) || "";
+  const [otherEntries, setOtherEntries] = useState(() => {
+    const result = {};
+    for (const g of Object.keys(flatFilters)) {
+      if (!flatFilters[g]?.includes("Other")) continue;
+      const known = new Set(flatFilters[g]);
+      const saved = audience.defn.find(d => d.group === g)?.values || [];
+      const entries = saved.filter(v => !known.has(v));
+      if (entries.length) result[g] = entries;
+    }
+    return result;
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -665,9 +672,10 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
     setBusy(true); setErr("");
     try {
       const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
-      const otherGeo = otherGeoText.trim();
-      if (otherGeo && (payload[GEO_GROUP]?.includes("Other") || payload[GEO_GROUP]?.includes("India"))) {
-        payload[GEO_GROUP] = [...payload[GEO_GROUP], otherGeo];
+      for (const [group, entries] of Object.entries(otherEntries)) {
+        if (!entries?.length) continue;
+        const triggered = payload[group]?.includes("Other") || (group === GEO_GROUP && payload[group]?.includes("India"));
+        if (triggered) payload[group] = [...payload[group], ...entries];
       }
       await api.updateMission(mission.id, { audience: payload });
       onSaved(Object.entries(payload).filter(([, values]) => values.length).map(([group, values]) => ({ group, values })));
@@ -716,8 +724,8 @@ function EditAudienceModal({ mission, audience, onClose, onSaved }) {
             impliedAll={g === GEO_GROUP && sel[GEO_GROUP]?.has(WORLDWIDE)}
             initialExpanded={(sel[g]?.size || 0) > 0}
             externalQuery={q}
-            otherText={g === GEO_GROUP ? otherGeoText : undefined}
-            onOtherTextChange={g === GEO_GROUP ? setOtherGeoText : undefined}
+            otherEntries={otherEntries[g]}
+            onOtherEntriesChange={(entries) => setOtherEntries(p => ({ ...p, [g]: entries }))}
             otherValue={g === GEO_GROUP ? (sel[GEO_GROUP]?.has("India") ? "India" : "Other") : "Other"}
           />
         ))}

@@ -1911,6 +1911,7 @@ const zh = {
     insufficientBalance: "超出钱包余额",
     insufficientBalanceHint: "您的钱包余额不足以支付此奖励设置 — 请为钱包充值或降低费用以继续。",
     otherGeoPlaceholder: "例如：尼泊尔、斯里兰卡…",
+    addAnotherOther: "添加更多",
     editDraft: "编辑草稿",
     loadingDraft: "正在加载草稿…",
     whatHappensNextTitle: "接下来会发生什么？",

@@ -1911,6 +1911,7 @@ const bn = {
     insufficientBalance: "ওয়ালেট ব্যালেন্স অতিক্রম করে",
     insufficientBalanceHint: "এই পুরস্কার সেটআপ কভার করার জন্য আপনার ওয়ালেট ব্যালেন্স যথেষ্ট নয় — চালিয়ে যেতে আপনার ওয়ালেট রিচার্জ করুন বা খরচ কমান।",
     otherGeoPlaceholder: "যেমন নেপাল, শ্রীলঙ্কা…",
+    addAnotherOther: "আরও যোগ করুন",
     editDraft: "খসড়া সম্পাদনা করুন",
     loadingDraft: "খসড়া লোড হচ্ছে…",
     whatHappensNextTitle: "এরপর কী হবে?",

@@ -1911,6 +1911,7 @@ const es = {
     insufficientBalance: "supera el saldo de la billetera",
     insufficientBalanceHint: "El saldo de tu billetera no es suficiente para cubrir esta configuración de recompensa — recarga tu billetera o reduce el costo para continuar.",
     otherGeoPlaceholder: "p. ej. Nepal, Sri Lanka…",
+    addAnotherOther: "Añadir más",
     editDraft: "Editar borrador",
     loadingDraft: "Cargando borrador…",
     whatHappensNextTitle: "¿Qué sucede después?",

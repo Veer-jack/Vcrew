@@ -61,10 +61,14 @@ function StepInfo({ d, set, categories, showErrors }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTextChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other" }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other" }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
+  // Uncommitted text for a new "Other" entry — separate from the saved
+  // otherEntries array below, so typing doesn't add a filter until Save.
+  const [draftOther, setDraftOther] = React.useState("");
+  const [addingOther, setAddingOther] = React.useState(false);
   // A caller-driven search (e.g. a modal-wide search bar) takes over this
   // group's own filtering instead of running alongside it — two active
   // queries at once would be confusing and the caller already decided
@@ -75,7 +79,15 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
   const filtered = activeQuery.trim() ? options.filter(o => o.toLowerCase().includes(activeQuery.toLowerCase())) : options;
   if (hasExternalQuery && externalQuery.trim() && filtered.length === 0) return null;
   const isOpen = (hasExternalQuery && externalQuery.trim()) ? true : expanded;
-  const showOtherInput = onOtherTextChange && sel.has(otherValue);
+  const showOtherInput = onOtherEntriesChange && sel.has(otherValue);
+  const savedOther = otherEntries || [];
+  const saveOther = () => {
+    const v = draftOther.trim();
+    if (!v) return;
+    onOtherEntriesChange([...savedOther, v]);
+    setDraftOther("");
+    setAddingOther(false);
+  };
   // Scoped to this group's own options — `sel` is shared across sibling
   // subgroups (e.g. all of Geography's regions share one Set), so counting
   // sel.size directly would show the whole category's total on every
@@ -125,13 +137,35 @@ export function FilterGroup({ title, options, sel, toggle, otherText, onOtherTex
             {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
-            <input
-              className="fin"
-              style={{ marginTop: 10, fontSize: 13, maxWidth: 320 }}
-              placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
-              value={otherText}
-              onChange={e => onOtherTextChange(e.target.value)}
-            />
+            <div style={{ marginTop: 10 }}>
+              {savedOther.length > 0 && (
+                <div className="row" style={{ flexWrap: "wrap", gap: 8, marginBottom: savedOther.length ? 8 : 0 }}>
+                  {savedOther.map((val, i) => (
+                    <div key={i} className="afilter-chip">
+                      {val} <button onClick={() => onOtherEntriesChange(savedOther.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(savedOther.length === 0 || addingOther) ? (
+                <div className="row gap-2" style={{ alignItems: "center" }}>
+                  <input
+                    className="fin"
+                    style={{ fontSize: 13, maxWidth: 220 }}
+                    placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+                    value={draftOther}
+                    onChange={e => setDraftOther(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
+                  />
+                  <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
+                  <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); }}>{t("actions.cancel", null, "Cancel")}</button>
+                </div>
+              ) : (
+                <button type="button" className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={() => setAddingOther(true)}>
+                  <Icon name="plus" size={13} style={{ verticalAlign: -2, marginRight: 4 }} />{t("createMission.addAnotherOther", null, "Add more")}
+                </button>
+              )}
+            </div>
           )}
         </>
       )}
@@ -181,8 +215,8 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           {Array.isArray(opts) ? (
             <FilterGroup
               title={g} options={opts} sel={d.filters[g]} toggle={toggle}
-              otherText={g === "Geography" ? (d.otherGeoText || "") : undefined}
-              onOtherTextChange={g === "Geography" ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+              otherEntries={d.otherEntries?.[g]}
+              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries }, audienceTouched: true })}
               onSelectAll={opts => selectAllInGroup(g, opts)}
             />
           ) : (
@@ -194,8 +228,8 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
               return (
                 <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                  otherText={subOther ? (d.otherGeoText || "") : undefined}
-                  onOtherTextChange={subOther ? (v) => set({ otherGeoText: v, audienceTouched: true }) : undefined}
+                  otherEntries={subOther ? d.otherEntries?.[g] : undefined}
+                  onOtherEntriesChange={subOther ? (entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries }, audienceTouched: true }) : undefined}
                   otherValue={subOther || "Other"}
                   onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
                   impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
@@ -406,9 +440,8 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
   const pt = ptypes.find(p => p.id === d.ptype);
   const rw = rewards.find(r => r.id === d.reward.type);
   const count = liveCount;
-  const allFilters = Object.entries(d.filters).flatMap(([g, s]) =>
-    [...s].map(v => (g === "Geography" && v === "Other" && d.otherGeoText?.trim()) ? d.otherGeoText.trim() : v)
-  );
+  const allFilters = Object.entries(d.filters).flatMap(([, s]) => [...s]);
+  for (const entries of Object.values(d.otherEntries || {})) allFilters.push(...(entries || []));
   const descLong = d.desc && d.desc.length > 160;
   return (
     <div className="rise">
@@ -454,15 +487,18 @@ function flatOptions(opts) {
   return Array.isArray(opts) ? opts : Object.values(opts).flat();
 }
 
-// The backend already free-text substring-matches Geography (see
-// getRealMatchCount in backend/src/routes/audience.js), so the "Other"
-// chip's typed value can be sent straight through as its own entry —
-// no need to swap it in for the literal "Other" marker (the backend treats
-// "Other" itself as a no-op, same as "Worldwide"/"Remote").
+// The backend already free-text substring-matches these groups (see
+// getRealMatchCount in backend/src/routes/audience.js), so each "Other"
+// chip's typed entries can be sent straight through as their own entries —
+// no need to swap them in for the literal "Other" marker (the backend
+// treats "Other" itself as a no-op, same as "Worldwide"/"Remote").
 function buildAudiencePayload(d) {
   const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
-  const otherGeo = (d.otherGeoText || "").trim();
-  if (otherGeo && (audience.Geography?.includes("Other") || audience.Geography?.includes("India"))) audience.Geography = [...audience.Geography, otherGeo];
+  for (const [group, entries] of Object.entries(d.otherEntries || {})) {
+    if (!entries?.length) continue;
+    const triggered = audience[group]?.includes("Other") || (group === GEO_GROUP && audience[group]?.includes("India"));
+    if (triggered) audience[group] = [...audience[group], ...entries];
+  }
   return audience;
 }
 
@@ -506,29 +542,29 @@ function missionToDraft(mission, filters, categories, ptypes) {
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
   };
+  const otherEntries = {};
   for (const g of Object.keys(emptyF)) {
     const vals = audience[g];
     if (!Array.isArray(vals)) continue;
-    if (g === GEO_GROUP) {
-      const known = new Set(flatOptions(filters[GEO_GROUP]));
+    const flatOpts = flatOptions(filters[g]);
+    if (flatOpts.includes("Other")) {
+      // A known value is a real option (including the "Other" and "India"
+      // catch-alls themselves) and gets kept as-is. Unrecognized values are
+      // the free text the builder typed alongside whichever catch-all was
+      // selected — those catch-alls are already being added from their own
+      // entries in this same array, so this branch only needs to collect
+      // the text, not guess which marker each one belongs to.
+      const known = new Set(flatOpts);
       const sel = new Set();
-      let otherText = "";
-      for (const v of vals) {
-        // A known value is a real option (including the "Other" and "India"
-        // catch-alls themselves) and gets kept as-is. An unrecognized value
-        // is the free-text the builder typed alongside whichever catch-all
-        // was selected — that catch-all is already being added from its own
-        // entry in this same array, so this branch only needs to capture the
-        // text, not guess which marker it belongs to.
-        if (known.has(v)) sel.add(v);
-        else otherText = v;
-      }
+      const entries = [];
+      for (const v of vals) { if (known.has(v)) sel.add(v); else entries.push(v); }
       draft.filters[g] = sel;
-      if (otherText) draft.otherGeoText = otherText;
+      if (entries.length) otherEntries[g] = entries;
     } else {
       draft.filters[g] = new Set(vals);
     }
   }
+  draft.otherEntries = otherEntries;
   return draft;
 }
 
@@ -669,7 +705,7 @@ export default function CreateMissionWizard() {
       .then(res => setLiveCount(res.count))
       .catch(() => {})
       .finally(() => setIsFetchingCount(false));
-  }, [d.filters, d.otherGeoText]);
+  }, [d.filters, d.otherEntries]);
 
   // Auto-save to localStorage — survives reload/tab-close by design, so the
   // exit-warning copy ("your progress has been auto-saved") stays true.
