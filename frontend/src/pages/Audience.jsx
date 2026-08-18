@@ -33,9 +33,16 @@ function defaultSelFromProfile(filters, profile) {
   const sel = EMPTY_SEL(filters);
   if (!profile) return sel;
   const add = (group, values) => { (values || []).forEach(v => v && sel[group] && sel[group].add(v)); };
-  add("Demographics", profile.ageBands);
-  add("Demographics", (profile.genders || []).filter(g => g !== "Any"));
-  add("Demographics", profile.incomeBands);
+  // Demographics specifically also gets checked against the *current* known
+  // option list — selToProfilePatch's reverse mapping below does the same
+  // filtering, and without this the two directions are asymmetric: a stale
+  // ageBand/gender/income value from before the option list changed would
+  // load into sel fine, then silently vanish from the saved profile the
+  // moment the reverse sync runs, even with zero user interaction.
+  const addKnown = (group, values, known) => { (values || []).forEach(v => v && known?.includes(v) && sel[group] && sel[group].add(v)); };
+  addKnown("Demographics", profile.ageBands, filters.Demographics?.Age);
+  addKnown("Demographics", (profile.genders || []).filter(g => g !== "Any"), filters.Demographics?.Gender);
+  addKnown("Demographics", profile.incomeBands, filters.Demographics?.["Income Bracket"]);
   add("Professional", profile.occupations);
   add("Interests", profile.interests);
   add("ValidationCrew Role", profile.validatorTypes);
