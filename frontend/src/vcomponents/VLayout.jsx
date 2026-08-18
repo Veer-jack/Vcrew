@@ -190,14 +190,14 @@ export default function VLayout() {
             // Same slot does double duty, like ChatGPT's sidebar: the logo mark
             // sits there at rest, and swaps to the expand icon on hover instead
             // of permanently showing a separate toggle button next to it.
-            <button type="button" className="brand-swap" onClick={toggleCollapsed} data-tooltip={t("appLayout.expandSidebar", null, "Expand sidebar")}>
+            <button type="button" className="brand-swap" onClick={toggleCollapsed} data-tooltip={t("appLayout.expandSidebar", null, "Open sidebar")}>
               <span className="brand-swap-logo"><BrandMark size={34} /></span>
               <span className="brand-swap-toggle"><Icon name="sidebarPanel" size={16} /></span>
             </button>
           ) : (
             <>
               <a href="/validator" style={{ display: "block" }}><BrandLogoFull height={52} /></a>
-              <button type="button" className="side-collapse-btn" onClick={toggleCollapsed} data-tooltip={t("appLayout.collapseSidebar", null, "Collapse sidebar")}>
+              <button type="button" className="side-collapse-btn" onClick={toggleCollapsed} data-tooltip={t("appLayout.collapseSidebar", null, "Close sidebar")}>
                 <Icon name="sidebarPanel" size={15} />
               </button>
             </>

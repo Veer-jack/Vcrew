@@ -132,6 +132,7 @@ export function LocationFields({ region, d, set, withCity, showErrors }) {
           options={COUNTRY_NAMES}
           sel={countrySel}
           toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
+          onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
         />
       </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
