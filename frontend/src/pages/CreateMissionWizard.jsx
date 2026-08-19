@@ -242,13 +242,14 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               // "India - 9 cities" reuses "India" itself as its catch-all —
               // there's no literal "Other" in that subgroup's option list, so
               // the free-text follow-up needs to key off whichever catch-all
-              // value this specific subgroup actually uses. Geography has two
-              // independent catch-alls (this one and the standalone "Other"
-              // subgroup) — keying otherEntries by group+trigger instead of
-              // just group keeps their custom entries from bleeding into
-              // each other's list.
+              // value this specific subgroup actually uses. Keyed by
+              // group+subgroup+trigger, not just group+trigger: Interests has
+              // "Other" as the trigger in three different subgroups
+              // (Lifestyle, Industry, Product Types), so the trigger word
+              // alone isn't a unique enough key to keep their custom entries
+              // from bleeding into each other's list.
               const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
-              const otherKey = subOther ? `${g}:${subOther}` : undefined;
+              const otherKey = subOther ? `${g}:${sub}:${subOther}` : undefined;
               return (
                 <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                   otherEntries={otherKey ? d.otherEntries?.[otherKey] : undefined}
@@ -542,12 +543,16 @@ function flatOptions(opts) {
 // treats "Other" itself as a no-op, same as "Worldwide"/"Remote").
 function buildAudiencePayload(d) {
   const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
-  // Keys are "group:trigger" (e.g. "Geography:India", "Geography:Other") so
-  // each catch-all's custom entries only get appended when its own trigger
-  // is actually selected, not any other catch-all sharing the same group.
+  // Keys are "group:trigger" for flat categories or "group:subgroup:trigger"
+  // for subgrouped ones — the first segment is always the group, the last is
+  // always the actual trigger value to check for, so each catch-all's custom
+  // entries only get appended when its own trigger is actually selected, not
+  // any other catch-all (even one sharing the same trigger word elsewhere).
   for (const [key, entries] of Object.entries(d.otherEntries || {})) {
     if (!entries?.length) continue;
-    const [group, trigger] = key.split(":");
+    const parts = key.split(":");
+    const group = parts[0];
+    const trigger = parts[parts.length - 1];
     if (audience[group]?.includes(trigger)) audience[group] = [...audience[group], ...entries];
   }
   return audience;
@@ -598,18 +603,25 @@ function missionToDraft(mission, filters, categories, ptypes) {
       // catch-alls themselves) and gets kept as-is. Unrecognized values are
       // the free text the builder typed alongside whichever catch-all was
       // selected. The saved payload itself doesn't tag which catch-all each
-      // custom entry came from when a group has more than one (Geography's
-      // "India" and "Other") — attribute them all to whichever is actually
-      // selected, preferring "Other" if both are; a rare case, and retyping
-      // after resuming corrects it if it lands under the "wrong" one.
+      // custom entry came from when a group has more than one active at once
+      // (e.g. Geography's "India" and "Other", or Interests having "Other"
+      // in more than one subgroup) — attribute them all to whichever one is
+      // found first; a rare case, and retyping after resuming corrects it if
+      // it lands under the "wrong" one.
       const known = new Set(flatOpts);
       const sel = new Set();
       const entries = [];
       for (const v of vals) { if (known.has(v)) sel.add(v); else entries.push(v); }
       draft.filters[g] = sel;
       if (entries.length) {
-        const trigger = sel.has("Other") ? "Other" : (sel.has("India") ? "India" : "Other");
-        otherEntries[`${g}:${trigger}`] = entries;
+        let bucketKey = `${g}:Other`;
+        if (!Array.isArray(filters[g])) {
+          for (const [sub, subOpts] of Object.entries(filters[g])) {
+            const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
+            if (subOther && sel.has(subOther)) { bucketKey = `${g}:${sub}:${subOther}`; break; }
+          }
+        }
+        otherEntries[bucketKey] = entries;
       }
     } else {
       draft.filters[g] = new Set(vals);
@@ -693,6 +705,7 @@ export default function CreateMissionWizard() {
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [showStaleWarning, setShowStaleWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [loadingMission, setLoadingMission] = useState(!!missionId);
   // Mirrors the backend's own field-level allowlist (PATCH /missions/:id) —
@@ -949,17 +962,24 @@ export default function CreateMissionWizard() {
   // no separate "Save as Draft" click to hang them on — debounce and PATCH
   // the draft in place instead. Silently ignored on failure, same as any
   // other autosave; the next successful edit/publish will catch it up.
+  //
+  // Critical: this must never send status:"draft" for a mission that was
+  // already active when opened for editing — this same effect also covers
+  // that case (editing an already-live mission via missionId), and sending
+  // "draft" unconditionally here silently downgraded a live mission back to
+  // draft on every keystroke, well before the user ever clicked anything
+  // resembling Save/Publish.
   useEffect(() => {
     const id = missionId || promotedId;
     if (!id || loadingMission || published) return;
     setSaveStatus("saving");
     const timer = setTimeout(() => {
-      api.updateMission(id, buildMissionPayload("draft"))
+      api.updateMission(id, buildMissionPayload(wasActive ? "active" : "draft"))
         .then(() => setSaveStatus("saved"))
         .catch(() => setSaveStatus("idle"));
     }, 800);
     return () => clearTimeout(timer);
-  }, [d, missionId, promotedId, loadingMission, published]);
+  }, [d, missionId, promotedId, loadingMission, published, wasActive]);
 
   const publish = async () => {
     setBusy(true); setError("");
@@ -983,21 +1003,7 @@ export default function CreateMissionWizard() {
     }
   };
 
-  const goNext = () => {
-    if (!fieldsValid) {
-      setShowErrors(true);
-      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-    setShowErrors(false); setError("");
-    // A toast here (rather than repeating the same warning on Step 4, which
-    // has nothing to do with test cases) keeps the "regenerate" action where
-    // it actually lives, while still making sure the builder knows they're
-    // moving on with the previous ones.
-    if (step === 2 && isTestCasesStale(d)) {
-      toast(t("createMission.staleTestCasesToast", null, "Continuing with your previous test cases — you can regenerate them anytime from Step 3."), { icon: "⚠️" });
-    }
+  const advanceStep = () => {
     if (last && !builder?.profile) {
       setError(t("createMission.profileRequiredToPublish", null, "Complete your profile before publishing — you can still save this mission as a draft."));
       // The Publish button sits at the bottom of a long, scrolled-down review
@@ -1011,6 +1017,22 @@ export default function CreateMissionWizard() {
     const next = step + 1;
     setStep(next);
     setMaxReached(m => Math.max(m, next));
+  };
+  const goNext = () => {
+    if (!fieldsValid) {
+      setShowErrors(true);
+      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    setShowErrors(false); setError("");
+    // Asks rather than silently proceeding or silently blocking — the
+    // "regenerate" action itself stays right here on Step 3 either way.
+    if (step === 2 && isTestCasesStale(d)) {
+      setShowStaleWarning(true);
+      return;
+    }
+    advanceStep();
   };
   const editStep = (i) => { setShowErrors(false); setError(""); setStep(i); };
   const goBack = () => { setShowErrors(false); setError(""); setStep(s => s - 1); };
@@ -1201,6 +1223,20 @@ export default function CreateMissionWizard() {
                 navigate("/");
               }}>{t("createMission.leavePage", null, "Leave Page")}</button>
               <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showStaleWarning && (
+        <Modal title={t("createMission.staleTestCasesTitle", null, "Test cases may be out of date")} onClose={() => setShowStaleWarning(false)} width={440} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              {t("createMission.staleTestCasesBody", null, "We've noticed the test case details were updated after these test cases were generated. We recommend regenerating them. Do you want to regenerate?")}
+            </p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={() => setShowStaleWarning(false)}>{t("createMission.yesRegenerate", null, "Yes, Regenerate")}</button>
+              <button className="btn btn-primary" onClick={() => { setShowStaleWarning(false); advanceStep(); }}>{t("createMission.noContinue", null, "No, Continue")}</button>
             </div>
           </div>
         </Modal>
