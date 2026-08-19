@@ -223,7 +223,9 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
               {d.filters[g].size > 0 && (
                 <span className="cnt mono" style={{ color: "var(--accent)" }}>
-                  {t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
+                  {g === GEO_GROUP && d.filters[GEO_GROUP].has(WORLDWIDE)
+                    ? t("createMission.includedViaWorldwide", null, "Included via Worldwide")
+                    : t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
                 </span>
               )}
             </div>
@@ -680,7 +682,6 @@ export default function CreateMissionWizard() {
   const [step, setStep] = useState(() => missionId ? initialEditStep() : parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [maxReached, setMaxReached] = useState(() => missionId ? lastStep : Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
   const [busy, setBusy] = useState(false);
-  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
@@ -699,6 +700,11 @@ export default function CreateMissionWizard() {
   // read from localStorage first so a page reload resumes updating the same
   // row instead of creating a duplicate.
   const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
+  // Reflects the real autosave effects below, not a cosmetic timer — "idle"
+  // means nothing worth saving yet, "saving" while a create/update request
+  // for the backend draft is actually in flight, "saved" once it lands.
+  // Resuming an existing draft starts "saved" since it's already persisted.
+  const [saveStatus, setSaveStatus] = useState(() => missionId ? "saved" : "idle");
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
@@ -916,11 +922,13 @@ export default function CreateMissionWizard() {
     if (missionId || promotedId || published) return;
     const hasContent = d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0;
     if (!hasContent) return;
+    setSaveStatus("saving");
     const timer = setTimeout(() => {
       api.createMission(buildMissionPayload("draft")).then(({ mission }) => {
         localStorage.setItem(DRAFT_KEY + "_promotedId", String(mission.id));
         setPromotedId(mission.id);
-      }).catch(() => { /* stays localStorage-only; retries on the next content change */ });
+        setSaveStatus("saved");
+      }).catch(() => setSaveStatus("idle") /* stays localStorage-only; retries on the next content change */);
     }, 2000);
     return () => clearTimeout(timer);
   }, [d, missionId, promotedId, published]);
@@ -933,8 +941,11 @@ export default function CreateMissionWizard() {
   useEffect(() => {
     const id = missionId || promotedId;
     if (!id || loadingMission || published) return;
+    setSaveStatus("saving");
     const timer = setTimeout(() => {
-      api.updateMission(id, buildMissionPayload("draft")).catch(() => {});
+      api.updateMission(id, buildMissionPayload("draft"))
+        .then(() => setSaveStatus("saved"))
+        .catch(() => setSaveStatus("idle"));
     }, 800);
     return () => clearTimeout(timer);
   }, [d, missionId, promotedId, loadingMission, published]);
@@ -958,26 +969,6 @@ export default function CreateMissionWizard() {
         : t("createMission.publishError", null, "Couldn't publish this mission")));
     } finally {
       setBusy(false);
-    }
-  };
-
-  // Only reachable for a brand-new mission (hidden once resuming an existing
-  // draft — that draft is already safely persisted, so there's nothing new
-  // to save until the user actually publishes or edits it again).
-  const saveDraft = async () => {
-    setSavingDraft(true); setError("");
-    try {
-      // Might already be a real row via the silent auto-promote effect above
-      // — update it in place instead of creating a duplicate draft.
-      if (promotedId) await api.updateMission(promotedId, buildMissionPayload("draft"));
-      else await api.createMission(buildMissionPayload("draft"));
-      setPublished(true); // stops the scratch-draft autosave/beforeunload — this is now safely persisted
-      clearDraft();
-      navigate("/missions?tab=draft", { state: { toast: t("missions.draftSaved", null, "Mission saved to draft") } });
-    } catch (err) {
-      setError(err.message || t("createMission.saveDraftError", null, "Couldn't save this draft"));
-    } finally {
-      setSavingDraft(false);
     }
   };
 
@@ -1046,6 +1037,16 @@ export default function CreateMissionWizard() {
 
   return (
     <div className="wz" data-layout="rail">
+      {saveStatus !== "idle" && (
+        <span
+          className="pill"
+          style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, color: "var(--text-muted)", background: "var(--panel)", boxShadow: "var(--shadow-sm)" }}
+        >
+          {saveStatus === "saving"
+            ? <><Icon name="refresh" size={13} style={{ animation: "spin 0.9s linear infinite" }} />{t("createMission.savingStatus", null, "Saving…")}</>
+            : <><Icon name="check" size={13} style={{ color: "var(--success)" }} />{t("createMission.autoSavedStatus", null, "Auto-saved")}</>}
+        </span>
+      )}
       <aside className="wz-rail">
         <div className="wz-brand">
           <BrandMark size={52} />
@@ -1134,11 +1135,6 @@ export default function CreateMissionWizard() {
           )}
           {last ? (
             <div className="row gap-2">
-              {!missionId && (
-                <Btn variant="ghost" icon="bookmark" disabled={busy || savingDraft} onClick={saveDraft}>
-                  {savingDraft ? t("createMission.savingDraft", null, "Saving…") : t("createMission.saveAsDraft", null, "Save as Draft")}
-                </Btn>
-              )}
               <span
                 style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
@@ -1147,7 +1143,7 @@ export default function CreateMissionWizard() {
                 <Btn
                   variant="primary"
                   iconRight="bolt"
-                  disabled={insufficientFunds || busy || savingDraft || !fieldsValid}
+                  disabled={insufficientFunds || busy || !fieldsValid}
                   onClick={goNext}
                   style={!fieldsValid ? { opacity: 0.5, pointerEvents: "none" } : undefined}
                 >
@@ -1180,9 +1176,24 @@ export default function CreateMissionWizard() {
       {showExitWarning && (
         <Modal title={t("createMission.unsavedChangesTitle", null, "Unsaved Changes")} onClose={() => setShowExitWarning(false)} width={400} hideCloseIcon>
           <div style={{ padding: 20 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? Your progress is saved and will be restored if you come back.")}</p>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              {missionId
+                ? t("createMission.unsavedChangesBodyEdit", null, "Are you sure you want to leave? Any unsaved changes will be discarded — the mission itself won't be affected.")
+                : t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? This mission and everything you've entered will be discarded.")}
+            </p>
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => navigate("/")}>{t("createMission.leavePage", null, "Leave Page")}</button>
+              <button className="btn outline" onClick={() => {
+                // Cancel is the one path to this modal (browser back/swipe is
+                // handled separately, with a toast, not this dialog) — since
+                // it's a deliberate discard, wipe the scratch draft (and any
+                // silently auto-promoted backend draft) instead of leaving it
+                // behind for the copy above to no longer match reality.
+                if (!missionId) {
+                  if (promotedId) api.deleteMission(promotedId).catch(() => {});
+                  clearDraft();
+                }
+                navigate("/");
+              }}>{t("createMission.leavePage", null, "Leave Page")}</button>
               <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
             </div>
           </div>
