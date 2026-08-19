@@ -1676,6 +1676,7 @@ export default function MissionDetail() {
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
   const mountedRef = useRef(false);
+  const tabBarRef = useRef(null);
   const [participants, setParticipants] = useState([]);
   const [responses, setResponses] = useState([]);
   const [checkinsData, setCheckinsData] = useState([]);
@@ -1773,6 +1774,15 @@ export default function MissionDetail() {
       p.set("tab", k);
       return p;
     }, { replace: true });
+    // Overview is meant to be read top-down from the mission header; every
+    // other tab is a utility view (data list, review queue, files) where
+    // making the user manually scroll past the header + KPIs on every
+    // single tab switch is pure friction.
+    if (k === "overview") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      tabBarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   if (error) return <div className="page rise"><Icon name="layers" /> <span className="muted">{error}</span></div>;
@@ -1830,7 +1840,7 @@ export default function MissionDetail() {
         <KpiCard label={t("metrics.spend", null, "Spend")} value={inrK(mission.spend)} icon="wallet" />
       </div>
 
-      <div className="utabs sec">{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
+      <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => setShowEditAudience(true)} />}
