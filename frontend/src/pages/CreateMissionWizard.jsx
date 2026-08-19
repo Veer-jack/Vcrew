@@ -9,7 +9,7 @@ import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
-import StepTestCases from "../components/StepTestCases";
+import StepTestCases, { isTestCasesStale } from "../components/StepTestCases";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import { categoryLabel, categoryDesc, ptypeLabel, ptypeDesc, rewardLabel, rewardDesc } from "../bi18n";
@@ -989,6 +989,13 @@ export default function CreateMissionWizard() {
       return;
     }
     setShowErrors(false); setError("");
+    // A toast here (rather than repeating the same warning on Step 4, which
+    // has nothing to do with test cases) keeps the "regenerate" action where
+    // it actually lives, while still making sure the builder knows they're
+    // moving on with the previous ones.
+    if (step === 2 && isTestCasesStale(d)) {
+      toast(t("createMission.staleTestCasesToast", null, "Continuing with your previous test cases — you can regenerate them anytime from Step 3."), { icon: "⚠️" });
+    }
     if (last && !builder?.profile) {
       setError(t("createMission.profileRequiredToPublish", null, "Complete your profile before publishing — you can still save this mission as a draft."));
       // The Publish button sits at the bottom of a long, scrolled-down review
@@ -1055,18 +1062,18 @@ export default function CreateMissionWizard() {
         <div className="wz-rail-foot">
           {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
           {step === 0 ? (
-            <button className="btn outline" style={{ width: "100%", marginTop: 8 }} onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+            <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
-            <div className="row gap-2" style={{ alignItems: "center", marginTop: 8 }}>
-              <button className="backlink" style={{ margin: 0 }} onClick={goBack}><Icon name="arrowLeft" size={16} /> {t("createMission.back", null, "Back")}</button>
+            <div className="row gap-2" style={{ alignItems: "center" }}>
               <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+              <button className="backlink" style={{ margin: 0 }} onClick={goBack}>{t("createMission.back", null, "Back")}</button>
             </div>
           )}
         </div>
       </aside>
 
       <div className="wz-main">
-        <div className={`wz-content ${step === 2 || last ? "wide" : step === 0 ? "wide-lg" : ""}`}>
+        <div className={`wz-content ${step === 0 ? "wide-lg" : "wide"}`}>
           <div className="wz-head">
             <span className="step-of">{t("createMission.stepOfTotal", { current: step + 1, total: WZ_STEPS.length }, `Step ${step + 1} of ${WZ_STEPS.length}`)}</span>
             <h2>{WZ_STEPS[step].t}</h2>
@@ -1111,6 +1118,11 @@ export default function CreateMissionWizard() {
               {!d.tasks?.length
                 ? t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")
                 : t("createMission.needCompleteTasks", null, "Every task needs at least 1 step and 1 question to continue")}
+            </span>
+          )}
+          {step === 3 && !d.audienceTouched && (
+            <span className="muted" style={{ fontSize: 12.5, marginRight: 4, color: "var(--warning)" }}>
+              {t("createMission.confirmAudienceHint", null, "Confirm your audience selection to continue")}
             </span>
           )}
           {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{t("createMission.membersCount", { count: liveCount.toLocaleString("en-IN") }, `${liveCount.toLocaleString("en-IN")} members`)}</span>}
