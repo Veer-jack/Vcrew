@@ -348,11 +348,17 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, locked })
               // why. id keeps repeated keystrokes over the limit from
               // stacking multiple toasts.
               if (e.target.value !== "" && +e.target.value > 500) {
-                // The default error icon looks like a close button but isn't
-                // clickable — wrapping the message so the whole toast
-                // dismisses on click, not just that one icon.
-                toast.error(
-                  (ti) => <span onClick={() => toast.dismiss(ti.id)} style={{ cursor: "pointer" }}>{t("createMission.participantsMaxToast", null, "Maximum 500 participants per mission.")}</span>,
+                // toast.error()'s icon is drawn outside the message node, so
+                // an onClick on just the text never covers it — toast.custom
+                // builds the whole card (icon included) so the full thing is
+                // clickable, not just the text half.
+                toast.custom(
+                  (ti) => (
+                    <div onClick={() => toast.dismiss(ti.id)} style={{ display: "flex", alignItems: "center", gap: 10, background: "var(--panel)", padding: "12px 16px", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", cursor: "pointer", opacity: ti.visible ? 1 : 0 }}>
+                      <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+                      <span style={{ fontSize: 14 }}>{t("createMission.participantsMaxToast", null, "Maximum 500 participants per mission.")}</span>
+                    </div>
+                  ),
                   { id: "participants-max" }
                 );
               }
