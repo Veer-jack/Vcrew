@@ -425,14 +425,20 @@ router.post("/", async (req, res) => {
   const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
   if (!isVerified) {
-    const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
-
-    if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
-      return res.status(403).json({
-        error: `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`,
-        code: "VERIFICATION_REQUIRED",
-        limit: "missions",
-      });
+    // Only an actually-active mission counts against the cap — an unverified
+    // builder can have any number of drafts in progress (including ones the
+    // wizard silently auto-promotes), same reasoning as the participant-cap
+    // check just below. Unguarded, this used to block even draft creation
+    // once a builder already had 3 active missions.
+    if (status === "active") {
+      const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
+      if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
+        return res.status(403).json({
+          error: `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`,
+          code: "VERIFICATION_REQUIRED",
+          limit: "missions",
+        });
+      }
     }
 
     // A draft's target isn't consuming real capacity yet — it's still being
