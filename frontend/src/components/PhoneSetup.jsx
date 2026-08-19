@@ -102,19 +102,26 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     reset();
   };
 
-  if (!firebaseReady && !phoneVerified) return null;
+  // Used to hide the whole card whenever Firebase wasn't configured, even
+  // for someone with just an onboarding-collected number to show for
+  // reference — the card only needs to hide the actions that would actually
+  // fail (Add/Verify), not disappear outright.
+  const showPending = !phoneVerified && !editing && !prefillDismissed && prefillPhone;
+  const showAdd = !phoneVerified && !editing && (prefillDismissed || !prefillPhone);
 
   return (
     <div className="card" style={{ padding: "var(--pad-card)" }}>
-      <div className="row between" style={{ marginBottom: phoneVerified || editing || (!prefillDismissed && prefillPhone) ? 14 : 0 }}>
+      <div className="row between" style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
           <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
             {phoneVerified
               ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
-              : (!prefillDismissed && prefillPhone)
-                ? t("auth.verifyPhoneDesc", null, "We found this number on your profile — verify it to enable login via SMS code and extra verification for withdrawals.")
-                : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
+              : !firebaseReady
+                ? t("auth.phoneVerificationNotConfigured", null, "Phone verification isn't configured on this server yet")
+                : showPending
+                  ? t("auth.verifyPhoneDesc", null, "We found this number on your profile — verify it to enable login via SMS code and extra verification for withdrawals.")
+                  : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
           </p>
         </div>
         {phoneVerified && !editing && (
@@ -123,14 +130,17 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
             <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
           </div>
         )}
-        {!phoneVerified && !editing && !prefillDismissed && prefillPhone && (
+        {showPending && firebaseReady && (
           <div className="row gap-2">
             <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
             <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
             <button className="btn btn-quiet" onClick={() => setPrefillDismissed(true)}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
           </div>
         )}
-        {!phoneVerified && !editing && (prefillDismissed || !prefillPhone) && firebaseReady && (
+        {showPending && !firebaseReady && (
+          <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{prefillPhone}</span>
+        )}
+        {showAdd && firebaseReady && (
           <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
         )}
       </div>

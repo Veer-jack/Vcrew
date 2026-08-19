@@ -235,7 +235,7 @@ export default function Settings() {
                   <label>{t("settings.companySize", null, "Company size")}</label>
                   <select className="fin" value={companySize} onChange={e => setCompanySize(e.target.value)}>
                     <option value="" disabled>{t("onboardingFields.selectPlaceholder", null, "Select…")}</option>
-                    {sizeOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                    {sizeOptions.map(o => <option key={o.v} value={o.v}>{o.t}</option>)}
                   </select>
                 </div>
               </div>
