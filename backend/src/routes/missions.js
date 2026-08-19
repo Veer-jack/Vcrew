@@ -410,6 +410,13 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "name, category and ptype are required" });
   }
 
+  const reward = b.reward || {};
+  const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
+  const id = "m_" + randomUUID().slice(0, 8);
+  const status = b.status === "active" ? "active" : "draft";
+  const target = Number(b.target) || 0;
+  const rewardAmount = Number(reward.amount) || 0;
+
   // Verification gating — unverified builders are limited in how many
   // missions they can run and how many participants they can target.
   const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
@@ -442,12 +449,6 @@ router.post("/", async (req, res) => {
       });
     }
   }
-  const reward = b.reward || {};
-  const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
-  const id = "m_" + randomUUID().slice(0, 8);
-  const status = b.status === "active" ? "active" : "draft";
-  const target = Number(b.target) || 0;
-  const rewardAmount = Number(reward.amount) || 0;
 
   try {
     await db.transaction(async (tx) => {
