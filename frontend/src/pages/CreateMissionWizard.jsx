@@ -348,7 +348,13 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, locked })
               // why. id keeps repeated keystrokes over the limit from
               // stacking multiple toasts.
               if (e.target.value !== "" && +e.target.value > 500) {
-                toast.error(t("createMission.participantsMaxToast", null, "Maximum 500 participants per mission."), { id: "participants-max" });
+                // The default error icon looks like a close button but isn't
+                // clickable — wrapping the message so the whole toast
+                // dismisses on click, not just that one icon.
+                toast.error(
+                  (ti) => <span onClick={() => toast.dismiss(ti.id)} style={{ cursor: "pointer" }}>{t("createMission.participantsMaxToast", null, "Maximum 500 participants per mission.")}</span>,
+                  { id: "participants-max" }
+                );
               }
               set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } });
             }}
