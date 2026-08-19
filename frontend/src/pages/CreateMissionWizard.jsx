@@ -845,32 +845,49 @@ export default function CreateMissionWizard() {
   };
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
-  // Turning Worldwide on for the first time fills in every Geography chip as
-  // an explicit selection (rather than leaving it as a lone marker) so every
-  // chip visually reads as checked and each one stays individually
-  // clickable — unchecking one is then a real removal, not a no-op, while
-  // Worldwide and the rest stay checked. Trade-off accepted knowingly: the
-  // backend then matches an explicit place-name list instead of true
-  // "no restriction", which can match slightly fewer validators than a bare
-  // Worldwide marker would.
-  const expandGeoIfWorldwide = (prevSet, nextSet) => {
-    if (prevSet.has(WORLDWIDE) || !nextSet.has(WORLDWIDE)) return nextSet;
-    return new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE]);
+  // Turning Worldwide on fills in every Geography chip as an explicit
+  // selection (rather than leaving it as a lone marker) so every chip reads
+  // as checked and each one stays individually clickable — unchecking one is
+  // a real removal, not a no-op, while Worldwide and the rest stay checked.
+  // Turning Worldwide back off (however that happens — its own chip, or
+  // "Global & Remote"'s Clear all) collapses the whole expansion back to
+  // whatever was selected before Worldwide went on, rather than leaving
+  // every individually-"checked" chip behind — that snapshot/restore only
+  // needs to trigger on the specific transition where Worldwide's own
+  // membership in the Set flips, not on every other chip's toggle (which
+  // must keep working normally while Worldwide stays selected).
+  // Trade-off accepted knowingly: while expanded, the backend matches an
+  // explicit place-name list instead of true "no restriction", which can
+  // match slightly fewer validators than a bare Worldwide marker would.
+  const applyWorldwideTransition = (prevSet, naiveNext) => {
+    const prevHasW = prevSet.has(WORLDWIDE);
+    const nextHasW = naiveNext.has(WORLDWIDE);
+    if (!prevHasW && nextHasW) return { s: new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE]), snapshot: [...prevSet] };
+    if (prevHasW && !nextHasW) return { s: new Set(), snapshot: undefined, restore: true };
+    return { s: naiveNext };
   };
   const toggle = (group, opt) => setD(p => {
-    let s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
-    if (group === GEO_GROUP) s = expandGeoIfWorldwide(p.filters[group], s);
-    return { ...p, filters: { ...p.filters, [group]: s } };
+    const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
+    if (group !== GEO_GROUP) return { ...p, filters: { ...p.filters, [group]: s } };
+    const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s);
+    const finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
+    return { ...p, filters: { ...p.filters, [GEO_GROUP]: finalSet }, geoBeforeWorldwide: restore ? null : (snapshot ?? p.geoBeforeWorldwide) };
   });
   // Select-all / clear-all for one category or subcategory's own option list —
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
   const selectAllInGroup = (group, opts, otherKey) => setD(p => {
-    let s = new Set(p.filters[group]);
+    const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
-    if (group === GEO_GROUP) s = expandGeoIfWorldwide(p.filters[group], s);
-    const next = { ...p, filters: { ...p.filters, [group]: s } };
+    let geoBeforeWorldwide = p.geoBeforeWorldwide;
+    let finalSet = s;
+    if (group === GEO_GROUP) {
+      const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s);
+      finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
+      geoBeforeWorldwide = restore ? null : (snapshot ?? p.geoBeforeWorldwide);
+    }
+    const next = { ...p, filters: { ...p.filters, [group]: finalSet }, geoBeforeWorldwide };
     // Clearing the group that owns an "Other" catch-all should also drop its
     // custom text entries — otherwise they'd sit orphaned in state (hidden
     // since the checkbox that reveals them is now off) and reappear
