@@ -848,18 +848,27 @@ export default function CreateMissionWizard() {
   };
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
+  // Worldwide must stay a standalone "no restriction" marker — the backend
+  // (getRealMatchCount) treats a bare Worldwide/Remote-only selection as
+  // "matches everyone", but expanding it into every individual city/country
+  // instead makes the backend build a restrictive OR-list of ~40 place-name
+  // substrings, which can match FEWER validators than true "no restriction"
+  // (anyone whose location doesn't cleanly match a known place name is
+  // excluded). Turning it off used to just reset to empty, wiping out
+  // whatever the builder had individually selected before turning it on —
+  // now it's snapshotted on the way in and restored on the way out, from
+  // both the direct chip click and "Global & Remote"'s Clear All (the one
+  // other control that also toggles Worldwide off).
+  const toggleWorldwide = (p) => {
+    if (p.filters[GEO_GROUP].has(WORLDWIDE)) {
+      const restored = p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set();
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: restored }, geoBeforeWorldwide: null };
+    }
+    return { ...p, filters: { ...p.filters, [GEO_GROUP]: new Set([WORLDWIDE]) }, geoBeforeWorldwide: [...p.filters[GEO_GROUP]] };
+  };
   const toggle = (group, opt) => setD(p => {
     if (group === GEO_GROUP) {
-      if (opt === WORLDWIDE) {
-        // Worldwide must stay a standalone "no restriction" marker — the backend
-        // (getRealMatchCount) treats a bare Worldwide/Remote-only selection as
-        // "matches everyone", but expanding it into every individual city/country
-        // instead makes the backend build a restrictive OR-list of ~40 place-name
-        // substrings, which can match FEWER validators than true "no restriction"
-        // (anyone whose location doesn't cleanly match a known place name is excluded).
-        const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
-        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
-      }
+      if (opt === WORLDWIDE) return toggleWorldwide(p);
       const s = new Set(p.filters[GEO_GROUP]);
       s.has(opt) ? s.delete(opt) : s.add(opt);
       s.delete(WORLDWIDE);
@@ -877,10 +886,7 @@ export default function CreateMissionWizard() {
     // direct click, or it'd add Worldwide *and* Remote/Online together into
     // the Set, an inconsistent state impliedAll (and everything downstream
     // that assumes Worldwide is always the sole entry) was never built for.
-    if (group === GEO_GROUP && opts.includes(WORLDWIDE)) {
-      const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
-    }
+    if (group === GEO_GROUP && opts.includes(WORLDWIDE)) return toggleWorldwide(p);
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
