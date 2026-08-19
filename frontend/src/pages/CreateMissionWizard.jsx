@@ -233,23 +233,28 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           {Array.isArray(opts) ? (
             <FilterGroup
               title={g} options={opts} sel={d.filters[g]} toggle={toggle}
-              otherEntries={d.otherEntries?.[g]}
-              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries } })}
-              onSelectAll={opts => selectAllInGroup(g, opts)}
+              otherEntries={d.otherEntries?.[`${g}:Other`]}
+              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [`${g}:Other`]: entries } })}
+              onSelectAll={opts => selectAllInGroup(g, opts, opts.includes("Other") ? `${g}:Other` : undefined)}
             />
           ) : (
             Object.entries(opts).map(([sub, subOpts]) => {
               // "India - 9 cities" reuses "India" itself as its catch-all —
               // there's no literal "Other" in that subgroup's option list, so
               // the free-text follow-up needs to key off whichever catch-all
-              // value this specific subgroup actually uses.
+              // value this specific subgroup actually uses. Geography has two
+              // independent catch-alls (this one and the standalone "Other"
+              // subgroup) — keying otherEntries by group+trigger instead of
+              // just group keeps their custom entries from bleeding into
+              // each other's list.
               const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
+              const otherKey = subOther ? `${g}:${subOther}` : undefined;
               return (
                 <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                  otherEntries={subOther ? d.otherEntries?.[g] : undefined}
-                  onOtherEntriesChange={subOther ? (entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries } }) : undefined}
+                  otherEntries={otherKey ? d.otherEntries?.[otherKey] : undefined}
+                  onOtherEntriesChange={otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
                   otherValue={subOther || "Other"}
-                  onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
+                  onSelectAll={subOpts => selectAllInGroup(g, subOpts, otherKey)}
                   impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
                   clearableWhenImplied={subOpts.includes(WORLDWIDE)}
                 />
@@ -537,10 +542,13 @@ function flatOptions(opts) {
 // treats "Other" itself as a no-op, same as "Worldwide"/"Remote").
 function buildAudiencePayload(d) {
   const audience = Object.fromEntries(Object.entries(d.filters).map(([k, v]) => [k, [...v]]));
-  for (const [group, entries] of Object.entries(d.otherEntries || {})) {
+  // Keys are "group:trigger" (e.g. "Geography:India", "Geography:Other") so
+  // each catch-all's custom entries only get appended when its own trigger
+  // is actually selected, not any other catch-all sharing the same group.
+  for (const [key, entries] of Object.entries(d.otherEntries || {})) {
     if (!entries?.length) continue;
-    const triggered = audience[group]?.includes("Other") || (group === GEO_GROUP && audience[group]?.includes("India"));
-    if (triggered) audience[group] = [...audience[group], ...entries];
+    const [group, trigger] = key.split(":");
+    if (audience[group]?.includes(trigger)) audience[group] = [...audience[group], ...entries];
   }
   return audience;
 }
@@ -589,15 +597,20 @@ function missionToDraft(mission, filters, categories, ptypes) {
       // A known value is a real option (including the "Other" and "India"
       // catch-alls themselves) and gets kept as-is. Unrecognized values are
       // the free text the builder typed alongside whichever catch-all was
-      // selected — those catch-alls are already being added from their own
-      // entries in this same array, so this branch only needs to collect
-      // the text, not guess which marker each one belongs to.
+      // selected. The saved payload itself doesn't tag which catch-all each
+      // custom entry came from when a group has more than one (Geography's
+      // "India" and "Other") — attribute them all to whichever is actually
+      // selected, preferring "Other" if both are; a rare case, and retyping
+      // after resuming corrects it if it lands under the "wrong" one.
       const known = new Set(flatOpts);
       const sel = new Set();
       const entries = [];
       for (const v of vals) { if (known.has(v)) sel.add(v); else entries.push(v); }
       draft.filters[g] = sel;
-      if (entries.length) otherEntries[g] = entries;
+      if (entries.length) {
+        const trigger = sel.has("Other") ? "Other" : (sel.has("India") ? "India" : "Other");
+        otherEntries[`${g}:${trigger}`] = entries;
+      }
     } else {
       draft.filters[g] = new Set(vals);
     }
@@ -845,7 +858,7 @@ export default function CreateMissionWizard() {
   // Select-all / clear-all for one category or subcategory's own option list —
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
-  const selectAllInGroup = (group, opts) => setD(p => {
+  const selectAllInGroup = (group, opts, otherKey) => setD(p => {
     // "Global & Remote" is the one subgroup that itself contains Worldwide —
     // selecting-all on it must route through the same exclusivity rule as a
     // direct click, or it'd add Worldwide *and* Remote/Online together into
@@ -858,7 +871,13 @@ export default function CreateMissionWizard() {
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
-    return { ...p, filters: { ...p.filters, [group]: s } };
+    const next = { ...p, filters: { ...p.filters, [group]: s } };
+    // Clearing the group that owns an "Other" catch-all should also drop its
+    // custom text entries — otherwise they'd sit orphaned in state (hidden
+    // since the checkbox that reveals them is now off) and reappear
+    // unexpectedly if that catch-all gets checked again later.
+    if (allIn && otherKey) next.otherEntries = { ...p.otherEntries, [otherKey]: [] };
+    return next;
   });
 
   const cost = computeCost(d, rewards, platformFeePct);
