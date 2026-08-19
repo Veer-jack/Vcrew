@@ -94,7 +94,7 @@ const en = {
     updating: "Updating…",
     setNewPwdAction: "Set new password",
     enterValidPhoneNumber: "Please enter a valid phone number",
-    phoneVerificationNotConfigured: "Phone verification isn't configured on this server yet",
+    phoneVerificationNotConfigured: "Phone verification isn't available right now",
     codeSentTo: "Code sent to {{cc}} {{phoneDigits}}",
     couldntSendCodeRetry: "Couldn't send code. Please try again.",
     couldntVerifyCode: "Couldn't verify code",

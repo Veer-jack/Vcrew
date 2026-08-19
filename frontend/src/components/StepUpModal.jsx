@@ -20,7 +20,7 @@ export default function StepUpModal({ client, phone, title, onVerified, onClose 
     setError(""); setBusy(true);
     try {
       const auth = await getFirebaseAuth(client.firebaseConfig);
-      if (!auth) throw new Error(t("auth.phoneVerificationNotConfigured", null, "Phone verification isn't configured on this server yet"));
+      if (!auth) throw new Error(t("auth.phoneVerificationNotConfigured", null, "Phone verification isn't available right now"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
       confirmationRef.current = await signInWithPhoneNumber(auth, phone, recaptchaRef.current);
       setSent(true);
