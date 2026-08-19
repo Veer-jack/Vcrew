@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { trackPageview } from "./analytics";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -39,7 +39,13 @@ import DailyCheckin from "./vpages/DailyCheckin";
 import ShipmentStatus from "./vpages/ShipmentStatus";
 import InterviewSchedule from "./vpages/InterviewSchedule";
 import FocusGroupPoll from "./vpages/FocusGroupPoll";
-import MissionReview from "./pages/MissionReview";
+// Submission review moved from its own page into Mission Detail's Responses
+// tab — kept as a redirect (not a hard removal) in case a bookmark or an
+// old link still points at the standalone URL.
+function SubmissionsRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/missions/${id}?tab=responses`} replace />;
+}
 import Discover from "./vpages/Discover";
 import MissionDetails from "./vpages/MissionDetails";
 import MissionResults from "./vpages/MissionResults";
@@ -101,7 +107,7 @@ function BuilderRoutes() {
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
-        <Route path="/missions/:id/submissions" element={<MissionReview />} />
+        <Route path="/missions/:id/submissions" element={<SubmissionsRedirect />} />
         <Route path="/invitations" element={<Invitations />} />
         <Route path="/audience" element={<Audience />} />
         <Route path="/analytics" element={<Analytics />} />

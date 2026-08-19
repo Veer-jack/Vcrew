@@ -1319,6 +1319,8 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
 
       return {
         id: r.id,
+        validatorId: r.validator_id,
+        flagged: !!r.flagged,
         name: r.name || "Validator",
         city: "Remote",
         trust: Math.round((r.trust_score || 0) * 10),

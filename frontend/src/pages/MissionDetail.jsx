@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
+import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { InviteValidatorModal } from "../components/InviteValidatorModal";
@@ -196,7 +196,7 @@ function MissionOverview({ mission, participants, setTab, navigate }) {
           <div className="est-row"><span className="lab">{t("missionDetail.avgRating", null, "Avg rating")}</span><span className="v">{mission.rating || "—"} ★</span></div>
           <div className="est-row"><span className="lab">{t("missionDetail.spendToDate", null, "Spend to date")}</span><span className="v">{inr(mission.spend)}</span></div>
         </div>
-        <Btn variant="primary" block icon="message" onClick={() => navigate(`/missions/${mission.id}/submissions`)}>{t("actions.reviewSubmissions", null, "Review submissions")}</Btn>
+        <Btn variant="primary" block icon="message" onClick={() => navigate(`/missions/${mission.id}?tab=responses`)}>{t("actions.reviewSubmissions", null, "Review submissions")}</Btn>
       </div>
     </div>
   );
@@ -385,72 +385,378 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   );
 }
 
-function ResponseCard({ r, missionId, onFlag, navigate }) {
+function QualityBadge({ quality }) {
   const { t } = useTranslation();
-  const [replying, setReplying] = useState(false);
-  const reply = async () => {
-    setReplying(true);
+  const cfg = {
+    high: { label: t("quality.high", null, "High quality"), bg: "var(--success-weak)", color: "var(--success)" },
+    medium: { label: t("quality.medium", null, "Medium"), bg: "var(--warning-weak)", color: "var(--warning)" },
+    low: { label: t("quality.low", null, "Low effort"), bg: "var(--danger-weak)", color: "var(--danger)" },
+    flagged: { label: t("quality.flagged", null, "Flagged"), bg: "var(--danger-weak)", color: "var(--danger)" },
+  }[quality] || { label: quality, bg: "var(--panel-inset)", color: "var(--text-faint)" };
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: cfg.bg, color: cfg.color }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />{cfg.label}
+    </span>
+  );
+}
+
+// Full-detail review drawer — used to live on the standalone /submissions
+// page; now opens in-place over the Responses tab instead of navigating away.
+function SlideOver({ sub, onClose, onAction }) {
+  const { t } = useTranslation();
+  const [rejectReason, setRejectReason] = useState("");
+  const [reviseNote, setReviseNote] = useState("");
+  const [rating, setRating] = useState(0);
+  const [view, setView] = useState("review"); // review | reject | revise | approve
+  const [expandedTasks, setExpandedTasks] = useState(new Set([0]));
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const toggleTask = (i) => setExpandedTasks(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
+
+  const handleActionSubmit = async (action, reason, rating) => {
+    setIsProcessing(true);
     try {
-      const { threadId } = await api.findOrCreateThread(r.validator_id, missionId);
-      navigate(`/messages?thread=${threadId}`);
-    } catch (err) {
-      alert(err.message || t("missionDetail.couldntStartConversation", null, "Couldn't start conversation"));
+      await onAction(sub.id, action, reason, rating);
     } finally {
-      setReplying(false);
+      setIsProcessing(false);
     }
   };
+
+  if (!sub) return null;
+
   return (
-    <div className="resp-card" style={r.flagged ? { borderColor: "color-mix(in srgb, var(--danger) 40%, var(--border))" } : null}>
-      <div className="resp-head">
-        <Avatar name={r.name} size={42} />
-        <div style={{ flex: 1 }}>
-          <div className="row between">
-            <div><div className="row gap-2"><b style={{ fontSize: 14.5 }}>{r.name}</b><span className="verif"><Icon name="checkCircle" size={13} /></span> {r.status === 'rejected' && <span style={{ fontSize: 11, padding: "2px 8px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600, letterSpacing: "0.2px" }}>{t("status.rejected", null, "Rejected")}</span>}</div><div className="faint" style={{ fontSize: 12 }}>{trFilterLabel(t, r.role)} · {trFilterLabel(t, r.city)} · {r.time_label}</div></div>
-            <div style={{ textAlign: "right" }}><Stars value={r.rating} /><div className="faint" style={{ fontSize: 11, marginTop: 2 }}>{t("metrics.trust", null, "Trust")} {r.trust}</div></div>
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
+      <div style={{ flex: 1, background: "rgba(0,0,0,.4)", backdropFilter: "blur(2px)" }} onClick={onClose} />
+      <div style={{ width: 660, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{sub.name[0]}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>{sub.name}</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{trFilterLabel(t, sub.city)} · ★ {sub.trust / 10} {t("metrics.trustScore", null, "trust score")}</div>
+          </div>
+          <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
+        </div>
+
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12, overflowX: "auto" }}>
+          <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="calendar" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.submitted", null, "Submitted")}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.date}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="clock" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.timeTaken", null, "Time Taken")}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.mins} min</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 90, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="checkCircle" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.tasks", null, "Tasks")}</div>
+            <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.tasks}</div>
+          </div>
+          <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
+            <div><QualityBadge quality={sub.quality} /></div>
           </div>
         </div>
-      </div>
-      <p className="resp-quote">"{r.quote}"</p>
-      <div className="row between wrap gap-3">
-        <div className="row gap-2 wrap">{r.tags.map((t, j) => <span key={j} className="mtag">{t}</span>)}</div>
-        {r.attachments.length > 0 && <div className="resp-attach">{r.attachments.map((a, j) => <div key={j} className="attach" style={{ padding: 0, overflow: "hidden", border: "1px solid var(--border)", borderRadius: 6, background: "var(--panel-inset)" }}><a href={`/api/uploads/${a}`} target="_blank" rel="noreferrer"><img src={`/api/uploads/${a}`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} alt={t("missionDetail.proofAlt", null, "Proof")} /></a></div>)}</div>}
-      </div>
-      {r.flagged && <div className="row gap-2" style={{ marginTop: 12, color: "var(--danger)", fontSize: 12.5, fontWeight: 600 }}><Icon name="flag" size={14} /> {t("missionDetail.autoFlagged", null, "Auto-flagged: possible low-effort or broken-link report")}</div>}
-      <div className="row gap-2" style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
-        <Btn variant="primary" size="sm" icon="check" onClick={() => navigate(`/missions/${missionId}/submissions`)}>{t("actions.reviewSubmission", null, "Review submission")}</Btn>
-        <Btn variant="ghost" size="sm" icon="message" disabled={replying} onClick={reply}>{replying ? t("actions.opening", null, "Opening…") : t("actions.reply", null, "Reply")}</Btn>
-        <Btn variant={r.flagged ? "primary" : "quiet"} size="sm" icon="flag" onClick={() => onFlag(r, !r.flagged)}>{r.flagged ? t("actions.unflag", null, "Unflag") : t("actions.flag", null, "Flag")}</Btn>
+
+        {sub.checkins && sub.checkins.length > 0 && (
+          <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)" }}>
+            <div className="eyebrow" style={{ marginBottom: 14 }}>{t("review.dailyCheckinHistory", { days: sub.checkins.length }, `Daily check-in history (${sub.checkins.length} days)`)}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {sub.checkins.map((c, i) => (
+                <div key={i} style={{ display: "flex", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)", alignItems: "flex-start" }}>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: "var(--accent)", flexShrink: 0, paddingTop: 2 }}>{t("missions.dayTitle", null, "Day")} {c.dayNumber}</span>
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--text)" }}>
+                    <div style={{ marginBottom: 4 }}><b>{t("review.usedIt", null, "Used it:")}</b> {c.answers.used || "—"} · <b>{t("review.wouldReturn", null, "Would return:")}</b> {c.answers.comeback || "—"}</div>
+                    {c.answers.what && <div style={{ color: "var(--text-muted)", marginBottom: c.answers.frustration === "yes" ? 4 : 0 }}>{c.answers.what}</div>}
+                    {c.answers.frustration === "yes" && c.answers.frustrationDetail && (
+                      <div style={{ color: "var(--danger)" }}>{t("review.frustration", null, "Frustration:")} {c.answers.frustrationDetail}</div>
+                    )}
+                  </div>
+                  {c.screenshotUrl && (
+                    <a href={c.screenshotUrl} target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+                      <img src={c.screenshotUrl} alt={`Day ${c.dayNumber} proof`} style={{ width: 48, height: 32, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div style={{ padding: "16px 24px", flex: 1 }}>
+          <div className="eyebrow" style={{ marginBottom: 14 }}>{t("review.taskResponses", null, "Task responses")}</div>
+          {(sub.breakdown || []).map((b, i) => (
+            <div key={i} className="card rise" style={{ marginBottom: 12, overflow: "hidden", border: "1px solid var(--border)" }}>
+              <div onClick={() => toggleTask(i)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", cursor: "pointer", userSelect: "none", background: "var(--panel)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "2px 8px", borderRadius: 12, background: "var(--accent-weak)", color: "var(--accent)", fontSize: 11, fontWeight: 700 }}>{t("missions.taskNTitle", { n: i + 1 }, `Task ${i + 1}`)}</span>
+                <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{b.t}</span>
+                <Icon name={expandedTasks.has(i) ? "chevronUp" : "chevronDown"} size={16} style={{ color: "var(--text-muted)" }} />
+              </div>
+              {expandedTasks.has(i) && (
+                <div style={{ padding: "0 16px 16px", borderTop: "1px solid var(--border)" }}>
+                  {b.ans && !b.details && <p style={{ margin: "16px 0 0", fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{b.ans}</p>}
+                  {b.details && b.details.length > 0 && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 16, background: "var(--border)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+                      {b.details.map((dt, didx) => (
+                        <div key={didx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
+                          <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
+                            <Icon name="info" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{dt.label}</div>
+                          </div>
+                          <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word" }}>
+                            {dt.value}
+                          </div>
+                        </div>
+                      ))}
+                      {b.attachments && b.attachments.length > 0 && (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", background: "var(--panel)" }}>
+                          <div style={{ padding: "12px 14px", display: "flex", gap: 10, borderRight: "1px solid var(--border)" }}>
+                            <Icon name="image" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{t("review.proofLabel", null, "Proof (Screenshot / Video)")}</div>
+                          </div>
+                          <div style={{ padding: "12px 14px", background: "var(--bg)", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {b.attachments.map((src, idx) => {
+                              const isVideo = src.match(/\.(mp4|webm|mov)$/i);
+                              return (
+                                <div key={idx} style={{ position: "relative", width: 140, height: 80, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)", background: "#000" }}>
+                                  {isVideo ? (
+                                    <>
+                                      <video src={src + "#t=0.1"} preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                      <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", color: "rgba(255,255,255,0.9)", pointerEvents: "none" }}>
+                                        <Icon name="playCircle" size={28} />
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <img src={src} alt="Proof" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                                  )}
+                                  <a href={src} target="_blank" rel="noopener noreferrer" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 600, textDecoration: "none", gap: 4, opacity: 0, transition: "opacity .2s" }} onMouseEnter={e => e.currentTarget.style.opacity = 1} onMouseLeave={e => e.currentTarget.style.opacity = 0}>
+                                    <Icon name="externalLink" size={12} /> {t("actions.view", null, "View")}
+                                  </a>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        </div>
+
+        {view === "review" && sub.status === "pending" && (
+          <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
+            <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
+              <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
+            </button>
+            <div style={{ flex: 1 }} />
+            <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
+              <Icon name="x" size={14} /> {t("actions.reject", null, "Reject")}
+            </button>
+            <Btn variant="primary" style={{ padding: "8px 24px", background: "var(--success-weak)", color: "var(--success)", border: "1px solid color-mix(in srgb,var(--success) 40%,transparent)", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("approve")}>
+              <Icon name="check" size={14} /> {t("actions.approve", null, "Approve")}
+            </Btn>
+          </div>
+        )}
+
+        {view === "approve" && (
+          <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{t("review.rateSubmission", null, "Rate this submission")}</div>
+            <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 12 }}>
+              {t("review.ratingImpactDesc", null, "Your rating directly impacts the validator's Trust Score.")}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[1, 2, 3, 4, 5].map(v => (
+                <div key={v} onClick={() => setRating(v)} style={{
+                  cursor: "pointer", padding: "10px", borderRadius: 8,
+                  background: rating >= v ? "var(--warning)" : "var(--panel-inset)",
+                  color: rating >= v ? "#fff" : "var(--text-faint)",
+                  display: "grid", placeItems: "center", transition: "all .15s"
+                }}>
+                  <Icon name="star" size={24} />
+                </div>
+              ))}
+            </div>
+            {rating > 0 && rating <= 2 && (
+              <textarea className="fin" placeholder={t("review.whatWentWrong", null, "What went wrong? (Required for low ratings)")} rows={2} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
+            )}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
+              <Btn variant="primary" style={{ flex: 1, justifyContent: "center", opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("approved", rejectReason, rating)} disabled={isProcessing || rating === 0 || (rating <= 2 && !rejectReason.trim())}>
+                {isProcessing ? t("actions.approving", null, "Approving...") : t("actions.approveAndRate", { rating: rating > 0 ? rating : '' }, `Approve & Rate ${rating > 0 ? rating : ''} ★`)}
+              </Btn>
+            </div>
+          </div>
+        )}
+
+        {view === "reject" && (
+          <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{t("review.reasonForRejection", null, "Reason for rejection")}</div>
+            <textarea className="fin" placeholder={t("review.explainRejection", null, "Explain why this submission doesn't meet the requirements…")} rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-danger" style={{ flex: 1, opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
+                {isProcessing ? t("actions.rejecting", null, "Rejecting...") : t("actions.rejectSubmission", null, "Reject submission")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === "revise" && (
+          <div style={{ background: "var(--panel)", padding: "16px 24px", borderTop: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>{t("review.whatNeedsRevision", null, "What needs revision?")}</div>
+            <textarea className="fin" placeholder={t("review.revisePlaceholder", null, "e.g. Please re-test the checkout flow and describe what happened at step 3…")} rows={3} value={reviseNote} onChange={e => setReviseNote(e.target.value)} style={{ marginBottom: 10 }} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
+              <Btn variant="primary" style={{ flex: 1, justifyContent: "center", opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("revision", reviseNote)} disabled={isProcessing || !reviseNote.trim()}>
+                {isProcessing ? t("actions.sending", null, "Sending...") : t("actions.sendRequest", null, "Send request")}
+              </Btn>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-function ResponseReview({ missionId, responses, setResponses, navigate }) {
-  const { t } = useTranslation();
-  const [q, setQ] = useState("");
-  const [minR, setMinR] = useState(0);
-  const rows = responses.filter(r => (!q || (r.name + r.quote).toLowerCase().includes(q.toLowerCase())) && r.rating >= minR);
+const RESPONSE_REVIEW_TABS = (t) => [
+  { k: "all", l: t("status.all", null, "All") },
+  { k: "pending", l: t("status.pending", null, "Pending") },
+  { k: "approved", l: t("status.approved", null, "Approved") },
+  { k: "flagged", l: t("status.flagged", null, "Flagged") },
+  { k: "rejected", l: t("status.rejected", null, "Rejected") },
+  { k: "revision", l: t("status.revision", null, "Revision") },
+];
 
-  const onFlag = async (r, flagged) => {
-    setResponses(rs => rs.map(x => x.id === r.id ? { ...x, flagged } : x));
-    try { await api.flagResponse(missionId, r.id, flagged); } catch { /* best effort */ }
+// Absorbs what used to be the standalone /missions/:id/submissions page —
+// same KPI cards, status tabs, and review drawer, now in-place on the
+// Responses tab instead of a full navigation away. Reply/Flag (unique to
+// this tab before) are kept as row-level quick actions.
+function ResponseReview({ missionId, navigate, showToast }) {
+  const { t } = useTranslation();
+  const [subs, setSubs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState("pending");
+  const [selected, setSelected] = useState(null);
+  const [replyingId, setReplyingId] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    api.get(`/missions/${missionId}/submissions`).then(d => {
+      if (!active) return;
+      setSubs(d.submissions || []);
+      setLoading(false);
+    }).catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [missionId]);
+
+  const counts = {
+    all: subs.length,
+    pending: subs.filter(s => s.status === "pending").length,
+    approved: subs.filter(s => s.status === "approved").length,
+    flagged: subs.filter(s => s.flagged).length,
+    rejected: subs.filter(s => s.status === "rejected").length,
+    revision: subs.filter(s => s.status === "revision").length,
   };
+  const visible = tab === "all" ? subs : tab === "flagged" ? subs.filter(s => s.flagged) : subs.filter(s => s.status === tab);
+  const selectedSub = selected ? subs.find(s => s.id === selected) : null;
+  const avgMins = subs.length ? Math.round(subs.reduce((a, s) => a + (s.mins || 0), 0) / subs.length) : 0;
+
+  const handleAction = async (subId, action, reason, rating) => {
+    const subName = subs.find(s => s.id === subId)?.name || t("review.validatorFallbackName", null, "Validator");
+    try {
+      if (action === "approved") {
+        await api.post(`/missions/${missionId}/submissions/${subId}/approved`, { rating });
+        showToast(`${t("review.approvedSubFrom", null, "Approved submission from")} ${subName}`, "success");
+      } else if (action === "rejected") {
+        await api.post(`/missions/${missionId}/submissions/${subId}/rejected`, { note: reason, rating });
+        showToast(`${t("review.rejectedSubFrom", null, "Rejected submission from")} ${subName}`, "error");
+      } else if (action === "revision") {
+        await api.post(`/missions/${missionId}/submissions/${subId}/revision`, { note: reason });
+        showToast(`${t("review.revisionReqSentTo", null, "Revision request sent to")} ${subName}`, "warning");
+      }
+    } catch (err) {
+      alert(err.message || t("review.anErrorOccurred", null, "An error occurred"));
+      return;
+    }
+    setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: action === "approved" ? "approved" : action === "rejected" ? "rejected" : "revision" } : s));
+    setSelected(null);
+  };
+
+  const onFlag = async (sub, flagged) => {
+    setSubs(prev => prev.map(s => s.id === sub.id ? { ...s, flagged } : s));
+    try { await api.flagResponse(missionId, sub.id, flagged); } catch { /* best effort */ }
+  };
+
+  const reply = async (sub) => {
+    setReplyingId(sub.id);
+    try {
+      const { threadId } = await api.findOrCreateThread(sub.validatorId, missionId);
+      navigate(`/messages?thread=${threadId}`);
+    } catch (err) {
+      alert(err.message || t("missionDetail.couldntStartConversation", null, "Couldn't start conversation"));
+    } finally {
+      setReplyingId(null);
+    }
+  };
+
+  if (loading) return <div className="muted" style={{ padding: 24 }}>{t("review.loadingSubmissions", null, "Loading submissions…")}</div>;
 
   return (
     <div>
+      <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 18 }}>
+        <KpiCard label={t("review.totalReceived", null, "Total received")} value={subs.length} icon="users" />
+        <KpiCard label={t("status.approved", null, "Approved")} value={counts.approved} icon="check" tone="green" />
+        <KpiCard label={t("review.pendingReview", null, "Pending review")} value={counts.pending} icon="clock" tone="amber" />
+        <KpiCard label={t("metrics.avgTime", null, "Avg time")} value={avgMins} unit=" min" icon="timer" />
+      </div>
       <div className="toolbar">
-        <div className="seg-search"><Icon name="search" size={16} /><input placeholder={t("missionDetail.searchResponses", null, "Search responses…")} value={q} onChange={e => setQ(e.target.value)} /></div>
-        <div className="tabs">{[0, 3, 4, 5].map(r => <button key={r} className={minR === r ? "on" : ""} onClick={() => setMinR(r)}>{r === 0 ? t("status.all", null, "All") : <><Icon name="star" size={12} />{r}+</>}</button>)}</div>
+        <div className="tabs">{RESPONSE_REVIEW_TABS(t).map(tb => <button key={tb.k} className={tab === tb.k ? "on" : ""} onClick={() => setTab(tb.k)}>{tb.l} <span className="cnt mono">{counts[tb.k]}</span></button>)}</div>
         <span className="grow" />
         <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV(
-          "responses.csv",
-          [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thRating", null, "Rating"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thSubmitted", null, "Submitted"), t("missionDetail.thFlagged", null, "Flagged"), t("missionDetail.thQuote", null, "Quote")],
-          rows.map(r => [r.name, r.role, r.city, r.rating, r.trust, r.time_label, r.flagged ? t("common.yes", null, "Yes") : t("common.no", null, "No"), r.quote])
+          "submissions.csv",
+          [t("missionDetail.thName", null, "Name"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thSubmitted", null, "Submitted"), t("metrics.timeTaken", null, "Time Taken"), t("metrics.tasks", null, "Tasks"), t("metrics.quality", null, "Quality"), t("missionDetail.thStatus", null, "Status")],
+          visible.map(s => [s.name, (s.trust / 10).toFixed(1), s.date, s.mins, s.tasks, s.quality, s.status])
         )}>{t("actions.export", null, "Export")}</Btn>
       </div>
-      {rows.length === 0
-        ? <div className="muted" style={{ padding: 24 }}>{t("missionDetail.noResponsesYet", null, "No responses yet for this mission.")}</div>
-        : <div className="col gap-4">{rows.map(r => <ResponseCard key={r.id} r={r} missionId={missionId} onFlag={onFlag} navigate={navigate} />)}</div>}
+      {visible.length === 0
+        ? <div className="muted" style={{ padding: 24 }}>{t("review.noSubsInCategory", null, "No submissions in this category yet.")}</div>
+        : (
+          <div className="col gap-3">
+            {visible.map(sub => (
+              <div key={sub.id} className="card" style={{ padding: "16px 18px", cursor: "pointer", border: sub.flagged ? "1.5px solid color-mix(in srgb, var(--danger) 40%, var(--border))" : "1px solid var(--border)" }} onClick={() => setSelected(sub.id)}>
+                <div className="row between wrap gap-3" style={{ alignItems: "flex-start" }}>
+                  <div className="row gap-3">
+                    <Avatar name={sub.name} size={42} />
+                    <div>
+                      <div className="row gap-2" style={{ alignItems: "center" }}>
+                        <b style={{ fontSize: 15 }}>{sub.name}</b>
+                        <span className="mono" style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 800 }}>★ {(sub.trust / 10).toFixed(1)}</span>
+                      </div>
+                      <div className="row gap-3 faint" style={{ fontSize: 12.5, marginTop: 4 }}>
+                        <span>{sub.date}</span><span>{sub.mins} {t("metrics.min", null, "min")}</span><span>{sub.tasks} {t("metrics.tasks", null, "tasks")}</span>
+                        <QualityBadge quality={sub.flagged ? "flagged" : sub.quality} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="row gap-2" onClick={e => e.stopPropagation()}>
+                    {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ {t("status.approved", null, "Approved")}</span>}
+                    {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ {t("status.rejected", null, "Rejected")}</span>}
+                    {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ {t("status.revisionReq", null, "Revision Req")}</span>}
+                    <Btn variant="ghost" size="sm" icon="message" disabled={replyingId === sub.id} onClick={() => reply(sub)}>{replyingId === sub.id ? t("actions.opening", null, "Opening…") : t("actions.reply", null, "Reply")}</Btn>
+                    <Btn variant={sub.flagged ? "primary" : "quiet"} size="sm" icon="flag" onClick={() => onFlag(sub, !sub.flagged)}>{sub.flagged ? t("actions.unflag", null, "Unflag") : t("actions.flag", null, "Flag")}</Btn>
+                    {sub.status === "pending" && <Btn variant="primary" size="sm" icon="check" onClick={() => setSelected(sub.id)}>{t("actions.review", null, "Review")}</Btn>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      {selectedSub && <SlideOver sub={selectedSub} onClose={() => setSelected(null)} onAction={handleAction} />}
     </div>
   );
 }
@@ -895,7 +1201,7 @@ function MissionPaymentsTab({ payments, navigate, missionId }) {
                   <td><span className="mtag">{r.stage}</span></td>
                   <td><span className={`st ${st.c}`}><span className="d" />{st.l}</span></td>
                   <td className="num">{inr(r.amount)}</td>
-                  <td>{r.status === "review" ? <Btn variant="ghost" size="sm" icon="eye" onClick={() => navigate(`/missions/${missionId}/submissions`)}>{t("actions.review", null, "Review")}</Btn> : <span className="verif"><Icon name="checkCircle" size={14} />{t("actions.done", null, "Done")}</span>}</td>
+                  <td>{r.status === "review" ? <Btn variant="ghost" size="sm" icon="eye" onClick={() => navigate(`/missions/${missionId}?tab=responses`)}>{t("actions.review", null, "Review")}</Btn> : <span className="verif"><Icon name="checkCircle" size={14} />{t("actions.done", null, "Done")}</span>}</td>
                 </tr>
               );
             })}
@@ -1529,7 +1835,7 @@ export default function MissionDetail() {
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => setShowEditAudience(true)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
-      {tab === "responses" && <ResponseReview missionId={id} responses={responses} setResponses={setResponses} navigate={navigate} />}
+      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
       {tab === "focusgroup" && <MissionFocusGroupTab mission={mission} missionId={id} onParticipantRemoved={handleParticipantRemoved} showToast={showToast} />}
