@@ -49,6 +49,15 @@ export async function sendMissionPublished({ builderName, builderEmail, missionN
   return send({ from: FROM_BUILDER, to: builderEmail, subject: `Your mission "${missionName}" is live`, html });
 }
 
+// Distinct from sendMissionPublished — that one is only for a genuine
+// draft-to-active first publish; this covers editing a mission that was
+// already live, so the copy doesn't misleadingly read as a brand-new launch.
+export async function sendMissionUpdated({ builderName, builderEmail, missionName, missionId }) {
+  const APP_URL = process.env.APP_URL || "https://www.validationcrew.com";
+  const html = `<h1>Mission Updated</h1><p>Hi ${builderName.split(" ")[0]}, your mission "${missionName}" was updated successfully and it's live now. <a href="${APP_URL}/missions/${missionId}">View here</a></p>`;
+  return send({ from: FROM_BUILDER, to: builderEmail, subject: `Your mission "${missionName}" was updated`, html });
+}
+
 export async function sendWithdrawalUpdate({ validatorName, validatorEmail, amount, status, failureReason }) {
   const amountStr = `₹${(amount / 100).toLocaleString("en-IN")}`;
   const approved = status === "processed";

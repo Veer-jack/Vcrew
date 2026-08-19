@@ -10,7 +10,7 @@ import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE, PL
 import { getRealMatchCount } from "./audience.js";
 import { fetchUrlContext } from "../urlContext.js";
 import { levelForCompleted } from "../vmeta.js";
-import { sendMissionPublished } from "../email.js";
+import { sendMissionPublished, sendMissionUpdated } from "../email.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
 import { translateBatch } from "../translate.js";
@@ -735,6 +735,14 @@ router.patch("/:id", async (req, res) => {
     }).catch(() => {});
     automodMission(m.id);
     await notifyMatchingValidators(m.id);
+  } else if (m.status === "active" && newStatus === "active" && updates.length > 0) {
+    // Editing an already-live mission, not a first publish — the builder
+    // gets their own confirmation email here, distinct from the "Mission
+    // Live" copy above so it doesn't read as a brand-new launch.
+    sendMissionUpdated({
+      builderName: req.builder.name, builderEmail: req.builder.email,
+      missionName: m.name, missionId: m.id,
+    }).catch(() => {});
   }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);

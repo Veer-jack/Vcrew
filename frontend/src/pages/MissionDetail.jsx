@@ -633,7 +633,7 @@ const RESPONSE_REVIEW_TABS = (t) => [
 // same KPI cards, status tabs, and review drawer, now in-place on the
 // Responses tab instead of a full navigation away. Reply/Flag (unique to
 // this tab before) are kept as row-level quick actions.
-function ResponseReview({ missionId, navigate, showToast }) {
+function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
   const { t } = useTranslation();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -648,6 +648,14 @@ function ResponseReview({ missionId, navigate, showToast }) {
       if (!active) return;
       setSubs(d.submissions || []);
       setLoading(false);
+      // This tab's own content loads asynchronously (unlike the others, whose
+      // data is already in hand from the page's initial fetch) — the scroll
+      // that fires on tab click lands correctly at that instant, but the
+      // one-line "Loading…" placeholder it's scrolling to is a lot shorter
+      // than the real KPI cards + list that replace it a moment later, so
+      // the target position needs to be re-applied once that's actually on
+      // screen, not just on the click itself.
+      tabBarRef?.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }).catch(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [missionId]);
@@ -1561,7 +1569,7 @@ export default function MissionDetail() {
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => navigate(`/missions/${id}/edit?step=3`)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
-      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} />}
+      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
       {tab === "focusgroup" && <MissionFocusGroupTab mission={mission} missionId={id} onParticipantRemoved={handleParticipantRemoved} showToast={showToast} />}
