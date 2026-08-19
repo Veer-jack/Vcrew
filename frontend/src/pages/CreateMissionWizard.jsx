@@ -76,7 +76,7 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, impliedAll = false, otherValue = "Other", clearableWhenImplied = false }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other" }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
@@ -107,7 +107,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   // subgroups (e.g. all of Geography's regions share one Set), so counting
   // sel.size directly would show the whole category's total on every
   // subgroup instead of just what's actually selected here.
-  const ownSelectedCount = impliedAll ? options.length : options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
+  const ownSelectedCount = options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
   const allSelected = options.length > 0 && options.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
@@ -117,20 +117,17 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
           <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
-          {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{impliedAll ? t("createMission.includedViaWorldwide", null, "Included via Worldwide") : t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
-          {onSelectAll && (!impliedAll || clearableWhenImplied) && (
+          {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
+          {onSelectAll && (
             <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
-              {/* impliedAll means every chip already reads as selected via Worldwide,
-                  not via this group's own Set — allSelected wouldn't reflect that,
-                  so the label has to check impliedAll first. */}
-              {impliedAll || allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+              {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
         </div>
       </div>
       {isOpen && (
         <>
-          {showSearch && !impliedAll && (
+          {showSearch && (
             <input
               className="fin"
               style={{ marginBottom: 10, fontSize: 13 }}
@@ -140,18 +137,12 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
             />
           )}
           <div className="chips">
-            {filtered.map(o => {
-              // Worldwide itself must stay clickable even while impliedAll is
-              // active — it's the only way to turn "everything included" back off.
-              const lockedByImpliedAll = impliedAll && o !== WORLDWIDE;
-              return (
-                <button key={o} className={`chip ${(impliedAll || sel.has(o)) ? "on" : ""}`} disabled={lockedByImpliedAll}
-                  style={lockedByImpliedAll ? { cursor: "default", opacity: 0.85 } : undefined}
-                  onClick={() => toggle(title, o)}>
-                  <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
-                </button>
-              );
-            })}
+            {filtered.map(o => (
+              <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`}
+                onClick={() => toggle(title, o)}>
+                <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
+              </button>
+            ))}
             {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
@@ -223,9 +214,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
               {d.filters[g].size > 0 && (
                 <span className="cnt mono" style={{ color: "var(--accent)" }}>
-                  {g === GEO_GROUP && d.filters[GEO_GROUP].has(WORLDWIDE)
-                    ? t("createMission.includedViaWorldwide", null, "Included via Worldwide")
-                    : t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
+                  {t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
                 </span>
               )}
             </div>
@@ -256,8 +245,6 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                   onOtherEntriesChange={otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
                   otherValue={subOther || "Other"}
                   onSelectAll={subOpts => selectAllInGroup(g, subOpts, otherKey)}
-                  impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
-                  clearableWhenImplied={subOpts.includes(WORLDWIDE)}
                 />
               );
             })
@@ -568,9 +555,6 @@ function computeCost(d, rewards, platformFeePct) {
   return { subtotal, fee, fulfil, total: subtotal + fee + fulfil };
 }
 
-export const GEO_GROUP = "Geography";
-export const WORLDWIDE = "Worldwide";
-
 // Reverse of buildAudiencePayload(): rehydrates a fetched draft mission back
 // into the wizard's internal `d` shape so an existing draft can be resumed
 // through the full 6-step flow instead of just the lightweight edit modal.
@@ -858,32 +842,13 @@ export default function CreateMissionWizard() {
   };
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
-  // Worldwide must stay a standalone "no restriction" marker — the backend
-  // (getRealMatchCount) treats a bare Worldwide/Remote-only selection as
-  // "matches everyone", but expanding it into every individual city/country
-  // instead makes the backend build a restrictive OR-list of ~40 place-name
-  // substrings, which can match FEWER validators than true "no restriction"
-  // (anyone whose location doesn't cleanly match a known place name is
-  // excluded). Turning it off used to just reset to empty, wiping out
-  // whatever the builder had individually selected before turning it on —
-  // now it's snapshotted on the way in and restored on the way out, from
-  // both the direct chip click and "Global & Remote"'s Clear All (the one
-  // other control that also toggles Worldwide off).
-  const toggleWorldwide = (p) => {
-    if (p.filters[GEO_GROUP].has(WORLDWIDE)) {
-      const restored = p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set();
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: restored }, geoBeforeWorldwide: null };
-    }
-    return { ...p, filters: { ...p.filters, [GEO_GROUP]: new Set([WORLDWIDE]) }, geoBeforeWorldwide: [...p.filters[GEO_GROUP]] };
-  };
+  // Worldwide is a plain chip like any other Geography option now — selecting
+  // or clearing it doesn't touch the rest of the group's selection, and vice
+  // versa. Matching semantics: the backend (getRealMatchCount) already
+  // ignores Worldwide/Remote/Other as no-op markers whenever a real place is
+  // also selected, so "Worldwide + India" narrows to India rather than
+  // matching everyone — same treatment "Other" already gets elsewhere.
   const toggle = (group, opt) => setD(p => {
-    if (group === GEO_GROUP) {
-      if (opt === WORLDWIDE) return toggleWorldwide(p);
-      const s = new Set(p.filters[GEO_GROUP]);
-      s.has(opt) ? s.delete(opt) : s.add(opt);
-      s.delete(WORLDWIDE);
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
-    }
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
     return { ...p, filters: { ...p.filters, [group]: s } };
   });
@@ -891,12 +856,6 @@ export default function CreateMissionWizard() {
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
   const selectAllInGroup = (group, opts, otherKey) => setD(p => {
-    // "Global & Remote" is the one subgroup that itself contains Worldwide —
-    // selecting-all on it must route through the same exclusivity rule as a
-    // direct click, or it'd add Worldwide *and* Remote/Online together into
-    // the Set, an inconsistent state impliedAll (and everything downstream
-    // that assumes Worldwide is always the sole entry) was never built for.
-    if (group === GEO_GROUP && opts.includes(WORLDWIDE)) return toggleWorldwide(p);
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
