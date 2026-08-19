@@ -721,6 +721,11 @@ export default function CreateMissionWizard() {
   // read from localStorage first so a page reload resumes updating the same
   // row instead of creating a duplicate.
   const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
+  // Bumped by startFresh() — lets an auto-promote request that was already
+  // in flight when "Start fresh" was clicked recognize it's been abandoned
+  // once it resolves, instead of silently re-attaching an orphaned mission
+  // to the wizard the user just reset.
+  const freshStartRef = useRef(0);
   // Reflects the real autosave effects below, not a cosmetic timer — "idle"
   // means nothing worth saving yet, "saving" while a create/update request
   // for the backend draft is actually in flight, "saved" once it lands.
@@ -838,7 +843,11 @@ export default function CreateMissionWizard() {
     // "Start fresh" is the one explicit discard action — unlike Leave Page,
     // which deliberately keeps the draft recoverable — so a silently
     // auto-promoted backend draft needs to be cleaned up here too, not just
-    // the local scratch copy.
+    // the local scratch copy. Also bumps freshStartRef so an auto-promote
+    // request that's already mid-flight at this exact moment (2-second
+    // debounce already elapsed, response not back yet) knows to clean up
+    // after itself once it resolves, instead of resurfacing.
+    freshStartRef.current++;
     if (promotedId) api.deleteMission(promotedId).catch(() => {});
     setPromotedId(null);
     clearDraft();
@@ -953,8 +962,14 @@ export default function CreateMissionWizard() {
     const hasContent = d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0;
     if (!hasContent) return;
     setSaveStatus("saving");
+    const startGen = freshStartRef.current;
     const timer = setTimeout(() => {
       api.createMission(buildMissionPayload("draft")).then(({ mission }) => {
+        // "Start fresh" ran while this request was already in flight — the
+        // wizard has moved on, so this mission was never actually seen by
+        // the user and would otherwise sit orphaned forever. Clean it up
+        // instead of re-attaching it to the reset wizard as promotedId.
+        if (freshStartRef.current !== startGen) { api.deleteMission(mission.id).catch(() => {}); return; }
         localStorage.setItem(DRAFT_KEY + "_promotedId", String(mission.id));
         setPromotedId(mission.id);
         setSaveStatus("saved");
