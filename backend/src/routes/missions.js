@@ -120,6 +120,7 @@ function serializeMission(m, canFullyEdit) {
     deadline: m.deadline,
     audience: JSON.parse(m.audience_json || "{}"),
     tasks: JSON.parse(m.tasks_json || "[]"),
+    testCaseForm: m.test_case_form_json ? JSON.parse(m.test_case_form_json) : null,
     durationDays: m.duration_days,
     createdAt: m.created_at,
   };
@@ -476,12 +477,13 @@ router.post("/", async (req, res) => {
 
       await tx.prepare(`
         INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
-          reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, deadline, duration_days)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?)
+          reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, test_case_form_json, deadline, duration_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?, ?)
       `).run(
         id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
         target, rewardType, rewardAmount, spend,
-        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []), b.deadline || null, durationDays
+        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []),
+        b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, b.deadline || null, durationDays
       );
 
       if (status === "active") {
@@ -568,7 +570,7 @@ router.patch("/:id", async (req, res) => {
   // nothing to reshape. Reward/target changes on a mission with participants
   // already go through the escrow-aware branches above regardless.
   const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
-  if (await missionCanFullyEdit(m.id, m.status)) allowed.push("category", "ptype", "tasks", "durationDays", "reward");
+  if (await missionCanFullyEdit(m.id, m.status)) allowed.push("category", "ptype", "tasks", "testCaseForm", "durationDays", "reward");
   const updates = [];
   const params = [];
   let spendDelta = 0;
@@ -630,6 +632,9 @@ router.patch("/:id", async (req, res) => {
           } else if (key === "tasks") {
             updates.push(`tasks_json = ?`);
             params.push(JSON.stringify(req.body.tasks || []));
+          } else if (key === "testCaseForm") {
+            updates.push(`test_case_form_json = ?`);
+            params.push(req.body.testCaseForm ? JSON.stringify(req.body.testCaseForm) : null);
           } else if (key === "durationDays") {
             updates.push(`duration_days = ?`);
             params.push(Math.min(30, Math.max(2, Number(req.body.durationDays) || 7)));

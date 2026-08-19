@@ -127,6 +127,13 @@ export async function initDb() {
     // replacement poll is created — lets validators be told "restarted,
     // new times coming soon" instead of the generic first-time-waiting copy.
     if (!mCols.includes('focus_group_poll_restarted_at')) await client.query('ALTER TABLE missions ADD COLUMN focus_group_poll_restarted_at TIMESTAMPTZ');
+    // The AI test-case-generation form (description/URL/platform/goals/
+    // target users) and the inputs the current tasks were actually generated
+    // from — never part of the mission's own fields, only ever wizard state,
+    // so resuming a draft/editing a mission had nothing to rehydrate the
+    // Define-the-Test form from and it came back empty even though the
+    // already-generated tasks themselves loaded fine.
+    if (!mCols.includes('test_case_form_json')) await client.query('ALTER TABLE missions ADD COLUMN test_case_form_json TEXT');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
     if (!rCols.rows.map(r => r.column_name).includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
     // Validator type migrations and other new columns

@@ -588,7 +588,8 @@ function missionToDraft(mission, filters, categories, ptypes) {
       participants: mission.participants?.target || 1,
     },
     filters: emptyF,
-    genFor: null,
+    testCaseForm: mission.testCaseForm?.form || null,
+    genFor: mission.testCaseForm?.genFor || null,
     durationDays: mission.durationDays || 7,
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
@@ -947,6 +948,7 @@ export default function CreateMissionWizard() {
       region: geo.length ? geo.join(", ") : "Worldwide",
       audience,
       tasks: d.tasks,
+      testCaseForm: (d.testCaseForm || d.genFor) ? { form: d.testCaseForm || null, genFor: d.genFor || null } : null,
       durationDays: d.durationDays,
       deadline: d.deadline || null,
     };
