@@ -1920,6 +1920,7 @@ const en = {
     insufficientBalance: "exceeds wallet balance",
     insufficientBalanceHint: "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.",
     otherGeoPlaceholder: "e.g. Nepal, Sri Lanka…",
+    fieldsLockedHint: "Locked because a validator has already accepted this mission — shown here for reference.",
     addAnotherOther: "Add more",
     editDraft: "Edit draft",
     loadingDraft: "Loading draft…",

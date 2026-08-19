@@ -1917,6 +1917,7 @@ const ar = {
     insufficientBalance: "يتجاوز رصيد المحفظة",
     insufficientBalanceHint: "رصيد محفظتك لا يكفي لتغطية إعداد هذه المكافأة — أعد شحن محفظتك أو قلل التكلفة للمتابعة.",
     otherGeoPlaceholder: "مثال: نيبال، سريلانكا…",
+    fieldsLockedHint: "مقفل لأن أحد المدققين قد قبل هذه المهمة بالفعل — يُعرض هنا للاطلاع فقط.",
     addAnotherOther: "إضافة المزيد",
     editDraft: "تعديل المسودة",
     loadingDraft: "جارٍ تحميل المسودة…",

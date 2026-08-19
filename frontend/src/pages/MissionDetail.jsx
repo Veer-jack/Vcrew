@@ -11,8 +11,6 @@ import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
-import { categoryLabel, ptypeLabel, rewardLabel } from "../bi18n";
-import { FilterGroup, GEO_GROUP, WORLDWIDE } from "./CreateMissionWizard";
 
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
@@ -761,286 +759,6 @@ function ResponseReview({ missionId, navigate, showToast }) {
   );
 }
 
-function EditMissionModal({ mission, onClose, onSaved, onOpenAudience }) {
-  const { t } = useTranslation();
-  const { categories, ptypes, rewards } = useMeta();
-  const canFullyEdit = !!mission.canFullyEdit;
-  const [name, setName] = useState(mission.name || "");
-  const [description, setDescription] = useState(mission.description || "");
-  const [target, setTarget] = useState(mission.participants.target || 0);
-  const [deadline, setDeadline] = useState(mission.deadline ? mission.deadline.slice(0, 10) : "");
-  const [cat, setCat] = useState(mission.category || "");
-  const [ptype, setPtype] = useState(mission.ptype || "");
-  const [rewardType, setRewardType] = useState(mission.reward?.type || "fixed");
-  const [rewardAmount, setRewardAmount] = useState(mission.reward?.amount || 0);
-  const [showTasks, setShowTasks] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const [showErrors, setShowErrors] = useState(false);
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const nameInvalid = !name.trim();
-  const targetInvalid = !(Number(target) >= 1);
-  const deadlineInvalid = !deadline || deadline < todayStr;
-  const selectedReward = rewards?.find(r => r.id === rewardType);
-  const rewardAmountInvalid = canFullyEdit && selectedReward?.needsAmt && !(Number(rewardAmount) > 0);
-
-  const save = async () => {
-    setErr("");
-    if (nameInvalid) { setShowErrors(true); return setErr(t("missionDetail.errNameRequired", null, "Name is required")); }
-    if (targetInvalid) { setShowErrors(true); return setErr(t("missionDetail.errTargetMin", null, "Target participants must be at least 1")); }
-    if (deadlineInvalid) { setShowErrors(true); return setErr(deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")); }
-    if (rewardAmountInvalid) { setShowErrors(true); return setErr(t("missionDetail.errRewardAmount", null, "Reward amount must be greater than 0")); }
-    setShowErrors(false);
-    setBusy(true);
-    try {
-      const payload = { name, description, target: Number(target), deadline: deadline || null };
-      if (canFullyEdit) {
-        payload.category = cat;
-        payload.ptype = ptype;
-        payload.reward = { type: rewardType, amount: selectedReward?.needsAmt ? Number(rewardAmount) : 0 };
-      }
-      const { mission: updated } = await api.updateMission(mission.id, payload);
-      onSaved(updated);
-      onClose();
-    } catch (e) {
-      setErr(e.message || t("missionDetail.couldntSaveChanges", null, "Couldn't save changes"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal title={t("missionDetail.editMission", null, "Edit mission")} onClose={onClose} width={520}>
-      <div className="col gap-3" style={{ padding: "0 20px 20px" }}>
-        {err && <div className="err-banner">{err}</div>}
-        {!canFullyEdit && (
-          <div className="fhint" style={{ background: "var(--panel-inset)", padding: "10px 12px", borderRadius: "var(--radius)", margin: 0 }}>
-            {t("missionDetail.lockedFieldsHint", null, "Category, participation type, and reward are locked because at least one validator has already accepted this mission — shown below for reference.")}
-          </div>
-        )}
-        <div className={`fld ${(showErrors || name) && nameInvalid ? "fld-invalid" : ""}`}><label>{t("missionDetail.nameLabel", null, "Name")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" value={name} onChange={e => setName(e.target.value)} /></div>
-        <div className="fld"><label>{t("missionDetail.descLabel", null, "Description")}</label><textarea className="fin" rows={4} value={description} onChange={e => setDescription(e.target.value)} /></div>
-
-        <div className="row gap-3">
-          <div className="fld" style={{ flex: 1 }}>
-            <label>{t("missionDetail.categoryLabel", null, "Category")}</label>
-            {canFullyEdit
-              ? <select className="fin" value={cat} onChange={e => setCat(e.target.value)}>{categories?.map(c => <option key={c.id} value={c.id}>{categoryLabel(t, c)}</option>)}</select>
-              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.categoryLabel}</div>}
-          </div>
-          <div className="fld" style={{ flex: 1 }}>
-            <label>{t("missionDetail.ptypeLabel", null, "Participation type")}</label>
-            {canFullyEdit
-              ? <select className="fin" value={ptype} onChange={e => setPtype(e.target.value)}>{ptypes?.map(p => <option key={p.id} value={p.id}>{ptypeLabel(t, p)}</option>)}</select>
-              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.ptypeLabel}</div>}
-          </div>
-        </div>
-
-        <div className="row gap-3">
-          <div className="fld" style={{ flex: 1 }}>
-            <label>{t("missionDetail.rewardTypeLabel", null, "Reward type")}</label>
-            {canFullyEdit
-              ? <select className="fin" value={rewardType} onChange={e => setRewardType(e.target.value)}>{rewards?.map(r => <option key={r.id} value={r.id}>{rewardLabel(t, r)}</option>)}</select>
-              : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{rewards?.find(r => r.id === mission.reward?.type) ? rewardLabel(t, rewards.find(r => r.id === mission.reward.type)) : mission.reward?.type}</div>}
-          </div>
-          {(canFullyEdit ? selectedReward?.needsAmt : mission.reward?.amount > 0) && (
-            <div className={`fld ${rewardAmountInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}>
-              <label>{t("missionDetail.rewardAmountLabel", null, "Reward amount")}</label>
-              {canFullyEdit
-                ? <input className="fin" type="number" min="1" value={rewardAmount} onChange={e => setRewardAmount(e.target.value === "" ? "" : Math.max(0, +e.target.value || 0))} />
-                : <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{inr(mission.reward.amount)}</div>}
-            </div>
-          )}
-        </div>
-
-        <div className="row gap-3">
-          <div className="fld" style={{ flex: 1 }}>
-            <label>{t("missionDetail.regionLabel", null, "Region")}</label>
-            <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{mission.region || t("missionDetail.regionWorldwide", null, "Worldwide")}</div>
-            <p className="fhint">{t("missionDetail.regionDerivedHint", null, "Set by your Audience filters, not editable here.")} {onOpenAudience && <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={() => { onOpenAudience(); onClose(); }}>{t("missionDetail.editAudience", null, "Edit audience")}</button>}</p>
-          </div>
-          <div className={`fld ${targetInvalid ? "fld-invalid" : ""}`} style={{ flex: 1 }}><label>{t("missionDetail.targetParticipantsLabel", null, "Target participants")} <span className="req-star" aria-hidden="true">*</span></label><input className="fin" type="number" min="1" value={target} onChange={e => setTarget(e.target.value === "" ? "" : Math.max(1, +e.target.value || 0))} /></div>
-        </div>
-
-        <div className={`fld ${(showErrors || deadline) && deadlineInvalid ? "fld-invalid" : ""}`}>
-          <label>{t("missionDetail.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
-          <input className="fin" type="date" min={todayStr} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={openPickerOnClick} />
-          {(showErrors || deadline) && deadlineInvalid && <p className="fhint" style={{ color: "var(--danger)" }}>{deadline ? t("missionDetail.errDeadlinePast", null, "Deadline can't be in the past") : t("missionDetail.errDeadlineRequired", null, "Deadline is required")}</p>}
-        </div>
-
-        {mission.tasks?.length > 0 && (
-          <div className="fld">
-            <button type="button" className="row between" style={{ width: "100%", background: "none", border: "none", padding: 0, cursor: "pointer" }} onClick={() => setShowTasks(v => !v)}>
-              <label style={{ margin: 0, cursor: "pointer" }}>{t("missionDetail.testCasesLabel", { n: mission.tasks.length }, `Test cases (${mission.tasks.length})`)}</label>
-              <Icon name={showTasks ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
-            </button>
-            {showTasks && (
-              <div className="col gap-2" style={{ marginTop: 8 }}>
-                {mission.tasks.map((task, i) => (
-                  <div key={task.id || i} className="card" style={{ padding: 12 }}>
-                    <b style={{ fontSize: 13.5 }}>{i + 1}. {task.title}</b>
-                    {task.steps?.length > 0 && <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--text-muted)" }}>{task.steps.map((s, j) => <li key={j}>{s}</li>)}</ul>}
-                  </div>
-                ))}
-              </div>
-            )}
-            {!canFullyEdit && <p className="fhint">{t("missionDetail.tasksLockedHint", null, "Test cases can't be regenerated once a validator has accepted — publish a new mission for a different set of tasks.")}</p>}
-          </div>
-        )}
-
-        <div className="row gap-2" style={{ justifyContent: "flex-end", marginTop: 8 }}>
-          <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
-          <Btn variant="primary" disabled={busy} onClick={save}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-function EditAudienceModal({ mission, audience, onClose, onSaved }) {
-  const { t } = useTranslation();
-  const { filters } = useMeta();
-  const flatFilters = useState(() => Object.fromEntries(
-    Object.entries(filters).map(([g, opts]) => [g, Array.isArray(opts) ? opts : Object.values(opts).flat()])
-  ))[0];
-  // A custom Geography value (typed alongside the "Other Indian cities"/
-  // "Other" catch-all) isn't one of the known chip options, so it has to be
-  // split out before it lands in `sel` — otherwise it's an unrenderable
-  // phantom entry that never shows as a chip but silently round-trips on save.
-  const geoKnown = new Set(flatFilters[GEO_GROUP]);
-  const [sel, setSel] = useState(() => Object.fromEntries(
-    Object.keys(filters).map(g => {
-      const saved = audience.defn.find(d => d.group === g)?.values || [];
-      return [g, new Set(g === GEO_GROUP ? saved.filter(v => geoKnown.has(v)) : saved)];
-    })
-  ));
-  const [otherEntries, setOtherEntries] = useState(() => {
-    const result = {};
-    for (const g of Object.keys(flatFilters)) {
-      if (!flatFilters[g]?.includes("Other")) continue;
-      const known = new Set(flatFilters[g]);
-      const saved = audience.defn.find(d => d.group === g)?.values || [];
-      const entries = saved.filter(v => !known.has(v));
-      if (entries.length) result[g] = entries;
-    }
-    return result;
-  });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const [q, setQ] = useState("");
-  const [liveCount, setLiveCount] = useState(audience.matched ?? 0);
-  const [isFetchingCount, setIsFetchingCount] = useState(false);
-
-  const toggle = (g, o) => setSel(p => {
-    if (g === GEO_GROUP) {
-      // Worldwide must stay a standalone "no restriction" marker — same reason
-      // as the creation wizard: expanding it into every individual place
-      // builds a more restrictive backend query than the real no-restriction
-      // marker, and can match fewer people than intended.
-      if (o === WORLDWIDE) {
-        const s = p[g].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
-        return { ...p, [g]: s };
-      }
-      const s = new Set(p[g]);
-      s.has(o) ? s.delete(o) : s.add(o);
-      s.delete(WORLDWIDE);
-      return { ...p, [g]: s };
-    }
-    const s = new Set(p[g]); s.has(o) ? s.delete(o) : s.add(o); return { ...p, [g]: s };
-  });
-  const selectAllInGroup = (g, opts) => setSel(p => {
-    // Same no-restriction marker, not a literal 40-way place-name OR-list —
-    // see the toggle() comment above.
-    if (g === GEO_GROUP) return { ...p, [g]: new Set([WORLDWIDE]) };
-    const s = new Set(p[g]);
-    const allIn = opts.every(o => s.has(o));
-    if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
-    return { ...p, [g]: s };
-  });
-  const selectAllEverywhere = () => setSel(Object.fromEntries(Object.entries(flatFilters).map(([g, opts]) => [g, g === GEO_GROUP ? new Set([WORLDWIDE]) : new Set(opts)])));
-  const clearAllEverywhere = () => setSel(Object.fromEntries(Object.keys(flatFilters).map(g => [g, new Set()])));
-  const anySelected = Object.values(sel).some(s => s.size > 0);
-
-  useEffect(() => {
-    const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
-    setIsFetchingCount(true);
-    api.audienceMatchCount(payload)
-      .then(res => setLiveCount(res.count))
-      .catch(() => {})
-      .finally(() => setIsFetchingCount(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s].sort()])))]);
-
-  const save = async () => {
-    setBusy(true); setErr("");
-    try {
-      const payload = Object.fromEntries(Object.entries(sel).map(([g, s]) => [g, [...s]]));
-      for (const [group, entries] of Object.entries(otherEntries)) {
-        if (!entries?.length) continue;
-        const triggered = payload[group]?.includes("Other") || (group === GEO_GROUP && payload[group]?.includes("India"));
-        if (triggered) payload[group] = [...payload[group], ...entries];
-      }
-      await api.updateMission(mission.id, { audience: payload });
-      onSaved(Object.entries(payload).filter(([, values]) => values.length).map(([group, values]) => ({ group, values })));
-      onClose();
-    } catch (e) {
-      setErr(e.message || t("missionDetail.couldntSaveAudience", null, "Couldn't save audience"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Modal title={t("missionDetail.editAudience", null, "Edit audience")} onClose={onClose} width={560} bodyScroll={false}>
-      <div style={{ padding: "16px 20px 12px", flexShrink: 0 }}>
-        <div className="reach" style={{ marginBottom: 12 }}>
-          <div className="reach-top">
-            <span className="r-ic"><Icon name="users" size={20} /></span>
-            <div style={{ flex: 1, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>
-              <div className="r-num" key={liveCount}>{liveCount.toLocaleString("en-IN")} <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 600 }}>{t("createMission.matchingMembers", null, "matching members")}</span></div>
-              <div className="r-lab">{t("createMission.availableNow", null, "available right now for this audience")}</div>
-            </div>
-            {isFetchingCount ? (
-              <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("createMission.updating", null, "Updating...")}</span>
-            ) : (
-              <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
-            )}
-          </div>
-        </div>
-        <div className="row gap-2">
-          <div className="inw has-pre" style={{ flex: 1 }}>
-            <span className="pre"><Icon name="search" size={14} /></span>
-            <input className="fin" placeholder={t("missionDetail.searchAudienceOptions", null, "Search roles, locations, industries…")} value={q} onChange={e => setQ(e.target.value)} />
-          </div>
-          <button type="button" className="backlink" style={{ margin: 0, flexShrink: 0 }} onClick={anySelected ? clearAllEverywhere : selectAllEverywhere}>
-            {anySelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
-          </button>
-        </div>
-      </div>
-      <div className="col gap-1" style={{ padding: "0 20px 16px", flex: 1, minHeight: 0, overflowY: "auto" }}>
-        {err && <div className="err-banner">{err}</div>}
-        <p className="faint" style={{ fontSize: 12.5, margin: 0 }}>{t("missionDetail.changesOnlyAffect", null, "Changes only affect future matching and invites")} {t("missionDetail.unaffectedValidatorsNote", null, "— validators who already joined this mission are unaffected.")}</p>
-        {Object.entries(flatFilters).map(([g, opts]) => (
-          <FilterGroup
-            key={g} title={g} options={opts} sel={sel[g]} toggle={toggle}
-            onSelectAll={groupOpts => selectAllInGroup(g, groupOpts)}
-            impliedAll={g === GEO_GROUP && sel[GEO_GROUP]?.has(WORLDWIDE)}
-            initialExpanded={(sel[g]?.size || 0) > 0}
-            externalQuery={q}
-            otherEntries={otherEntries[g]}
-            onOtherEntriesChange={(entries) => setOtherEntries(p => ({ ...p, [g]: entries }))}
-            otherValue={g === GEO_GROUP ? (sel[GEO_GROUP]?.has("India") ? "India" : "Other") : "Other"}
-          />
-        ))}
-      </div>
-      <div className="row gap-2" style={{ justifyContent: "flex-end", padding: "12px 20px 20px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-        <Btn variant="quiet" onClick={onClose}>{t("actions.cancel", null, "Cancel")}</Btn>
-        <Btn variant="primary" disabled={busy} onClick={save}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveAudience", null, "Save audience")}</Btn>
-      </div>
-    </Modal>
-  );
-}
-
 function MissionAudienceTab({ audience, onEdit }) {
   const { t } = useTranslation();
   return (
@@ -1684,8 +1402,6 @@ export default function MissionDetail() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [waitlist, setWaitlist] = useState([]);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showEditAudience, setShowEditAudience] = useState(false);
   const [toast, setToast] = useState(null);
 
   const showToast = (message, type = "success") => {
@@ -1823,7 +1539,7 @@ export default function MissionDetail() {
           {mission.status === "active" && <Btn variant="ghost" icon="xCircle" onClick={() => handleStatusChange("closed")}>{t("actions.close", null, "Close")}</Btn>}
           {mission.status === "closed" && <Btn variant="ghost" icon="checkCircle" onClick={() => handleStatusChange("completed")}>{t("actions.complete", null, "Complete")}</Btn>}
           {(mission.status === "completed" || mission.status === "draft") && <Btn variant="ghost" icon="archive" onClick={() => handleStatusChange("archived")}>{t("actions.archive", null, "Archive")}</Btn>}
-          <Btn variant="ghost" icon="edit" onClick={() => setShowEditModal(true)}>{t("actions.edit", null, "Edit")}</Btn>
+          <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>
           <Btn variant="ghost" icon="download" onClick={() => exportCSV(
             `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
             [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
@@ -1843,7 +1559,7 @@ export default function MissionDetail() {
       <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
-      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => setShowEditAudience(true)} />}
+      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => navigate(`/missions/${id}/edit?step=3`)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
       {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
@@ -1866,18 +1582,6 @@ export default function MissionDetail() {
       )}
       {showWaitlistModal && mission && waitlist.length > 0 && (
         <WaitlistInviteModal mission={mission} waitlist={waitlist} onClose={() => setShowWaitlistModal(false)} showToast={showToast} />
-      )}
-      {showEditModal && mission && (
-        <EditMissionModal mission={mission} onClose={() => setShowEditModal(false)} onSaved={(updated) => setData(d => ({ ...d, mission: updated }))} onOpenAudience={() => setShowEditAudience(true)} />
-      )}
-      {showEditAudience && mission && (
-        <EditAudienceModal mission={mission} audience={data.audience} onClose={() => setShowEditAudience(false)} onSaved={() => {
-          // A definition-only client-side patch left the "X members match"
-          // count and composition stale — refetch the whole mission so
-          // matched/invited/composition all come back in sync with the
-          // audience filters that were just saved, not just the filter list.
-          api.mission(id).then(d => { setData(d); }).catch(() => {});
-        }} />
       )}
     </div>
   );

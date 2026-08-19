@@ -1917,6 +1917,7 @@ const pt = {
     insufficientBalance: "excede o saldo da carteira",
     insufficientBalanceHint: "O saldo da sua carteira não é suficiente para cobrir esta configuração de recompensa — recarregue sua carteira ou reduza o custo para continuar.",
     otherGeoPlaceholder: "ex. Nepal, Sri Lanka…",
+    fieldsLockedHint: "Bloqueado porque um validador já aceitou esta missão — mostrado aqui apenas como referência.",
     addAnotherOther: "Adicionar mais",
     editDraft: "Editar rascunho",
     loadingDraft: "Carregando rascunho…",

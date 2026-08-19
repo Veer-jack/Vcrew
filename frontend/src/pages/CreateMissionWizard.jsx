@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
@@ -27,7 +27,21 @@ function wzSteps(t) {
 
 
 
-function StepInfo({ d, set, categories, showErrors }) {
+// Shown above whichever section of a step is locked once a validator has
+// accepted this mission — mirrors the backend's own field-level allowlist
+// (PATCH /missions/:id), which silently drops these same fields from an
+// update once that's true, so the UI shouldn't offer to edit them at all.
+function LockedHint() {
+  const { t } = useTranslation();
+  return (
+    <p className="fhint" style={{ background: "var(--panel-inset)", padding: "10px 12px", borderRadius: "var(--radius)", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
+      <Icon name="lock" size={13} style={{ flexShrink: 0, color: "var(--text-faint)" }} />
+      {t("createMission.fieldsLockedHint", null, "Locked because a validator has already accepted this mission — shown here for reference.")}
+    </p>
+  );
+}
+
+function StepInfo({ d, set, categories, showErrors, locked }) {
   const { t } = useTranslation();
   const todayStr = new Date().toISOString().slice(0, 10);
   return (
@@ -48,9 +62,10 @@ function StepInfo({ d, set, categories, showErrors }) {
         {showErrors && d.deadline && d.deadline < todayStr && <p className="ferr">{t("createMission.deadlineInPast", null, "Deadline can't be in the past")}</p>}
       </div>
       <div className="fsec"><b>{t("createMission.missionCategoryLabel", null, "Mission Category")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /><span className="cnt">{t("createMission.pickOne", null, "Pick one")}</span></div>
-      <div className="optcards">
+      {locked && <LockedHint />}
+      <div className="optcards" style={locked ? { opacity: 0.6, pointerEvents: "none" } : undefined}>
         {categories.map(c => (
-          <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} onClick={() => set({ cat: c.id })}>
+          <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} disabled={locked} onClick={() => set({ cat: c.id })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={c.icon} size={20} /></span>
             <b>{categoryLabel(t, c)}</b><p>{categoryDesc(t, c)}</p>
@@ -245,7 +260,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
   );
 }
 
-function StepParticipation({ d, set, ptypes }) {
+function StepParticipation({ d, set, ptypes, locked }) {
   const { t } = useTranslation();
   const trialFieldRef = useRef(null);
   const prevPtype = useRef(d.ptype);
@@ -261,9 +276,10 @@ function StepParticipation({ d, set, ptypes }) {
   }, [d.ptype]);
   return (
     <div className="rise">
-      <div className="optcards">
+      {locked && <LockedHint />}
+      <div className="optcards" style={locked ? { opacity: 0.6, pointerEvents: "none" } : undefined}>
         {ptypes.map(p => (
-          <button key={p.id} className={`optcard ${d.ptype === p.id ? "on" : ""}`} onClick={() => set({ ptype: p.id })}>
+          <button key={p.id} className={`optcard ${d.ptype === p.id ? "on" : ""}`} disabled={locked} onClick={() => set({ ptype: p.id })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
             <b>{ptypeLabel(t, p)}</b><p>{ptypeDesc(t, p)}</p>
@@ -279,6 +295,7 @@ function StepParticipation({ d, set, ptypes }) {
             type="number"
             min="3"
             max="30"
+            disabled={locked}
             value={d.durationDays}
             onChange={e => { const v = e.target.value; set({ durationDays: v === "" ? "" : Number(v) }); }}
             onBlur={() => set({ durationDays: Math.min(30, Math.max(3, Number(d.durationDays) || 7)) })}
@@ -292,7 +309,7 @@ function StepParticipation({ d, set, ptypes }) {
 
 const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
-function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
+function StepReward({ d, set, rewards, showErrors, builder, liveCount, locked }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
@@ -301,9 +318,10 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
   return (
     <div className="rise">
       <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
-      <div className="optcards c2" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
+      {locked && <LockedHint />}
+      <div className="optcards c2" style={{ gridTemplateColumns: "repeat(4,1fr)", ...(locked ? { opacity: 0.6, pointerEvents: "none" } : {}) }}>
         {rewards.map(r => (
-          <button key={r.id} className={`optcard ${d.reward.type === r.id ? "on" : ""}`} onClick={() => set({ reward: { ...d.reward, type: r.id } })}>
+          <button key={r.id} className={`optcard ${d.reward.type === r.id ? "on" : ""}`} disabled={locked} onClick={() => set({ reward: { ...d.reward, type: r.id } })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={r.icon} size={20} /></span>
             <b>{rewardLabel(t, r)}</b><p>{rewardDesc(t, r)}</p>
@@ -317,7 +335,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount }) {
             <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
-              <input className="fin" type="number" min="1" value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: +e.target.value } })} />
+              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: +e.target.value } })} />
             </div>
           </div>
         )}
@@ -618,6 +636,7 @@ export default function CreateMissionWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { id: missionId } = useParams();
+  const [searchParams] = useSearchParams();
   const { builder, refreshBuilder } = useAuth();
   const { categories, ptypes, rewards, filters, platformFeePct } = useMeta();
   const WZ_STEPS = wzSteps(t);
@@ -628,10 +647,16 @@ export default function CreateMissionWizard() {
   const DRAFT_KEY = `vcrew_mission_draft_${builder?.id || "anon"}`;
   clearDraftIfFreshReload(DRAFT_KEY);
 
-  // Resuming an existing draft opens straight on Review, with every step
+  // Resuming an existing mission opens on Review by default, with every step
   // already unlocked via the rail/Edit links — the scratch localStorage draft
-  // (for an in-progress *new* mission) plays no part in this flow.
-  const [step, setStep] = useState(() => missionId ? lastStep : parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
+  // (for an in-progress *new* mission) plays no part in this flow. A caller
+  // that wants a specific step up front (e.g. Mission Detail's Audience tab
+  // jumping straight to Step 4) can pass ?step=N.
+  const initialEditStep = () => {
+    const s = parseInt(searchParams.get("step") || "", 10);
+    return Number.isInteger(s) && s >= 0 && s <= lastStep ? s : lastStep;
+  };
+  const [step, setStep] = useState(() => missionId ? initialEditStep() : parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
   const [maxReached, setMaxReached] = useState(() => missionId ? lastStep : Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
   const [busy, setBusy] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
@@ -640,6 +665,14 @@ export default function CreateMissionWizard() {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [loadingMission, setLoadingMission] = useState(!!missionId);
+  // Mirrors the backend's own field-level allowlist (PATCH /missions/:id) —
+  // once any participant has moved past "invited", category/ptype/tasks/
+  // reward/duration get silently dropped from an update request, so the UI
+  // locks them here instead of letting the builder edit fields that won't
+  // actually save. wasActive distinguishes "editing an already-live mission"
+  // from "resuming an unpublished draft", for the Step 6 button/toast copy.
+  const [canFullyEdit, setCanFullyEdit] = useState(true);
+  const [wasActive, setWasActive] = useState(false);
   // Set once this brand-new mission's scratch draft has been silently
   // promoted to a real backend draft (see the auto-save effect below) —
   // read from localStorage first so a page reload resumes updating the same
@@ -678,10 +711,9 @@ export default function CreateMissionWizard() {
     api.mission(missionId)
       .then(({ mission }) => {
         if (cancelled) return;
-        // Only drafts are editable through this full wizard — an already-
-        // published mission lands here only via a stale/hand-typed URL.
-        if (mission.status !== "draft") { navigate(`/missions/${missionId}`, { replace: true }); return; }
         setD(missionToDraft(mission, filters, categories, ptypes));
+        setCanFullyEdit(!!mission.canFullyEdit);
+        setWasActive(mission.status !== "draft");
         setLoadingMission(false);
       })
       .catch(() => navigate("/missions", { replace: true }));
@@ -811,7 +843,11 @@ export default function CreateMissionWizard() {
 
   const cost = computeCost(d, rewards, platformFeePct);
   const last = step === lastStep;
-  const insufficientFunds = (step === 4 || last) && cost.total > (builder?.balance ?? 0);
+  // Saving an already-active mission doesn't re-charge its full cost — only
+  // a target increase pulls more escrow, and the backend already validates
+  // that on its own — so this full-cost pre-check only makes sense for a
+  // genuinely new publish (brand-new mission or a still-unpublished draft).
+  const insufficientFunds = !wasActive && (step === 4 || last) && cost.total > (builder?.balance ?? 0);
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
   const participantsOk = builder?.verified || d.reward.participants <= UNVERIFIED_PARTICIPANT_LIMIT;
@@ -891,10 +927,14 @@ export default function CreateMissionWizard() {
       setPublished(true);
       clearDraft();
       await refreshBuilder();
-      toast.success(t("createMission.publishSuccess", null, "Mission published successfully"));
+      toast.success(wasActive
+        ? t("settings.changesSaved", null, "Changes saved")
+        : t("createMission.publishSuccess", null, "Mission published successfully"));
       navigate(`/missions/${mission.id}`);
     } catch (err) {
-      setError(err.message || t("createMission.publishError", null, "Couldn't publish this mission"));
+      setError(err.message || (wasActive
+        ? t("settings.saveFailed", null, "Couldn't save changes")
+        : t("createMission.publishError", null, "Couldn't publish this mission")));
     } finally {
       setBusy(false);
     }
@@ -945,12 +985,23 @@ export default function CreateMissionWizard() {
   const editStep = (i) => { setShowErrors(false); setError(""); setStep(i); };
   const goBack = () => { setShowErrors(false); setError(""); setStep(s => s - 1); };
 
+  // Mirrors the backend's PATCH /missions/:id allowlist — category, ptype,
+  // tasks, and reward all stop being sent once a validator has accepted.
+  const fieldsLocked = !!missionId && !canFullyEdit;
+
   const StepBody = [
-    <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} />,
-    <StepParticipation d={d} set={set} ptypes={ptypes} />,
-    <StepTestCases d={d} set={set} />,
+    <StepInfo d={d} set={set} categories={categories} showErrors={showErrors} locked={fieldsLocked} />,
+    <StepParticipation d={d} set={set} ptypes={ptypes} locked={fieldsLocked} />,
+    fieldsLocked ? (
+      <div className="rise">
+        <LockedHint />
+        <fieldset disabled style={{ border: "none", padding: 0, margin: 0, opacity: 0.6, pointerEvents: "none" }}>
+          <StepTestCases d={d} set={set} />
+        </fieldset>
+      </div>
+    ) : <StepTestCases d={d} set={set} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} locked={fieldsLocked} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
   ][step];
 
@@ -1067,7 +1118,9 @@ export default function CreateMissionWizard() {
                   onClick={goNext}
                   style={!fieldsValid ? { opacity: 0.5, pointerEvents: "none" } : undefined}
                 >
-                  {busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission")}
+                  {wasActive
+                    ? (busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes"))
+                    : (busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission"))}
                 </Btn>
               </span>
             </div>
