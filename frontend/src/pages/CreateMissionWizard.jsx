@@ -555,6 +555,9 @@ function computeCost(d, rewards, platformFeePct) {
   return { subtotal, fee, fulfil, total: subtotal + fee + fulfil };
 }
 
+const GEO_GROUP = "Geography";
+const WORLDWIDE = "Worldwide";
+
 // Reverse of buildAudiencePayload(): rehydrates a fetched draft mission back
 // into the wizard's internal `d` shape so an existing draft can be resumed
 // through the full 6-step flow instead of just the lightweight edit modal.
@@ -842,23 +845,31 @@ export default function CreateMissionWizard() {
   };
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
-  // Worldwide is a plain chip like any other Geography option now — selecting
-  // or clearing it doesn't touch the rest of the group's selection, and vice
-  // versa. Matching semantics: the backend (getRealMatchCount) already
-  // ignores Worldwide/Remote/Other as no-op markers whenever a real place is
-  // also selected, so "Worldwide + India" narrows to India rather than
-  // matching everyone — same treatment "Other" already gets elsewhere.
+  // Turning Worldwide on for the first time fills in every Geography chip as
+  // an explicit selection (rather than leaving it as a lone marker) so every
+  // chip visually reads as checked and each one stays individually
+  // clickable — unchecking one is then a real removal, not a no-op, while
+  // Worldwide and the rest stay checked. Trade-off accepted knowingly: the
+  // backend then matches an explicit place-name list instead of true
+  // "no restriction", which can match slightly fewer validators than a bare
+  // Worldwide marker would.
+  const expandGeoIfWorldwide = (prevSet, nextSet) => {
+    if (prevSet.has(WORLDWIDE) || !nextSet.has(WORLDWIDE)) return nextSet;
+    return new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE]);
+  };
   const toggle = (group, opt) => setD(p => {
-    const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
+    let s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
+    if (group === GEO_GROUP) s = expandGeoIfWorldwide(p.filters[group], s);
     return { ...p, filters: { ...p.filters, [group]: s } };
   });
   // Select-all / clear-all for one category or subcategory's own option list —
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
   const selectAllInGroup = (group, opts, otherKey) => setD(p => {
-    const s = new Set(p.filters[group]);
+    let s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
+    if (group === GEO_GROUP) s = expandGeoIfWorldwide(p.filters[group], s);
     const next = { ...p, filters: { ...p.filters, [group]: s } };
     // Clearing the group that owns an "Other" catch-all should also drop its
     // custom text entries — otherwise they'd sit orphaned in state (hidden
