@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
@@ -215,7 +215,7 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
   );
 }
 
-export default function StepTestCases({ d, set }) {
+export default forwardRef(function StepTestCases({ d, set }, ref) {
   const { t } = useTranslation();
   const platformLabel = {
     Web: t("testCases.platformWeb", null, "Web"),
@@ -314,9 +314,9 @@ export default function StepTestCases({ d, set }) {
     }
   };
 
-  const generate = async () => {
+  const generate = async (skipConfirm = false) => {
     if (!canGen) return;
-    if (hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
+    if (!skipConfirm && hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
@@ -349,6 +349,12 @@ export default function StepTestCases({ d, set }) {
     }
     set({ genFor: { cat: d.cat, ptype: d.ptype, desc: form.desc, url: form.url, platforms: form.platforms, goals: form.goals, users: form.users } });
   };
+
+  // Lets the wizard's stale-test-cases confirmation modal trigger a real
+  // regeneration on "Yes, Regenerate" instead of just closing the dialog —
+  // skips the in-component confirm() since the modal already got that
+  // confirmation from the user.
+  useImperativeHandle(ref, () => ({ regenerate: () => generate(true) }));
 
   const FALLBACK_REASON_COPY = {
     not_configured: t("testCases.aiReasonNotConfigured", null, "AI generation isn't configured on this server yet."),
@@ -526,4 +532,4 @@ export default function StepTestCases({ d, set }) {
       </div>
     </div>
   );
-}
+});

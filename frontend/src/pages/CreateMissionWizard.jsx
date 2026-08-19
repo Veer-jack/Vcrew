@@ -714,6 +714,9 @@ export default function CreateMissionWizard() {
   // once it resolves, instead of silently re-attaching an orphaned mission
   // to the wizard the user just reset.
   const freshStartRef = useRef(0);
+  // Lets the stale-test-cases confirmation modal's "Yes, Regenerate" trigger
+  // an actual regeneration on StepTestCases instead of just closing itself.
+  const testCasesRef = useRef(null);
   // Reflects the real autosave effects below, not a cosmetic timer — "idle"
   // means nothing worth saving yet, "saving" while a create/update request
   // for the backend draft is actually in flight, "saved" once it lands.
@@ -1061,10 +1064,10 @@ export default function CreateMissionWizard() {
       <div className="rise">
         <LockedHint />
         <fieldset disabled style={{ border: "none", padding: 0, margin: 0, opacity: 0.6, pointerEvents: "none" }}>
-          <StepTestCases d={d} set={set} />
+          <StepTestCases d={d} set={set} ref={testCasesRef} />
         </fieldset>
       </div>
-    ) : <StepTestCases d={d} set={set} />,
+    ) : <StepTestCases d={d} set={set} ref={testCasesRef} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
     <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} locked={fieldsLocked} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
@@ -1248,7 +1251,7 @@ export default function CreateMissionWizard() {
               {t("createMission.staleTestCasesBody", null, "We've noticed the test case details were updated after these test cases were generated. We recommend regenerating them. Do you want to regenerate?")}
             </p>
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => setShowStaleWarning(false)}>{t("createMission.yesRegenerate", null, "Yes, Regenerate")}</button>
+              <button className="btn outline" onClick={() => { setShowStaleWarning(false); testCasesRef.current?.regenerate(); }}>{t("createMission.yesRegenerate", null, "Yes, Regenerate")}</button>
               <button className="btn btn-primary" onClick={() => { setShowStaleWarning(false); advanceStep(); }}>{t("createMission.noContinue", null, "No, Continue")}</button>
             </div>
           </div>
