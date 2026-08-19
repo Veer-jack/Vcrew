@@ -521,6 +521,8 @@ const pt = {
     completedEmpty: "As missões concluídas aparecerão aqui assim que terminarem.",
     emptyDefault: "Nada aqui ainda.",
     noMissionsYet: "Nenhuma missão ainda – crie a sua primeira.",
+    wasPublished: "Já publicada",
+    wasPublishedHint: "Este rascunho tem participantes reais — foi publicado antes.",
     missionCol: "Missão",
     typeCol: "Tipo",
     statusCol: "Estado",

@@ -521,6 +521,8 @@ const fr = {
     completedEmpty: "Les missions terminées apparaîtront ici une fois terminées.",
     emptyDefault: "Rien ici encore.",
     noMissionsYet: "Aucune mission pour l'instant : créez votre première.",
+    wasPublished: "Déjà publiée",
+    wasPublishedHint: "Ce brouillon a de vrais participants — il a déjà été publié.",
     missionCol: "Mission",
     typeCol: "Tapez",
     statusCol: "Statut",

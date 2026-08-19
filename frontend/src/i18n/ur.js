@@ -521,6 +521,8 @@ const ur = {
     completedEmpty: "مکمل مشن مکمل ہونے کے بعد یہاں ظاہر ہوں گے۔",
     emptyDefault: "ابھی تک یہاں کچھ نہیں ہے۔",
     noMissionsYet: "ابھی تک کوئی مشن نہیں — اپنا پہلا مشن بنائیں۔",
+    wasPublished: "پہلے شائع ہو چکا",
+    wasPublishedHint: "اس ڈرافٹ میں حقیقی شرکاء ہیں — یہ پہلے شائع ہو چکا تھا۔",
     missionCol: "مشن",
     typeCol: "قسم",
     statusCol: "حیثیت",

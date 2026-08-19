@@ -521,6 +521,8 @@ const es = {
     completedEmpty: "Las misiones completadas aparecerán aquí una vez que finalicen.",
     emptyDefault: "Nada aquí todavía.",
     noMissionsYet: "Aún no hay misiones: crea la primera.",
+    wasPublished: "Publicada antes",
+    wasPublishedHint: "Este borrador tiene participantes reales — se publicó antes.",
     missionCol: "Misión",
     typeCol: "Tipo",
     statusCol: "Estado",

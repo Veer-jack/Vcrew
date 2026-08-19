@@ -521,6 +521,8 @@ const zh = {
     completedEmpty: "完成的任务结束后将出现在此处。",
     emptyDefault: "这里还什么都没有。",
     noMissionsYet: "还没有任务——创建你的第一个任务。",
+    wasPublished: "曾经发布过",
+    wasPublishedHint: "此草稿有真实参与者——它之前已发布过。",
     missionCol: "使命",
     typeCol: "类型",
     statusCol: "状态",

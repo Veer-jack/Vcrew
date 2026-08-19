@@ -523,6 +523,8 @@ const en = {
     completedEmpty: "Completed missions will appear here once they wrap.",
     emptyDefault: "Nothing here yet.",
     noMissionsYet: "No missions yet — create your first one.",
+    wasPublished: "Was published",
+    wasPublishedHint: "This draft has real participants — it was published before.",
     missionCol: "Mission",
     typeCol: "Type",
     statusCol: "Status",

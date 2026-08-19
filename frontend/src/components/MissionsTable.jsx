@@ -38,7 +38,24 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
                 </div>
               </td>
               <td><TypeTag cat={m.category} categories={categories} /></td>
-              <td><StatusTag status={m.status} /></td>
+              <td>
+                <div className="row gap-2" style={{ alignItems: "center" }}>
+                  <StatusTag status={m.status} />
+                  {/* A genuine never-published draft can never have real
+                      participants — nobody could join a mission that was
+                      never live. Seeing this tag on a "draft" row is a clear
+                      signal something's off (e.g. a live mission that
+                      briefly ended up back in Draft), worth investigating
+                      rather than assuming it's a normal, unstarted draft. */}
+                  {m.status === "draft" && m.participants.joined > 0 && (
+                    <span className="tag" title={t("missions.wasPublishedHint", null, "This draft has real participants — it was published before.")}
+                      style={{ background: "var(--warning-weak)", color: "var(--warning)", fontSize: 11 }}>
+                      <Icon name="alertTriangle" size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
+                      {t("missions.wasPublished", null, "Was published")}
+                    </span>
+                  )}
+                </div>
+              </td>
               <td className="num">{m.participants.joined}<span className="faint"> / {m.participants.target}</span></td>
               <td className="num">{m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)}</td>
               <td>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>

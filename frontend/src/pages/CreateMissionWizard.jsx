@@ -964,23 +964,26 @@ export default function CreateMissionWizard() {
   }, [d, missionId, promotedId, published]);
 
   // Autosave while resuming an existing draft, or once a new mission has been
-  // auto-promoted above: edits are already backed by a real row, so there's
-  // no separate "Save as Draft" click to hang them on — debounce and PATCH
-  // the draft in place instead. Silently ignored on failure, same as any
-  // other autosave; the next successful edit/publish will catch it up.
+  // auto-promoted above: edits are already backed by a real row that nobody
+  // else can see or is acting on yet, so there's no separate "Save as Draft"
+  // click to hang them on — debounce and PATCH the draft in place instead.
+  // Silently ignored on failure, same as any other autosave; the next
+  // successful edit/publish will catch it up.
   //
-  // Critical: this must never send status:"draft" for a mission that was
-  // already active when opened for editing — this same effect also covers
-  // that case (editing an already-live mission via missionId), and sending
-  // "draft" unconditionally here silently downgraded a live mission back to
-  // draft on every keystroke, well before the user ever clicked anything
-  // resembling Save/Publish.
+  // Critical: must NOT run at all when wasActive is true. This same effect
+  // also covers editing an already-live mission (missionId set, no
+  // promotedId), and a live mission is a different situation entirely —
+  // validators may already be matched to it or working on it, so nothing
+  // should reach the real record until the builder explicitly clicks "Save
+  // changes". This used to autosave every field (not just status) to the
+  // live row on every keystroke with zero confirmation, so background-typing
+  // an edit and navigating away without saving still silently overwrote it.
   useEffect(() => {
     const id = missionId || promotedId;
-    if (!id || loadingMission || published) return;
+    if (!id || loadingMission || published || wasActive) return;
     setSaveStatus("saving");
     const timer = setTimeout(() => {
-      api.updateMission(id, buildMissionPayload(wasActive ? "active" : "draft"))
+      api.updateMission(id, buildMissionPayload("draft"))
         .then(() => setSaveStatus("saved"))
         .catch(() => setSaveStatus("idle"));
     }, 800);
@@ -1076,7 +1079,7 @@ export default function CreateMissionWizard() {
 
   return (
     <div className="wz" data-layout="rail">
-      {saveStatus !== "idle" && (
+      {saveStatus !== "idle" && !wasActive && (
         <span
           className="pill"
           style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, color: "var(--text-muted)", background: "var(--panel)", boxShadow: "var(--shadow-sm)" }}

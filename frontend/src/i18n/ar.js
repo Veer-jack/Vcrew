@@ -521,6 +521,8 @@ const ar = {
     completedEmpty: "ستظهر المهام المكتملة هنا بمجرد انتهاءها.",
     emptyDefault: "لا شيء هنا بعد.",
     noMissionsYet: "لا توجد مهام حتى الآن – أنشئ مهمتك الأولى.",
+    wasPublished: "تم نشرها من قبل",
+    wasPublishedHint: "تحتوي هذه المسودة على مشاركين حقيقيين — تم نشرها من قبل.",
     missionCol: "المهمة",
     typeCol: "اكتب",
     statusCol: "الحالة",
