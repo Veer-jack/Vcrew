@@ -342,7 +342,16 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, locked })
         <div className={`fld ${showErrors && overUnverifiedCap ? "fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")} <span className="req-star" aria-hidden="true">*</span></label>
           <input className="fin" type="number" min="1" max="500" value={d.reward.participants}
-            onChange={e => set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } })}
+            onChange={e => {
+              // The value silently clamped to 500 with no explanation — a
+              // builder typing 2222 just saw it become 500 and had no idea
+              // why. id keeps repeated keystrokes over the limit from
+              // stacking multiple toasts.
+              if (e.target.value !== "" && +e.target.value > 500) {
+                toast.error(t("createMission.participantsMaxToast", null, "Maximum 500 participants per mission."), { id: "participants-max" });
+              }
+              set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } });
+            }}
             onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }} />
           <p className="fhint">
             {!builder?.verified
