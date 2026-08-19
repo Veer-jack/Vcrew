@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Icon from "./Icon";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../firebaseClient";
 import { COUNTRIES } from "./auth/countries";
@@ -10,7 +10,6 @@ import { friendlyAuthError } from "./auth/AuthSplitScreen";
 // come from the current user.
 export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate }) {
   const { t } = useTranslation();
-  const [firebaseReady, setFirebaseReady] = useState(true);
   const [editing, setEditing] = useState(false);
   // Once the user says "use a different number" we must stop re-offering the
   // stale onboarding number for the rest of this visit — otherwise every
@@ -31,10 +30,6 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
   const recaptchaRef = useRef(null);
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    client.firebaseConfig().then(c => setFirebaseReady(!!c.configured)).catch(() => setFirebaseReady(false));
-  }, [client]);
-
   const reset = () => { setEditing(false); setStep("phone"); setPhoneInput(""); setCode(""); setError(""); setInfo(""); confirmationRef.current = null; };
 
   const sendCode = async (e) => {
@@ -50,7 +45,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     
     try {
       const auth = await getFirebaseAuth(client.firebaseConfig);
-      if (!auth) throw new Error(t("auth.phoneVerificationNotConfigured", null, "Phone verification isn't configured on this server yet"));
+      if (!auth) throw new Error(t("auth.phoneVerificationNotConfigured", null, "Phone verification isn't available right now"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
       confirmationRef.current = await signInWithPhoneNumber(auth, `${cc}${phoneDigits}`, recaptchaRef.current);
       setInfo(t("auth.codeSentTo", { cc, phoneDigits }, `Code sent to ${cc} ${phoneDigits}`));
@@ -102,17 +97,23 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     reset();
   };
 
-  if (!firebaseReady && !phoneVerified) return null;
+  // Buttons show regardless of firebaseReady — if this environment's Firebase
+  // genuinely isn't configured, sendCode's own error handling below already
+  // surfaces a friendly message when Send code is actually clicked, so the
+  // rest of the flow (Delete, no-stale-prefill, etc.) stays fully testable
+  // without gating it behind infra that isn't set up here yet.
+  const showPending = !phoneVerified && !editing && !prefillDismissed && prefillPhone;
+  const showAdd = !phoneVerified && !editing && (prefillDismissed || !prefillPhone);
 
   return (
     <div className="card" style={{ padding: "var(--pad-card)" }}>
-      <div className="row between" style={{ marginBottom: phoneVerified || editing || (!prefillDismissed && prefillPhone) ? 14 : 0 }}>
+      <div className="row between" style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
           <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
             {phoneVerified
               ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
-              : (!prefillDismissed && prefillPhone)
+              : showPending
                 ? t("auth.verifyPhoneDesc", null, "We found this number on your profile — verify it to enable login via SMS code and extra verification for withdrawals.")
                 : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
           </p>
@@ -123,14 +124,14 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
             <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
           </div>
         )}
-        {!phoneVerified && !editing && !prefillDismissed && prefillPhone && (
+        {showPending && (
           <div className="row gap-2">
             <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
             <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
             <button className="btn btn-quiet" onClick={() => setPrefillDismissed(true)}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
           </div>
         )}
-        {!phoneVerified && !editing && (prefillDismissed || !prefillPhone) && firebaseReady && (
+        {showAdd && (
           <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
         )}
       </div>

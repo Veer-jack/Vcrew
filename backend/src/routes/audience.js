@@ -106,11 +106,22 @@ export async function getRealMatchCount(db, audience) {
       clauses.push(`(CASE WHEN role IS NULL OR role = 'User' THEN INITCAP(validator_type) ELSE role END) = ANY(?)`);
       params.push(values);
     } else if (group === "Professional") {
-      clauses.push(`occupation = ANY(?)`);
-      params.push(values);
+      // "Other" is a bare marker (see StepAudience/FilterGroup's otherEntries)
+      // with no occupation info of its own — same no-op treatment as
+      // Geography's "Other"/Worldwide/Remote below, otherwise it would
+      // literally match on the word "Other" instead of the custom text
+      // typed alongside it (which is already appended as its own entry).
+      const specificOcc = values.filter(v => v.toLowerCase() !== "other");
+      if (specificOcc.length) {
+        clauses.push(`occupation = ANY(?)`);
+        params.push(specificOcc);
+      }
     } else if (group === "Interests") {
-      clauses.push(`(industry = ANY(?) OR specialties_json ILIKE ANY(?))`);
-      params.push(values, values.map(v => `%"${v}"%`));
+      const specificInterests = values.filter(v => v.toLowerCase() !== "other");
+      if (specificInterests.length) {
+        clauses.push(`(industry = ANY(?) OR specialties_json ILIKE ANY(?))`);
+        params.push(specificInterests, specificInterests.map(v => `%"${v}"%`));
+      }
     } else if (group === "Demographics") {
       const demoClauses = [];
       const ages = values.filter(v => FILTERS.Demographics.Age.includes(v));

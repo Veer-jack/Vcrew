@@ -272,6 +272,33 @@ if (fs.existsSync(SITE_DIST)) {
   app.use("/site", express.static(SITE_DIST));
 }
 
+// robots.txt and sitemap.xml previously had no route of their own, so both
+// fell through to the SPA catch-all below and served the app's index.html
+// instead of a real crawl file. Sitemap URLs point at /site/*.html (the
+// marketing pages' actual current location) rather than the clean URLs a
+// future architecture change would use — pointing crawlers at URLs that
+// don't exist yet would be worse than no sitemap at all.
+app.get("/robots.txt", (req, res) => {
+  res.type("text/plain").send(
+    `User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /validator/login
+Disallow: /admin/
+
+Sitemap: https://www.validationcrew.com/sitemap.xml
+`
+  );
+});
+
+app.get("/sitemap.xml", (req, res) => {
+  const pages = ["index", "builders", "validators", "use-cases", "about", "contact", "privacy", "terms"];
+  const urls = pages.map(p => `  <url><loc>https://www.validationcrew.com/site/${p}.html</loc></url>`).join("\n");
+  res.type("application/xml").send(
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
+  );
+});
+
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) return res.status(404).json({ error: "Not found" });
   const indexHtml = path.join(FRONTEND_DIST, "index.html");

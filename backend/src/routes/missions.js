@@ -10,7 +10,7 @@ import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE, PL
 import { getRealMatchCount } from "./audience.js";
 import { fetchUrlContext } from "../urlContext.js";
 import { levelForCompleted } from "../vmeta.js";
-import { sendMissionPublished } from "../email.js";
+import { sendMissionPublished, sendMissionUpdated } from "../email.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
 import { translateBatch } from "../translate.js";
@@ -120,6 +120,7 @@ function serializeMission(m, canFullyEdit) {
     deadline: m.deadline,
     audience: JSON.parse(m.audience_json || "{}"),
     tasks: JSON.parse(m.tasks_json || "[]"),
+    testCaseForm: m.test_case_form_json ? JSON.parse(m.test_case_form_json) : null,
     durationDays: m.duration_days,
     createdAt: m.created_at,
   };
@@ -410,6 +411,13 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "name, category and ptype are required" });
   }
 
+  const reward = b.reward || {};
+  const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
+  const id = "m_" + randomUUID().slice(0, 8);
+  const status = b.status === "active" ? "active" : "draft";
+  const target = Number(b.target) || 0;
+  const rewardAmount = Number(reward.amount) || 0;
+
   // Verification gating — unverified builders are limited in how many
   // missions they can run and how many participants they can target.
   const builder = await db.prepare(`SELECT verified_at FROM builders WHERE id = ?`).get(req.builder.id);
@@ -418,14 +426,20 @@ router.post("/", async (req, res) => {
   const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
   if (!isVerified) {
-    const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
-
-    if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
-      return res.status(403).json({
-        error: `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`,
-        code: "VERIFICATION_REQUIRED",
-        limit: "missions",
-      });
+    // Only an actually-active mission counts against the cap — an unverified
+    // builder can have any number of drafts in progress (including ones the
+    // wizard silently auto-promotes), same reasoning as the participant-cap
+    // check just below. Unguarded, this used to block even draft creation
+    // once a builder already had 3 active missions.
+    if (status === "active") {
+      const activeMissions = Number((await db.prepare(`SELECT COUNT(*) AS n FROM missions WHERE builder_id = ? AND status = 'active'`).get(req.builder.id)).n);
+      if (activeMissions >= UNVERIFIED_MISSION_LIMIT) {
+        return res.status(403).json({
+          error: `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`,
+          code: "VERIFICATION_REQUIRED",
+          limit: "missions",
+        });
+      }
     }
 
     // A draft's target isn't consuming real capacity yet — it's still being
@@ -442,12 +456,6 @@ router.post("/", async (req, res) => {
       });
     }
   }
-  const reward = b.reward || {};
-  const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
-  const id = "m_" + randomUUID().slice(0, 8);
-  const status = b.status === "active" ? "active" : "draft";
-  const target = Number(b.target) || 0;
-  const rewardAmount = Number(reward.amount) || 0;
 
   try {
     await db.transaction(async (tx) => {
@@ -469,12 +477,13 @@ router.post("/", async (req, res) => {
 
       await tx.prepare(`
         INSERT INTO missions (id, builder_id, name, brand, category, ptype, status, target, joined, submitted,
-          reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, deadline, duration_days)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?)
+          reward_type, reward_amount, completion, spend, region, rating, description, audience_json, tasks_json, test_case_form_json, deadline, duration_days)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, 0, ?, ?, 0, ?, ?, ?, ?, ?, ?)
       `).run(
         id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
         target, rewardType, rewardAmount, spend,
-        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []), b.deadline || null, durationDays
+        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []),
+        b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, b.deadline || null, durationDays
       );
 
       if (status === "active") {
@@ -561,7 +570,7 @@ router.patch("/:id", async (req, res) => {
   // nothing to reshape. Reward/target changes on a mission with participants
   // already go through the escrow-aware branches above regardless.
   const allowed = ["name", "status", "target", "deadline", "region", "description", "audience"];
-  if (await missionCanFullyEdit(m.id, m.status)) allowed.push("category", "ptype", "tasks", "durationDays", "reward");
+  if (await missionCanFullyEdit(m.id, m.status)) allowed.push("category", "ptype", "tasks", "testCaseForm", "durationDays", "reward");
   const updates = [];
   const params = [];
   let spendDelta = 0;
@@ -623,6 +632,9 @@ router.patch("/:id", async (req, res) => {
           } else if (key === "tasks") {
             updates.push(`tasks_json = ?`);
             params.push(JSON.stringify(req.body.tasks || []));
+          } else if (key === "testCaseForm") {
+            updates.push(`test_case_form_json = ?`);
+            params.push(req.body.testCaseForm ? JSON.stringify(req.body.testCaseForm) : null);
           } else if (key === "durationDays") {
             updates.push(`duration_days = ?`);
             params.push(Math.min(30, Math.max(2, Number(req.body.durationDays) || 7)));
@@ -735,6 +747,14 @@ router.patch("/:id", async (req, res) => {
     }).catch(() => {});
     automodMission(m.id);
     await notifyMatchingValidators(m.id);
+  } else if (m.status === "active" && newStatus === "active" && updates.length > 0) {
+    // Editing an already-live mission, not a first publish — the builder
+    // gets their own confirmation email here, distinct from the "Mission
+    // Live" copy above so it doesn't read as a brand-new launch.
+    sendMissionUpdated({
+      builderName: req.builder.name, builderEmail: req.builder.email,
+      missionName: m.name, missionId: m.id,
+    }).catch(() => {});
   }
 
   const updated = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(m.id);
@@ -1319,6 +1339,8 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
 
       return {
         id: r.id,
+        validatorId: r.validator_id,
+        flagged: !!r.flagged,
         name: r.name || "Validator",
         city: "Remote",
         trust: Math.round((r.trust_score || 0) * 10),

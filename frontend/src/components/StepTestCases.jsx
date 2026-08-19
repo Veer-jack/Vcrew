@@ -1,12 +1,26 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 
-const TC_PLATFORMS = ["Web", "iOS", "Android", "All"];
-const TC_GOALS = ["Core flow", "UX", "Willingness to pay", "All"];
+const TC_PLATFORMS = ["All", "Web", "iOS", "Android"];
+const TC_GOALS = ["All", "Core flow", "UX", "Willingness to pay"];
+
+// Whether the generated test cases no longer reflect what's currently typed/
+// selected on this step — used both for the inline warning here and for the
+// wizard's own "you're continuing with the old ones" toast on Step 3 exit.
+export function isTestCasesStale(d) {
+  if (!d.genFor) return false;
+  if (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) return true;
+  const form = d.testCaseForm || {};
+  return d.genFor.desc !== form.desc
+    || d.genFor.url !== form.url
+    || JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms || [])
+    || JSON.stringify(d.genFor.goals) !== JSON.stringify(form.goals || [])
+    || d.genFor.users !== form.users;
+}
 
 const SEV = {
   crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
@@ -140,7 +154,7 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
                       <button onClick={e => { e.stopPropagation(); deleteQuestion(i); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Icon name="trash" size={14} /></button>
                     </div>
                     <div>
-                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); }} onClick={e => e.stopPropagation()} style={{ fontSize: 12, padding: "2px 8px", width: "auto", display: "inline-block" }}>
+                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); }} onClick={e => e.stopPropagation()} style={{ fontSize: 12, padding: "2px 26px 2px 8px", width: "auto", display: "inline-block" }}>
                         <option value="multiple_choice">{t("testCases.qTypeMultipleChoice", null, "Multiple choice")}</option>
                         <option value="yes_no_detail">{t("testCases.qTypeYesNoDetail", null, "Yes/No + detail")}</option>
                         <option value="rating">{t("testCases.qTypeRating", null, "Rating (1-5)")}</option>
@@ -167,7 +181,7 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="eyebrow" style={{ letterSpacing: 0 }}>{t("testCases.severity", null, "Severity")}</span>
-              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 8px", width: 130 }}>
+              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 26px 4px 8px", width: 130 }}>
                 <option value="crit">{sevLabel.crit}</option>
                 <option value="imp">{sevLabel.imp}</option>
                 <option value="nice">{sevLabel.nice}</option>
@@ -201,7 +215,7 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
   );
 }
 
-export default function StepTestCases({ d, set }) {
+export default forwardRef(function StepTestCases({ d, set }, ref) {
   const { t } = useTranslation();
   const platformLabel = {
     Web: t("testCases.platformWeb", null, "Web"),
@@ -300,9 +314,9 @@ export default function StepTestCases({ d, set }) {
     }
   };
 
-  const generate = async () => {
+  const generate = async (skipConfirm = false) => {
     if (!canGen) return;
-    if (hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
+    if (!skipConfirm && hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
@@ -335,6 +349,12 @@ export default function StepTestCases({ d, set }) {
     }
     set({ genFor: { cat: d.cat, ptype: d.ptype, desc: form.desc, url: form.url, platforms: form.platforms, goals: form.goals, users: form.users } });
   };
+
+  // Lets the wizard's stale-test-cases confirmation modal trigger a real
+  // regeneration on "Yes, Regenerate" instead of just closing the dialog —
+  // skips the in-component confirm() since the modal already got that
+  // confirmation from the user.
+  useImperativeHandle(ref, () => ({ regenerate: () => generate(true) }));
 
   const FALLBACK_REASON_COPY = {
     not_configured: t("testCases.aiReasonNotConfigured", null, "AI generation isn't configured on this server yet."),
@@ -419,7 +439,7 @@ export default function StepTestCases({ d, set }) {
           </div>
 
           <div className="fld" style={{ marginBottom: 0 }}>
-            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span> <span style={{ display: "inline-flex", verticalAlign: -2, cursor: "help" }} data-tooltip={t("testCases.targetUsersInfo", null, "Who this mission is meant for — their role, experience level, or context (e.g. \"first-time app users\", \"B2B SaaS buyers\"). This shapes who AI writes the test tasks for.")}><Icon name="info" size={13} style={{ color: "var(--text-faint)" }} /></span></label>
+            <label>{t("testCases.targetUsers", null, "Target users")} <span className="req-star" aria-hidden="true">*</span> <span style={{ display: "inline-flex", verticalAlign: -2, cursor: "help" }} data-tooltip={t("testCases.targetUsersInfo", null, "Who this is for, e.g. \"first-time app users\" — shapes how AI writes the tasks.")}><Icon name="info" size={13} style={{ color: "var(--text-faint)" }} /></span></label>
             <input className="fin" placeholder={t("testCases.targetUsersPlaceholder", null, "e.g. Urban millennials, SaaS buyers, first-time app users")} value={form.users} onChange={e => patch({ users: e.target.value })} />
           </div>
 
@@ -435,7 +455,7 @@ export default function StepTestCases({ d, set }) {
 
       </div>
 
-      <div ref={resultsRef} className="tc-results">
+      <div ref={resultsRef} className="tc-results sticky-side">
         {genState === "loading" ? (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -477,22 +497,10 @@ export default function StepTestCases({ d, set }) {
                 <Icon name="plus" size={15} /> {t("testCases.addCustomTask", null, "Add custom task")}
               </button>
             </div>
-            {d.genFor && (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
+            {isTestCasesStale(d) && (
               <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
                 <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
-                <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.categoryChangedWarning", null, "Category or participation type changed since these were generated — regenerate to match.")}</span>
-              </div>
-            )}
-            {d.genFor && !(d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) && (
-              d.genFor.desc !== form.desc
-              || d.genFor.url !== form.url
-              || JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms)
-              || JSON.stringify(d.genFor.goals) !== JSON.stringify(form.goals)
-              || d.genFor.users !== form.users
-            ) && (
-              <div style={{ marginBottom: 14, padding: "10px 14px", background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
-                <Icon name="flag" size={15} style={{ color: "var(--warning)", flexShrink: 0 }} />
-                <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.filtersChangedWarning", null, "Something changed since these were generated — regenerate to match your latest inputs.")}</span>
+                <span style={{ color: "var(--warning)", fontWeight: 600 }}>{t("testCases.filtersChangedWarning", null, "Generate new test cases to replace these and include what you just edited or selected.")}</span>
               </div>
             )}
             {tasks.map((t, i) => (
@@ -524,4 +532,4 @@ export default function StepTestCases({ d, set }) {
       </div>
     </div>
   );
-}
+});

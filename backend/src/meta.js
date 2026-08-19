@@ -335,9 +335,9 @@ export const FILTERS = {
     "Customer Success", "Doctor", "Lawyer", "Finance", "HR", "Teacher", "Researcher", "Freelancer", "Student", "Other"
   ],
   Interests: {
-    "Lifestyle": ["Fitness", "Yoga", "Outdoor activities", "Cooking", "Travel", "Gaming", "Reading", "Music", "Fashion", "Parenting", "Pets", "Tech", "Cinema", "Sports", "Social media"],
-    "Industry": ["SaaS / B2B Software", "Fintech", "Healthcare", "EdTech", "E-commerce", "FMCG", "Automotive", "Real Estate", "Media", "AI / ML", "Logistics", "Manufacturing", "Government", "Non-profit"],
-    "Product Types": ["Mobile apps iOS", "Mobile apps Android", "Web apps / SaaS", "AI / LLM products", "Fintech products", "Healthcare apps", "Developer tools", "Enterprise software", "Consumer apps", "Physical products", "Packaging", "Marketing campaigns", "Websites"]
+    "Lifestyle": ["Fitness", "Yoga", "Outdoor activities", "Cooking", "Travel", "Gaming", "Reading", "Music", "Fashion", "Parenting", "Pets", "Tech", "Cinema", "Sports", "Social media", "Other"],
+    "Industry": ["SaaS / B2B Software", "Fintech", "Healthcare", "EdTech", "E-commerce", "FMCG", "Automotive", "Real Estate", "Media", "AI / ML", "Logistics", "Manufacturing", "Government", "Non-profit", "Other"],
+    "Product Types": ["Mobile apps iOS", "Mobile apps Android", "Web apps / SaaS", "AI / LLM products", "Fintech products", "Healthcare apps", "Developer tools", "Enterprise software", "Consumer apps", "Physical products", "Packaging", "Marketing campaigns", "Websites", "Other"]
   }
 };
 
