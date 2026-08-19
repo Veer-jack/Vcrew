@@ -234,7 +234,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
             <FilterGroup
               title={g} options={opts} sel={d.filters[g]} toggle={toggle}
               otherEntries={d.otherEntries?.[g]}
-              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries }, audienceTouched: true })}
+              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries } })}
               onSelectAll={opts => selectAllInGroup(g, opts)}
             />
           ) : (
@@ -247,7 +247,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               return (
                 <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                   otherEntries={subOther ? d.otherEntries?.[g] : undefined}
-                  onOtherEntriesChange={subOther ? (entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries }, audienceTouched: true }) : undefined}
+                  onOtherEntriesChange={subOther ? (entries) => set({ otherEntries: { ...d.otherEntries, [g]: entries } }) : undefined}
                   otherValue={subOther || "Other"}
                   onSelectAll={subOpts => selectAllInGroup(g, subOpts)}
                   impliedAll={g === GEO_GROUP && d.filters[GEO_GROUP]?.has(WORLDWIDE)}
@@ -575,11 +575,6 @@ function missionToDraft(mission, filters, categories, ptypes) {
       participants: mission.participants?.target || 1,
     },
     filters: emptyF,
-    // Resuming a saved/draft mission means its audience was already set at
-    // some point (even if that set is empty) — not the untouched default a
-    // brand-new freshDraft() starts with, so the Step 4 gate shouldn't ask
-    // this user to re-touch it just because they reopened the wizard.
-    audienceTouched: true,
     genFor: null,
     durationDays: mission.durationDays || 7,
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
@@ -708,13 +703,11 @@ export default function CreateMissionWizard() {
 
   const freshDraft = () => ({
     title: "", desc: "", cat: categories[0]?.id || "feedback",
-    // Preselecting "Validator" gives the live match-count something sensible to
-    // show immediately, but it must not count as the user having reviewed their
-    // audience — audienceTouched stays false until they actually interact with
-    // a filter, so the Step 4 "must pick an audience" gate isn't satisfied by
-    // a default nobody looked at.
+    // Preselecting "Validator" gives the live match-count something sensible
+    // to show immediately — the Audience step no longer requires the user to
+    // touch anything before continuing, so this default is just a starting
+    // point, not something they're forced to confirm or change.
     filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
-    audienceTouched: false,
     ptype: ptypes[0]?.id || "ptest",
     reward: { type: "fixed", amount: 250, participants: 120 },
     genFor: null,
@@ -839,15 +832,15 @@ export default function CreateMissionWizard() {
         // substrings, which can match FEWER validators than true "no restriction"
         // (anyone whose location doesn't cleanly match a known place name is excluded).
         const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
-        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
+        return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
       }
       const s = new Set(p.filters[GEO_GROUP]);
       s.has(opt) ? s.delete(opt) : s.add(opt);
       s.delete(WORLDWIDE);
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
     }
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
-    return { ...p, filters: { ...p.filters, [group]: s }, audienceTouched: true };
+    return { ...p, filters: { ...p.filters, [group]: s } };
   });
   // Select-all / clear-all for one category or subcategory's own option list —
   // toggles based on whether every option in it is already selected, so the
@@ -860,12 +853,12 @@ export default function CreateMissionWizard() {
     // that assumes Worldwide is always the sole entry) was never built for.
     if (group === GEO_GROUP && opts.includes(WORLDWIDE)) {
       const s = p.filters[GEO_GROUP].has(WORLDWIDE) ? new Set() : new Set([WORLDWIDE]);
-      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s }, audienceTouched: true };
+      return { ...p, filters: { ...p.filters, [GEO_GROUP]: s } };
     }
     const s = new Set(p.filters[group]);
     const allIn = opts.every(o => s.has(o));
     if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
-    return { ...p, filters: { ...p.filters, [group]: s }, audienceTouched: true };
+    return { ...p, filters: { ...p.filters, [group]: s } };
   });
 
   const cost = computeCost(d, rewards, platformFeePct);
@@ -890,7 +883,6 @@ export default function CreateMissionWizard() {
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
-    && (step !== 3 || (d.audienceTouched && Object.values(d.filters).some(s => s.size > 0)))
     && (step !== 4 || (rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
 
@@ -1119,11 +1111,6 @@ export default function CreateMissionWizard() {
               {!d.tasks?.length
                 ? t("createMission.needAtLeastOneTask", null, "Add at least one test case to continue")
                 : t("createMission.needCompleteTasks", null, "Every task needs at least 1 step and 1 question to continue")}
-            </span>
-          )}
-          {step === 3 && !d.audienceTouched && (
-            <span className="muted" style={{ fontSize: 12.5, marginRight: 4, color: "var(--warning)" }}>
-              {t("createMission.confirmAudienceHint", null, "Confirm your audience selection to continue")}
             </span>
           )}
           {step === 3 && <span className="muted" style={{ fontSize: 12.5, marginRight: 4, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>{t("createMission.membersCount", { count: liveCount.toLocaleString("en-IN") }, `${liveCount.toLocaleString("en-IN")} members`)}</span>}
