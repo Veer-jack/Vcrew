@@ -154,6 +154,7 @@ export default function Settings() {
                 <Avatar name={builder?.name || ""} size={52} color={builder?.color} />
                 <div>
                   <div style={{ fontWeight: 800, fontSize: 16 }}>{builder?.name}</div>
+                  {builder?.designation && <div className="faint" style={{ fontSize: 12.5 }}>{builder.designation}</div>}
                   <div className="faint" style={{ fontSize: 13 }}>{builder?.email} · {builder?.org}</div>
                   {builder?.website && (
                     <a href={builder.website} target="_blank" rel="noopener noreferrer" className="row gap-1"
