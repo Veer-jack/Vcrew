@@ -721,6 +721,7 @@ export default function CreateMissionWizard() {
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [showStartFreshWarning, setShowStartFreshWarning] = useState(false);
   const [showStaleWarning, setShowStaleWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [loadingMission, setLoadingMission] = useState(!!missionId);
@@ -870,8 +871,9 @@ export default function CreateMissionWizard() {
     localStorage.removeItem(DRAFT_KEY + "_promotedId");
   };
 
-  const startFresh = () => {
-    if (!window.confirm(t("createMission.startFreshConfirm", null, "Start a new mission from scratch? This discards your current draft."))) return;
+  const startFresh = () => setShowStartFreshWarning(true);
+  const doStartFresh = () => {
+    setShowStartFreshWarning(false);
     // "Start fresh" is the one explicit discard action — unlike Leave Page,
     // which deliberately keeps the draft recoverable — so a silently
     // auto-promoted backend draft needs to be cleaned up here too, not just
@@ -1290,22 +1292,36 @@ export default function CreateMissionWizard() {
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               {missionId
                 ? t("createMission.unsavedChangesBodyEdit", null, "Are you sure you want to leave? Any unsaved changes will be discarded — the mission itself won't be affected.")
-                : t("createMission.unsavedChangesBody", null, "Are you sure you want to leave? This mission and everything you've entered will be discarded.")}
+                : t("createMission.unsavedChangesBodySaved", null, "Are you sure you want to leave? This mission will be auto-saved to Draft — you can pick up where you left off from Missions → Draft.")}
             </p>
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
               <button className="btn outline" onClick={() => {
-                // Cancel is the one path to this modal (browser back/swipe is
-                // handled separately, with a toast, not this dialog) — since
-                // it's a deliberate discard, wipe the scratch draft (and any
-                // silently auto-promoted backend draft) instead of leaving it
-                // behind for the copy above to no longer match reality.
-                if (!missionId) {
-                  if (promotedId) api.deleteMission(promotedId).catch(() => {});
-                  clearDraft();
+                // Cancel used to wipe the scratch draft (and any silently
+                // auto-promoted backend draft) here — now that autosave means
+                // there's a real, visible draft behind this, discarding it on
+                // the way out would contradict the message above. Leaving now
+                // behaves like closing the page: nothing is deleted, it's
+                // just not the page you're looking at anymore.
+                if (!missionId && (d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0)) {
+                  toast.success(t("dashboard.draftSavedBackNav", null, "Your mission draft was saved — find it under Missions → Draft."));
                 }
                 navigate("/");
               }}>{t("createMission.leavePage", null, "Leave Page")}</button>
               <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {showStartFreshWarning && (
+        <Modal title={t("createMission.startFreshTitle", null, "Start Fresh")} onClose={() => setShowStartFreshWarning(false)} width={400} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              {t("createMission.startFreshConfirm", null, "Start a new mission from scratch? This discards your current draft.")}
+            </p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={() => setShowStartFreshWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-primary" onClick={doStartFresh}>{t("createMission.startFresh", null, "Start fresh")}</button>
             </div>
           </div>
         </Modal>
