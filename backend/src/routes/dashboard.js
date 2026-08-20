@@ -170,7 +170,7 @@ router.get("/", async (req, res) => {
 
   const latestVerif = await db.prepare(`SELECT status, reviewer_note FROM verifications WHERE builder_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(bId);
 
-  const draftMission = await db.prepare(`SELECT id FROM missions WHERE builder_id = ? AND status = draft\ LIMIT 1`).get(bId);
+  const draftMission = await db.prepare(`SELECT id FROM missions WHERE builder_id = ? AND status = 'draft' LIMIT 1`).get(bId);
 
   res.json({
     draftMissionId: draftMission?.id || null,
