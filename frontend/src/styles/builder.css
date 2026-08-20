@@ -268,7 +268,7 @@ html[data-direction="signal"] .wz-rail { background: #0e1019; }
 .wz-steps .wz-step::before { content: ""; position: absolute; left: 23px; top: -2px; width: 1.6px; height: 13px; background: var(--border); }
 .wz-steps .wz-step:first-child::before { display: none; }
 .wz-steps .wz-step.done::before, .wz-steps .wz-step.cur::before { background: var(--success); }
-.wz-rail-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wz-rail-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 
 .wz-main { min-width: 0; display: flex; flex-direction: column; }
 .wz-top { display: none; align-items: center; gap: 16px; padding: 0 28px; height: 60px;

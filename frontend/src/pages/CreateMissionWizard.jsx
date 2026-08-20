@@ -738,19 +738,22 @@ export default function CreateMissionWizard() {
   // read from localStorage first so a page reload resumes updating the same
   // row instead of creating a duplicate.
   const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
-  // "Create Mission" and the Dashboard's "Continue" banner both just linked
-  // to /missions/new, which then silently resumed whatever scratch draft
-  // happened to be sitting in localStorage — including a mission that had
-  // already been auto-promoted to a real backend draft. That's how stale or
-  // half-entered data could reappear looking freshly typed, and how the same
-  // draft could diverge depending on which entry point was used to open it.
-  // Once a scratch draft has a real row behind it, /missions/new should
-  // always redirect to that row's own canonical edit URL instead of
-  // rendering itself, so every path to "resume this draft" lands in exactly
-  // one place.
+  // "Create Mission" should always resume whatever draft is already in
+  // progress, however it was opened before — checking localStorage's own
+  // promotedId alone missed a draft that was opened through the Draft tab
+  // instead of freshly auto-promoted here, since nothing in that path ever
+  // touched localStorage. Asking the server directly is the one source of
+  // truth that's consistent regardless of entry point. Runs once per mount
+  // (missionId never changes on this route), so it doesn't interfere with
+  // the ongoing autosave effects below.
   useEffect(() => {
-    if (!missionId && promotedId) navigate(`/missions/${promotedId}/edit`, { replace: true });
-  }, [missionId, promotedId]);
+    if (missionId) return;
+    let cancelled = false;
+    api.missions({ status: "draft" }).then(({ missions }) => {
+      if (!cancelled && missions?.length > 0) navigate(`/missions/${missions[0].id}/edit`, { replace: true });
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [missionId]);
   // Bumped by startFresh() — lets an auto-promote request that was already
   // in flight when "Start fresh" was clicked recognize it's been abandoned
   // once it resolves, instead of silently re-attaching an orphaned mission
@@ -872,7 +875,7 @@ export default function CreateMissionWizard() {
   };
 
   const startFresh = () => setShowStartFreshWarning(true);
-  const doStartFresh = () => {
+  const doStartFresh = async () => {
     setShowStartFreshWarning(false);
     // "Start fresh" is the one explicit discard action — unlike Leave Page,
     // which deliberately keeps the draft recoverable — so a silently
@@ -884,14 +887,18 @@ export default function CreateMissionWizard() {
     freshStartRef.current++;
     // Resuming an existing draft (missionId set) has no local scratch state
     // to reset in place — the whole point of "fresh" here is abandoning that
-    // real row and landing back on a genuinely blank wizard.
+    // real row and landing back on a genuinely blank wizard. Awaited (not
+    // fire-and-forget) — /missions/new's own mount effect asks the server
+    // for the most recent draft, so navigating there before this delete has
+    // actually landed could find this same row still present and redirect
+    // right back to the mission just abandoned.
     if (missionId) {
-      api.deleteMission(missionId).catch(() => {});
+      await api.deleteMission(missionId).catch(() => {});
       clearDraft();
       navigate("/missions/new", { replace: true });
       return;
     }
-    if (promotedId) api.deleteMission(promotedId).catch(() => {});
+    if (promotedId) await api.deleteMission(promotedId).catch(() => {});
     setPromotedId(null);
     clearDraft();
     setD(freshDraft());
@@ -1075,6 +1082,13 @@ export default function CreateMissionWizard() {
       toast.success(wasActive
         ? t("settings.changesSaved", null, "Changes saved")
         : t("createMission.publishSuccess", null, "Mission published successfully"));
+      // Plain navigate() here left the wizard's own /edit URL on the history
+      // stack, so browser/swipe Back from the published mission reopened the
+      // draft steps instead of going anywhere useful. Replacing this page
+      // with the Missions list first, then pushing the mission detail page
+      // on top, means Back lands on the list regardless of how the wizard
+      // was originally reached.
+      navigate("/missions", { replace: true });
       navigate(`/missions/${mission.id}`);
     } catch (err) {
       setError(err.message || (wasActive
