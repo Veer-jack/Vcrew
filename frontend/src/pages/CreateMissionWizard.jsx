@@ -1158,11 +1158,11 @@ export default function CreateMissionWizard() {
       {saveStatus !== "idle" && !wasActive && (
         <span
           className="pill"
-          style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, color: "var(--text-muted)", background: "var(--panel)", boxShadow: "var(--shadow-sm)" }}
+          style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", boxShadow: "var(--shadow-sm)" }}
         >
           {saveStatus === "saving"
             ? <><Icon name="refresh" size={13} style={{ animation: "spin 0.9s linear infinite" }} />{t("createMission.savingStatus", null, "Saving…")}</>
-            : <><Icon name="check" size={13} style={{ color: "var(--success)" }} />{t("createMission.autoSavedStatus", null, "Auto-saved")}</>}
+            : <><Icon name="check" size={13} />{t("createMission.autoSavedStatus", null, "Auto-saved")}</>}
         </span>
       )}
       <aside className="wz-rail">
@@ -1193,6 +1193,30 @@ export default function CreateMissionWizard() {
 
       <div className="wz-main">
         <div className={`wz-content ${step === 0 ? "wide-lg" : "wide"}`}>
+          {/* Step 1 already has its own sidebar cards for these — repeating
+              them as banners there too would be redundant. Every other step
+              had no visibility into either warning at all until Review,
+              where publishing was blocked with no earlier heads-up. */}
+          {step > 0 && (builder?.balance ?? 0) < 500 && (
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))" }}>
+              <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+                {t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}
+              </p>
+              <Btn variant="primary" size="sm" icon="plus" onClick={() => navigate("/wallet")} style={{ flexShrink: 0 }}>{t("actions.addFunds", null, "Add funds")}</Btn>
+            </div>
+          )}
+          {step > 0 && !builder?.onboardingCompleted && (
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--accent-weak)", background: "var(--accent-weak)" }}>
+              <Icon name="user" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+                {builder?.persona
+                  ? t("createMission.completeProfileBodyResume", null, "You can keep building this mission, but you'll need to finish setting up your profile before it can go live.")
+                  : t("createMission.completeProfileBodyNoRole", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
+              </p>
+              <Btn variant="outline" size="sm" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
+            </div>
+          )}
           <div className="wz-head">
             <span className="step-of">{t("createMission.stepOfTotal", { current: step + 1, total: WZ_STEPS.length }, `Step ${step + 1} of ${WZ_STEPS.length}`)}</span>
             <h2>{WZ_STEPS[step].t}</h2>
