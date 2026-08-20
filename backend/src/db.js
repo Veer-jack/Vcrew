@@ -232,6 +232,25 @@ export async function initDb() {
     if (!bColNames.includes('status')) {
       await client.query(`ALTER TABLE builders ADD COLUMN status TEXT DEFAULT 'active'`);
     }
+    if (!bColNames.includes('onboarding_completed_at')) {
+      await client.query(`ALTER TABLE builders ADD COLUMN onboarding_completed_at TIMESTAMPTZ`);
+      // Backfill: profile_json alone doesn't prove real onboarding happened —
+      // Settings' partial-field save (e.g. just Company Details) populates it
+      // too, which used to make "!builder.profile" wrongly read as "onboarded"
+      // for an account that never actually went through the wizard. Verified
+      // accounts and anyone who's published a mission have unambiguously been
+      // through it for real; created_at approximates when, since no exact
+      // timestamp exists pre-migration. Everyone else stays NULL on purpose —
+      // that's what correctly re-shows the "complete your profile" nudge for
+      // an account that only ever touched Settings.
+      await client.query(`
+        UPDATE builders SET onboarding_completed_at = created_at
+        WHERE onboarding_completed_at IS NULL
+          AND (verified_at IS NOT NULL OR EXISTS (
+            SELECT 1 FROM missions WHERE missions.builder_id = builders.id AND missions.status != 'draft'
+          ))
+      `);
+    }
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_notifications (

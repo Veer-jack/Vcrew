@@ -5,7 +5,7 @@ import { Avatar, Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
-import { INDUSTRIES, COMPANY_INDUSTRIES, EMP_SIZES } from "../data/onboarding";
+import { INDUSTRIES, COMPANY_INDUSTRIES, COMPANY_SIZES, EMP_SIZES } from "../data/onboarding";
 import { PERSONA_CONFIG } from "../data/personaConfig";
 
 // Same fixed value the onboarding wizard itself uses — no region switcher
@@ -45,8 +45,14 @@ export default function Settings() {
   const [companySize, setCompanySize] = useState(builder?.profile?.size || "");
   const [companyBusy, setCompanyBusy] = useState(false);
   const [companyError, setCompanyError] = useState("");
+  // Onboarding uses different option sets (and different value codes, e.g.
+  // "2-10" vs "1-10") per persona for company size — Founder's own
+  // COMPANY_SIZES ("solo"/"2-10"/... ) vs Company persona's EMP_SIZES
+  // ("1-10"/... ). Settings previously always used EMP_SIZES regardless of
+  // persona, so a Founder's saved value never matched any option here and
+  // the dropdown showed blank instead of their real selection.
   const industryOptions = (builder?.persona === "company" ? COMPANY_INDUSTRIES : INDUSTRIES)(t);
-  const sizeOptions = EMP_SIZES(t);
+  const sizeOptions = (builder?.persona === "company" ? EMP_SIZES : COMPANY_SIZES)(t);
 
   const startEditCompany = () => {
     setIndustry(builder?.profile?.industry || "");
@@ -203,7 +209,15 @@ export default function Settings() {
 
         <PhoneSetup client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
           prefillPhone={builder?.profile?.mobile}
-          onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))} />
+          onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
+          onClearPrefill={async () => {
+            // Actually clears it server-side — without this, prefillPhone
+            // (still sitting in profile.mobile in the DB) just comes right
+            // back on the next reload or tab switch, no matter what local
+            // state says.
+            const res = await api.updateProfile({ name: builder.name, org: builder.org, email: builder.email, website: builder.website, designation: builder.designation, profile: { mobile: null } });
+            setBuilder(res.builder);
+          }} />
 
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>

@@ -431,8 +431,8 @@ function BalanceCard({ balance }) {
 }
 
 // Nudges an incomplete profile without blocking the wizard — Save as Draft and every
-// step stay usable; only actually publishing is gated (see goNext), matching the same
-// completeness check as the Dashboard banner (builder.profile null = incomplete).
+// step stay usable; only actually publishing is gated (see advanceStep), matching the
+// same completeness check as the Dashboard banner (builder.onboardingCompleted).
 function ProfileNudgeCard({ builder }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -1020,7 +1020,7 @@ export default function CreateMissionWizard() {
   };
 
   const advanceStep = () => {
-    if (last && !builder?.profile) {
+    if (last && !builder?.onboardingCompleted) {
       setError(t("createMission.profileRequiredToPublish", null, "Complete your profile before publishing — you can still save this mission as a draft."));
       // The Publish button sits at the bottom of a long, scrolled-down review
       // page, and this warning renders at the top — without scrolling back up,
@@ -1153,7 +1153,7 @@ export default function CreateMissionWizard() {
               <div>{StepBody}</div>
               <div className="sticky-side">
                 <BalanceCard balance={builder?.balance} />
-                {!builder?.profile && <ProfileNudgeCard builder={builder} />}
+                {!builder?.onboardingCompleted && <ProfileNudgeCard builder={builder} />}
               </div>
             </div>
           ) : StepBody}

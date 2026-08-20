@@ -20,6 +20,7 @@ export function publicBuilder(b) {
     designation: b.designation || null, website: b.website || null,
     persona: b.persona || null, profile,
     verified: !!b.verified_at, verifiedAt: b.verified_at || null,
+    onboardingCompleted: !!b.onboarding_completed_at,
     preferredLanguage: b.preferred_language || "en",
     oauthProvider: b.oauth_provider || null,
   };
@@ -211,8 +212,8 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
   }
 
   await db.prepare(`
-    UPDATE builders 
-    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ? 
+    UPDATE builders
+    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ?, onboarding_completed_at = NOW()
     WHERE id = ?
   `).run(
     org || req.builder.name,

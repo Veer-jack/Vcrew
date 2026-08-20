@@ -7,8 +7,10 @@ import { friendlyAuthError } from "./auth/AuthSplitScreen";
 
 // `client` is either the builder `api` or validator `vapi` object — both expose
 // the same firebaseConfig/phoneLink/phoneRemove methods. `phone`/`phoneVerified`
-// come from the current user.
-export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate }) {
+// come from the current user. `onClearPrefill` (optional) persists "forget this
+// onboarding-collected number" server-side — without it, prefillPhone comes
+// right back on the next reload/tab-switch since nothing local survives that.
+export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   // Once the user says "use a different number" we must stop re-offering the
@@ -85,16 +87,33 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       // Without this, removing a verified number just falls back to the
       // onboarding prefill chip — the user would see the number they just
       // removed pop right back up as "Verify this number" instead of a
-      // clean "Add phone" state.
+      // clean "Add phone" state. setPrefillDismissed alone only lasted for
+      // this page visit — reload or navigate back and prefillPhone (still
+      // sitting in the profile on the server) would resurrect it, so this
+      // also asks the parent to actually clear it server-side.
       setPrefillDismissed(true);
+      await onClearPrefill?.();
     } finally { setBusy(false); }
   };
 
   // Explicit "forget this number" — clears whatever's in the field and, like
-  // Remove, stops the onboarding number from being re-suggested afterwards.
-  const deleteEntry = () => {
+  // Remove, stops the onboarding number from being re-suggested afterwards,
+  // for real this time (server-side), not just for this page visit.
+  const deleteEntry = async () => {
     setPrefillDismissed(true);
     reset();
+    await onClearPrefill?.();
+  };
+
+  const useDifferentNumber = async () => {
+    setPrefillDismissed(true);
+    // Goes straight to a blank entry form instead of collapsing back to the
+    // "Add phone" button — the user just said they want to type a different
+    // number, so making them click Add phone again to get there is a wasted
+    // extra step.
+    setPhoneInput("");
+    setEditing(true);
+    await onClearPrefill?.();
   };
 
   // Buttons show regardless of firebaseReady — if this environment's Firebase
@@ -128,7 +147,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
           <div className="row gap-2">
             <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
             <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
-            <button className="btn btn-quiet" onClick={() => setPrefillDismissed(true)}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
+            <button className="btn btn-quiet" onClick={useDifferentNumber}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
           </div>
         )}
         {showAdd && (

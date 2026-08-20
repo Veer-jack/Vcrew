@@ -50,7 +50,10 @@ function MissionDraftBanner({ builder, nav }) {
 
 function ProfileCompletionBanner({ builder, nav }) {
   const { t } = useTranslation();
-  if (builder?.profile) return null; // already completed
+  // profile_json alone doesn't prove onboarding actually happened — Settings'
+  // partial-field saves populate it too. onboardingCompleted is the real,
+  // dedicated signal (only set by the actual onboarding-completion route).
+  if (builder?.onboardingCompleted) return null; // already completed
 
   let activePersonaKey = builder?.persona;
   let draftStepNum = null;

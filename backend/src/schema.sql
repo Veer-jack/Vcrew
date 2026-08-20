@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS builders (
   verified_at TIMESTAMPTZ,
   status TEXT DEFAULT 'active',
   preferred_language TEXT DEFAULT 'en',
+  onboarding_completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
