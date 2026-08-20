@@ -84,13 +84,7 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
             </div>
           </div>
         </NavLink>
-        <div className="nav-label">
-          <LanguageSwitcher
-            onSave={(lang) => api.setLanguage(lang).catch(() => {})}
-            style={{ marginTop: 8, width: "100%" }}
-            openUp
-          />
-        </div>
+
       </div>
     </aside>
   );
@@ -174,6 +168,7 @@ export default function AppLayout() {
             </div>
           )}
           <span className="topbar-spacer" />
+          <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 12, height: 32 }} />
           <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title={t("appLayout.notifications", null, "Notifications")}>
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}
