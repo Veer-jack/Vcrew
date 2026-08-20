@@ -9,7 +9,8 @@ import { Btn, inr } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
-import StepTestCases, { isTestCasesStale } from "../components/StepTestCases";
+import StepTestCases from "../components/StepTestCases";
+import { isTestCasesStale } from "../utils/isTestCasesStale";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import { categoryLabel, categoryDesc, ptypeLabel, ptypeDesc, rewardLabel, rewardDesc } from "../bi18n";
@@ -715,8 +716,22 @@ export default function CreateMissionWizard() {
     const s = parseInt(searchParams.get("step") || "", 10);
     return Number.isInteger(s) && s >= 0 && s <= lastStep ? s : lastStep;
   };
-  const [step, setStep] = useState(() => missionId ? initialEditStep() : parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10));
-  const [maxReached, setMaxReached] = useState(() => missionId ? lastStep : Math.max(step, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10)));
+  
+  const isPromotedDraft = missionId && missionId === localStorage.getItem(DRAFT_KEY + "_promotedId");
+
+  const [step, setStep] = useState(() => {
+    if (missionId && !isPromotedDraft) return initialEditStep();
+    return parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10);
+  });
+  
+  const [maxReached, setMaxReached] = useState(() => {
+    if (missionId && !isPromotedDraft) return lastStep;
+    // When using local state, we need the initial step evaluated just above, but
+    // since we can't refer to the state variable during initialization, we recalculate it.
+    const initialStep = parseInt(localStorage.getItem(DRAFT_KEY + "_step") || "0", 10);
+    return Math.max(initialStep, parseInt(localStorage.getItem(DRAFT_KEY + "_maxReached") || "0", 10));
+  });
+  
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
@@ -737,7 +752,7 @@ export default function CreateMissionWizard() {
   // promoted to a real backend draft (see the auto-save effect below) —
   // read from localStorage first so a page reload resumes updating the same
   // row instead of creating a duplicate.
-  const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
+  const [promotedId, setPromotedId] = useState(() => (!missionId || isPromotedDraft) ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
   // "Create Mission" should always resume whatever draft is already in
   // progress, however it was opened before — checking localStorage's own
   // promotedId alone missed a draft that was opened through the Draft tab
@@ -753,7 +768,12 @@ export default function CreateMissionWizard() {
       if (!cancelled && missions?.length > 0) navigate(`/missions/${missions[0].id}/edit`, { replace: true });
     }).catch(() => {});
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionId]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
   // Bumped by startFresh() — lets an auto-promote request that was already
   // in flight when "Start fresh" was clicked recognize it's been abandoned
   // once it resolves, instead of silently re-attaching an orphaned mission
@@ -783,7 +803,7 @@ export default function CreateMissionWizard() {
   });
 
   const [d, setD] = useState(() => {
-    if (missionId) return freshDraft(); // placeholder until the fetch below lands
+    if (missionId && !isPromotedDraft) return freshDraft(); // placeholder until the fetch below lands
     const saved = localStorage.getItem(DRAFT_KEY);
     if (saved) {
       const parsed = deserializeDraft(saved, emptyFilters(filters));
@@ -798,13 +818,42 @@ export default function CreateMissionWizard() {
     api.mission(missionId)
       .then(({ mission }) => {
         if (cancelled) return;
-        setD(missionToDraft(mission, filters, categories, ptypes));
+        
         setCanFullyEdit(!!mission.canFullyEdit);
         setWasActive(mission.status !== "draft");
+        
+        if (isPromotedDraft) {
+          setLoadingMission(false);
+          return;
+        }
+
+        const newD = missionToDraft(mission, filters, categories, ptypes);
+        setD(newD);
+        
+        let calcMax = 0;
+        if (newD.title?.trim() && newD.desc?.trim() && newD.deadline) {
+          calcMax = 1;
+          if (newD.ptype) {
+            calcMax = 2;
+            if (newD.tasks?.length > 0) {
+              calcMax = 5;
+            }
+          }
+        }
+        
+        const realMax = mission.status !== "draft" ? lastStep : calcMax;
+        let targetStep = parseInt(searchParams.get("step"), 10);
+        if (!Number.isInteger(targetStep) || targetStep < 0 || targetStep > realMax) {
+          targetStep = realMax;
+        }
+        
+        setStep(targetStep);
+        setMaxReached(realMax);
         setLoadingMission(false);
       })
       .catch(() => navigate("/missions", { replace: true }));
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [missionId]);
 
   const [liveCount, setLiveCount] = useState(0);
@@ -826,6 +875,7 @@ export default function CreateMissionWizard() {
       .then(res => setLiveCount(res.count))
       .catch(() => {})
       .finally(() => setIsFetchingCount(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d.filters, d.otherEntries]);
 
   // Auto-save to localStorage — survives reload/tab-close by design, so the
@@ -835,12 +885,13 @@ export default function CreateMissionWizard() {
   // mission" scratch slot would make the next "Create Mission" click
   // confusingly resume this same draft's content.
   useEffect(() => {
-    if (!published && !missionId) {
+    if (!published && (!missionId || isPromotedDraft)) {
       localStorage.setItem(DRAFT_KEY, serializeDraft(d));
       localStorage.setItem(DRAFT_KEY + "_step", step);
       localStorage.setItem(DRAFT_KEY + "_maxReached", maxReached);
     }
-  }, [d, step, maxReached, published, missionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [d, step, maxReached, published, missionId, isPromotedDraft]);
 
   // Native browser prompt for tab close/refresh
   useEffect(() => {
@@ -885,16 +936,13 @@ export default function CreateMissionWizard() {
     // debounce already elapsed, response not back yet) knows to clean up
     // after itself once it resolves, instead of resurfacing.
     freshStartRef.current++;
-    // Resuming an existing draft (missionId set) has no local scratch state
-    // to reset in place — the whole point of "fresh" here is abandoning that
-    // real row and landing back on a genuinely blank wizard. Awaited (not
-    // fire-and-forget) — /missions/new's own mount effect asks the server
-    // for the most recent draft, so navigating there before this delete has
-    // actually landed could find this same row still present and redirect
-    // right back to the mission just abandoned.
     if (missionId) {
       await api.deleteMission(missionId).catch(() => {});
       clearDraft();
+      setD(freshDraft());
+      setStep(0);
+      setMaxReached(0);
+      setPromotedId(null);
       navigate("/missions/new", { replace: true });
       return;
     }
@@ -999,6 +1047,7 @@ export default function CreateMissionWizard() {
 
   const buildMissionPayload = (status) => {
     const audience = buildAudiencePayload(d);
+    audience._maxReached = maxReached;
     const geo = (audience.Geography || []).filter(v => v.toLowerCase() !== "other");
     return {
       name: d.title || t("createMission.untitledMission", null, "Untitled mission"),
@@ -1026,9 +1075,9 @@ export default function CreateMissionWizard() {
     if (missionId || promotedId || published) return;
     const hasContent = d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0;
     if (!hasContent) return;
-    setSaveStatus("saving");
     const startGen = freshStartRef.current;
     const timer = setTimeout(() => {
+      setSaveStatus("saving");
       api.createMission(buildMissionPayload("draft")).then(({ mission }) => {
         // "Start fresh" ran while this request was already in flight — the
         // wizard has moved on, so this mission was never actually seen by
@@ -1041,6 +1090,7 @@ export default function CreateMissionWizard() {
       }).catch(() => setSaveStatus("idle") /* stays localStorage-only; retries on the next content change */);
     }, 2000);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, missionId, promotedId, published]);
 
   // Autosave while resuming an existing draft, or once a new mission has been
@@ -1061,14 +1111,22 @@ export default function CreateMissionWizard() {
   useEffect(() => {
     const id = missionId || promotedId;
     if (!id || loadingMission || published || wasActive) return;
-    setSaveStatus("saving");
     const timer = setTimeout(() => {
+      setSaveStatus("saving");
       api.updateMission(id, buildMissionPayload("draft"))
         .then(() => setSaveStatus("saved"))
         .catch(() => setSaveStatus("idle"));
     }, 800);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, missionId, promotedId, loadingMission, published, wasActive]);
+
+  useEffect(() => {
+    if (saveStatus === "saved") {
+      const timer = setTimeout(() => setSaveStatus("idle"), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [saveStatus]);
 
   const publish = async () => {
     setBusy(true); setError("");
@@ -1195,42 +1253,40 @@ export default function CreateMissionWizard() {
         <div className="wz-rail-foot">
           <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           {step === 0 ? (
-            <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
+            <button className="btn" onClick={() => setShowExitWarning(true)} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 120 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
-            <div className="row gap-2" style={{ alignItems: "center" }}>
-              <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
-              <button className="btn btn-quiet" onClick={goBack}>{t("createMission.back", null, "Back")}</button>
+            <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
+              <button className="btn" onClick={() => setShowExitWarning(true)} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
+              <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("createMission.back", null, "Back")}</button>
             </div>
           )}
         </div>
       </aside>
 
       <div className="wz-main">
+        {step > 0 && (builder?.balance ?? 0) < 500 && (
+          <div className="card" style={{ margin: "24px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+            <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+              {t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}
+            </p>
+            <Btn variant="primary" size="sm" icon="plus" onClick={() => navigate("/wallet")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.addFunds", null, "Add funds")}</Btn>
+          </div>
+        )}
+        {step > 0 && !builder?.onboardingCompleted && (
+          <div className="card" style={{ margin: "16px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--accent) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="user" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+            <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+              {t("createMission.onboardingWarning", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
+            </p>
+            <button className="btn" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0, minWidth: 150, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }}>{t("actions.completeProfile", null, "Complete Profile")}</button>
+          </div>
+        )}
         <div className="wz-content wide">
           {/* Step 1 already has its own sidebar cards for these — repeating
               them as banners there too would be redundant. Every other step
               had no visibility into either warning at all until Review,
               where publishing was blocked with no earlier heads-up. */}
-          {step > 0 && (builder?.balance ?? 0) < 500 && (
-            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))" }}>
-              <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
-              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
-                {t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}
-              </p>
-              <Btn variant="primary" size="sm" icon="plus" onClick={() => navigate("/wallet")} style={{ flexShrink: 0 }}>{t("actions.addFunds", null, "Add funds")}</Btn>
-            </div>
-          )}
-          {step > 0 && !builder?.onboardingCompleted && (
-            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--accent-weak)", background: "var(--accent-weak)" }}>
-              <Icon name="user" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
-              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
-                {builder?.persona
-                  ? t("createMission.completeProfileBodyResume", null, "You can keep building this mission, but you'll need to finish setting up your profile before it can go live.")
-                  : t("createMission.completeProfileBodyNoRole", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
-              </p>
-              <Btn variant="outline" size="sm" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
-            </div>
-          )}
           <div className="wz-head">
             <span className="step-of">{t("createMission.stepOfTotal", { current: step + 1, total: WZ_STEPS.length }, `Step ${step + 1} of ${WZ_STEPS.length}`)}</span>
             <h2>{WZ_STEPS[step].t}</h2>
@@ -1325,27 +1381,22 @@ export default function CreateMissionWizard() {
       </div>
 
       {showExitWarning && (
-        <Modal title={t("createMission.unsavedChangesTitle", null, "Unsaved Changes")} onClose={() => setShowExitWarning(false)} width={400} hideCloseIcon>
+        <Modal title={t("createMission.unsavedChangesTitle", null, "Unsaved Changes")} onClose={() => setShowExitWarning(false)} width={440} hideCloseIcon>
           <div style={{ padding: 20 }}>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
-              {missionId
-                ? t("createMission.unsavedChangesBodyEdit", null, "Are you sure you want to leave? Any unsaved changes will be discarded — the mission itself won't be affected.")
-                : t("createMission.unsavedChangesBodySaved", null, "Are you sure you want to leave? This mission will be auto-saved to Draft — you can pick up where you left off from Missions → Draft.")}
+              {t("createMission.unsavedChangesBodyNew", null, "You have unsaved mission progress. Would you like to save it as a draft to continue later, or discard your progress entirely? Note: if you chose save to drafts nothing will happen to existed draft only it will be updated")}
             </p>
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => {
-                // Cancel used to wipe the scratch draft (and any silently
-                // auto-promoted backend draft) here — now that autosave means
-                // there's a real, visible draft behind this, discarding it on
-                // the way out would contradict the message above. Leaving now
-                // behaves like closing the page: nothing is deleted, it's
-                // just not the page you're looking at anymore.
-                if (!missionId && (d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0)) {
-                  toast.success(t("dashboard.draftSavedBackNav", null, "Your mission draft was saved — find it under Missions → Draft."));
-                }
+              <button className="btn outline" onClick={async () => {
+                if (missionId) await api.deleteMission(missionId).catch(() => {});
+                else if (promotedId) await api.deleteMission(promotedId).catch(() => {});
+                clearDraft();
                 navigate("/");
-              }}>{t("createMission.leavePage", null, "Leave Page")}</button>
-              <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("createMission.stayOnPage", null, "Stay on Page")}</button>
+              }}>{t("createMission.discardProgress", null, "Discard Progress")}</button>
+              <button className="btn btn-primary" onClick={() => {
+                toast.success(t("dashboard.draftSavedBackNav", null, "Your mission draft was saved — find it under Missions → Draft."), { position: "top-center" });
+                navigate("/");
+              }}>{t("createMission.saveToDrafts", null, "Save to drafts")}</button>
             </div>
           </div>
         </Modal>

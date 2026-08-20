@@ -31,17 +31,19 @@ function hasMissionDraft(builderId) {
   } catch { return false; }
 }
 
-function MissionDraftBanner({ builder, nav }) {
+function MissionDraftBanner({ builder, nav, draftMissionId }) {
   const { t } = useTranslation();
-  if (!hasMissionDraft(builder?.id)) return null;
+  if (!hasMissionDraft(builder?.id) && !draftMissionId) return null;
 
   return (
     <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--accent-weak)", background: "var(--accent-weak)" }}>
       <Icon name="fileText" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
       <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
-        {t("dashboard.unsavedMissionDraft", null, "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.")}
+        {draftMissionId
+          ? t("dashboard.unsavedMissionDraftServer", null, "You have a mission draft in progress — you can continue building it before it goes live.")
+          : t("dashboard.unsavedMissionDraft", null, "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.")}
       </p>
-      <button className="btn btn-outline" style={{ flexShrink: 0, fontSize: 12.5 }} onClick={() => nav("/missions/new")}>
+      <button className="btn btn-primary" style={{ flexShrink: 0, fontSize: 12.5 }} onClick={() => nav(draftMissionId ? `/missions/${draftMissionId}/edit` : "/missions/new")}>
         {t("actions.continue", null, "Continue")}
       </button>
     </div>
@@ -372,7 +374,7 @@ export default function Dashboard() {
         )
       )}
       <ProfileCompletionBanner builder={builder} nav={navigate} />
-      <MissionDraftBanner builder={builder} nav={navigate} />
+      <MissionDraftBanner builder={builder} nav={navigate} draftMissionId={data?.draftMissionId} />
       <div className="ph">
         <div>
           <span className="eyebrow">{t("dashboard.builderWorkspace", null, "Builder workspace")}</span>

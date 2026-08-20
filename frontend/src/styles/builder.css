@@ -532,8 +532,8 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
    the left (form + custom task list) — .sticky-side is shared with other
    pages' short static sidebars, so this is scoped to .tc-split only rather
    than changing that base class everywhere. */
-.tc-results { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; }
-.tc-split .sticky-side { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; }
+.tc-results { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; padding-bottom: 80px; }
+.tc-split .sticky-side { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; padding-bottom: 80px; }
 /* keeps the main column at its normal ~720px width and puts the side card in
    the extra space, instead of .split's approach of shrinking the main column
    to make room for it */

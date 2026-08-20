@@ -1,26 +1,15 @@
-import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
+import { Modal } from "../components/Modal";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 
 const TC_PLATFORMS = ["All", "Web", "iOS", "Android"];
 const TC_GOALS = ["All", "Core flow", "UX", "Willingness to pay"];
 
-// Whether the generated test cases no longer reflect what's currently typed/
-// selected on this step — used both for the inline warning here and for the
-// wizard's own "you're continuing with the old ones" toast on Step 3 exit.
-export function isTestCasesStale(d) {
-  if (!d.genFor) return false;
-  if (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) return true;
-  const form = d.testCaseForm || {};
-  return d.genFor.desc !== form.desc
-    || d.genFor.url !== form.url
-    || JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms || [])
-    || JSON.stringify(d.genFor.goals) !== JSON.stringify(form.goals || [])
-    || d.genFor.users !== form.users;
-}
+import { isTestCasesStale } from "../utils/isTestCasesStale";
 
 const SEV = {
   crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
@@ -28,7 +17,7 @@ const SEV = {
   nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
 };
 
-function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOverCard, onDrop, onDragEnd, expanded, onToggle, onDelete, onEdit }) {
+function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, onDrop, onDragEnd, expanded, onToggle, onDelete, onEdit }) {
   const { t } = useTranslation();
   const sev = SEV[task.severity] || SEV.imp;
   const incomplete = task.steps.length === 0 || task.steps.some(s => !s.trim())
@@ -243,6 +232,7 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
   const [urlFormatInvalid, setUrlFormatInvalid] = useState(false);
   const [fetchFailReason, setFetchFailReason] = useState(null);
   const [expanded, setExpanded] = useState(null);
+  const [showRegenWarning, setShowRegenWarning] = useState(false);
   // The generated test cases render in the right-hand column, which on
   // narrower viewports sits below the fold relative to the form — scroll it
   // into view the moment generation starts so the loading state (and then
@@ -316,7 +306,10 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
 
   const generate = async (skipConfirm = false) => {
     if (!canGen) return;
-    if (!skipConfirm && hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
+    if (!skipConfirm && hasTasks) {
+      setShowRegenWarning(true);
+      return;
+    }
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
@@ -341,7 +334,7 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
       setGenState("done");
       setExpanded(0);
       setFallbackReason(res.fallback ? (res.reason || "unknown") : null);
-    } catch (err) {
+    } catch {
       set({ tasks: [] });
       setGenState("idle");
       setFallbackReason(null);
@@ -385,7 +378,7 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
     <div className="rise tc-split">
       <div className="sticky-side">
         {/* FORM */}
-        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>
             <label>{t("testCases.whatDidYouBuild", null, "What did you build?")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("testCases.beSpecific", null, "be specific")}</span></label>
             <textarea className="fin" rows={4} placeholder={t("testCases.descPlaceholder", null, "e.g. A subscription app for curated D2C products. Users browse, subscribe, and manage deliveries. We want to test the core shopping flow before launch.")} value={form.desc} onChange={e => patch({ desc: e.target.value })} style={{ minHeight: 108 }} />
@@ -530,6 +523,20 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
           </div>
         )}
       </div>
+
+      {showRegenWarning && (
+        <Modal title={t("testCases.regenerateConfirmTitle", null, "Generate new test cases?")} onClose={() => setShowRegenWarning(false)} width={400} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              {t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited.")}
+            </p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn btn-quiet" onClick={() => setShowRegenWarning(false)} style={{ color: "var(--text-muted)" }}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-primary" onClick={() => { setShowRegenWarning(false); generate(true); }}>{t("testCases.regenerateWithAI", null, "Regenerate with AI")}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 });

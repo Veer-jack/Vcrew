@@ -56,8 +56,20 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
                   )}
                 </div>
               </td>
-              <td className="num">{m.participants.joined}<span className="faint"> / {m.participants.target}</span></td>
-              <td className="num">{m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)}</td>
+              <td className="num">
+                {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
+                  <span className="faint">—</span>
+                ) : (
+                  <>{m.participants.joined}<span className="faint"> / {m.participants.target}</span></>
+                )}
+              </td>
+              <td className="num">
+                {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
+                  <span className="faint">—</span>
+                ) : (
+                  m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)
+                )}
+              </td>
               <td>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>
               {onDelete && (
                 <td>

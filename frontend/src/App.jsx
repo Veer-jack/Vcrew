@@ -137,7 +137,7 @@ function RequireVAuth({ children }) {
 }
 
 function ValidatorRoutes() {
-  const { validator, loading } = useVAuth();
+  const { loading } = useVAuth();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
@@ -180,7 +180,7 @@ function RequireAAuth({ children }) {
 }
 
 function AdminRoutes() {
-  const { admin, loading } = useAAuth();
+  const { loading } = useAAuth();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
@@ -251,7 +251,7 @@ export default function App() {
         <FreshDeskWidget />
         <RouteTracker />
         <HoverTooltips />
-        <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+        <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
         <Routes>
           <Route path="/validator/*" element={
             <VAuthProvider><VMetaProvider><ValidatorRoutes 

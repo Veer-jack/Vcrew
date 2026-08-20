@@ -32,10 +32,16 @@ export default function HoverTooltips({ containerRef }) {
     root.addEventListener("mouseover", onOver);
     root.addEventListener("mouseout", onOut);
     document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("scroll", onDown, { capture: true, passive: true });
+    document.addEventListener("wheel", onDown, { capture: true, passive: true });
     return () => {
       root.removeEventListener("mouseover", onOver);
       root.removeEventListener("mouseout", onOut);
       document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("scroll", onDown, { capture: true });
+      document.removeEventListener("wheel", onDown, { capture: true });
     };
   }, [containerRef]);
 
