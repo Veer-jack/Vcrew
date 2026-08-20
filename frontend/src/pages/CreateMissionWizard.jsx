@@ -469,7 +469,7 @@ function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
     </div>
   );
 }
-function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
+function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingTasks, missingReward }) {
   const { t } = useTranslation();
   const [descExpanded, setDescExpanded] = React.useState(false);
   const cat = categories.find(c => c.id === d.cat) || categories[0];
@@ -479,8 +479,36 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep }) {
   const allFilters = Object.entries(d.filters).flatMap(([, s]) => [...s]);
   for (const entries of Object.values(d.otherEntries || {})) allFilters.push(...(entries || []));
   const descLong = d.desc && d.desc.length > 160;
+  // A step can go from valid to broken after Continue was already clicked on
+  // it (e.g. deleting every test case on Step 3, then reaching Review via the
+  // step rail instead of the disabled Continue button) — the review rows
+  // above just quietly omit whatever's missing, with no indication Publish
+  // is actually blocked. This is the visible reason why.
+  const issues = [
+    missingInfo && { label: t("createMission.issueInfo", null, "Mission info is incomplete"), step: 0, cta: t("createMission.goToStep1", null, "Go to Step 1") },
+    missingTasks && { label: t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"), step: 2, cta: t("createMission.goToStep3", null, "Go to Step 3") },
+    missingReward && { label: t("createMission.issueReward", null, "Reward setup is incomplete or invalid"), step: 4, cta: t("createMission.goToStep5", null, "Go to Step 5") },
+  ].filter(Boolean);
   return (
     <div className="rise">
+      {issues.length > 0 && (
+        <div className="card" style={{ padding: "14px 16px", marginBottom: 14, borderColor: "var(--danger)", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))" }}>
+          <div className="row gap-2" style={{ alignItems: "flex-start" }}>
+            <Icon name="alertTriangle" size={17} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
+            <div style={{ flex: 1 }}>
+              <b style={{ fontSize: 14, color: "var(--danger)" }}>{t("createMission.cantPublishYet", null, "Can't publish yet")}</b>
+              <div className="col gap-2" style={{ marginTop: 8 }}>
+                {issues.map((iss, i) => (
+                  <div key={i} className="row between" style={{ alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 13 }}>{iss.label}</span>
+                    <Btn variant="outline" size="sm" onClick={() => onEditStep(iss.step)}>{iss.cta}</Btn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="card" style={{ padding: "4px 20px 14px" }}>
         <ReviewRow icon="edit" color="--accent-2" label={t("createMission.missionTitleReviewLabel", null, "Mission title")} onEdit={() => onEditStep(0)}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
         <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
@@ -709,6 +737,19 @@ export default function CreateMissionWizard() {
   // read from localStorage first so a page reload resumes updating the same
   // row instead of creating a duplicate.
   const [promotedId, setPromotedId] = useState(() => !missionId ? (localStorage.getItem(DRAFT_KEY + "_promotedId") || null) : null);
+  // "Create Mission" and the Dashboard's "Continue" banner both just linked
+  // to /missions/new, which then silently resumed whatever scratch draft
+  // happened to be sitting in localStorage — including a mission that had
+  // already been auto-promoted to a real backend draft. That's how stale or
+  // half-entered data could reappear looking freshly typed, and how the same
+  // draft could diverge depending on which entry point was used to open it.
+  // Once a scratch draft has a real row behind it, /missions/new should
+  // always redirect to that row's own canonical edit URL instead of
+  // rendering itself, so every path to "resume this draft" lands in exactly
+  // one place.
+  useEffect(() => {
+    if (!missionId && promotedId) navigate(`/missions/${promotedId}/edit`, { replace: true });
+  }, [missionId, promotedId]);
   // Bumped by startFresh() — lets an auto-promote request that was already
   // in flight when "Start fresh" was clicked recognize it's been abandoned
   // once it resolves, instead of silently re-attaching an orphaned mission
@@ -839,6 +880,15 @@ export default function CreateMissionWizard() {
     // debounce already elapsed, response not back yet) knows to clean up
     // after itself once it resolves, instead of resurfacing.
     freshStartRef.current++;
+    // Resuming an existing draft (missionId set) has no local scratch state
+    // to reset in place — the whole point of "fresh" here is abandoning that
+    // real row and landing back on a genuinely blank wizard.
+    if (missionId) {
+      api.deleteMission(missionId).catch(() => {});
+      clearDraft();
+      navigate("/missions/new", { replace: true });
+      return;
+    }
     if (promotedId) api.deleteMission(promotedId).catch(() => {});
     setPromotedId(null);
     clearDraft();
@@ -923,6 +973,20 @@ export default function CreateMissionWizard() {
     )))
     && (step !== 4 || (rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
+  // fieldsValid only checks whichever step is CURRENTLY open — the step
+  // rail lets a builder jump straight past a step whose requirements broke
+  // after the fact (e.g. deleting every test case on Step 3, then jumping to
+  // Review via the rail instead of the disabled Continue button), leaving
+  // Publish enabled at Review with a genuinely incomplete mission. This
+  // re-checks every step's own requirements regardless of which one is
+  // current, and is what actually gates Publish and its warning banner.
+  const missingInfo = !(d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr);
+  const missingTasks = !d.tasks || d.tasks.length === 0 || !d.tasks.every(tk =>
+    tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
+    tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+  );
+  const missingReward = !(rewardAmountOk && participantsOk && withinAudienceCount);
+  const readyToPublish = !missingInfo && !missingTasks && !missingReward;
 
   const buildMissionPayload = (status) => {
     const audience = buildAudiencePayload(d);
@@ -1035,7 +1099,10 @@ export default function CreateMissionWizard() {
     setMaxReached(m => Math.max(m, next));
   };
   const goNext = () => {
-    if (!fieldsValid) {
+    // Publish specifically needs the holistic check — fieldsValid only ever
+    // validates whichever step is current, which is always true-by-default
+    // on Review itself (see readyToPublish above for why).
+    if (last ? !readyToPublish : !fieldsValid) {
       setShowErrors(true);
       setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1070,7 +1137,7 @@ export default function CreateMissionWizard() {
     ) : <StepTestCases d={d} set={set} ref={testCasesRef} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
     <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} locked={fieldsLocked} />,
-    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} />,
+    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingTasks={missingTasks} missingReward={missingReward} />,
   ][step];
 
   if (loadingMission) {
@@ -1110,13 +1177,13 @@ export default function CreateMissionWizard() {
           ))}
         </div>
         <div className="wz-rail-foot">
-          {!missionId && <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>}
+          <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           {step === 0 ? (
             <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
             <div className="row gap-2" style={{ alignItems: "center" }}>
               <button className="btn outline" onClick={() => setShowExitWarning(true)}>{t("createMission.cancel", null, "Cancel")}</button>
-              <button className="backlink" style={{ margin: 0 }} onClick={goBack}>{t("createMission.back", null, "Back")}</button>
+              <button className="btn btn-quiet" onClick={goBack}>{t("createMission.back", null, "Back")}</button>
             </div>
           )}
         </div>
@@ -1182,14 +1249,14 @@ export default function CreateMissionWizard() {
               <span
                 style={{ display: "inline-block" }}
                 title={insufficientFunds ? t("createMission.insufficientBalanceHint", null, "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.")
-                  : !fieldsValid ? t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing.") : undefined}
+                  : !readyToPublish ? t("createMission.fixIssuesAbove", null, "Fix the issues above before publishing.") : undefined}
               >
                 <Btn
                   variant="primary"
                   iconRight="bolt"
-                  disabled={insufficientFunds || busy || !fieldsValid}
+                  disabled={insufficientFunds || busy || !readyToPublish}
                   onClick={goNext}
-                  style={!fieldsValid ? { opacity: 0.5, pointerEvents: "none" } : undefined}
+                  style={!readyToPublish ? { opacity: 0.5, pointerEvents: "none" } : undefined}
                 >
                   {wasActive
                     ? (busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes"))
