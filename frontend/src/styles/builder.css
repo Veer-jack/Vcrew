@@ -278,7 +278,6 @@ html[data-direction="signal"] .wz-rail { background: #0e1019; }
 .wz-content { flex: 1; padding: 40px 48px 130px; width: 100%; max-width: 720px; margin: 0 auto; }
 .wz[data-layout="topbar"] .wz-content { max-width: 860px; }
 .wz-content.wide { max-width: 1120px; }
-.wz-content.wide-lg { max-width: 1084px; }
 .wz-head { margin-bottom: 26px; }
 .wz-head .step-of { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
 html[data-direction="signal"] .wz-head .step-of { color: var(--accent-2); }
@@ -586,7 +585,7 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   .split, .aud, .wz, .tc-split, .split-slim { grid-template-columns: 1fr; }
   .filter-panel { position: static; max-height: none; }
   .wz-rail { display: none; }
-  .wz-content, .wz-content.wide, .wz-content.wide-lg { padding: 22px 18px 130px; max-width: 100%; }
+  .wz-content, .wz-content.wide { padding: 22px 18px 130px; max-width: 100%; }
   .wz[data-layout="topbar"] .wz-content { max-width: 100%; }
   /* mobile wizard: surface the stepper + exit bar even in rail layout */
   .wz[data-layout="rail"] .wz-top, .wz[data-layout="topbar"] .wz-top { display: flex; height: 54px; padding: 0 18px; }

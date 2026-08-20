@@ -1192,7 +1192,7 @@ export default function CreateMissionWizard() {
       </aside>
 
       <div className="wz-main">
-        <div className={`wz-content ${step === 0 ? "wide-lg" : "wide"}`}>
+        <div className="wz-content wide">
           {/* Step 1 already has its own sidebar cards for these — repeating
               them as banners there too would be redundant. Every other step
               had no visibility into either warning at all until Review,
