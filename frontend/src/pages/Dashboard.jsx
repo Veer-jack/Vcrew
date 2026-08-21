@@ -291,7 +291,7 @@ export default function Dashboard() {
     if (!flagged) return;
     try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
     if (hasMissionDraft(builder?.id)) {
-      toast(t("dashboard.draftSavedBackNav", null, "Your mission draft was saved — Continue from here anytime."), { icon: "📝" });
+      toast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
     }
   }, [builder?.id, t]);
 

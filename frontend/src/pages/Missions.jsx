@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { toast as hotToast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn, Empty, UpdatingBadge } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { useAuth } from "../context/AuthContext";
 
 // Tabs defined dynamically inside component to use translations
 
 export default function Missions() {
   const { t, dataVersion } = useTranslation();
+  const { builder } = useAuth();
   const TABS = [
     { k: "active", l: t("missions.tabActive", null, "Active") },
     { k: "draft", l: t("missions.tabDraft", null, "Draft") },
@@ -62,16 +65,34 @@ export default function Missions() {
 
   useEffect(() => {
     if (location.state?.toast) {
-      setToast(location.state.toast);
+      setTimeout(() => setToast(location.state.toast), 0);
       setTimeout(() => setToast(null), 3000);
       navigate(location.pathname + location.search, { replace: true, state: {} });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [location, navigate]);
+
+  useEffect(() => {
+    let flagged = false;
+    try { flagged = sessionStorage.getItem("vcrew_mission_draft_backnav") === "1"; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
+    
+    const draftKey = `vcrew_mission_draft_${builder?.id || "anon"}`;
+    if (localStorage.getItem(draftKey)) {
+      hotToast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
+    }
+  }, [builder?.id, t]);
 
   const handleDelete = (id) => {
     if (window.confirm(t("missions.deleteConfirm", null, "Are you sure you want to delete this mission?"))) {
       api.deleteMission(id).then(() => {
+        const draftKey = `vcrew_mission_draft_${builder?.id || "anon"}`;
+        if (localStorage.getItem(draftKey + "_promotedId") === String(id)) {
+          localStorage.removeItem(draftKey);
+          localStorage.removeItem(draftKey + "_step");
+          localStorage.removeItem(draftKey + "_maxReached");
+          localStorage.removeItem(draftKey + "_promotedId");
+        }
         setMissions(prev => prev.filter(m => m.id !== id));
         setToast(t("missions.deleteSuccess", null, "Mission deleted successfully"));
         setTimeout(() => setToast(null), 3000);

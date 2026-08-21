@@ -331,7 +331,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, locked })
             <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
-              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: +e.target.value } })} />
+              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: e.target.value === "" ? "" : +e.target.value } })} />
             </div>
           </div>
         )}
@@ -470,7 +470,7 @@ function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
     </div>
   );
 }
-function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingTasks, missingReward }) {
+function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingFormat, missingTasks, missingReward }) {
   const { t } = useTranslation();
   const [descExpanded, setDescExpanded] = React.useState(false);
   const cat = categories.find(c => c.id === d.cat) || categories[0];
@@ -487,6 +487,7 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
   // is actually blocked. This is the visible reason why.
   const issues = [
     missingInfo && { label: t("createMission.issueInfo", null, "Mission info is incomplete"), step: 0, cta: t("createMission.goToStep1", null, "Go to Step 1") },
+    missingFormat && { label: t("createMission.issueFormat", null, "Feedback format not selected"), step: 1, cta: t("createMission.goToStep2", null, "Go to Step 2") },
     missingTasks && { label: t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"), step: 2, cta: t("createMission.goToStep3", null, "Go to Step 3") },
     missingReward && { label: t("createMission.issueReward", null, "Reward setup is incomplete or invalid"), step: 4, cta: t("createMission.goToStep5", null, "Go to Step 5") },
   ].filter(Boolean);
@@ -789,14 +790,10 @@ export default function CreateMissionWizard() {
   const [saveStatus, setSaveStatus] = useState(() => missionId ? "saved" : "idle");
 
   const freshDraft = () => ({
-    title: "", desc: "", cat: categories[0]?.id || "feedback",
-    // Preselecting "Validator" gives the live match-count something sensible
-    // to show immediately — the Audience step no longer requires the user to
-    // touch anything before continuing, so this default is just a starting
-    // point, not something they're forced to confirm or change.
-    filters: { ...emptyFilters(filters), "ValidationCrew Role": new Set(["Validator"]) },
-    ptype: ptypes[0]?.id || "ptest",
-    reward: { type: "fixed", amount: 250, participants: 120 },
+    title: "", desc: "", cat: "",
+    filters: emptyFilters(filters),
+    ptype: "",
+    reward: { type: "", amount: "", participants: "" },
     genFor: null,
     durationDays: 7,
     deadline: "",
@@ -811,6 +808,24 @@ export default function CreateMissionWizard() {
     }
     return freshDraft();
   });
+
+  const hasContent = Boolean(d.title.trim() || d.desc.trim() || d.cat || d.ptype || (d.tasks && d.tasks.length > 0) || d.reward.type || d.deadline);
+  
+  const publishedRef = useRef(published);
+  const hasContentRef = useRef(hasContent);
+
+  useEffect(() => {
+    publishedRef.current = published;
+    hasContentRef.current = hasContent;
+  }, [published, hasContent]);
+
+  useEffect(() => {
+    return () => {
+      if (!publishedRef.current && hasContentRef.current) {
+        try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!missionId) return;
@@ -1024,11 +1039,12 @@ export default function CreateMissionWizard() {
   const withinAudienceCount = liveCount === 0 || d.reward.participants <= liveCount;
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
+    && (step !== 1 || !!d.ptype)
     && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
-    && (step !== 4 || (rewardAmountOk && participantsOk && withinAudienceCount));
+    && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
   // fieldsValid only checks whichever step is CURRENTLY open — the step
   // rail lets a builder jump straight past a step whose requirements broke
@@ -1038,12 +1054,13 @@ export default function CreateMissionWizard() {
   // re-checks every step's own requirements regardless of which one is
   // current, and is what actually gates Publish and its warning banner.
   const missingInfo = !(d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr);
+  const missingFormat = !d.ptype;
   const missingTasks = !d.tasks || d.tasks.length === 0 || !d.tasks.every(tk =>
     tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
     tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
   );
-  const missingReward = !(rewardAmountOk && participantsOk && withinAudienceCount);
-  const readyToPublish = !missingInfo && !missingTasks && !missingReward;
+  const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount);
+  const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingReward;
 
   const buildMissionPayload = (status) => {
     const audience = buildAudiencePayload(d);
@@ -1211,7 +1228,7 @@ export default function CreateMissionWizard() {
     ) : <StepTestCases d={d} set={set} ref={testCasesRef} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
     <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} locked={fieldsLocked} />,
-    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingTasks={missingTasks} missingReward={missingReward} />,
+    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingFormat={missingFormat} missingTasks={missingTasks} missingReward={missingReward} />,
   ][step];
 
   if (loadingMission) {
