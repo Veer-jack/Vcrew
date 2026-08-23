@@ -147,6 +147,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       // friendlyAuthError's Firebase-code map, which doesn't apply to these
       // errors and was swallowing them into a generic "Something went wrong."
       setError(err.message || t("errors.somethingWentWrong"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally { setBusy(false); }
   };
 
@@ -207,6 +208,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       goAfterAuth();
     } catch (err) {
       setError(friendlyAuthError(err, t));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally { setBusy(false); }
   };
 

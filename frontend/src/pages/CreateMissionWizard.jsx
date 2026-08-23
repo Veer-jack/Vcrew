@@ -192,7 +192,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
         <div className="reach-top">
           <span className="r-ic"><Icon name="users" size={22} /></span>
           <div style={{ flex: 1, opacity: isFetchingCount ? 0.5 : 1, transition: "opacity 0.2s" }}>
-            <div className="r-num" key={count}>{count.toLocaleString("en-IN")} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 600 }}>{t("createMission.matchingMembers", null, "matching members")}</span></div>
+            <div className="r-num" key={count}>{count.toLocaleString("en-IN")} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 600 }}>{Object.entries(d.filters).flatMap(([, s]) => [...s]).length > 0 ? t("createMission.matchingMembers", null, "matching members") : t("createMission.availableMembers", null, "available members")}</span></div>
             <div className="r-lab">{t("createMission.availableNow", null, "available right now for this audience")}</div>
           </div>
           {isFetchingCount ? (
@@ -204,6 +204,12 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
         <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
         <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
+      {Object.entries(d.filters).flatMap(([, s]) => [...s]).length === 0 && (
+        <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <Icon name="alertTriangle" size={16} />
+          {t("createMission.noFiltersWarning", null, "Please select at least one filter to define your audience.")}
+        </div>
+      )}
       {Object.entries(filters).map(([g, opts]) => (
         // Every top-level category gets the same bordered card, whether it's a
         // flat option list (Professional, ValidationCrew Role) or a grouped one
@@ -404,60 +410,6 @@ function CostCard({ d, rewards, balance, platformFeePct }) {
   );
 }
 
-function BalanceCard({ balance }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const low = (balance ?? 0) < 500;
-  return (
-    <div className="estcard accent">
-      <span className="eyebrow">{t("createMission.walletBalance", null, "Wallet balance")}</span>
-      <div className="est-num" style={{ margin: "8px 0 14px" }}>{inr(balance)}</div>
-      {low ? (
-        <>
-          <div className="row gap-2" style={{ fontSize: 12.5, color: "var(--danger)", alignItems: "flex-start" }}>
-            <Icon name="alertTriangle" size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-            <span>{t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}</span>
-          </div>
-          <Btn variant="primary" icon="plus" block onClick={() => navigate("/wallet")} style={{ marginTop: 14 }}>
-            {t("actions.addFunds", null, "Add funds")}
-          </Btn>
-        </>
-      ) : (
-        <div className="row gap-2" style={{ fontSize: 12, color: "var(--text-faint)" }}>
-          <Icon name="shield" size={14} /><span>{t("createMission.escrowNote", null, "Held in escrow · released only on approved submissions")}</span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Nudges an incomplete profile without blocking the wizard — Save as Draft and every
-// step stay usable; only actually publishing is gated (see advanceStep), matching the
-// same completeness check as the Dashboard banner (builder.onboardingCompleted).
-function ProfileNudgeCard({ builder }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const hasRole = !!builder?.persona;
-  const dest = hasRole ? `/signup?role=${builder.persona}` : "/get-started/feedback";
-  return (
-    <div className="estcard accent" style={{ marginTop: 14 }}>
-      <div className="row gap-2" style={{ alignItems: "flex-start" }}>
-        <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
-        <div>
-          <b style={{ fontSize: 13.5 }}>{t("createMission.completeProfileTitle", null, "Complete your profile to publish")}</b>
-          <p style={{ margin: "4px 0 0", fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.5 }}>
-            {hasRole
-              ? t("createMission.completeProfileBodyResume", null, "You can keep building this mission, but you'll need to finish setting up your profile before it can go live.")
-              : t("createMission.completeProfileBodyNoRole", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
-          </p>
-        </div>
-      </div>
-      <Btn variant="ghost" icon="user" block onClick={() => navigate(dest)} style={{ marginTop: 12 }}>
-        {t("actions.completeProfile", null, "Complete Profile")}
-      </Btn>
-    </div>
-  );
-}
 
 function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
   const { t } = useTranslation();
@@ -1044,6 +996,7 @@ export default function CreateMissionWizard() {
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
+    && (step !== 3 || Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0))
     && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
   // fieldsValid only checks whichever step is CURRENTLY open — the step
@@ -1270,7 +1223,7 @@ export default function CreateMissionWizard() {
         <div className="wz-rail-foot">
           <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           {step === 0 ? (
-            <button className="btn" onClick={() => setShowExitWarning(true)} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 120 }}>{t("createMission.cancel", null, "Cancel")}</button>
+            <button className="btn" onClick={() => setShowExitWarning(true)} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
             <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
               <button className="btn" onClick={() => setShowExitWarning(true)} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
@@ -1281,7 +1234,7 @@ export default function CreateMissionWizard() {
       </aside>
 
       <div className="wz-main">
-        {step > 0 && (builder?.balance ?? 0) < 500 && (
+        {(builder?.balance ?? 0) < 500 ? (
           <div className="card" style={{ margin: "24px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
             <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
             <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
@@ -1289,14 +1242,24 @@ export default function CreateMissionWizard() {
             </p>
             <Btn variant="primary" size="sm" icon="plus" onClick={() => navigate("/wallet")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.addFunds", null, "Add funds")}</Btn>
           </div>
-        )}
-        {step > 0 && !builder?.onboardingCompleted && (
-          <div className="card" style={{ margin: "16px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--accent) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
-            <Icon name="user" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
+        ) : step === 0 ? (
+          <div className="estcard accent" style={{ margin: "24px 48px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "16px 24px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <span className="eyebrow" style={{ margin: 0, fontSize: 11 }}>{t("createMission.walletBalance", null, "Wallet balance")}</span>
+              <div className="est-num" style={{ margin: 0, fontSize: 28, color: "var(--text)" }}>{inr(builder?.balance)}</div>
+            </div>
+            <div className="row gap-2" style={{ fontSize: 13, color: "var(--text-muted)", backgroundColor: "var(--panel-inset)", padding: "8px 12px", borderRadius: 8 }}>
+              <Icon name="shield" size={15} style={{ color: "var(--accent)" }} /><span>{t("createMission.escrowNote", null, "Held in escrow · released only on approved submissions")}</span>
+            </div>
+          </div>
+        ) : null}
+        {!builder?.onboardingCompleted && (
+          <div className="card" style={{ margin: "16px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="user" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
             <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
               {t("createMission.onboardingWarning", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
             </p>
-            <button className="btn" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0, minWidth: 150, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }}>{t("actions.completeProfile", null, "Complete Profile")}</button>
+            <Btn variant="primary" size="sm" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
           </div>
         )}
         <div className="wz-content wide">
@@ -1326,14 +1289,6 @@ export default function CreateMissionWizard() {
                     </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          ) : step === 0 ? (
-            <div className="split-slim">
-              <div>{StepBody}</div>
-              <div className="sticky-side">
-                <BalanceCard balance={builder?.balance} />
-                {!builder?.onboardingCompleted && <ProfileNudgeCard builder={builder} />}
               </div>
             </div>
           ) : StepBody}
@@ -1388,7 +1343,6 @@ export default function CreateMissionWizard() {
                 iconRight="arrowRight"
                 disabled={insufficientFunds || busy || !fieldsValid}
                 onClick={goNext}
-                style={!fieldsValid ? { opacity: 0.5, pointerEvents: "none" } : undefined}
               >
                 {t("createMission.continue", null, "Continue")}
               </Btn>

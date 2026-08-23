@@ -13,7 +13,7 @@ import { isTestCasesStale } from "../utils/isTestCasesStale";
 
 const SEV = {
   crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
-  imp:  { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
+  imp: { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
   nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
 };
 
@@ -33,7 +33,7 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
     s[stepIdx] = val;
     onEdit(idx, { steps: s });
   };
-  
+
   const deleteStep = (stepIdx) => {
     const s = [...task.steps];
     s.splice(stepIdx, 1);
@@ -45,7 +45,7 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
     qs[qIdx] = { ...qs[qIdx], text: val };
     onEdit(idx, { questions: qs });
   };
-  
+
   const deleteQuestion = (qIdx) => {
     const qs = [...task.questions];
     qs.splice(qIdx, 1);
@@ -65,13 +65,13 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
       onDrop={e => { e.preventDefault(); onDrop(); }}
       onDragEnd={onDragEnd}
       className={`card rise`} style={{
-      overflow: "hidden",
-      marginBottom: 10,
-      border: incomplete ? "1.5px solid var(--danger)" : expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-      boxShadow: dragOver ? "0 -2px 0 0 var(--accent)" : expanded ? "0 0 0 1px var(--accent)" : undefined,
-      opacity: dragging ? 0.45 : 1,
-      animationDelay: `${idx * 0.07}s`,
-    }}>
+        overflow: "hidden",
+        marginBottom: 10,
+        border: incomplete ? "1.5px solid var(--danger)" : expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+        boxShadow: dragOver ? "0 -2px 0 0 var(--accent)" : expanded ? "0 0 0 1px var(--accent)" : undefined,
+        opacity: dragging ? 0.45 : 1,
+        animationDelay: `${idx * 0.07}s`,
+      }}>
       {/* Header */}
       <div
         onClick={onToggle}
@@ -97,12 +97,12 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
         </span>
         {!expanded && (
           <button
-              onClick={e => { e.stopPropagation(); onDelete(idx); }}
-              data-tooltip={t("testCases.deleteTask", null, "Delete Task")}
-              style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
-            ><Icon name="trash" size={13} style={{ color: "var(--danger)" }} /></button>
+            onClick={e => { e.stopPropagation(); onDelete(idx); }}
+            data-tooltip={t("testCases.deleteTask", null, "Delete Task")}
+            style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
+          ><Icon name="trash" size={13} style={{ color: "var(--danger)" }} /></button>
         )}
-          <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+        <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
       </div>
 
       {/* Body */}
@@ -143,18 +143,55 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
                       <button onClick={e => { e.stopPropagation(); deleteQuestion(i); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Icon name="trash" size={14} /></button>
                     </div>
                     <div>
-                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); }} onClick={e => e.stopPropagation()} style={{ fontSize: 12, padding: "2px 26px 2px 8px", width: "auto", display: "inline-block" }}>
+                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); e.target.blur(); }} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 28px 4px 10px", width: "auto", display: "inline-block" }}>
                         <option value="multiple_choice">{t("testCases.qTypeMultipleChoice", null, "Multiple choice")}</option>
                         <option value="yes_no_detail">{t("testCases.qTypeYesNoDetail", null, "Yes/No + detail")}</option>
                         <option value="rating">{t("testCases.qTypeRating", null, "Rating (1-5)")}</option>
                         <option value="text">{t("testCases.qTypeOpenText", null, "Open text")}</option>
                       </select>
                     </div>
-                    {q.options && (
+                    {q.type === 'multiple_choice' && (
                       <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                        {q.options.map((o, oi) => (
-                          <span key={oi} style={{ padding: "2px 9px", borderRadius: 20, background: "var(--panel-inset)", border: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>{o}</span>
+                        {(q.options || []).map((o, oi) => (
+                          <div key={oi} className="opt-pill" style={{ display: "flex", alignItems: "center", background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: 20, padding: "2px 6px 2px 9px" }}>
+                            <input
+                              value={o}
+                              autoFocus={o === "" && oi === (q.options || []).length - 1}
+                              placeholder={t("testCases.optionPlaceholder", null, "Option")}
+                              onChange={e => {
+                                const qs = [...task.questions];
+                                const opts = [...(qs[i].options || [])];
+                                opts[oi] = e.target.value;
+                                qs[i] = { ...qs[i], options: opts };
+                                onEdit(idx, { questions: qs });
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              style={{ border: "none", background: "transparent", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", width: `${Math.max((o || "").length + 1, 8)}ch`, outline: "none", boxShadow: "none", padding: 0 }}
+                            />
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                const qs = [...task.questions];
+                                qs[i] = { ...qs[i], options: (qs[i].options || []).filter((_, x) => x !== oi) };
+                                onEdit(idx, { questions: qs });
+                              }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-faint)", marginLeft: 2, padding: 2, display: "flex", alignItems: "center" }}
+                            >
+                              <Icon name="x" size={12} />
+                            </button>
+                          </div>
                         ))}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            const qs = [...task.questions];
+                            qs[i] = { ...qs[i], options: [...(qs[i].options || []), ""] };
+                            onEdit(idx, { questions: qs });
+                          }}
+                          style={{ padding: "2px 9px", borderRadius: 20, background: "transparent", border: "1px dashed var(--border-strong)", fontSize: 11.5, color: "var(--text-muted)", cursor: "pointer" }}
+                        >
+                          + {t("testCases.addOption", null, "Add option")}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -170,7 +207,7 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="eyebrow" style={{ letterSpacing: 0 }}>{t("testCases.severity", null, "Severity")}</span>
-              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 26px 4px 8px", width: 130 }}>
+              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 28px 4px 10px", width: 130 }}>
                 <option value="crit">{sevLabel.crit}</option>
                 <option value="imp">{sevLabel.imp}</option>
                 <option value="nice">{sevLabel.nice}</option>
@@ -183,11 +220,11 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
             </div>
 
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: 10 }}>
-              <input 
-                type="checkbox" 
-                checked={task.proof === "screenshot"} 
-                onChange={e => onEdit(idx, { proof: e.target.checked ? "screenshot" : null })} 
-                onClick={e => e.stopPropagation()} 
+              <input
+                type="checkbox"
+                checked={task.proof === "screenshot"}
+                onChange={e => onEdit(idx, { proof: e.target.checked ? "screenshot" : null })}
+                onClick={e => e.stopPropagation()}
               />
               {t("testCases.requireProof", null, "Require screenshot or video proof")}
             </label>
@@ -399,12 +436,12 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
               urlFormatInvalid
                 ? <p className="fhint" style={{ color: "var(--danger)", marginTop: 6 }}>{t("testCases.urlFormatInvalid", null, "Please enter a valid URL, starting with http:// or https://")}</p>
                 : urlContext
-                ? <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>{t("testCases.pageAnalysed", null, "✓ Page analysed — context added")}</p>
-                : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>
+                  ? <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>{t("testCases.pageAnalysed", null, "✓ Page analysed — context added")}</p>
+                  : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>
                     {fetchFailReason === "timeout" ? t("testCases.fetchTimeout", null, "This page took too long to respond — you can still generate from your description")
-                    : fetchFailReason === "non_html" ? t("testCases.fetchNonHtml", null, "That link doesn't point to a webpage (not HTML) — you can still generate from your description")
-                    : fetchFailReason === "empty" ? t("testCases.fetchEmpty", null, "Couldn't find any usable content on that page — you can still generate from your description")
-                    : t("testCases.pageAnalyseFailed", null, "Couldn't reach that page — you can still generate from your description")}
+                      : fetchFailReason === "non_html" ? t("testCases.fetchNonHtml", null, "That link doesn't point to a webpage (not HTML) — you can still generate from your description")
+                        : fetchFailReason === "empty" ? t("testCases.fetchEmpty", null, "Couldn't find any usable content on that page — you can still generate from your description")
+                          : t("testCases.pageAnalyseFailed", null, "Couldn't reach that page — you can still generate from your description")}
                   </p>
             )}
           </div>
