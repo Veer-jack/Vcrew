@@ -8,6 +8,7 @@ import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { useAuth } from "../context/AuthContext";
+import { getRecentDraftId, hasResumableDraft, clearAllLocalDraftState } from "../utils/missionDraft";
 
 // Tabs defined dynamically inside component to use translations
 
@@ -76,9 +77,8 @@ export default function Missions() {
     try { flagged = sessionStorage.getItem("vcrew_mission_draft_backnav") === "1"; } catch { /* ignore */ }
     if (!flagged) return;
     try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
-    
-    const draftKey = `vcrew_mission_draft_${builder?.id || "anon"}`;
-    if (localStorage.getItem(draftKey)) {
+
+    if (hasResumableDraft(builder?.id)) {
       hotToast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
     }
   }, [builder?.id, t]);
@@ -86,12 +86,11 @@ export default function Missions() {
   const handleDelete = (id) => {
     if (window.confirm(t("missions.deleteConfirm", null, "Are you sure you want to delete this mission?"))) {
       api.deleteMission(id).then(() => {
-        const draftKey = `vcrew_mission_draft_${builder?.id || "anon"}`;
-        if (localStorage.getItem(draftKey + "_promotedId") === String(id)) {
-          localStorage.removeItem(draftKey);
-          localStorage.removeItem(draftKey + "_step");
-          localStorage.removeItem(draftKey + "_maxReached");
-          localStorage.removeItem(draftKey + "_promotedId");
+        // If the deleted draft was also the one the recent-draft pointer
+        // names, clear it too — otherwise "Create Mission" would keep
+        // trying to resume a draft that no longer exists.
+        if (getRecentDraftId(builder?.id) === String(id)) {
+          clearAllLocalDraftState(builder?.id);
         }
         setMissions(prev => prev.filter(m => m.id !== id));
         setToast(t("missions.deleteSuccess", null, "Mission deleted successfully"));
