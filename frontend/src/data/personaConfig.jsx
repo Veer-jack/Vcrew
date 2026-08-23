@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useEffect, useRef, useState } from "react";
 import {
   Field, TextInput, Textarea, SelectInput, FSection, Chips, SelCards,
@@ -48,6 +49,7 @@ function useAudienceReach(d) {
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     debounceRef.current = setTimeout(() => {
       api.audienceMatchCount(buildAudienceQuery(d)).then(r => setReach(r.count)).catch(() => {}).finally(() => setLoading(false));
@@ -136,7 +138,9 @@ function GenericAudience({ d, set, region, title, sub, showErrors }) {
   const { t } = useTranslation();
   const { filters } = useMeta();
   const { reach, base, firstLoad, updating } = useAudienceReach(d);
-  const interestOptions = [...(filters.Interests?.Lifestyle || []), ...(filters.Interests?.Industry || []), ...(filters.Interests?.["Product Types"] || [])];
+  const rawInterests = [...(filters.Interests?.Lifestyle || []), ...(filters.Interests?.Industry || []), ...(filters.Interests?.["Product Types"] || [])];
+  const interestOptions = [...new Set(rawInterests.filter(i => i !== "Other"))];
+  if (rawInterests.includes("Other")) interestOptions.push("Other");
   return (
     <div className="rise">
       <StepHead step={t("onboarding.audienceStep", null, "Audience")} title={title} sub={sub} />
@@ -158,17 +162,19 @@ function FoAudience(props) {
   const { t } = useTranslation();
   return <GenericAudience {...props} title={t("onboarding.founder.audience.title", null, "Who should weigh in?")} sub={t("onboarding.founder.audience.sub", null, "Describe the people whose opinion actually matters — we match you to validators who fit, we don't blast everyone.")} />;
 }
-function GenericVerify({ d, set, region, websiteHint, docs }) {
+function GenericVerify({ d, set, websiteHint, docs }) {
   const { t } = useTranslation();
   return (
     <div className="rise">
       <StepHead step={t("onboarding.verify.step", null, "Verification")} title={t("onboarding.verify.title", null, "Build trust")} sub={t("onboarding.verify.sub", null, "Verified accounts get better reviewers and faster matches. Verify what you can now — finish the rest anytime from your dashboard.")} />
       <VerifyRow icon="browser" title={t("onboarding.verify.websiteTitle", null, "Website")} optional desc={t("onboarding.verify.websiteDesc", null, "Confirms you own the domain via a meta tag or DNS record.")}
-        placeholder={websiteHint} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)} />
+        placeholder={websiteHint} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)}
+        validate={(v) => (!v || /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
       <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} optional desc={t("onboarding.verify.linkedinDescCampaigns", null, "Links your campaigns to a real, public organisation.")}
-        placeholder="linkedin.com/company/…" value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)} verified={d.vCompanyPage} onVerify={() => set("vCompanyPage", true)} onUnverify={() => set("vCompanyPage", false)} />
+        placeholder="linkedin.com/company/…" value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)} verified={d.vCompanyPage} onVerify={() => set("vCompanyPage", true)} onUnverify={() => set("vCompanyPage", false)}
+        validate={(v) => (!v || /^https?:\/\/(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v) || /^linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
       {docs.map((doc) => (
-        <VerifyRow key={doc.key} icon="fileText" title={doc.title} optional desc={doc.desc} placeholder={doc.placeholder}
+        <VerifyRow key={doc.key} icon="fileText" title={doc.title} optional desc={doc.desc} placeholder={doc.placeholder} validate={doc.validate}
           value={d[doc.key]} onChange={(v) => set(doc.key, v)} verified={d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)} />
       ))}
       <p className="faint" style={{ fontSize: 12, marginTop: 4 }}>
@@ -181,7 +187,7 @@ function FoVerify({ d, set, region }) {
   const { t } = useTranslation();
   return <GenericVerify d={d} set={set} region={region} websiteHint={d.website || "helixlabs.com"}
     docs={region === "india"
-      ? [{ key: "gst", title: t("onboarding.verify.gstTitle", null, "GST registration"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5" }]
+      ? [{ key: "gst", title: t("onboarding.verify.gstTitle", null, "GST registration"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
       : [{ key: "taxId", title: t("onboarding.verify.taxIdTitle", null, "Business / Tax ID"), desc: t("onboarding.verify.taxIdDesc", null, "EIN, VAT or company number."), placeholder: "e.g. 12-3456789" }]} />;
 }
 function foValid(key, d) {
@@ -263,7 +269,7 @@ function CoVerify({ d, set, region }) {
   const { t } = useTranslation();
   return <GenericVerify d={d} set={set} region={region} websiteHint={d.website || "acmefoods.com"}
     docs={region === "india"
-      ? [{ key: "gst", title: t("onboarding.verify.gstNumberTitle", null, "GST number"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5" }]
+      ? [{ key: "gst", title: t("onboarding.verify.gstNumberTitle", null, "GST number"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
       : [{ key: "taxId", title: t("onboarding.verify.taxIdTitle", null, "Business / Tax ID"), desc: t("onboarding.verify.taxIdDesc", null, "EIN, VAT or company number."), placeholder: "e.g. 12-3456789" }]} />;
 }
 function coValid(key, d) {
@@ -422,8 +428,10 @@ function OrgGoals({ d, set }) {
       <FSection label={t("onboarding.org.goals.title", null, "What would you like to learn?")} count={learn.length ? t("onboarding.selectedCount", { count: learn.length }, `${learn.length} selected`) : null} required />
       <SelCards options={ORG_LEARN(t)} value={learn} onChange={(v) => set("learn", v)} multi cols={2} />
       <FSection label={t("onboarding.org.goals.initiativeSection", null, "Initiative details")} />
-      <Field label={t("onboarding.org.goals.initiativeNameLabel", null, "Initiative / program name")}><TextInput value={d.initiativeName} onChange={(v) => set("initiativeName", v)} placeholder="Rural Digital Literacy Drive" /></Field>
-      <Field label={t("onboarding.org.goals.programDescLabel", null, "Program description")} optional><Textarea value={d.programDesc} onChange={(v) => set("programDesc", v)} placeholder="A short description of the initiative and its goals…" /></Field>
+      <div className="fgrid">
+        <Field label={t("onboarding.org.goals.initiativeNameLabel", null, "Initiative / program name")}><TextInput value={d.initiativeName} onChange={(v) => set("initiativeName", v)} placeholder="Rural Digital Literacy Drive" /></Field>
+        <Field label={t("onboarding.org.goals.programDescLabel", null, "Program description")} optional><Textarea value={d.programDesc} onChange={(v) => set("programDesc", v)} placeholder="A short description of the initiative and its goals…" /></Field>
+      </div>
       <FSection label={t("onboarding.org.goals.geoAreaSection", null, "Geographic area covered")} />
       <SelCards options={GEO_AREA(t)} value={d.geoArea} onChange={(v) => set("geoArea", v)} cols={3} />
     </div>
@@ -456,11 +464,14 @@ function OrgVerify({ d, set, showErrors }) {
     <div className="rise">
       <StepHead step={t("onboarding.org.verify.step", null, "Step 5 · Verification")} title={t("onboarding.org.verify.title", null, "Build trust with participants")} sub={t("onboarding.org.verify.sub", null, "Verified organizations get higher participation.")} />
       <VerifyRow icon="browser" title={t("onboarding.verify.websiteTitle", null, "Website")} showErrors={showErrors} desc={t("onboarding.org.verify.websiteDesc", null, "Confirms you own the domain.")} placeholder={d.website || "saksham.org"}
-        value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)} />
+        value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)}
+        validate={(v) => (!v || /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
       <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} showErrors={showErrors} desc={t("onboarding.org.verify.linkedinDesc", null, "Links initiatives to a real, public organisation.")} placeholder="linkedin.com/company/…"
-        value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)} verified={d.vCompanyPage} onVerify={() => set("vCompanyPage", true)} onUnverify={() => set("vCompanyPage", false)} />
+        value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)} verified={d.vCompanyPage} onVerify={() => set("vCompanyPage", true)} onUnverify={() => set("vCompanyPage", false)}
+        validate={(v) => (!v || /^https?:\/\/(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v) || /^linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
       <VerifyRow icon="fileText" title={t("onboarding.org.verify.regNoTitle", null, "Registration number")} showErrors={showErrors} desc={t("onboarding.org.verify.regNoDesc", null, "NGO / society / trust registration.")} placeholder="e.g. 80G / 12A / Society reg."
-        value={d.regNo} onChange={(v) => set("regNo", v)} verified={d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)} />
+        value={d.regNo} onChange={(v) => set("regNo", v)} verified={d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)}
+        validate={(v) => (!v || v.trim().length >= 4) ? null : t("errors.invalidRegNo", null, "Please enter a valid registration number.")} />
       <VerifyRow icon="building" title={t("onboarding.org.verify.govTitle", null, "Government affiliation")} optional desc={t("onboarding.org.verify.govDesc", null, "If applicable — department, scheme or ministry linkage.")} placeholder="e.g. Ministry of Rural Development"
         value={d.govAffiliation} onChange={(v) => set("govAffiliation", v)} verified={!!d.govAffiliation && d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)} />
     </div>

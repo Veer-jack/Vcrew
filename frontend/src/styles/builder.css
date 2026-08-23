@@ -359,7 +359,6 @@ html[data-direction="signal"] .reach .r-ic { color: var(--accent-2); }
 .fcheck .fcount { margin-left: auto; font-size: 11px; color: var(--text-faint); font-weight: 500; font-family: var(--font-mono); }
 
 .subgroup { margin-bottom: 12px; border: none; background: transparent; }
-.subgroup.open { }
 .subgroup-h { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 6px; background: var(--panel); font-size: 12.5px; font-weight: 700; color: var(--accent); cursor: pointer; text-align: left; transition: all .2s; }
 .subgroup-h:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--panel)); }
 .subgroup.open .subgroup-h { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
