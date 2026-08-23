@@ -976,7 +976,12 @@ export default function CreateMissionWizard() {
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
-    && (step !== 3 || Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0))
+    // Selecting a filter isn't enough on its own — if it narrows the
+    // audience down to nobody, Continue stays blocked the same way Step 5
+    // blocks on withinAudienceCount below, for the same reason: a mission
+    // built on a 0-match audience can never reach anyone. isFetchingCount
+    // exempts only the brief initial-load window, not a real zero result.
+    && (step !== 3 || ((Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0)) && (isFetchingCount || liveCount > 0)))
     && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
   // fieldsValid only checks whichever step is CURRENTLY open — the step
