@@ -1923,6 +1923,8 @@ const fr = {
     insufficientBalanceHint: "Le solde de votre portefeuille n'est pas suffisant pour couvrir cette configuration de récompense — rechargez votre portefeuille ou réduisez le coût pour continuer.",
     otherGeoPlaceholder: "ex. Népal, Sri Lanka…",
     confirmAudienceHint: "Confirmez votre sélection d'audience pour continuer",
+    noFiltersWarning: "Sélectionnez au moins un filtre pour définir votre audience.",
+    zeroMatchingWarning: "0 membre correspondant aux filtres sélectionnés — sélectionnez plus de filtres ou d'autres filtres pour obtenir des membres correspondants pour votre mission.",
     staleTestCasesToast: "Poursuite avec vos cas de test précédents — vous pouvez les régénérer à tout moment depuis l'étape 3.",
     fieldsLockedHint: "Verrouillé car un validateur a déjà accepté cette mission — affiché ici à titre de référence.",
     addAnotherOther: "Ajouter plus",

@@ -208,12 +208,31 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
         <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
         <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
       </div>
-      {Object.entries(d.filters).flatMap(([, s]) => [...s]).length === 0 && (
-        <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
-          <Icon name="alertTriangle" size={16} />
-          {t("createMission.noFiltersWarning", null, "Please select at least one filter to define your audience.")}
-        </div>
-      )}
+      {(() => {
+        const hasAnyFilter = Object.entries(d.filters).flatMap(([, s]) => [...s]).length > 0;
+        if (!hasAnyFilter) {
+          return (
+            <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Icon name="alertTriangle" size={16} />
+              {t("createMission.noFiltersWarning", null, "Please select at least one filter to define your audience.")}
+            </div>
+          );
+        }
+        // Filters ARE selected, but they narrowed the audience down to
+        // nobody — a materially different problem from having picked
+        // nothing at all, so it gets its own copy pointing at the fix
+        // (broaden the selection) rather than reusing the "pick something"
+        // warning above.
+        if (!isFetchingCount && liveCount === 0) {
+          return (
+            <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Icon name="alertTriangle" size={16} />
+              {t("createMission.zeroMatchingWarning", null, "0 matching members for the selected filters — select more or other filters to get matching members for your mission.")}
+            </div>
+          );
+        }
+        return null;
+      })()}
       {Object.entries(filters).map(([g, opts]) => (
         // Every top-level category gets the same bordered card, whether it's a
         // flat option list (Professional, ValidationCrew Role) or a grouped one
@@ -315,12 +334,16 @@ function StepParticipation({ d, set, ptypes, locked }) {
 
 const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
-function StepReward({ d, set, rewards, showErrors, builder, liveCount, locked }) {
+function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchingCount, locked }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
   const overUnverifiedCap = !builder?.verified && d.reward.participants > UNVERIFIED_PARTICIPANT_LIMIT;
-  const overAudienceCount = liveCount > 0 && d.reward.participants > liveCount;
+  // Gated on !isFetchingCount rather than liveCount > 0 — the latter hid this
+  // warning entirely for a genuinely 0-matching audience (a real, publishable-
+  // but-unreachable mission), not just during the brief initial-load window
+  // it was meant to cover.
+  const overAudienceCount = !isFetchingCount && d.reward.participants > liveCount;
   return (
     <div className="rise">
       <div className="fsec"><b>{t("createMission.rewardTypeLabel", null, "Reward Type")} <span className="req-star" aria-hidden="true">*</span></b><span className="line" /></div>
@@ -940,8 +963,12 @@ export default function CreateMissionWizard() {
   // participants than the selected audience can actually supply isn't just
   // a bad estimate, it's a mission that can never fully fill, so it blocks
   // the same way rewardAmountOk/participantsOk do rather than staying a
-  // warning-only nudge.
-  const withinAudienceCount = liveCount === 0 || d.reward.participants <= liveCount;
+  // warning-only nudge. Gated on isFetchingCount, not liveCount === 0 — the
+  // latter let a genuinely 0-matching audience through unblocked (0 === 0
+  // reads as "no restriction yet"), publishing a mission nobody could ever
+  // see; only the brief initial-load window should be exempt, not a real
+  // zero-match result.
+  const withinAudienceCount = isFetchingCount || d.reward.participants <= liveCount;
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
     && (step !== 1 || !!d.ptype)
@@ -1134,7 +1161,7 @@ export default function CreateMissionWizard() {
       </div>
     ) : <StepTestCases d={d} set={set} ref={testCasesRef} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} locked={fieldsLocked} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} isFetchingCount={isFetchingCount} locked={fieldsLocked} />,
     <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingFormat={missingFormat} missingTasks={missingTasks} missingReward={missingReward} />,
   ][step];
 

@@ -1923,6 +1923,8 @@ const zh = {
     insufficientBalanceHint: "您的钱包余额不足以支付此奖励设置 — 请为钱包充值或降低费用以继续。",
     otherGeoPlaceholder: "例如：尼泊尔、斯里兰卡…",
     confirmAudienceHint: "确认您的受众选择以继续",
+    noFiltersWarning: "请至少选择一个筛选条件来定义您的受众。",
+    zeroMatchingWarning: "所选筛选条件下没有匹配的成员——请选择更多或其他筛选条件，以便为您的任务找到匹配的成员。",
     staleTestCasesToast: "继续使用您之前的测试用例——您可以随时在第 3 步重新生成。",
     fieldsLockedHint: "已锁定，因为已有验证者接受了此任务——仅供参考显示。",
     addAnotherOther: "添加更多",

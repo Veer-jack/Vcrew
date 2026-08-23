@@ -1926,6 +1926,8 @@ const en = {
     insufficientBalanceHint: "Your wallet balance isn't enough to cover this reward setup — top up your wallet or lower the cost to continue.",
     otherGeoPlaceholder: "e.g. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirm your audience selection to continue",
+    noFiltersWarning: "Please select at least one filter to define your audience.",
+    zeroMatchingWarning: "0 matching members for the selected filters — select more or other filters to get matching members for your mission.",
     staleTestCasesToast: "Continuing with your previous test cases — you can regenerate them anytime from Step 3.",
     fieldsLockedHint: "Locked because a validator has already accepted this mission — shown here for reference.",
     addAnotherOther: "Add more",

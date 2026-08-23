@@ -1923,6 +1923,8 @@ const pt = {
     insufficientBalanceHint: "O saldo da sua carteira não é suficiente para cobrir esta configuração de recompensa — recarregue sua carteira ou reduza o custo para continuar.",
     otherGeoPlaceholder: "ex. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirme sua seleção de público para continuar",
+    noFiltersWarning: "Selecione pelo menos um filtro para definir seu público.",
+    zeroMatchingWarning: "0 membros correspondentes aos filtros selecionados — selecione mais filtros ou outros filtros para obter membros correspondentes para sua missão.",
     staleTestCasesToast: "Continuando com seus casos de teste anteriores — você pode gerá-los novamente a qualquer momento na etapa 3.",
     fieldsLockedHint: "Bloqueado porque um validador já aceitou esta missão — mostrado aqui apenas como referência.",
     addAnotherOther: "Adicionar mais",

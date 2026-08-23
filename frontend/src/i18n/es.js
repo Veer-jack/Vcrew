@@ -1923,6 +1923,8 @@ const es = {
     insufficientBalanceHint: "El saldo de tu billetera no es suficiente para cubrir esta configuración de recompensa — recarga tu billetera o reduce el costo para continuar.",
     otherGeoPlaceholder: "p. ej. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirma tu selección de audiencia para continuar",
+    noFiltersWarning: "Selecciona al menos un filtro para definir tu audiencia.",
+    zeroMatchingWarning: "0 miembros coincidentes con los filtros seleccionados — selecciona más filtros u otros distintos para obtener miembros coincidentes para tu misión.",
     staleTestCasesToast: "Continuando con tus casos de prueba anteriores — puedes regenerarlos en cualquier momento desde el paso 3.",
     fieldsLockedHint: "Bloqueado porque un validador ya aceptó esta misión — se muestra aquí solo como referencia.",
     addAnotherOther: "Añadir más",
