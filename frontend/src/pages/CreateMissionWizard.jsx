@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
@@ -646,6 +646,7 @@ function plainToDraft(data, emptyF) {
 export default function CreateMissionWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { id: missionId } = useParams();
   const [searchParams] = useSearchParams();
   const { builder, refreshBuilder } = useAuth();
@@ -656,6 +657,17 @@ export default function CreateMissionWizard() {
   // Scoped per-builder so switching accounts on the same browser never shows
   // one builder's in-progress mission draft to another.
   const builderId = builder?.id;
+
+  // True only when this exact page load was reached by clicking a specific
+  // draft row in a list (Missions → Draft tab, or Dashboard's recent-
+  // missions table) — carried on the navigation itself (browser history
+  // state, set by MissionsTable), not the URL, since the URL for "resume
+  // this draft" is identical either way. Every other route in here (Create
+  // Mission's picker below, the Dashboard banner) never sets this, so it's
+  // absent there. Drives whether the exit modal's destructive action means
+  // "stop auto-resuming this" (the common case) or "actually delete it"
+  // (only when the builder deliberately opened this specific saved draft).
+  const openedFromDraftTab = !!location.state?.fromDraftList;
 
   // Resuming an existing mission opens on Review by default, with every step
   // already unlocked via the rail/Edit links — the scratch localStorage draft
@@ -683,12 +695,17 @@ export default function CreateMissionWizard() {
   const [error, setError] = useState("");
   const [published, setPublished] = useState(false);
   const [showExitWarning, setShowExitWarning] = useState(false);
+  const [deletingDraft, setDeletingDraft] = useState(false);
   const [showStartFreshWarning, setShowStartFreshWarning] = useState(false);
   const [showStaleWarning, setShowStaleWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
-  // Also covers the brief moment before the recent-draft redirect below
-  // fires, so a pointer never leaves a blank form flashing on screen.
-  const [loadingMission, setLoadingMission] = useState(() => !!missionId || !!getRecentDraftId(builderId));
+  // Always starts true — even the fresh-wizard path needs one round trip
+  // (the draft-picker check below) before it's safe to render anything, so
+  // a real draft never flashes an empty form first.
+  const [loadingMission, setLoadingMission] = useState(true);
+  // Non-null while "Create Mission" is waiting on the builder to choose
+  // between an existing draft and starting fresh — see the fetch below.
+  const [draftPicker, setDraftPicker] = useState(null);
   // Mirrors the backend's own field-level allowlist (PATCH /missions/:id) —
   // once any participant has moved past "invited", category/ptype/tasks/
   // reward/duration get silently dropped from an update request, so the UI
@@ -703,17 +720,37 @@ export default function CreateMissionWizard() {
   // missionId is in the URL, that alone is the id to act on everywhere else
   // in this file.
   const [promotedId, setPromotedId] = useState(null);
-  // "Create Mission" always resumes whatever the recent-draft pointer names,
-  // however that draft was last touched (freshly auto-promoted here, or
-  // opened directly from the Draft tab) — the pointer is the single source
-  // of truth for "what's the draft I was just working on," so this is a
-  // synchronous localStorage read, not a server round-trip.
+  // "Create Mission" asks the server what draft(s) actually exist rather
+  // than trusting the local pointer alone — the pointer can only ever name
+  // one, but the Draft tab is cumulative (nothing there ever auto-deletes),
+  // so there may be several. Zero: straight into a fresh wizard. One or
+  // more: hand the choice to the builder via draftPicker below instead of
+  // silently resuming whichever the pointer happens to name.
   useEffect(() => {
     if (missionId) return;
-    const recentId = getRecentDraftId(builderId);
-    if (recentId) { navigate(`/missions/${recentId}/edit`, { replace: true }); return; }
-    setLoadingMission(false);
-  }, [missionId, builderId, navigate]);
+    let cancelled = false;
+    api.missions({ status: "draft" }).then(({ missions }) => {
+      if (cancelled) return;
+      if (!missions || missions.length === 0) {
+        clearRecentDraftId(builderId); // stale pointer, if any — nothing to point at anymore
+        setLoadingMission(false);
+        return;
+      }
+      // Server already orders drafts newest-first (created_at DESC) — that's
+      // "the latest" for pre-selecting, unless the pointer names one of the
+      // ones actually in this list, in which case honor it (it reflects
+      // whichever draft was most recently *touched*, not just created).
+      const recentId = getRecentDraftId(builderId);
+      const defaultId = missions.some(m => m.id === recentId) ? recentId : missions[0].id;
+      setDraftPicker({ drafts: missions, selectedId: defaultId });
+      setLoadingMission(false);
+    }).catch(() => {
+      // Fail open — a transient error here shouldn't block creating a
+      // mission; worst case the builder just doesn't see the picker.
+      if (!cancelled) setLoadingMission(false);
+    });
+    return () => { cancelled = true; };
+  }, [missionId, builderId]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -895,6 +932,24 @@ export default function CreateMissionWizard() {
     setStep(0);
     setMaxReached(0);
     if (missionId) navigate("/missions/new", { replace: true });
+  };
+
+  // The two choices on the "Create Mission" draft picker (see draftPicker
+  // state and the render branch below). Choosing an existing draft updates
+  // the pointer to match — same as opening one from the Draft tab — so the
+  // Dashboard banner and the next "Create Mission" click both agree on
+  // whichever one the builder just picked.
+  const draftPickerChooseNew = () => setDraftPicker(null);
+  const draftPickerContinue = () => {
+    const id = draftPicker.selectedId;
+    setRecentDraftId(builderId, id);
+    // Clear the picker and re-arm the loading gate before navigating —
+    // otherwise the stale picker (this component instance doesn't remount,
+    // just its :id param changes) would flash again for the moment it takes
+    // the missionId-fetch effect below to resolve.
+    setDraftPicker(null);
+    setLoadingMission(true);
+    navigate(`/missions/${id}/edit`, { replace: true });
   };
 
   const set = (patch) => setD(p => ({ ...p, ...patch }));
@@ -1181,6 +1236,55 @@ export default function CreateMissionWizard() {
     );
   }
 
+  if (draftPicker) {
+    const { drafts, selectedId } = draftPicker;
+    const single = drafts.length === 1;
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            {single ? (
+              <p style={{ margin: "0 0 4px", fontSize: 14 }}>
+                {t("createMission.continueDraftBody", { name: drafts[0].name || t("createMission.untitledMission", null, "Untitled mission") }, `You have a draft mission "${drafts[0].name || t("createMission.untitledMission", null, "Untitled mission")}" in progress. Continue where you left off, or start something new?`)}
+              </p>
+            ) : (
+              <>
+                <p style={{ margin: "0 0 12px", fontSize: 14 }}>
+                  {t("createMission.pickDraftBody", null, "You have a few drafts in progress. Pick one to continue, or start something new.")}
+                </p>
+                <div className="col gap-2" style={{ maxHeight: 300, overflowY: "auto" }}>
+                  {drafts.map(m => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setDraftPicker(p => ({ ...p, selectedId: m.id }))}
+                      style={{
+                        textAlign: "left", padding: "10px 14px", borderRadius: "var(--radius)", cursor: "pointer",
+                        border: m.id === selectedId ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+                        background: m.id === selectedId ? "var(--accent-weak)" : "var(--panel)",
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, fontSize: 13.5 }}>{m.name || t("createMission.untitledMission", null, "Untitled mission")}</div>
+                      <div className="faint" style={{ fontSize: 12, marginTop: 2 }}>
+                        {t("createMission.draftCreatedOn", { date: new Date(m.createdAt).toLocaleDateString() }, `Created ${new Date(m.createdAt).toLocaleDateString()}`)}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="row gap-2" style={{ marginTop: 20, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={draftPickerChooseNew}>{t("createMission.createNewMission", null, "Create new mission")}</button>
+              <button className="btn btn-primary" onClick={draftPickerContinue}>
+                {single ? t("createMission.continueThisDraft", null, "Continue draft") : t("actions.continue", null, "Continue")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    );
+  }
+
   return (
     <div className="wz" data-layout="rail">
       {saveStatus !== "idle" && !wasActive && (
@@ -1354,7 +1458,45 @@ export default function CreateMissionWizard() {
           </div>
         </Modal>
       )}
-      {showExitWarning && !wasActive && (() => {
+      {showExitWarning && !wasActive && openedFromDraftTab && (
+        // Deliberately opened this specific saved draft from a list (the
+        // Draft tab, or Dashboard's recent-missions table) — the builder
+        // already knows exactly which mission this is and chose to open it,
+        // so "discard" here means "delete it," matching the trash icon in
+        // those same lists, not "stop auto-resuming this" like the generic
+        // Create-Mission-flow modal below. This is the one place the wizard
+        // itself deletes a mission.
+        <Modal title={t("createMission.deleteDraftTitle", null, "Delete this draft?")} onClose={() => { if (!deletingDraft) setShowExitWarning(false); }} width={420} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              {t("createMission.deleteDraftBody", null, "This permanently deletes this draft mission and everything in it. This can't be undone.")}
+            </p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" disabled={deletingDraft} onClick={() => setShowExitWarning(false)}>{t("actions.keepEditing", null, "Keep editing")}</button>
+              <button
+                className="btn"
+                style={{ background: "var(--danger)", color: "#fff", border: "none" }}
+                disabled={deletingDraft}
+                onClick={async () => {
+                  setDeletingDraft(true);
+                  try {
+                    await api.deleteMission(missionId);
+                    if (getRecentDraftId(builderId) === missionId) clearRecentDraftId(builderId);
+                    toast.success(t("createMission.draftDeletedToast", null, "Draft deleted successfully"));
+                    navigate("/missions?tab=draft");
+                  } catch (err) {
+                    setDeletingDraft(false);
+                    toast.error(err.message || t("createMission.draftDeleteFailed", null, "Couldn't delete this draft — try again."));
+                  }
+                }}
+              >
+                {deletingDraft ? t("actions.deleting", null, "Deleting…") : t("createMission.deleteDraft", null, "Delete draft")}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+      {showExitWarning && !wasActive && !openedFromDraftTab && (() => {
         // Whether this draft is already save-worthy (a real DB row exists,
         // or enough content exists that the pending debounce will promote
         // it momentarily) — drives both the copy and whether "Discard" is

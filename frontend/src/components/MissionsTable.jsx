@@ -30,7 +30,15 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
         </thead>
         <tbody>
           {rows.map(m => (
-            <tr className="click" key={m.id} onClick={() => nav(m.status === "draft" ? `/missions/${m.id}/edit` : `/missions/${m.id}`)}>
+            <tr className="click" key={m.id} onClick={() => nav(
+              m.status === "draft" ? `/missions/${m.id}/edit` : `/missions/${m.id}`,
+              // Lets the wizard tell "opened this specific saved draft from a
+              // list" apart from "landed here via Create Mission / the
+              // banner" — same URL either way, so this rides along on the
+              // navigation itself (browser history state) rather than the
+              // URL. See CreateMissionWizard's exit-warning modal.
+              m.status === "draft" ? { state: { fromDraftList: true } } : undefined
+            )}>
               <td>
                 <div className="t-name">
                   <MissionLogo name={m.name} cat={m.category} size={34} />
