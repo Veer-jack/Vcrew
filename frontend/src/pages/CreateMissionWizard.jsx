@@ -1087,12 +1087,19 @@ export default function CreateMissionWizard() {
   // other. One-shot: once promotedId is set, this effect stops firing and
   // the update effect below takes over keeping that same row current.
   useEffect(() => {
-    if (missionId || promotedId || published) return;
-    if (!hasContent(d)) return;
+    if (missionId || promotedId || published) { pendingSaveRef.current = null; return; }
+    if (!hasContent(d)) { pendingSaveRef.current = null; return; }
     const startGen = freshStartRef.current;
+    const payload = buildMissionPayload("draft");
+    // Tracked so the flush-on-unmount effect further down can still create
+    // this draft (with everything typed so far, not just whatever had
+    // already been sitting there 2 seconds ago) if the builder navigates
+    // away before this debounce ever gets to fire.
+    pendingSaveRef.current = { kind: "create", payload, startGen, builderId };
     const timer = setTimeout(() => {
+      pendingSaveRef.current = null;
       setSaveStatus("saving");
-      api.createMission(buildMissionPayload("draft")).then(({ mission }) => {
+      api.createMission(payload).then(({ mission }) => {
         // "Start fresh" ran while this request was already in flight — the
         // wizard has moved on, so this mission was never actually seen by
         // the user and would otherwise sit orphaned forever. Clean it up
@@ -1106,7 +1113,7 @@ export default function CreateMissionWizard() {
     }, 2000);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, missionId, promotedId, published, builderId]);
+  }, [d, missionId, promotedId, published, builderId, maxReached]);
 
   // Autosave while resuming an existing draft, or once a new mission has been
   // auto-promoted above: edits are already backed by a real row that nobody
@@ -1125,12 +1132,21 @@ export default function CreateMissionWizard() {
   // an edit and navigating away without saving still silently overwrote it.
   useEffect(() => {
     const id = missionId || promotedId;
-    if (!id || loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
+    // No id yet at all — this is still the pre-promotion phase, which the
+    // create effect above owns. Deliberately doesn't touch pendingSaveRef
+    // here: on every render before promotion, that effect runs first and
+    // sets it, and this effect running right after with a blanket null
+    // would silently wipe out that pending create on every single edit,
+    // defeating the unmount-flush safety net for the entire phase before a
+    // real draft row exists — exactly the gap that let the last edit
+    // (test cases) go unsaved.
+    if (!id) return;
+    if (loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
     const payload = buildMissionPayload("draft");
     // Tracked outside the timer so the flush-on-unmount effect below can
     // still send this exact payload if the builder navigates away before
     // the debounce ever gets to fire — see that effect for why.
-    pendingSaveRef.current = { id, payload };
+    pendingSaveRef.current = { kind: "update", id, payload };
     const timer = setTimeout(() => {
       pendingSaveRef.current = null;
       setSaveStatus("saving");
@@ -1140,24 +1156,37 @@ export default function CreateMissionWizard() {
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, missionId, promotedId, loadingMission, published, wasActive]);
+  }, [d, missionId, promotedId, loadingMission, published, wasActive, maxReached]);
 
-  // The debounce above cancels its own timer on every d change — that's the
+  // Both debounces above (the initial create, and the update once a draft
+  // row exists) cancel their own timer on every d change — that's the
   // debounce working as intended. But that same cleanup also runs when the
   // wizard unmounts entirely (navigating away, e.g. browser Back), and in
   // that case cancelling silently drops whatever edit was still pending —
   // there's no local fallback to catch it once a real draft row exists (the
   // scratch copy is intentionally cleared at that point, DB is the source
-  // of truth from then on). Empty deps here on purpose: this cleanup must
-  // only run on the wizard's true, final unmount, not on every re-render —
-  // otherwise it would flush prematurely on every debounce reset too. The
-  // request itself outlives the component (an in-app route change doesn't
-  // cancel an in-flight fetch), so it still completes normally.
+  // of truth from then on), and even before promotion, a fast enough
+  // sequence of edits can keep resetting the 2-second create-debounce
+  // indefinitely without ever letting it fire. Empty deps here on purpose:
+  // this cleanup must only run on the wizard's true, final unmount, not on
+  // every re-render — otherwise it would flush prematurely on every
+  // debounce reset too. The request itself outlives the component (an
+  // in-app route change doesn't cancel an in-flight fetch), so it still
+  // completes normally; setRecentDraftId/clearScratch are plain localStorage
+  // writes, not React state, so they're still safe and meaningful to call
+  // from a .then() after the component is long gone.
   useEffect(() => {
     return () => {
-      if (pendingSaveRef.current) {
-        const { id, payload } = pendingSaveRef.current;
-        api.updateMission(id, payload).catch(() => {});
+      const pending = pendingSaveRef.current;
+      if (!pending) return;
+      if (pending.kind === "update") {
+        api.updateMission(pending.id, pending.payload).catch(() => {});
+      } else {
+        api.createMission(pending.payload).then(({ mission }) => {
+          if (freshStartRef.current !== pending.startGen) { api.deleteMission(mission.id).catch(() => {}); return; }
+          setRecentDraftId(pending.builderId, mission.id);
+          clearScratch(pending.builderId);
+        }).catch(() => {});
       }
     };
   }, []);
