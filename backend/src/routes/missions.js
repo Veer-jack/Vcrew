@@ -534,7 +534,17 @@ router.patch("/:id", async (req, res) => {
   // The edit-mission modal already blocks these client-side, but this route has
   // no other validation at all otherwise — anything sent here gets written
   // straight to the row, so these need to hold even if a request bypasses the UI.
-  if (req.body.target !== undefined && (!Number.isFinite(newTarget) || newTarget < 1)) {
+  //
+  // Only enforced when actually going/staying live — same reasoning as the
+  // create endpoint's name/category/ptype relaxation. The wizard's own
+  // autosave payload always includes target (never omits the field), but
+  // it's genuinely an empty string until the Reward step is reached — every
+  // draft-autosave PATCH before that point was hitting this 400 (Number("")
+  // is 0, which fails the < 1 check), even though nothing was actually
+  // wrong: it's just a draft that hasn't gotten there yet. Publishing still
+  // requires a real target, unchanged — the frontend's own readyToPublish
+  // check already blocks Publish until participants > 0 regardless.
+  if (newStatus === "active" && req.body.target !== undefined && (!Number.isFinite(newTarget) || newTarget < 1)) {
     return res.status(400).json({ error: "Target participants must be at least 1" });
   }
   if (req.body.name !== undefined && !String(req.body.name).trim()) {
@@ -648,6 +658,14 @@ router.patch("/:id", async (req, res) => {
           } else if (key === "durationDays") {
             updates.push(`duration_days = ?`);
             params.push(Math.min(30, Math.max(2, Number(req.body.durationDays) || 7)));
+          } else if (key === "target") {
+            // The wizard's draft-autosave payload always includes target,
+            // even before the Reward step sets a real one — pushing the raw
+            // "" straight into this INTEGER column would throw regardless of
+            // the validation above. newTarget (computed at the top of this
+            // handler) is already the coerced number.
+            updates.push(`target = ?`);
+            params.push(Number.isFinite(newTarget) ? newTarget : 0);
           } else if (key === "reward") {
             const reward = req.body.reward || {};
             const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
