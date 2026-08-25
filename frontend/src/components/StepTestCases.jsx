@@ -413,7 +413,7 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
 
   return (
     <div className="rise tc-split">
-      <div className="sticky-side">
+      <div className="tc-form">
         {/* FORM */}
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>

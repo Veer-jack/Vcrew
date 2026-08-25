@@ -529,14 +529,19 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
 .split { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .sticky-side { position: sticky; top: 84px; }
 .tc-split { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 32px; align-items: start; }
-/* Generated test cases scroll in their own column instead of growing the
-   whole page — with several custom tasks added, the form would otherwise
-   scroll far out of view along with the Continue button. Same treatment on
-   the left (form + custom task list) — .sticky-side is shared with other
-   pages' short static sidebars, so this is scoped to .tc-split only rather
-   than changing that base class everywhere. */
+/* Only the results column stays pinned — it's the shorter, simpler side
+   (often just the empty state), so keeping it visible as a reference while
+   scrolling a long form makes sense. The form column used to get the same
+   sticky + capped-height treatment, but that math assumes the element
+   starts near the top of the viewport — it doesn't, since the onboarding
+   banner and step header push it down first, so its computed bottom edge
+   could extend past the viewport before any scroll had even happened,
+   forcing a page-level scroll to reach the Generate button regardless of
+   its own internal overflow. Letting the form flow normally with the page
+   avoids that entirely — it's the one thing actually meant to scroll the
+   ordinary way here. */
 .tc-results { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 32px; padding-left: 6px; padding-bottom: 80px; }
-.tc-split .sticky-side { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 28px; padding-left: 6px; padding-bottom: 80px; }
+.tc-form { padding-left: 6px; }
 /* keeps the main column at its normal ~720px width and puts the side card in
    the extra space, instead of .split's approach of shrinking the main column
    to make room for it */
