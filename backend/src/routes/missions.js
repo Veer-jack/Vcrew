@@ -407,14 +407,24 @@ router.get("/:id", async (req, res) => {
 // POST /api/missions  — create from the Create Mission wizard
 router.post("/", async (req, res) => {
   const b = req.body || {};
-  if (!b.name || !b.category || !b.ptype) {
+  const status = b.status === "active" ? "active" : "draft";
+  // A draft is deliberately allowed to start with almost nothing — the
+  // wizard auto-promotes it the moment ANY field is touched (see
+  // hasContent() on the frontend), well before category/ptype are
+  // necessarily chosen yet (those come from Steps 1-2's own cards). Requiring
+  // them here too meant every promote attempt before that point failed with
+  // a 400 and silently retried on the next edit, so a mission with just a
+  // title typed wouldn't actually save until the builder happened to reach
+  // both pickers — not a timing bug, a validation mismatch. Publishing
+  // (status "active") still requires all three, same as always — you can't
+  // go live with an incomplete mission.
+  if (status === "active" && (!b.name || !b.category || !b.ptype)) {
     return res.status(400).json({ error: "name, category and ptype are required" });
   }
 
   const reward = b.reward || {};
   const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
   const id = "m_" + randomUUID().slice(0, 8);
-  const status = b.status === "active" ? "active" : "draft";
   const target = Number(b.target) || 0;
   const rewardAmount = Number(reward.amount) || 0;
 
