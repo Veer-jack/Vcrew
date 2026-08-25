@@ -1168,8 +1168,19 @@ export default function CreateMissionWizard() {
       }).catch(() => setSaveStatus("idle") /* stays localStorage-only; retries on the next content change */);
     }, 2000);
     return () => clearTimeout(timer);
+    // maxReached deliberately excluded — this effect fires once, ever, to
+    // create the row in the first place, so it doesn't need to re-arm its
+    // debounce just because the step advanced (that only mattered for
+    // keeping an EXISTING draft's stored progress current, which the update
+    // effect below already does). Including it here meant clicking Continue
+    // reset the whole 2-second timer from zero on every step change, even
+    // though d itself hadn't changed — completing one step and leaving
+    // shortly after Continue could then miss the natural-firing window
+    // entirely and fall through to the unmount-flush every time. Any
+    // staleness in _maxReached at the single moment this fires gets
+    // corrected by the very next save regardless.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, missionId, promotedId, published, builderId, maxReached]);
+  }, [d, missionId, promotedId, published, builderId]);
 
   // Autosave while resuming an existing draft, or once a new mission has been
   // auto-promoted above: edits are already backed by a real row that nobody
