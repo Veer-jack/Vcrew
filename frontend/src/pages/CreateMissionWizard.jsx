@@ -1230,14 +1230,19 @@ export default function CreateMissionWizard() {
   }, []);
 
   // Resolves what "Start fresh" deferred: on the wizard's true final
-  // unmount, if the fresh session that followed never ended up with real
-  // content of its own (contentRef mirrors hasContent(d), kept current —
-  // see its own effect above), delete the old draft that was walked away
-  // from — and, if the fresh session had itself been silently promoted to a
-  // real row before being emptied back out again, delete that one too, so
-  // neither is left behind. If the fresh session DOES have real content at
-  // this moment, nothing is touched — both drafts are meant to exist side
-  // by side in that case. Kept fully separate from the pendingSaveRef-based
+  // unmount, every draft that was walked away from (there can be more than
+  // one if Start Fresh was clicked repeatedly before ever leaving) gets
+  // deleted unconditionally — the whole point of Start Fresh is that only
+  // the newest attempt should end up surviving, so the old one is never
+  // meant to stick around once the builder actually leaves, whether or not
+  // the fresh session replaced it with something real. Additionally, if
+  // that fresh session itself never ended up with real content (contentRef
+  // mirrors hasContent(d), kept current — see its own effect above) —
+  // typed nothing, or typed something that got silently promoted and was
+  // then emptied out again before leaving — its own promoted row (if any)
+  // is deleted too, so an abandoned empty attempt leaves nothing behind
+  // either. If it DOES have real content, that one survives as the sole
+  // remaining draft. Kept fully separate from the pendingSaveRef-based
   // flush effect above: different concern (cleanup, not save), different
   // ref, no shared state between them to avoid the class of bug that caused
   // earlier in this file. Empty deps on purpose — same reasoning as above,
@@ -1246,12 +1251,14 @@ export default function CreateMissionWizard() {
     return () => {
       const abandonedList = startFreshAbandonedRef.current;
       if (!abandonedList.length) return;
-      if (contentRef.current) return; // fresh session has real content — keep everything, delete nothing
-      const stillPromotedId = promotedIdRef.current;
       const builderIdForClear = abandonedList[0].builderId;
       for (const { id } of abandonedList) api.deleteMission(id).catch(() => {});
-      if (stillPromotedId) api.deleteMission(stillPromotedId).catch(() => {});
-      const idsInvolved = [...abandonedList.map(a => a.id), stillPromotedId];
+      let alsoDeletedPromotedId = null;
+      if (!contentRef.current) {
+        const stillPromotedId = promotedIdRef.current;
+        if (stillPromotedId) { api.deleteMission(stillPromotedId).catch(() => {}); alsoDeletedPromotedId = stillPromotedId; }
+      }
+      const idsInvolved = [...abandonedList.map(a => a.id), alsoDeletedPromotedId].filter(Boolean);
       if (idsInvolved.includes(getRecentDraftId(builderIdForClear))) {
         clearRecentDraftId(builderIdForClear);
       }
