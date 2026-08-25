@@ -854,13 +854,28 @@ export default function CreateMissionWizard() {
         const newD = missionToDraft(mission, filters, categories, ptypes);
         setD(newD);
 
+        // Mirrors each step's own actual completion criteria (same fields
+        // fieldsValid/missingX check elsewhere in this file) rather than
+        // assuming later steps are done just because an earlier one is —
+        // this used to jump straight from "tasks exist" to the last step
+        // (5), skipping Audience and Reward checks entirely, so resuming a
+        // draft that had generated test cases but never touched Audience or
+        // Reward yet landed on Review & Publish instead of wherever it was
+        // actually left off.
         let calcMax = 0;
         if (newD.title?.trim() && newD.desc?.trim() && newD.deadline) {
           calcMax = 1;
           if (newD.ptype) {
             calcMax = 2;
             if (newD.tasks?.length > 0) {
-              calcMax = 5;
+              calcMax = 3;
+              const hasAudience = Object.values(newD.filters || {}).some(s => s.size > 0) || Object.values(newD.otherEntries || {}).some(e => e?.length > 0);
+              if (hasAudience) {
+                calcMax = 4;
+                if (newD.reward?.type && newD.reward?.participants > 0) {
+                  calcMax = 5;
+                }
+              }
             }
           }
         }
