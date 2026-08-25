@@ -550,7 +550,15 @@ router.patch("/:id", async (req, res) => {
   if (req.body.name !== undefined && !String(req.body.name).trim()) {
     return res.status(400).json({ error: "Name is required" });
   }
-  if (req.body.deadline) {
+  // Same "only when actually going/staying live" gating as target and
+  // name/category/ptype above. A draft's deadline is allowed to sit in the
+  // past — it naturally drifts there just from time passing while the draft
+  // sits untouched, with nothing wrong having happened; every autosave
+  // after that point was getting rejected purely because of the calendar,
+  // not anything the builder did. The frontend's own missingInfo check
+  // already blocks Publish for exactly this reason, so nothing that
+  // actually goes live can carry a past deadline either way.
+  if (newStatus === "active" && req.body.deadline) {
     const todayStr = new Date().toISOString().slice(0, 10);
     if (String(req.body.deadline).slice(0, 10) < todayStr) {
       return res.status(400).json({ error: "Deadline can't be in the past" });
