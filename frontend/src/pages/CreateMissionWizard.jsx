@@ -728,6 +728,13 @@ export default function CreateMissionWizard() {
   // silently resuming whichever the pointer happens to name.
   useEffect(() => {
     if (missionId) return;
+    // Start Fresh already made this exact decision for the builder — asking
+    // again here would just re-show the same choice they just walked away
+    // from. Same navigation-state technique as openedFromDraftTab above:
+    // rides along on the navigate() call itself, invisible to every other
+    // way of landing on this route (the Dashboard banner, the sidebar
+    // "Create Mission" link, a direct URL visit all still get the real check).
+    if (location.state?.skipDraftPicker) { setLoadingMission(false); return; }
     let cancelled = false;
     api.missions({ status: "draft" }).then(({ missions }) => {
       if (cancelled) return;
@@ -767,6 +774,27 @@ export default function CreateMissionWizard() {
   // to the server yet, so it can still be sent immediately if the wizard
   // unmounts before the debounce fires — see that effect for the full story.
   const pendingSaveRef = useRef(null);
+  // Start Fresh walks away from an existing draft non-destructively at
+  // first — this remembers which one (see doStartFresh below), so the
+  // true-unmount check further down can decide whether to actually delete
+  // it: only if the fresh session that followed never ends up with real
+  // content of its own by the time the builder leaves. Deliberately a
+  // separate ref from pendingSaveRef, not reused — mixing two different
+  // concerns into one shared ref is exactly what caused an earlier bug in
+  // this file (one effect's cleanup silently clobbering another's pending
+  // value on the same render).
+  // An array, not a single slot — clicking "Start fresh" more than once
+  // before ever reaching the true unmount (still possible: the rail button
+  // stays visible on the resulting blank page) must not forget the first
+  // abandoned draft when the second click overwrites it. Every entry in
+  // here gets the same treatment at unmount time.
+  const startFreshAbandonedRef = useRef([]); // Array<{ id, builderId }>
+  // Mirrors promotedId into a ref so the true-unmount cleanup (an effect
+  // with an empty dependency array, whose closure is captured once at
+  // mount and never refreshed) can read its *current* value instead of a
+  // stale one from whenever the component first rendered.
+  const promotedIdRef = useRef(null);
+  useEffect(() => { promotedIdRef.current = promotedId; }, [promotedId]);
   // Reflects the real autosave effects below, not a cosmetic timer — "idle"
   // means nothing worth saving yet, "saving" while a create/update request
   // for the backend draft is actually in flight, "saved" once it lands.
@@ -918,24 +946,34 @@ export default function CreateMissionWizard() {
   }, [published]);
 
   const startFresh = () => setShowStartFreshWarning(true);
-  // "Start fresh" abandons whatever draft is currently open — it only clears
-  // the local recent-draft pointer/scratch so nothing resumes it
-  // automatically next time "Create Mission" is clicked. It never deletes
-  // the underlying DB draft: per the Draft tab's manual-deletion-only
-  // policy, the only way a draft actually goes away is its own trash icon
-  // there — this button just stops pointing at it. Also bumps freshStartRef
-  // so an auto-promote request that's already mid-flight at this exact
-  // moment (2-second debounce already elapsed, response not back yet) knows
-  // to clean up the orphaned mission it creates instead of resurfacing it.
+  // "Start fresh" walks away from whatever draft is currently open without
+  // touching it right away — it only clears the local recent-draft
+  // pointer/scratch so nothing resumes it automatically next time "Create
+  // Mission" is clicked, same non-destructive move the Draft tab's own
+  // Cancel flow uses elsewhere. Whether that old draft actually gets
+  // deleted is decided later, once it's clear whether the fresh session
+  // that follows ever amounts to anything — see startFreshAbandonedRef and
+  // the true-unmount effect that reads it, further down.
+  //
+  // Never marks anything for cleanup when wasActive — an already-live,
+  // published mission is not a draft to discard under any circumstance,
+  // confirmed or not; Start Fresh here only ever resets local wizard state.
+  //
+  // Also bumps freshStartRef so an auto-promote request that's already
+  // mid-flight at this exact moment (2-second debounce already elapsed,
+  // response not back yet) knows to clean up the orphaned mission it
+  // creates instead of resurfacing it.
   const doStartFresh = () => {
     setShowStartFreshWarning(false);
     freshStartRef.current++;
+    const abandonedId = missionId || promotedId;
+    if (abandonedId && !wasActive) startFreshAbandonedRef.current = [...startFreshAbandonedRef.current, { id: abandonedId, builderId }];
     clearAllLocalDraftState(builderId);
     setPromotedId(null);
     setD(freshDraft());
     setStep(0);
     setMaxReached(0);
-    if (missionId) navigate("/missions/new", { replace: true });
+    if (missionId) navigate("/missions/new", { replace: true, state: { skipDraftPicker: true } });
   };
 
   // The two choices on the "Create Mission" draft picker (see draftPicker
@@ -1187,6 +1225,35 @@ export default function CreateMissionWizard() {
           setRecentDraftId(pending.builderId, mission.id);
           clearScratch(pending.builderId);
         }).catch(() => {});
+      }
+    };
+  }, []);
+
+  // Resolves what "Start fresh" deferred: on the wizard's true final
+  // unmount, if the fresh session that followed never ended up with real
+  // content of its own (contentRef mirrors hasContent(d), kept current —
+  // see its own effect above), delete the old draft that was walked away
+  // from — and, if the fresh session had itself been silently promoted to a
+  // real row before being emptied back out again, delete that one too, so
+  // neither is left behind. If the fresh session DOES have real content at
+  // this moment, nothing is touched — both drafts are meant to exist side
+  // by side in that case. Kept fully separate from the pendingSaveRef-based
+  // flush effect above: different concern (cleanup, not save), different
+  // ref, no shared state between them to avoid the class of bug that caused
+  // earlier in this file. Empty deps on purpose — same reasoning as above,
+  // this must only run on the wizard's true, final unmount.
+  useEffect(() => {
+    return () => {
+      const abandonedList = startFreshAbandonedRef.current;
+      if (!abandonedList.length) return;
+      if (contentRef.current) return; // fresh session has real content — keep everything, delete nothing
+      const stillPromotedId = promotedIdRef.current;
+      const builderIdForClear = abandonedList[0].builderId;
+      for (const { id } of abandonedList) api.deleteMission(id).catch(() => {});
+      if (stillPromotedId) api.deleteMission(stillPromotedId).catch(() => {});
+      const idsInvolved = [...abandonedList.map(a => a.id), stillPromotedId];
+      if (idsInvolved.includes(getRecentDraftId(builderIdForClear))) {
+        clearRecentDraftId(builderIdForClear);
       }
     };
   }, []);
