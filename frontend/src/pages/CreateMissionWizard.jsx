@@ -763,6 +763,10 @@ export default function CreateMissionWizard() {
   // Lets the stale-test-cases confirmation modal's "Yes, Regenerate" trigger
   // an actual regeneration on StepTestCases instead of just closing itself.
   const testCasesRef = useRef(null);
+  // Holds whatever the debounced draft-autosave effect below hasn't flushed
+  // to the server yet, so it can still be sent immediately if the wizard
+  // unmounts before the debounce fires — see that effect for the full story.
+  const pendingSaveRef = useRef(null);
   // Reflects the real autosave effects below, not a cosmetic timer — "idle"
   // means nothing worth saving yet, "saving" while a create/update request
   // for the backend draft is actually in flight, "saved" once it lands.
@@ -1121,16 +1125,42 @@ export default function CreateMissionWizard() {
   // an edit and navigating away without saving still silently overwrote it.
   useEffect(() => {
     const id = missionId || promotedId;
-    if (!id || loadingMission || published || wasActive) return;
+    if (!id || loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
+    const payload = buildMissionPayload("draft");
+    // Tracked outside the timer so the flush-on-unmount effect below can
+    // still send this exact payload if the builder navigates away before
+    // the debounce ever gets to fire — see that effect for why.
+    pendingSaveRef.current = { id, payload };
     const timer = setTimeout(() => {
+      pendingSaveRef.current = null;
       setSaveStatus("saving");
-      api.updateMission(id, buildMissionPayload("draft"))
+      api.updateMission(id, payload)
         .then(() => setSaveStatus("saved"))
         .catch(() => setSaveStatus("idle"));
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, missionId, promotedId, loadingMission, published, wasActive]);
+
+  // The debounce above cancels its own timer on every d change — that's the
+  // debounce working as intended. But that same cleanup also runs when the
+  // wizard unmounts entirely (navigating away, e.g. browser Back), and in
+  // that case cancelling silently drops whatever edit was still pending —
+  // there's no local fallback to catch it once a real draft row exists (the
+  // scratch copy is intentionally cleared at that point, DB is the source
+  // of truth from then on). Empty deps here on purpose: this cleanup must
+  // only run on the wizard's true, final unmount, not on every re-render —
+  // otherwise it would flush prematurely on every debounce reset too. The
+  // request itself outlives the component (an in-app route change doesn't
+  // cancel an in-flight fetch), so it still completes normally.
+  useEffect(() => {
+    return () => {
+      if (pendingSaveRef.current) {
+        const { id, payload } = pendingSaveRef.current;
+        api.updateMission(id, payload).catch(() => {});
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (saveStatus === "saved") {
@@ -1479,6 +1509,7 @@ export default function CreateMissionWizard() {
                 disabled={deletingDraft}
                 onClick={async () => {
                   setDeletingDraft(true);
+                  pendingSaveRef.current = null; // about to delete the mission — nothing left to flush on unmount
                   try {
                     await api.deleteMission(missionId);
                     if (getRecentDraftId(builderId) === missionId) clearRecentDraftId(builderId);
