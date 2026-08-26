@@ -837,10 +837,15 @@ export default function CreateMissionWizard() {
 
   const publishedRef = useRef(published);
   const contentRef = useRef(hasContent(d));
+  // Mirrors `d` itself for the true-unmount checkpoint further down, whose
+  // closure is captured once at mount and would otherwise only ever see the
+  // initial, empty draft.
+  const dRef = useRef(d);
 
   useEffect(() => {
     publishedRef.current = published;
     contentRef.current = hasContent(d);
+    dRef.current = d;
   }, [published, d]);
 
   useEffect(() => {
@@ -947,7 +952,15 @@ export default function CreateMissionWizard() {
   // autosave effect below keeps it current instead.
   useEffect(() => {
     if (missionId || promotedId || published) return;
-    if (!hasContent(d)) return;
+    // Erasing back to nothing must wipe the backup too, not just stop
+    // refreshing it — otherwise the last non-empty value written (e.g. one
+    // character still in the title mid-backspace) lingers in localStorage
+    // forever. The next visit's initial `d` reads straight from this scratch
+    // (see the useState initializer above), so that stale leftover would
+    // silently reappear as real, non-empty content in a brand-new session —
+    // and the leave-checkpoint below would then dutifully save it as a real
+    // draft, even though nothing was ever typed in that new session.
+    if (!hasContent(d)) { clearScratch(builderId); return; }
     setScratch(builderId, { ...draftToPlain(d), step, maxReached });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, step, maxReached, missionId, promotedId, published, builderId]);
@@ -1164,83 +1177,61 @@ export default function CreateMissionWizard() {
     setShowExitWarning(true);
   };
 
-  const buildMissionPayload = (status) => {
-    const audience = buildAudiencePayload(d);
+  // dArg defaults to the live `d` closure, but accepts an explicit snapshot
+  // (dRef.current) for the true-unmount checkpoint below, whose own closure
+  // is captured once at mount and never sees later keystrokes.
+  const buildMissionPayload = (status, dArg = d) => {
+    const audience = buildAudiencePayload(dArg);
     audience._maxReached = maxReached;
     const geo = (audience.Geography || []).filter(v => v.toLowerCase() !== "other");
     return {
-      name: d.title || t("createMission.untitledMission", null, "Untitled mission"),
-      description: d.desc,
-      category: d.cat,
-      ptype: d.ptype,
+      name: dArg.title || t("createMission.untitledMission", null, "Untitled mission"),
+      description: dArg.desc,
+      category: dArg.cat,
+      ptype: dArg.ptype,
       status,
-      target: d.reward.participants,
-      reward: { type: d.reward.type, amount: d.reward.amount },
+      target: dArg.reward.participants,
+      reward: { type: dArg.reward.type, amount: dArg.reward.amount },
       region: geo.length ? geo.join(", ") : "Worldwide",
       audience,
-      tasks: d.tasks,
-      testCaseForm: (d.testCaseForm || d.genFor) ? { form: d.testCaseForm || null, genFor: d.genFor || null } : null,
-      durationDays: d.durationDays,
-      deadline: d.deadline || null,
+      tasks: dArg.tasks,
+      testCaseForm: (dArg.testCaseForm || dArg.genFor) ? { form: dArg.testCaseForm || null, genFor: dArg.genFor || null } : null,
+      durationDays: dArg.durationDays,
+      deadline: dArg.deadline || null,
     };
   };
 
-  // Silently promotes a brand-new mission's localStorage-only scratch draft
-  // to a real backend draft once it has content worth not losing — the same
-  // canonical hasContent() the scratch write, the Dashboard banner, and the
-  // Missions toast all use, so none of them can drift out of sync with each
-  // other. One-shot: once promotedId is set, this effect stops firing and
-  // the update effect below takes over keeping that same row current.
-  useEffect(() => {
-    if (missionId || promotedId || published) { pendingSaveRef.current = null; return; }
-    if (!hasContent(d)) { pendingSaveRef.current = null; return; }
+  // The only place a brand-new mission's server-side draft row gets created.
+  // Called at deliberate checkpoints (Continue, and leaving — see below)
+  // instead of a background timer: a timer fires while the user may still be
+  // mid-edit, so its request can resolve after they've already changed their
+  // mind, and no amount of staleness-checking at resolution time closes that
+  // window for good. A checkpoint reads `d` at one exact, unambiguous instant,
+  // so there's nothing left to race against. Idempotent — once missionId or
+  // promotedId exists, every later call is a no-op.
+  const promoteIfNeeded = async () => {
+    if (missionId || promotedId || published) return missionId || promotedId || null;
+    if (!hasContent(d)) return null;
+    // Captured so that if Start Fresh runs while this request is still in
+    // flight, the resolution below recognizes the wizard has moved on and
+    // cleans up instead of re-attaching an abandoned mission as promotedId
+    // on what's now a blank session.
     const startGen = freshStartRef.current;
     const payload = buildMissionPayload("draft");
-    // Tracked so the flush-on-unmount effect further down can still create
-    // this draft (with everything typed so far, not just whatever had
-    // already been sitting there 2 seconds ago) if the builder navigates
-    // away before this debounce ever gets to fire.
-    pendingSaveRef.current = { kind: "create", payload, startGen, builderId };
-    const timer = setTimeout(() => {
-      pendingSaveRef.current = null;
-      setSaveStatus("saving");
-      api.createMission(payload).then(({ mission }) => {
-        // "Start fresh" ran while this request was already in flight — the
-        // wizard has moved on, so this mission was never actually seen by
-        // the user and would otherwise sit orphaned forever. Clean it up
-        // instead of re-attaching it to the reset wizard as promotedId.
-        if (freshStartRef.current !== startGen) { api.deleteMission(mission.id).catch(() => {}); return; }
-        // Content may have been fully erased (typing takes no time, but
-        // backspacing a longer string character-by-character does — long
-        // enough for this 2-second-debounced request to still be in flight
-        // when it happens) — possibly with the builder already having left
-        // by the time this resolves. contentRef is checked here rather than
-        // hasContent(d) directly because it's a plain ref, kept current
-        // independent of whether the component is still mounted; d itself
-        // can't be trusted post-unmount, and once unmounted there's no live
-        // effect left to run the normal delete-on-empty cleanup on this —
-        // it has to be decided right here or never.
-        if (!contentRef.current) { api.deleteMission(mission.id).catch(() => {}); return; }
-        setRecentDraftId(builderId, mission.id);
-        clearScratch(builderId); // a real DB row now exists — it's the source of truth from here on
-        setPromotedId(mission.id);
-        setSaveStatus("saved");
-      }).catch(() => setSaveStatus("idle") /* stays localStorage-only; retries on the next content change */);
-    }, 2000);
-    return () => clearTimeout(timer);
-    // maxReached deliberately excluded — this effect fires once, ever, to
-    // create the row in the first place, so it doesn't need to re-arm its
-    // debounce just because the step advanced (that only mattered for
-    // keeping an EXISTING draft's stored progress current, which the update
-    // effect below already does). Including it here meant clicking Continue
-    // reset the whole 2-second timer from zero on every step change, even
-    // though d itself hadn't changed — completing one step and leaving
-    // shortly after Continue could then miss the natural-firing window
-    // entirely and fall through to the unmount-flush every time. Any
-    // staleness in _maxReached at the single moment this fires gets
-    // corrected by the very next save regardless.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, missionId, promotedId, published, builderId]);
+    setSaveStatus("saving");
+    try {
+      const { mission } = await api.createMission(payload);
+      if (freshStartRef.current !== startGen) { api.deleteMission(mission.id).catch(() => {}); return null; }
+      setRecentDraftId(builderId, mission.id);
+      clearScratch(builderId);
+      setPromotedId(mission.id);
+      setSaveStatus("saved");
+      return mission.id;
+    } catch {
+      setSaveStatus("idle"); // stays localStorage-only; the next edit or checkpoint retries
+      return null;
+    }
+  };
 
   // Autosave while resuming an existing draft, or once a new mission has been
   // auto-promoted above: edits are already backed by a real row that nobody
@@ -1259,14 +1250,10 @@ export default function CreateMissionWizard() {
   // an edit and navigating away without saving still silently overwrote it.
   useEffect(() => {
     const id = missionId || promotedId;
-    // No id yet at all — this is still the pre-promotion phase, which the
-    // create effect above owns. Deliberately doesn't touch pendingSaveRef
-    // here: on every render before promotion, that effect runs first and
-    // sets it, and this effect running right after with a blanket null
-    // would silently wipe out that pending create on every single edit,
-    // defeating the unmount-flush safety net for the entire phase before a
-    // real draft row exists — exactly the gap that let the last edit
-    // (test cases) go unsaved.
+    // No id yet at all — this is still the pre-promotion phase, which only
+    // ever gets resolved by a checkpoint (Continue, or leaving — see
+    // promoteIfNeeded and the true-unmount effect below), never by this
+    // effect.
     if (!id) return;
     if (loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
 
@@ -1286,8 +1273,9 @@ export default function CreateMissionWizard() {
         setSaveStatus("saving");
         api.deleteMission(idToDelete).then(() => {
           if (getRecentDraftId(builderId) === idToDelete) clearRecentDraftId(builderId);
-        }).catch(() => {}).finally(() => {
-          setPromotedId(null); // back to pre-promotion state — the create effect above re-arms on the next real edit
+        }).catch(() => {})
+          .finally(() => {
+          setPromotedId(null); // back to pre-promotion state — the next Continue/leave checkpoint re-promotes on real content
           setSaveStatus("idle");
         });
       }, 800);
@@ -1310,38 +1298,47 @@ export default function CreateMissionWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [d, missionId, promotedId, loadingMission, published, wasActive, maxReached]);
 
-  // Both debounces above (the initial create, and the update once a draft
-  // row exists) cancel their own timer on every d change — that's the
-  // debounce working as intended. But that same cleanup also runs when the
-  // wizard unmounts entirely (navigating away, e.g. browser Back), and in
-  // that case cancelling silently drops whatever edit was still pending —
-  // there's no local fallback to catch it once a real draft row exists (the
-  // scratch copy is intentionally cleared at that point, DB is the source
-  // of truth from then on), and even before promotion, a fast enough
-  // sequence of edits can keep resetting the 2-second create-debounce
-  // indefinitely without ever letting it fire. Empty deps here on purpose:
-  // this cleanup must only run on the wizard's true, final unmount, not on
-  // every re-render — otherwise it would flush prematurely on every
-  // debounce reset too. The request itself outlives the component (an
-  // in-app route change doesn't cancel an in-flight fetch), so it still
-  // completes normally; setRecentDraftId/clearScratch are plain localStorage
-  // writes, not React state, so they're still safe and meaningful to call
-  // from a .then() after the component is long gone.
+  // The debounce above (the update-once-promoted effect) cancels its own
+  // timer on every d change — that's the debounce working as intended. But
+  // that same cleanup also runs when the wizard unmounts entirely (navigating
+  // away, e.g. browser Back), and in that case cancelling silently drops
+  // whatever edit was still pending. Empty deps here on purpose: this cleanup
+  // must only run on the wizard's true, final unmount, not on every
+  // re-render. The request itself outlives the component (an in-app route
+  // change doesn't cancel an in-flight fetch), so it still completes
+  // normally; setRecentDraftId/clearScratch are plain localStorage writes,
+  // not React state, so they're still safe and meaningful to call from a
+  // .then() after the component is long gone.
+  //
+  // This is also the second (and last) of the two deliberate checkpoints
+  // that ever create a brand-new mission's draft row — the other is
+  // promoteIfNeeded() on Continue. If the wizard is unmounting with real
+  // content that was never promoted (no missionId, no promotedId), that
+  // content is about to disappear from the page for good, so it's created
+  // now, reading dRef/contentRef (plain refs, kept current independent of
+  // whether the component is still mounted) rather than d/hasContent(d)
+  // directly, since this closure was captured once at mount and never sees
+  // later renders. An explicit Discard clears contentRef itself first (see
+  // its onClick) specifically so this branch skips creating anything it was
+  // just told to throw away.
   useEffect(() => {
     return () => {
       const pending = pendingSaveRef.current;
-      if (!pending) return;
-      if (pending.kind === "update") {
+      if (pending?.kind === "update") {
         api.updateMission(pending.id, pending.payload).catch(() => {});
-      } else if (pending.kind === "delete") {
+        return;
+      }
+      if (pending?.kind === "delete") {
         api.deleteMission(pending.id).then(() => {
           if (getRecentDraftId(pending.builderId) === pending.id) clearRecentDraftId(pending.builderId);
         }).catch(() => {});
-      } else {
-        api.createMission(pending.payload).then(({ mission }) => {
-          if (freshStartRef.current !== pending.startGen) { api.deleteMission(mission.id).catch(() => {}); return; }
-          setRecentDraftId(pending.builderId, mission.id);
-          clearScratch(pending.builderId);
+        return;
+      }
+      if (!missionId && !promotedIdRef.current && contentRef.current) {
+        const payload = buildMissionPayload("draft", dRef.current);
+        api.createMission(payload).then(({ mission }) => {
+          setRecentDraftId(builderId, mission.id);
+          clearScratch(builderId);
         }).catch(() => {});
       }
     };
@@ -1430,6 +1427,7 @@ export default function CreateMissionWizard() {
       return;
     }
     if (last) return publish();
+    promoteIfNeeded(); // fire-and-forget checkpoint — see its own comment
     const next = step + 1;
     setStep(next);
     setMaxReached(m => Math.max(m, next));
@@ -1781,6 +1779,11 @@ export default function CreateMissionWizard() {
                       // the DB draft itself is never deleted here. The Draft tab's
                       // trash icon is the one place that actually removes it.
                       clearAllLocalDraftState(builderId);
+                      // saveWorthy here can be true purely from hasContent(d) with
+                      // no missionId/promotedId yet — without this, the true-unmount
+                      // checkpoint below would see that same content and create the
+                      // very draft this button just said to throw away.
+                      contentRef.current = false;
                       navigate("/");
                     }}>{t("createMission.discardDraft", null, "Discard draft")}</button>
                     <button className="btn btn-primary" onClick={() => navigate("/")}>{t("createMission.keepAsDraft", null, "Keep as draft")}</button>
