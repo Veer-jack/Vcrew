@@ -1699,18 +1699,23 @@ export default function CreateMissionWizard() {
                   : t("createMission.leaveUnsavedDraftBody", null, "You haven't entered anything yet, so there's nothing to save. Leaving now won't create a draft.")}
               </p>
               <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-                {saveWorthy && (
-                  <button className="btn outline" onClick={() => {
-                    // Discard only ever clears the local resume pointer/scratch —
-                    // the DB draft itself is never deleted here. The Draft tab's
-                    // trash icon is the one place that actually removes it.
-                    clearAllLocalDraftState(builderId);
-                    navigate("/");
-                  }}>{t("createMission.discardDraft", null, "Discard draft")}</button>
+                {saveWorthy ? (
+                  <>
+                    <button className="btn outline" onClick={() => {
+                      // Discard only ever clears the local resume pointer/scratch —
+                      // the DB draft itself is never deleted here. The Draft tab's
+                      // trash icon is the one place that actually removes it.
+                      clearAllLocalDraftState(builderId);
+                      navigate("/");
+                    }}>{t("createMission.discardDraft", null, "Discard draft")}</button>
+                    <button className="btn btn-primary" onClick={() => navigate("/")}>{t("createMission.keepAsDraft", null, "Keep as draft")}</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => navigate("/")}>{t("actions.leave", null, "Leave")}</button>
+                    <button className="btn" style={{ color: "var(--accent)", background: "transparent", border: "none" }} onClick={() => setShowExitWarning(false)}>{t("actions.continue", null, "Continue")}</button>
+                  </>
                 )}
-                <button className="btn btn-primary" onClick={() => navigate("/")}>
-                  {saveWorthy ? t("createMission.keepAsDraft", null, "Keep as draft") : t("actions.leave", null, "Leave")}
-                </button>
               </div>
             </div>
           </Modal>
