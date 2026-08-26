@@ -1708,12 +1708,12 @@ export default function CreateMissionWizard() {
                       clearAllLocalDraftState(builderId);
                       navigate("/");
                     }}>{t("createMission.discardDraft", null, "Discard draft")}</button>
-                    <button className="btn" style={{ color: "var(--accent)", background: "transparent", border: "none" }} onClick={() => navigate("/")}>{t("createMission.keepAsDraft", null, "Keep as draft")}</button>
+                    <button className="btn btn-primary" onClick={() => navigate("/")}>{t("createMission.keepAsDraft", null, "Keep as draft")}</button>
                   </>
                 ) : (
                   <>
                     <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => navigate("/")}>{t("actions.leave", null, "Leave")}</button>
-                    <button className="btn" style={{ color: "var(--accent)", background: "transparent", border: "none" }} onClick={() => setShowExitWarning(false)}>{t("actions.continue", null, "Continue")}</button>
+                    <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("actions.continue", null, "Continue")}</button>
                   </>
                 )}
               </div>
