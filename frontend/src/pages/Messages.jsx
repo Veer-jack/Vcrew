@@ -108,7 +108,7 @@ export default function Messages() {
 
   return (
     <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", height: "calc(100vh - 64px)" }}>
-      <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0 }}>
+      <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           {refetching && <div style={{ marginBottom: 8 }}><UpdatingBadge show /></div>}
           <div className="seg-search" style={{ maxWidth: "100%" }}><Icon name="search" size={16} /><input placeholder={t("messages.searchPlaceholder", null, "Search conversations…")} value={q} onChange={e => setQ(e.target.value)} /></div>
@@ -137,7 +137,7 @@ export default function Messages() {
         </div>
       </div>
       {active && (
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <div className="row gap-3" style={{ padding: "12px 24px", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <Avatar name={active.name} size={40} />
             <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)}</div></div>

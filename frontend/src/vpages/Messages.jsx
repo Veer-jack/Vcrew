@@ -93,7 +93,7 @@ export default function Messages() {
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", height: "calc(100vh - 64px)" }} className="msg-wrap">
-      <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0 }}>
+      <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px var(--pad-card) 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           <div className="search"><Icon name="search" size={16} /><input placeholder={t("messages.searchMessages", null, "Search messages…")} value={q} onChange={e => setQ(e.target.value)} /></div>
         </div>
@@ -121,7 +121,7 @@ export default function Messages() {
         </div>
       </div>
       {active && (
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <div className="row gap-3" style={{ padding: "13px var(--pad-page)", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <VAvatar name={active.name} size={40} />
             <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)} · {active.mission}</div></div>
