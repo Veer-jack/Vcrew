@@ -1481,7 +1481,7 @@ export default function CreateMissionWizard() {
     const single = drafts.length === 1;
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon>
+        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon bodyScroll={false}>
           <div style={{ padding: 20 }}>
             {single ? (
               <p style={{ margin: "0 0 4px", fontSize: 14 }}>
