@@ -1701,14 +1701,14 @@ export default function CreateMissionWizard() {
               <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
                 {saveWorthy ? (
                   <>
-                    <button className="btn outline" onClick={() => {
+                    <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => {
                       // Discard only ever clears the local resume pointer/scratch —
                       // the DB draft itself is never deleted here. The Draft tab's
                       // trash icon is the one place that actually removes it.
                       clearAllLocalDraftState(builderId);
                       navigate("/");
                     }}>{t("createMission.discardDraft", null, "Discard draft")}</button>
-                    <button className="btn btn-primary" onClick={() => navigate("/")}>{t("createMission.keepAsDraft", null, "Keep as draft")}</button>
+                    <button className="btn" style={{ color: "var(--accent)", background: "transparent", border: "none" }} onClick={() => navigate("/")}>{t("createMission.keepAsDraft", null, "Keep as draft")}</button>
                   </>
                 ) : (
                   <>
