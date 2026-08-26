@@ -1210,6 +1210,17 @@ export default function CreateMissionWizard() {
         // the user and would otherwise sit orphaned forever. Clean it up
         // instead of re-attaching it to the reset wizard as promotedId.
         if (freshStartRef.current !== startGen) { api.deleteMission(mission.id).catch(() => {}); return; }
+        // Content may have been fully erased (typing takes no time, but
+        // backspacing a longer string character-by-character does — long
+        // enough for this 2-second-debounced request to still be in flight
+        // when it happens) — possibly with the builder already having left
+        // by the time this resolves. contentRef is checked here rather than
+        // hasContent(d) directly because it's a plain ref, kept current
+        // independent of whether the component is still mounted; d itself
+        // can't be trusted post-unmount, and once unmounted there's no live
+        // effect left to run the normal delete-on-empty cleanup on this —
+        // it has to be decided right here or never.
+        if (!contentRef.current) { api.deleteMission(mission.id).catch(() => {}); return; }
         setRecentDraftId(builderId, mission.id);
         clearScratch(builderId); // a real DB row now exists — it's the source of truth from here on
         setPromotedId(mission.id);
