@@ -756,10 +756,18 @@ export default function CreateMissionWizard() {
       // Server already orders drafts newest-first (created_at DESC) — that's
       // "the latest" for pre-selecting, unless the pointer names one of the
       // ones actually in this list, in which case honor it (it reflects
-      // whichever draft was most recently *touched*, not just created).
+      // whichever draft was most recently *touched*, not just created). That
+      // one is also moved to the front of the rendered list — leaving it
+      // highlighted wherever it naturally fell by creation date meant it
+      // could be pre-selected several rows below the fold, invisible without
+      // scrolling. Everything else keeps its existing newest-first order.
       const recentId = getRecentDraftId(builderId);
-      const defaultId = missions.some(m => m.id === recentId) ? recentId : missions[0].id;
-      setDraftPicker({ drafts: missions, selectedId: defaultId });
+      const recentIdx = missions.findIndex(m => m.id === recentId);
+      const orderedDrafts = recentIdx > 0
+        ? [missions[recentIdx], ...missions.slice(0, recentIdx), ...missions.slice(recentIdx + 1)]
+        : missions;
+      const defaultId = recentIdx >= 0 ? recentId : missions[0].id;
+      setDraftPicker({ drafts: orderedDrafts, selectedId: defaultId });
       setLoadingMission(false);
     }).catch(() => {
       // Fail open — a transient error here shouldn't block creating a
