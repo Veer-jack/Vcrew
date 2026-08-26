@@ -31,7 +31,7 @@ const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
       <div className="modal-list-actions">
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 45 }}>
           <span style={{ fontWeight: 700, color: "var(--accent)", fontSize: 15 }}>{v.match}%</span>
-          <span className="muted" style={{ fontSize: 10.5, marginTop: 2, fontWeight: 500 }}>{t("invite.matchLabel", null, "Match")}</span>
+          <span className="muted" style={{ fontSize: 10.5, marginTop: 2, fontWeight: 500 }}>{t("invite.matchLabel", null, "Profile Score")}</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 60 }}>
           <span style={{ fontWeight: 700, color: "var(--success)", fontSize: 15, display: "flex", alignItems: "center", gap: 4 }}>
@@ -74,11 +74,19 @@ export function InviteValidatorModal({ mission, onClose }) {
   const [validators, setValidators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
-  
+  // The mission's own saved audience definition (Geography/Professional/
+  // Interests/etc.) — the candidate list from the API is already scoped to
+  // it server-side; this is only kept to show what that scoping actually is
+  // as read-only chips, so the builder can see why this list is what it is.
+  const [missionAudience, setMissionAudience] = useState(null);
+
   // New States for UI
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [activeFilters, setActiveFilters] = useState(new Set());
+  // Recommended is on by default — a first-open view narrowed to the
+  // stronger profiles within the mission's real audience match, rather than
+  // dumping the full matched list unfiltered. Trust 90+ stays opt-in.
+  const [activeFilters, setActiveFilters] = useState(() => new Set([t("invite.recommended", null, "Recommended")]));
   const [viewOnlySelected, setViewOnlySelected] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
 
@@ -88,10 +96,28 @@ export function InviteValidatorModal({ mission, onClose }) {
         const reqRole = mission.ptype === 'trial' ? 'Tester' : 'Validator';
         const filtered = (res.members || []).filter(v => v.role === reqRole || v.role === 'Validator');
         setValidators(filtered);
+        setMissionAudience(res.missionAudience || null);
       })
       .catch(() => toast.error(t("invite.failedToLoadAudience", null, "Failed to load audience")))
       .finally(() => setLoading(false));
   }, [mission, t]);
+
+  // Flattened, de-duplicated list of the mission's own selected audience
+  // values (skipping the same no-op markers the backend's own matching does —
+  // Worldwide/Remote/Other carry no filter meaning of their own) — purely for
+  // display, so the builder can see what this list is already scoped to.
+  const audienceFilterChips = useMemo(() => {
+    if (!missionAudience) return [];
+    const vals = new Set();
+    for (const values of Object.values(missionAudience)) {
+      if (!Array.isArray(values)) continue;
+      for (const v of values) {
+        if (/^(worldwide|remote|other)$/i.test(v)) continue;
+        vals.add(v);
+      }
+    }
+    return Array.from(vals);
+  }, [missionAudience]);
 
   // Derived state for skills to show in filter pills
   const availableSkills = useMemo(() => {
@@ -148,13 +174,21 @@ export function InviteValidatorModal({ mission, onClose }) {
       );
     }
     
-    if (activeFilters.has(t("invite.recommended", null, "Recommended"))) {
+    // These two are both "quality signal" chips rather than different
+    // criteria — a strong match and a high trust score aren't things a
+    // person needs both of, so with both active this is an OR (either signal
+    // is good enough), not the AND every other filter chip here uses. With
+    // only one active, it behaves exactly like any other single filter.
+    const recommendedOn = activeFilters.has(t("invite.recommended", null, "Recommended"));
+    const trust90On = activeFilters.has(t("invite.trust90", null, "Trust 90+"));
+    if (recommendedOn && trust90On) {
+      list = list.filter(v => v.match >= 80 || v.trust >= 90).sort((a, b) => b.match - a.match);
+    } else if (recommendedOn) {
       list = list.filter(v => v.match >= 80).sort((a, b) => b.match - a.match);
-    }
-    if (activeFilters.has(t("invite.trust90", null, "Trust 90+"))) {
+    } else if (trust90On) {
       list = list.filter(v => v.trust >= 90);
     }
-    
+
     availableSkills.forEach(s => {
       if (activeFilters.has(s)) {
         list = list.filter(v => (v.expertise || []).includes(s));
@@ -241,6 +275,15 @@ export function InviteValidatorModal({ mission, onClose }) {
             </button>
           </div>
           
+          {audienceFilterChips.length > 0 && (
+            <div className="row" style={{ flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 12 }}>
+              <span className="muted" style={{ fontSize: 12, fontWeight: 600, marginRight: 2 }}>{t("invite.targetingLabel", null, "Targeting")}:</span>
+              {audienceFilterChips.map(f => (
+                <span key={f} className="chip on" style={{ pointerEvents: "none", fontSize: 11.5 }}>{trFilterLabel(t, f)}</span>
+              ))}
+            </div>
+          )}
+
           <div className="row ac search-wrapper" style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
             <Icon name="search" size={16} color="var(--text-muted)" style={{ marginRight: 10 }} />
             <input 
@@ -267,12 +310,12 @@ export function InviteValidatorModal({ mission, onClose }) {
                 WebkitOverflowScrolling: "touch"
               }}
             >
-              <Btn 
-                variant={activeFilters.has(t("invite.recommended", null, "Recommended")) ? "primary" : "ghost"} 
-                size="sm" 
+              <Btn
+                variant={activeFilters.has(t("invite.recommended", null, "Recommended")) ? "primary" : "ghost"}
+                size="sm"
                 icon="zap"
                 onClick={() => toggleFilter(t("invite.recommended", null, "Recommended"))}
-                style={{ borderRadius: 20, border: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "none" : "1px solid var(--border)", background: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "var(--accent-weak)" : "transparent", color: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "var(--accent)" : "inherit" }}
+                style={{ borderRadius: 20, border: activeFilters.has(t("invite.recommended", null, "Recommended")) ? "none" : "1px solid var(--border)" }}
               >
                 {t("invite.recommended", null, "Recommended")}
               </Btn>
