@@ -668,6 +668,15 @@ export default function CreateMissionWizard() {
   // "stop auto-resuming this" (the common case) or "actually delete it"
   // (only when the builder deliberately opened this specific saved draft).
   const openedFromDraftTab = !!location.state?.fromDraftList;
+  // Set only by Start Fresh (see doStartFresh), carrying forward whether
+  // *that* draft had been opened from the Draft tab — so that if this fresh
+  // session also ends up abandoned with nothing entered, Cancel sends the
+  // builder back to where they actually came from (the Draft tab) rather
+  // than defaulting to the Dashboard. Deliberately separate from
+  // openedFromDraftTab above: that one still correctly reads false here
+  // (this session has no specific draft of its own to delete), this one
+  // only ever affects where an empty-form Cancel redirects to.
+  const cameFromDraftTab = !!location.state?.cameFromDraftTab;
 
   // Resuming an existing mission opens on Review by default, with every step
   // already unlocked via the rail/Edit links — the scratch localStorage draft
@@ -989,7 +998,7 @@ export default function CreateMissionWizard() {
     setD(freshDraft());
     setStep(0);
     setMaxReached(0);
-    if (missionId) navigate("/missions/new", { replace: true, state: { skipDraftPicker: true } });
+    if (missionId) navigate("/missions/new", { replace: true, state: { skipDraftPicker: true, cameFromDraftTab: openedFromDraftTab } });
   };
 
   // Non-destructive alternative to Start Fresh, only offered for an
@@ -1129,6 +1138,23 @@ export default function CreateMissionWizard() {
   );
   const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount);
   const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingReward;
+
+  // Whether this draft is already save-worthy (a real DB row exists, or
+  // enough content exists that the pending debounce will promote it
+  // momentarily) — drives both the exit modal's copy/buttons and whether
+  // Cancel needs to ask anything at all. Lifted to component scope (rather
+  // than computed inline where the modal renders) so the Cancel button's
+  // own click handler below can use it too.
+  const saveWorthy = missionId || promotedId || hasContent(d);
+  // Where an empty-form Cancel — no confirmation needed, nothing to lose —
+  // should land: back to the Draft tab if this session started from a
+  // specific draft row there (directly, or via that draft's own Start
+  // Fresh), or the Dashboard otherwise.
+  const emptyLeaveTarget = (openedFromDraftTab || cameFromDraftTab) ? "/missions?tab=draft" : "/";
+  const handleCancelClick = () => {
+    if (!wasActive && !saveWorthy) { navigate(emptyLeaveTarget); return; }
+    setShowExitWarning(true);
+  };
 
   const buildMissionPayload = (status) => {
     const audience = buildAudiencePayload(d);
@@ -1500,10 +1526,10 @@ export default function CreateMissionWizard() {
             <button className="backlink" onClick={clearAllFields}><Icon name="refresh" size={16} /> {t("createMission.clearAllFields", null, "Clear all fields")}</button>
           )}
           {step === 0 ? (
-            <button className="btn" onClick={() => setShowExitWarning(true)} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
+            <button className="btn" onClick={handleCancelClick} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
             <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-              <button className="btn" onClick={() => setShowExitWarning(true)} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
+              <button className="btn" onClick={handleCancelClick} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
               <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("createMission.back", null, "Back")}</button>
             </div>
           )}
@@ -1691,11 +1717,6 @@ export default function CreateMissionWizard() {
         </Modal>
       )}
       {showExitWarning && !wasActive && !openedFromDraftTab && (() => {
-        // Whether this draft is already save-worthy (a real DB row exists,
-        // or enough content exists that the pending debounce will promote
-        // it momentarily) — drives both the copy and whether "Discard" is
-        // even offered, since an untouched form has nothing to discard.
-        const saveWorthy = missionId || promotedId || hasContent(d);
         return (
           <Modal title={t("createMission.unsavedChangesTitle", null, "Leave this draft?")} onClose={() => setShowExitWarning(false)} width={440} hideCloseIcon>
             <div style={{ padding: 20 }}>
@@ -1718,7 +1739,7 @@ export default function CreateMissionWizard() {
                   </>
                 ) : (
                   <>
-                    <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => navigate("/")}>{t("actions.leave", null, "Leave")}</button>
+                    <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => navigate(emptyLeaveTarget)}>{t("actions.leave", null, "Leave")}</button>
                     <button className="btn btn-primary" onClick={() => setShowExitWarning(false)}>{t("actions.continue", null, "Continue")}</button>
                   </>
                 )}
