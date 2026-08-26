@@ -1250,6 +1250,31 @@ export default function CreateMissionWizard() {
     // (test cases) go unsaved.
     if (!id) return;
     if (loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
+
+    // A mission created silently during THIS session (promotedId — never a
+    // pre-existing missionId) that got typed into and then fully erased
+    // back to empty shouldn't linger as a ghost "Untitled mission" row —
+    // undo the promotion instead of continuing to PATCH blank content onto
+    // it. Scoped to promotedId only: a real, pre-existing draft (missionId,
+    // opened from the Draft tab or resumed) is never touched here, even if
+    // it's momentarily empty mid-edit — that's a much bigger, riskier
+    // behavior this isn't meant to cover.
+    if (!missionId && promotedId && !hasContent(d)) {
+      const idToDelete = promotedId;
+      pendingSaveRef.current = { kind: "delete", id: idToDelete, builderId };
+      const timer = setTimeout(() => {
+        pendingSaveRef.current = null;
+        setSaveStatus("saving");
+        api.deleteMission(idToDelete).then(() => {
+          if (getRecentDraftId(builderId) === idToDelete) clearRecentDraftId(builderId);
+        }).catch(() => {}).finally(() => {
+          setPromotedId(null); // back to pre-promotion state — the create effect above re-arms on the next real edit
+          setSaveStatus("idle");
+        });
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+
     const payload = buildMissionPayload("draft");
     // Tracked outside the timer so the flush-on-unmount effect below can
     // still send this exact payload if the builder navigates away before
@@ -1289,6 +1314,10 @@ export default function CreateMissionWizard() {
       if (!pending) return;
       if (pending.kind === "update") {
         api.updateMission(pending.id, pending.payload).catch(() => {});
+      } else if (pending.kind === "delete") {
+        api.deleteMission(pending.id).then(() => {
+          if (getRecentDraftId(pending.builderId) === pending.id) clearRecentDraftId(pending.builderId);
+        }).catch(() => {});
       } else {
         api.createMission(pending.payload).then(({ mission }) => {
           if (freshStartRef.current !== pending.startGen) { api.deleteMission(mission.id).catch(() => {}); return; }
