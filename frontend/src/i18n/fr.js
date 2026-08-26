@@ -1929,7 +1929,7 @@ const fr = {
     otherGeoPlaceholder: "ex. Népal, Sri Lanka…",
     confirmAudienceHint: "Confirmez votre sélection d'audience pour continuer",
     noFiltersWarning: "Sélectionnez au moins un filtre pour définir votre audience.",
-    zeroMatchingWarning: "Aucune audience correspondante trouvée avec vos filtres actuels. Essayez d'ajuster vos filtres ou d'élargir la zone géographique. Si aucune audience n'est disponible pour le moment, nous continuerons à chercher et vous informerons dans les 24 heures dès qu'une correspondance sera trouvée.",
+    zeroMatchingWarning: "Aucune audience correspondante trouvée avec vos filtres actuels. Essayez d'ajuster vos filtres ou d'élargir la zone géographique pour toucher plus de personnes.",
     staleTestCasesToast: "Poursuite avec vos cas de test précédents — vous pouvez les régénérer à tout moment depuis l'étape 3.",
     fieldsLockedHint: "Verrouillé car un validateur a déjà accepté cette mission — affiché ici à titre de référence.",
     addAnotherOther: "Ajouter plus",
@@ -2461,6 +2461,7 @@ const fr = {
     searchPlaceholder: "Recherche par nom, rôle, compétences, ville...",
     loadingMatches: "Chargement des correspondances parfaites...",
     noMatchesFound: "Aucune correspondance trouvée pour ces filtres.",
+    noAudienceMatch: "Personne dans le vivier de validateurs ne correspond actuellement à l'audience de cette mission. Élargissez votre ciblage depuis l'onglet Audience pour toucher plus de personnes — les correspondances se mettent à jour en direct à mesure que de nouveaux membres rejoignent.",
     membersSelected: "Membres {{count}} sélectionnés",
   },
   locations: {

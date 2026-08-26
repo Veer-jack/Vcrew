@@ -30,7 +30,10 @@ export default function Messages() {
       setActiveId(prev => {
         if (requested) return requested.id;
         if (prev && d.threads.some(t => t.id === prev)) return prev;
-        return d.threads.length ? d.threads[0].id : null;
+        // Deliberately not defaulting to threads[0] — WhatsApp Web doesn't
+        // open a chat until you pick one, and neither should this, unless a
+        // notification link or an explicit click asked for a specific one.
+        return null;
       });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,7 +123,7 @@ export default function Messages() {
           )}
         </div>
       </div>
-      {active && (
+      {active ? (
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <div className="row gap-3" style={{ padding: "13px var(--pad-page)", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <VAvatar name={active.name} size={40} />
@@ -157,6 +160,12 @@ export default function Messages() {
               style={{ flex: 1, padding: "11px 14px", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel-inset)", fontFamily: "inherit", fontSize: 14, color: "var(--text)", outline: "none" }} />
             <button className="btn btn-primary" onClick={send} disabled={!draft.trim()}><Icon name="send" size={17} />{t("actions.send", null, "Send")}</button>
           </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, minWidth: 0, background: "var(--bg)" }}>
+          <span style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--panel-inset)", display: "grid", placeItems: "center", color: "var(--text-faint)" }}><Icon name="message" size={24} /></span>
+          <b style={{ fontSize: 15 }}>{t("messages.selectConversation", null, "Select a conversation")}</b>
+          <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.selectConversationHint", null, "Choose someone from the list on the left to view your messages.")}</p>
         </div>
       )}
     </div>

@@ -1929,7 +1929,7 @@ const pt = {
     otherGeoPlaceholder: "ex. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirme sua seleção de público para continuar",
     noFiltersWarning: "Selecione pelo menos um filtro para definir seu público.",
-    zeroMatchingWarning: "Nenhum público correspondente encontrado com os filtros atuais. Tente ajustar os filtros ou ampliar a localização. Se não houver público disponível no momento, continuaremos procurando e avisaremos você em até 24 horas quando uma correspondência for encontrada.",
+    zeroMatchingWarning: "Nenhum público correspondente encontrado com os filtros atuais. Tente ajustar os filtros ou ampliar a localização para alcançar mais pessoas.",
     staleTestCasesToast: "Continuando com seus casos de teste anteriores — você pode gerá-los novamente a qualquer momento na etapa 3.",
     fieldsLockedHint: "Bloqueado porque um validador já aceitou esta missão — mostrado aqui apenas como referência.",
     addAnotherOther: "Adicionar mais",
@@ -2461,6 +2461,7 @@ const pt = {
     searchPlaceholder: "Pesquise por nome, função, habilidades, cidade...",
     loadingMatches: "Carregando combinações perfeitas...",
     noMatchesFound: "Nenhuma correspondência encontrada para estes filtros.",
+    noAudienceMatch: "Ninguém no grupo de validadores corresponde atualmente ao público desta missão. Amplie sua segmentação na aba Público para alcançar mais pessoas — as correspondências são atualizadas em tempo real conforme novos membros entram.",
     membersSelected: "Membros {{count}} selecionados",
   },
   locations: {

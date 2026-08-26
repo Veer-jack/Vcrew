@@ -227,7 +227,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           return (
             <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <Icon name="alertTriangle" size={16} />
-              {t("createMission.zeroMatchingWarning", null, "No matching audience found with your current filters. Try adjusting your filters or expanding the location. If no audience is currently available, we'll continue looking and notify you within 24 hours when a match is found.")}
+              {t("createMission.zeroMatchingWarning", null, "No matching audience found with your current filters. Try adjusting your filters or expanding the location to reach more people.")}
             </div>
           );
         }

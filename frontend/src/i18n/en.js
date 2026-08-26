@@ -1932,7 +1932,7 @@ const en = {
     otherGeoPlaceholder: "e.g. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirm your audience selection to continue",
     noFiltersWarning: "Please select at least one filter to define your audience.",
-    zeroMatchingWarning: "No matching audience found with your current filters. Try adjusting your filters or expanding the location. If no audience is currently available, we'll continue looking and notify you within 24 hours when a match is found.",
+    zeroMatchingWarning: "No matching audience found with your current filters. Try adjusting your filters or expanding the location to reach more people.",
     staleTestCasesToast: "Continuing with your previous test cases — you can regenerate them anytime from Step 3.",
     fieldsLockedHint: "Locked because a validator has already accepted this mission — shown here for reference.",
     addAnotherOther: "Add more",
@@ -2465,6 +2465,7 @@ const en = {
     searchPlaceholder: "Search by name, role, skills, city...",
     loadingMatches: "Loading perfect matches...",
     noMatchesFound: "No matches found for these filters.",
+    noAudienceMatch: "No one in the validator pool currently matches this mission's audience. Widen your targeting from the Audience tab to reach more people — matches update live as new members join.",
     membersSelected: "{{count}} members selected",
   },
   locations: {

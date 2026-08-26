@@ -1929,7 +1929,7 @@ const es = {
     otherGeoPlaceholder: "p. ej. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirma tu selección de audiencia para continuar",
     noFiltersWarning: "Selecciona al menos un filtro para definir tu audiencia.",
-    zeroMatchingWarning: "No se encontró audiencia coincidente con tus filtros actuales. Intenta ajustar los filtros o ampliar la ubicación. Si actualmente no hay audiencia disponible, seguiremos buscando y te notificaremos en un plazo de 24 horas cuando se encuentre una coincidencia.",
+    zeroMatchingWarning: "No se encontró audiencia coincidente con tus filtros actuales. Intenta ajustar los filtros o ampliar la ubicación para llegar a más personas.",
     staleTestCasesToast: "Continuando con tus casos de prueba anteriores — puedes regenerarlos en cualquier momento desde el paso 3.",
     fieldsLockedHint: "Bloqueado porque un validador ya aceptó esta misión — se muestra aquí solo como referencia.",
     addAnotherOther: "Añadir más",
@@ -2461,6 +2461,7 @@ const es = {
     searchPlaceholder: "Busca por nombre, rol, habilidades, ciudad...",
     loadingMatches: "Cargando coincidencias perfectas...",
     noMatchesFound: "No se encontraron coincidencias para estos filtros.",
+    noAudienceMatch: "Nadie en el grupo de validadores coincide actualmente con la audiencia de esta misión. Amplía tu segmentación desde la pestaña Audiencia para llegar a más personas — las coincidencias se actualizan en vivo a medida que se unen nuevos miembros.",
     membersSelected: "{{count}} miembros seleccionados",
   },
   locations: {

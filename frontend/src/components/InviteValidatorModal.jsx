@@ -378,6 +378,16 @@ export function InviteValidatorModal({ mission, onClose }) {
           <div style={{ padding: "0 24px 16px" }}>
           {loading ? (
             <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.loadingMatches", null, "Loading perfect matches...")}</div>
+          ) : validators.length === 0 ? (
+            // Nobody in the audience-scoped list at all — different from the
+            // list below just being filtered down to nothing by search/pills
+            // within this modal, which the plain "no matches for these
+            // filters" message still covers. There's no filter control here
+            // that can fix this (the mission's own audience is edited from
+            // its Audience tab, not from this modal), so the copy points
+            // there instead of suggesting a change the builder can't make
+            // from this screen.
+            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noAudienceMatch", null, "No one in the validator pool currently matches this mission's audience. Widen your targeting from the Audience tab to reach more people — matches update live as new members join.")}</div>
           ) : displayList.length === 0 ? (
             <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noMatchesFound", null, "No matches found for these filters.")}</div>
           ) : (
