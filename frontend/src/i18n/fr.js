@@ -1929,7 +1929,7 @@ const fr = {
     otherGeoPlaceholder: "ex. Népal, Sri Lanka…",
     confirmAudienceHint: "Confirmez votre sélection d'audience pour continuer",
     noFiltersWarning: "Sélectionnez au moins un filtre pour définir votre audience.",
-    zeroMatchingWarning: "0 membre correspondant aux filtres sélectionnés — sélectionnez plus de filtres ou d'autres filtres pour obtenir des membres correspondants pour votre mission.",
+    zeroMatchingWarning: "Aucune audience correspondante trouvée avec vos filtres actuels. Essayez d'ajuster vos filtres ou d'élargir la zone géographique. Si aucune audience n'est disponible pour le moment, nous continuerons à chercher et vous informerons dans les 24 heures dès qu'une correspondance sera trouvée.",
     staleTestCasesToast: "Poursuite avec vos cas de test précédents — vous pouvez les régénérer à tout moment depuis l'étape 3.",
     fieldsLockedHint: "Verrouillé car un validateur a déjà accepté cette mission — affiché ici à titre de référence.",
     addAnotherOther: "Ajouter plus",

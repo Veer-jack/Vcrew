@@ -3,15 +3,16 @@ import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { useTranslation } from "../i18n/index.jsx";
 
-export function Modal({ title, children, onClose, width = 500, hideHeader = false, hideCloseIcon = false, align = "center", bodyScroll = true }) {
+export function Modal({ title, children, onClose, width = 500, hideHeader = false, hideCloseIcon = false, align = "center", bodyScroll = true, dismissible = true }) {
   const { t } = useTranslation();
   useEffect(() => {
+    if (!dismissible) return;
     const handleEsc = (e) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [onClose]);
+  }, [onClose, dismissible]);
 
   // align="top" anchors near the top of the viewport instead of dead-center — opt-in,
   // so every other modal in the app keeps its existing centered position by default.
@@ -21,7 +22,7 @@ export function Modal({ title, children, onClose, width = 500, hideHeader = fals
 
   return createPortal(
     <div style={{ display: "contents" }}>
-      <div className="notif-overlay" onClick={onClose} style={{ zIndex: 60 }} />
+      <div className="notif-overlay" onClick={dismissible ? onClose : undefined} style={{ zIndex: 60 }} />
       <div style={{ position: "fixed", ...position, width: width, maxWidth: "92vw", zIndex: 61, maxHeight: "85vh", display: "flex", flexDirection: "column" }}>
         <div className="rise" style={{ background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)", width: "100%", maxHeight: "100%", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
           {!hideHeader && (

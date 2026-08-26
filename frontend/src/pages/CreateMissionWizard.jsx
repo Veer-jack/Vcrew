@@ -227,7 +227,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           return (
             <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <Icon name="alertTriangle" size={16} />
-              {t("createMission.zeroMatchingWarning", null, "0 matching members for the selected filters — select more or other filters to get matching members for your mission.")}
+              {t("createMission.zeroMatchingWarning", null, "No matching audience found with your current filters. Try adjusting your filters or expanding the location. If no audience is currently available, we'll continue looking and notify you within 24 hours when a match is found.")}
             </div>
           );
         }
@@ -902,7 +902,19 @@ export default function CreateMissionWizard() {
           }
         }
 
-        const realMax = active ? lastStep : calcMax;
+        // calcMax is recomputed from whatever the fields currently look like,
+        // which is deliberately conservative — but it can retroactively look
+        // WORSE than reality: e.g. Reward was filled in well enough to reach
+        // Review last time, then a later edit (or the live audience count
+        // shifting) makes missingReward true again, and calcMax caps back at
+        // Audience even though Review was genuinely already reached. _maxReached
+        // is the actual high-water mark saved on every advance (see
+        // buildMissionPayload) — take whichever is higher so a step already
+        // reached never regresses on resume. The stale-vs-current mismatch
+        // itself still surfaces via the danger icon on the affected step
+        // (see stepHasIssue) rather than silently vanishing either way.
+        const savedMaxReached = Number.isInteger(mission.audience?._maxReached) ? mission.audience._maxReached : 0;
+        const realMax = active ? lastStep : Math.max(calcMax, Math.min(savedMaxReached, lastStep));
         let targetStep = parseInt(searchParams.get("step"), 10);
         if (!Number.isInteger(targetStep) || targetStep < 0 || targetStep > realMax) {
           targetStep = realMax;
@@ -1136,12 +1148,13 @@ export default function CreateMissionWizard() {
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
       tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
     )))
-    // Selecting a filter isn't enough on its own — if it narrows the
-    // audience down to nobody, Continue stays blocked the same way Step 5
-    // blocks on withinAudienceCount below, for the same reason: a mission
-    // built on a 0-match audience can never reach anyone. isFetchingCount
-    // exempts only the brief initial-load window, not a real zero result.
-    && (step !== 3 || ((Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0)) && (isFetchingCount || liveCount > 0)))
+    // A 0-match result still shows its own warning right on this step (see
+    // StepAudience), but doesn't block Continue — the audience match count is
+    // live, so a filter combination that matches nobody right now can still
+    // match people later as the member base grows. Only requires that some
+    // filter is actually selected; picking zero filters entirely is still
+    // blocked by the separate "select at least one filter" warning.
+    && (step !== 3 || Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0))
     && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount));
   const canNext = fieldsValid && !insufficientFunds;
   // fieldsValid only checks whichever step is CURRENTLY open — the step
@@ -1159,6 +1172,29 @@ export default function CreateMissionWizard() {
   );
   const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount);
   const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingReward;
+
+  // Mirrors the Review step's own "Can't publish yet" issues list (same
+  // flags) so a step that was already completed once and then broke (e.g.
+  // deleting every test case on Step 3, then revisiting it via the rail)
+  // flags itself both in the rail (a danger-colored badge instead of the
+  // usual checkmark) and inline on the step's own page — not just when the
+  // builder eventually reaches Review. Indexed by step; Audience has no
+  // equivalent "missing" flag today, and Review already shows the full
+  // issues card itself, so both stay false.
+  const stepHasIssue = [missingInfo, missingFormat, missingTasks, false, missingReward, false];
+  // Gated on i < maxReached — a step being filled in for the very first time
+  // hasn't "broken" anything yet, so it stays on the existing field-level
+  // (showErrors) validation instead of also flagging itself as an issue.
+  const railIssueAt = (i) => i < maxReached && stepHasIssue[i];
+  const stepIssueMessage = [
+    missingInfo && t("createMission.issueInfo", null, "Mission info is incomplete"),
+    missingFormat && t("createMission.issueFormat", null, "Feedback format not selected"),
+    missingTasks && t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"),
+    null,
+    missingReward && t("createMission.issueReward", null, "Reward setup is incomplete or invalid"),
+    null,
+  ][step];
+  const showStepIssue = railIssueAt(step);
 
   // Whether this draft is already save-worthy (a real DB row exists, or
   // enough content exists that the pending debounce will promote it
@@ -1552,12 +1588,18 @@ export default function CreateMissionWizard() {
           <div><div className="brand-name">Validation<span style={{ color: "var(--text-faint)" }}>Crew</span></div><div className="brand-sub">{missionId ? t("createMission.editDraft", null, "Edit draft") : t("createMission.newMission", null, "New mission")}</div></div>
         </div>
         <div className="wz-steps">
-          {WZ_STEPS.map((s, i) => (
-            <button key={i} className={`wz-step ${i === step ? "cur" : i < maxReached ? "done" : "up"}`} disabled={i > maxReached} onClick={() => { if (i <= maxReached) { setShowErrors(false); setError(""); setStep(i); } }}>
-              <span className="sd">{i !== step && i < maxReached ? <Icon name="check" size={14} /> : i + 1}</span>
-              <span className="sm"><b>{s.t}</b><p>{s.s}</p></span>
-            </button>
-          ))}
+          {WZ_STEPS.map((s, i) => {
+            const hasIssue = railIssueAt(i);
+            const stateClass = i === step ? "cur" : i < maxReached ? "done" : "up";
+            return (
+              <button key={i} className={`wz-step ${stateClass} ${hasIssue ? "issue" : ""}`} disabled={i > maxReached} onClick={() => { if (i <= maxReached) { setShowErrors(false); setError(""); setStep(i); } }}>
+                <span className="sd">
+                  {hasIssue ? <Icon name="alertTriangle" size={13} /> : i !== step && i < maxReached ? <Icon name="check" size={14} /> : i + 1}
+                </span>
+                <span className="sm"><b>{s.t}</b><p>{s.s}</p></span>
+              </button>
+            );
+          })}
         </div>
         <div className="wz-rail-foot">
           <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
@@ -1622,6 +1664,12 @@ export default function CreateMissionWizard() {
             <p>{WZ_STEPS[step].hint}</p>
           </div>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
+          {showStepIssue && (
+            <div style={{ padding: "10px 14px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", color: "var(--danger)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+              <Icon name="alertTriangle" size={16} />
+              {stepIssueMessage}
+            </div>
+          )}
           {last ? (
             <div className="split">
               <div>{StepBody}</div>
@@ -1705,7 +1753,7 @@ export default function CreateMissionWizard() {
           simpler action from leaving a draft, so it gets its own copy
           instead of the drafts modal below. */}
       {showExitWarning && wasActive && (
-        <Modal title={t("createMission.leaveWithoutSavingTitle", null, "Leave without saving?")} onClose={() => setShowExitWarning(false)} width={420} hideCloseIcon>
+        <Modal title={t("createMission.leaveWithoutSavingTitle", null, "Leave without saving?")} onClose={() => setShowExitWarning(false)} width={420} hideCloseIcon dismissible={false}>
           <div style={{ padding: 20 }}>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               {t("createMission.leaveWithoutSavingBody", null, "Your changes haven't been saved. If you leave now they'll be lost — the mission itself stays exactly as it is.")}
@@ -1725,7 +1773,7 @@ export default function CreateMissionWizard() {
         // those same lists, not "stop auto-resuming this" like the generic
         // Create-Mission-flow modal below. This is the one place the wizard
         // itself deletes a mission.
-        <Modal title={t("createMission.deleteDraftTitle", null, "Delete this draft?")} onClose={() => { if (!deletingDraft) setShowExitWarning(false); }} width={420} hideCloseIcon>
+        <Modal title={t("createMission.deleteDraftTitle", null, "Delete this draft?")} onClose={() => { if (!deletingDraft) setShowExitWarning(false); }} width={420} hideCloseIcon dismissible={false}>
           <div style={{ padding: 20 }}>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               {t("createMission.deleteDraftBody", null, "This permanently deletes this draft mission and everything in it. This can't be undone.")}
@@ -1764,7 +1812,7 @@ export default function CreateMissionWizard() {
       )}
       {showExitWarning && !wasActive && !openedFromDraftTab && (() => {
         return (
-          <Modal title={t("createMission.unsavedChangesTitle", null, "Leave this draft?")} onClose={() => setShowExitWarning(false)} width={440} hideCloseIcon>
+          <Modal title={t("createMission.unsavedChangesTitle", null, "Leave this draft?")} onClose={() => setShowExitWarning(false)} width={440} hideCloseIcon dismissible={false}>
             <div style={{ padding: 20 }}>
               <p style={{ margin: "0 0 14px", fontSize: 14 }}>
                 {saveWorthy
@@ -1801,7 +1849,7 @@ export default function CreateMissionWizard() {
       })()}
 
       {showStartFreshWarning && (
-        <Modal title={t("createMission.startFreshTitle", null, "Start Fresh")} onClose={() => setShowStartFreshWarning(false)} width={400} hideCloseIcon>
+        <Modal title={t("createMission.startFreshTitle", null, "Start Fresh")} onClose={() => setShowStartFreshWarning(false)} width={400} hideCloseIcon dismissible={false}>
           <div style={{ padding: 20 }}>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               {/* A live mission was never "your current draft" and nothing
@@ -1821,7 +1869,7 @@ export default function CreateMissionWizard() {
       )}
 
       {showClearFieldsWarning && (
-        <Modal title={t("createMission.clearAllFieldsTitle", null, "Clear all fields?")} onClose={() => setShowClearFieldsWarning(false)} width={420} hideCloseIcon>
+        <Modal title={t("createMission.clearAllFieldsTitle", null, "Clear all fields?")} onClose={() => setShowClearFieldsWarning(false)} width={420} hideCloseIcon dismissible={false}>
           <div style={{ padding: 20 }}>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               {t("createMission.clearAllFieldsConfirm", null, "This clears everything currently entered in this form. The published mission itself won't change until you save.")}
@@ -1835,7 +1883,7 @@ export default function CreateMissionWizard() {
       )}
 
       {showStaleWarning && (
-        <Modal title={t("createMission.staleTestCasesTitle", null, "Test cases may be out of date")} onClose={() => setShowStaleWarning(false)} width={440} hideCloseIcon>
+        <Modal title={t("createMission.staleTestCasesTitle", null, "Test cases may be out of date")} onClose={() => setShowStaleWarning(false)} width={440} hideCloseIcon dismissible={false}>
           <div style={{ padding: 20 }}>
             <p style={{ margin: "0 0 14px", fontSize: 14 }}>
               {t("createMission.staleTestCasesBody", null, "We've noticed the test case details were updated after these test cases were generated. We recommend regenerating them. Do you want to regenerate?")}

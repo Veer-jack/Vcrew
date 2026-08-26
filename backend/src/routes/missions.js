@@ -62,6 +62,17 @@ function perSlotEscrow(rewardAmount) {
   return { fee, cost: (rewardAmount || 0) + fee };
 }
 
+// `deadline` arrives as a bare "YYYY-MM-DD" calendar date from the wizard's
+// <input type="date">, but the column is TIMESTAMPTZ — writing that string
+// as-is lets Postgres interpret it in whatever timezone the session
+// defaults to, which silently shifts the stored instant by a day whenever
+// that isn't UTC. Anchoring it to explicit UTC midnight removes the
+// ambiguity so `.toISOString().slice(0,10)` on the way back out always
+// reproduces exactly the date that was sent, regardless of session timezone.
+function toUtcMidnight(dateStr) {
+  return dateStr ? `${String(dateStr).slice(0, 10)}T00:00:00.000Z` : null;
+}
+
 function kindFromMime(mime) {
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
@@ -493,7 +504,7 @@ router.post("/", async (req, res) => {
         id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
         target, rewardType, rewardAmount, spend,
         b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []),
-        b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, b.deadline || null, durationDays
+        b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, toUtcMidnight(b.deadline), durationDays
       );
 
       if (status === "active") {
@@ -679,6 +690,9 @@ router.patch("/:id", async (req, res) => {
             const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
             updates.push(`reward_type = ?, reward_amount = ?`);
             params.push(rewardType, Number(reward.amount) || 0);
+          } else if (key === "deadline") {
+            updates.push(`deadline = ?`);
+            params.push(toUtcMidnight(req.body.deadline));
           } else {
             updates.push(`${key} = ?`);
             params.push(req.body[key]);
