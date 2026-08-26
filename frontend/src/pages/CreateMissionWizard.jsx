@@ -1659,10 +1659,9 @@ export default function CreateMissionWizard() {
               {t("createMission.deleteDraftBody", null, "This permanently deletes this draft mission and everything in it. This can't be undone.")}
             </p>
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" disabled={deletingDraft} onClick={() => setShowExitWarning(false)}>{t("actions.keepEditing", null, "Keep editing")}</button>
               <button
                 className="btn"
-                style={{ background: "var(--danger)", color: "#fff", border: "none" }}
+                style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }}
                 disabled={deletingDraft}
                 onClick={async () => {
                   setDeletingDraft(true);
@@ -1679,6 +1678,13 @@ export default function CreateMissionWizard() {
                 }}
               >
                 {deletingDraft ? t("actions.deleting", null, "Deleting…") : t("createMission.deleteDraft", null, "Delete draft")}
+              </button>
+              <button
+                className="btn btn-primary"
+                disabled={deletingDraft}
+                onClick={() => navigate("/missions?tab=draft")}
+              >
+                {t("createMission.keepAsDraft", null, "Keep as draft")}
               </button>
             </div>
           </div>
