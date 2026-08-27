@@ -23,11 +23,25 @@ export default function HoverTooltips({ containerRef }) {
     const onOut = (e) => {
       if (e.target.closest("[data-tooltip]")) setTip(null);
     };
+    // A click that removes the hovered element (Delete Task, a step-rail
+    // jump that unmounts the current step, etc.) never fires a real mouseout
+    // — the element's just gone, no pointer movement happened — leaving the
+    // tooltip floating with nothing under it. Any mousedown anywhere is a
+    // reliable enough signal that the hover context is over.
+    const onDown = () => setTip(null);
     root.addEventListener("mouseover", onOver);
     root.addEventListener("mouseout", onOut);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("touchstart", onDown);
+    document.addEventListener("scroll", onDown, { capture: true, passive: true });
+    document.addEventListener("wheel", onDown, { capture: true, passive: true });
     return () => {
       root.removeEventListener("mouseover", onOver);
       root.removeEventListener("mouseout", onOut);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("touchstart", onDown);
+      document.removeEventListener("scroll", onDown, { capture: true });
+      document.removeEventListener("wheel", onDown, { capture: true });
     };
   }, [containerRef]);
 

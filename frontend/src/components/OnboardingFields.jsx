@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
@@ -116,13 +117,13 @@ export function ReachMeter({ reach, base, firstLoad, updating }) {
   );
 }
 
-export function LocationFields({ region, d, set, withCity, showErrors }) {
+export function LocationFields({ d, set, withCity, showErrors }) {
   const { t } = useTranslation();
   // Older saved profiles still have `country` as a single string — coerce
   // to an array so this keeps working for builders who onboarded before
   // Country became multi-select.
   const rawCountry = d.country;
-  const countries = Array.isArray(rawCountry) ? rawCountry : (rawCountry ? [rawCountry] : (region === "india" ? ["India"] : []));
+  const countries = Array.isArray(rawCountry) ? rawCountry : (rawCountry ? [rawCountry] : []);
   const countrySel = new Set(countries);
   return (
     <div className="fgrid c2">
@@ -133,6 +134,7 @@ export function LocationFields({ region, d, set, withCity, showErrors }) {
           sel={countrySel}
           toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
           onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
+          trFilterLabel={(t, v) => v}
         />
       </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
@@ -164,20 +166,76 @@ export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
 export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
-  const occupationOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
-  // Only the caller-supplied lists are designed with a trailing "Other" catch-all —
-  // the built-in default's last entry is "Any", which means no preference, not "type it in".
-  const isOtherOccupation = !!occOptions && (d.occupations || []).includes(occupationOptions[occupationOptions.length - 1]);
+  
+  const [occInput, setOccInput] = useState("");
+  const [intInput, setIntInput] = useState("");
+
+  const defaultOccOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
+  const customOccs = (d.occupations || []).filter(o => !defaultOccOptions.includes(o) && o !== "Other");
+  const occupationOptions = defaultOccOptions;
+  
+  const isOtherOccupation = !!occOptions && (d.occupations || []).includes("Other");
+
+  const saveOcc = () => {
+    const val = occInput.trim();
+    if (!val) return;
+    set("occupations", [...(d.occupations || []).filter(o => o !== "Other"), val]);
+    setOccInput("");
+  };
+  const cancelOcc = () => {
+    set("occupations", (d.occupations || []).filter(o => o !== "Other"));
+    setOccInput("");
+  };
+  const removeCustomOcc = (val) => set("occupations", (d.occupations || []).filter(o => o !== val));
+
+  const defaultIntOptions = interestOptions || [t("onboardingFields.intAI", null, "AI"), t("onboardingFields.intStartups", null, "Startups"), t("onboardingFields.intFitness", null, "Fitness"), t("onboardingFields.intHealthcare", null, "Healthcare"), t("onboardingFields.intEducation", null, "Education"), t("onboardingFields.intFinance", null, "Finance"), t("onboardingFields.intGaming", null, "Gaming"), t("onboardingFields.intParenting", null, "Parenting"), t("onboardingFields.intTravel", null, "Travel"), t("onboardingFields.intFashion", null, "Fashion"), t("onboardingFields.intFood", null, "Food"), t("onboardingFields.intSustainability", null, "Sustainability")];
+  const customInts = (d.interests || []).filter(o => !defaultIntOptions.includes(o) && o !== "Other");
+  const intHasOther = defaultIntOptions.includes("Other");
+  const finalIntOptions = defaultIntOptions;
+  
+  const isOtherInterest = intHasOther && (d.interests || []).includes("Other");
+
+  const saveInt = () => {
+    const val = intInput.trim();
+    if (!val) return;
+    set("interests", [...(d.interests || []).filter(o => o !== "Other"), val]);
+    setIntInput("");
+  };
+  const cancelInt = () => {
+    set("interests", (d.interests || []).filter(o => o !== "Other"));
+    setIntInput("");
+  };
+  const removeCustomInt = (val) => set("interests", (d.interests || []).filter(o => o !== val));
+
   return (
     <div className="col gap-3">
       {show.occupation && (
         <Field label={t("onboardingFields.occupation", null, "Occupation")}>
           <Chips options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />
+          {customOccs.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
+              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
+                {customOccs.map(o => (
+                  <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {o}
+                    <button type="button" onClick={() => removeCustomOcc(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+                      <Icon name="x" size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Field>
       )}
       {show.occupation && isOtherOccupation && (
         <Field label={t("onboardingFields.occupationOtherLabel", null, "Please specify occupation")}>
-          <TextInput value={d.occupationOther} onChange={(v) => set("occupationOther", v)} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} />
+          <div className="row gap-2">
+            <TextInput value={occInput} onChange={setOccInput} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} />
+            <button type="button" className="btn" disabled={!occInput.trim()} onClick={saveOcc}>{t("actions.save", null, "Save")}</button>
+            <button type="button" className="btn btn-ghost" onClick={cancelOcc}>{t("actions.cancel", null, "Cancel")}</button>
+          </div>
         </Field>
       )}
       {show.education && (
@@ -197,7 +255,31 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
       )}
       {show.interests && (
         <Field label={t("onboardingFields.interests", null, "Interests")} optional>
-          <Chips options={interestOptions || [t("onboardingFields.intAI", null, "AI"), t("onboardingFields.intStartups", null, "Startups"), t("onboardingFields.intFitness", null, "Fitness"), t("onboardingFields.intHealthcare", null, "Healthcare"), t("onboardingFields.intEducation", null, "Education"), t("onboardingFields.intFinance", null, "Finance"), t("onboardingFields.intGaming", null, "Gaming"), t("onboardingFields.intParenting", null, "Parenting"), t("onboardingFields.intTravel", null, "Travel"), t("onboardingFields.intFashion", null, "Fashion"), t("onboardingFields.intFood", null, "Food"), t("onboardingFields.intSustainability", null, "Sustainability")]} value={d.interests} onChange={(v) => set("interests", v)} />
+          <Chips options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} />
+          {customInts.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
+              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
+                {customInts.map(o => (
+                  <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {o}
+                    <button type="button" onClick={() => removeCustomInt(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+                      <Icon name="x" size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Field>
+      )}
+      {show.interests && isOtherInterest && (
+        <Field label={t("onboardingFields.interestOtherLabel", null, "Please specify interest")}>
+          <div className="row gap-2">
+            <TextInput value={intInput} onChange={setIntInput} placeholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")} />
+            <button type="button" className="btn" disabled={!intInput.trim()} onClick={saveInt}>{t("actions.save", null, "Save")}</button>
+            <button type="button" className="btn btn-ghost" onClick={cancelInt}>{t("actions.cancel", null, "Cancel")}</button>
+          </div>
         </Field>
       )}
     </div>
@@ -207,9 +289,28 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
 // "Verify" steps store a claim for manual review — there is no automated
 // DNS/domain-ownership or document verification pipeline today, so this
 // records intent rather than pretending to confirm it instantly.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, verified, onVerify, onUnverify, optional, showErrors }) {
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, verified, onVerify, onUnverify, optional, showErrors, validate }) {
   const { t } = useTranslation();
-  const invalid = showErrors && !optional && !verified;
+  const [errorMsg, setErrorMsg] = useState("");
+  const invalid = (showErrors && !optional && !verified) || !!errorMsg;
+
+  const handleVerify = () => {
+    if (validate) {
+      const err = validate(value);
+      if (err) {
+        setErrorMsg(err);
+        return;
+      }
+    }
+    setErrorMsg("");
+    onVerify();
+  };
+
+  const handleChange = (v) => {
+    onChange(v);
+    if (errorMsg) setErrorMsg("");
+  };
+
   return (
     <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }}>
       <span className="intent-ic" style={{ background: "var(--accent-weak)", color: "var(--accent)", flex: "none" }}>
@@ -227,9 +328,12 @@ export function VerifyRow({ icon, title, desc, placeholder, value, onChange, ver
         </div>
         <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
         {!verified && (
-          <div className="row gap-2">
-            <input className="fin" style={{ flex: 1 }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
-            <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} disabled={!value} onClick={onVerify}>{t("onboardingFields.submit", null, "Submit")}</button>
+          <div className="col gap-1">
+            <div className="row gap-2">
+              <input className={`fin ${errorMsg ? "fin-invalid" : ""}`} style={{ flex: 1 }} value={value || ""} onChange={(e) => handleChange(e.target.value)} placeholder={placeholder} />
+              <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} disabled={!value} onClick={handleVerify}>{t("onboardingFields.submit", null, "Submit")}</button>
+            </div>
+            {errorMsg && <div className="err" style={{ fontSize: 12, color: "var(--danger)" }}>{errorMsg}</div>}
           </div>
         )}
       </div>

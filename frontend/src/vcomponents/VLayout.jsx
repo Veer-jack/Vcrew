@@ -282,13 +282,7 @@ export default function VLayout() {
               <div className="faint nav-label" style={{ fontSize: 11, marginTop: 7 }}>{t("vLayout.validationsToElite", { count: validator ? Math.max(0, 400 - (validator.completed || 0)) : 0 }, `${validator ? Math.max(0, 400 - (validator.completed || 0)) : 0} validations to Elite`)}</div>
             </div>
           </button>
-          <div className="nav-label">
-            <LanguageSwitcher
-              onSave={(lang) => vapi.setLanguage(lang).catch(() => {})}
-              style={{ marginTop: 8, width: "100%" }}
-              openUp
-            />
-          </div>
+
         </div>
       </aside>
 
@@ -297,6 +291,7 @@ export default function VLayout() {
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("vLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
           <h1>{t("nav." + pageTitle(location.pathname).toLowerCase().replace(/ /g, ""), null, pageTitle(location.pathname))}</h1>
           <span className="topbar-spacer" />
+          <LanguageSwitcher onSave={(lang) => vapi.setLanguage(lang).catch(() => {})} style={{ marginRight: 12, height: 32 }} />
           <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title={t("vLayout.notifications", null, "Notifications")}>
             <Icon name="bell" size={17} />
             {unreadCount > 0 && <span className="bell-unread-dot blink" />}

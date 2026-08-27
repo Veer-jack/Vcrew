@@ -10,38 +10,29 @@ import { api } from "../api/client";
 import { PERSONA_CONFIG, onboardingDraftKey, stepLabel } from "../data/personaConfig";
 import { useTranslation } from "../i18n/index.jsx";
 import { activityWho, activityText } from "../bi18n";
+import { getRecentDraftId, getScratch, hasContent, hasResumableDraft } from "../utils/missionDraft";
 
-// A mission draft only ever lives in this browser's localStorage until
-// "Save as Draft" is explicitly clicked (see CreateMissionWizard.jsx) — so
-// leaving the wizard any way other than that button (browser back, closing
-// the tab, the in-app Exit link) doesn't lose anything, but it also won't
-// show up in the real Drafts list. This banner is the lightweight,
-// non-blocking way to surface that: informational only, no confirm dialog.
-// The wizard auto-saves on every render from the moment the page mounts,
-// including its own pristine defaults — so the key exists the instant
-// someone opens "Create Mission," before they've typed anything. Check for
-// actual content instead of just key existence.
-function hasMissionDraft(builderId) {
-  if (!builderId) return false;
-  try {
-    const raw = localStorage.getItem(`vcrew_mission_draft_${builderId}`);
-    if (!raw) return false;
-    const d = JSON.parse(raw);
-    return !!(d.title?.trim() || d.desc?.trim() || d.deadline || d.tasks?.length > 0);
-  } catch { return false; }
-}
-
+// The recent-draft pointer (see utils/missionDraft.js) is the single source
+// of truth for this banner — it's set the moment a real DB draft exists (or,
+// before that, a not-yet-promoted local scratch copy with real content), and
+// cleared on Discard or Start Fresh. Deliberately local-only: a draft that
+// exists server-side but was never touched from this browser won't surface
+// this banner (only the Draft tab will show it) — the pointer, not "any
+// draft in the DB," is what "recent" means here.
 function MissionDraftBanner({ builder, nav }) {
   const { t } = useTranslation();
-  if (!hasMissionDraft(builder?.id)) return null;
+  const draftId = getRecentDraftId(builder?.id);
+  if (!draftId && !hasContent(getScratch(builder?.id))) return null;
 
   return (
     <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 16, border: "1px solid var(--accent-weak)", background: "var(--accent-weak)" }}>
       <Icon name="fileText" size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
       <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
-        {t("dashboard.unsavedMissionDraft", null, "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.")}
+        {draftId
+          ? t("dashboard.unsavedMissionDraftServer", null, "You have a mission draft in progress — you can continue building it before it goes live.")
+          : t("dashboard.unsavedMissionDraft", null, "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.")}
       </p>
-      <button className="btn btn-outline" style={{ flexShrink: 0, fontSize: 12.5 }} onClick={() => nav("/missions/new")}>
+      <button className="btn btn-primary" style={{ flexShrink: 0, fontSize: 12.5 }} onClick={() => nav(draftId ? `/missions/${draftId}/edit` : "/missions/new")}>
         {t("actions.continue", null, "Continue")}
       </button>
     </div>
@@ -50,7 +41,10 @@ function MissionDraftBanner({ builder, nav }) {
 
 function ProfileCompletionBanner({ builder, nav }) {
   const { t } = useTranslation();
-  if (builder?.profile) return null; // already completed
+  // profile_json alone doesn't prove onboarding actually happened — Settings'
+  // partial-field saves populate it too. onboardingCompleted is the real,
+  // dedicated signal (only set by the actual onboarding-completion route).
+  if (builder?.onboardingCompleted) return null; // already completed
 
   let activePersonaKey = builder?.persona;
   let draftStepNum = null;
@@ -285,8 +279,8 @@ export default function Dashboard() {
     try { flagged = sessionStorage.getItem("vcrew_mission_draft_backnav") === "1"; } catch { /* ignore */ }
     if (!flagged) return;
     try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
-    if (hasMissionDraft(builder?.id)) {
-      toast(t("dashboard.draftSavedBackNav", null, "Your mission draft was saved — Continue from here anytime."), { icon: "📝" });
+    if (hasResumableDraft(builder?.id)) {
+      toast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
     }
   }, [builder?.id, t]);
 

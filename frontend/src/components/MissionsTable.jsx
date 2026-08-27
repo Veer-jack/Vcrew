@@ -30,7 +30,15 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
         </thead>
         <tbody>
           {rows.map(m => (
-            <tr className="click" key={m.id} onClick={() => nav(m.status === "draft" ? `/missions/${m.id}/edit` : `/missions/${m.id}`)}>
+            <tr className="click" key={m.id} onClick={() => nav(
+              m.status === "draft" ? `/missions/${m.id}/edit` : `/missions/${m.id}`,
+              // Lets the wizard tell "opened this specific saved draft from a
+              // list" apart from "landed here via Create Mission / the
+              // banner" — same URL either way, so this rides along on the
+              // navigation itself (browser history state) rather than the
+              // URL. See CreateMissionWizard's exit-warning modal.
+              m.status === "draft" ? { state: { fromDraftList: true } } : undefined
+            )}>
               <td>
                 <div className="t-name">
                   <MissionLogo name={m.name} cat={m.category} size={34} />
@@ -56,8 +64,20 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
                   )}
                 </div>
               </td>
-              <td className="num">{m.participants.joined}<span className="faint"> / {m.participants.target}</span></td>
-              <td className="num">{m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)}</td>
+              <td className="num">
+                {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
+                  <span className="faint">—</span>
+                ) : (
+                  <>{m.participants.joined}<span className="faint"> / {m.participants.target}</span></>
+                )}
+              </td>
+              <td className="num">
+                {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
+                  <span className="faint">—</span>
+                ) : (
+                  m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)
+                )}
+              </td>
               <td>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>
               {onDelete && (
                 <td>

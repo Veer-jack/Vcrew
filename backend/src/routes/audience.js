@@ -10,19 +10,44 @@ router.get("/", async (req, res) => {
   const { q, city, verified, missionId } = req.query;
   let sql = `SELECT * FROM validators WHERE 1=1`;
   const params = [];
-  
-  if (q) { 
-    sql += ` AND (name ILIKE ? OR location ILIKE ? OR city ILIKE ? OR bio ILIKE ?)`; 
-    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`); 
+
+  if (q) {
+    sql += ` AND (name ILIKE ? OR location ILIKE ? OR city ILIKE ? OR bio ILIKE ?)`;
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
   }
-  if (city) { 
-    sql += ` AND (location = ? OR city = ?)`; 
-    params.push(city, city); 
+  if (city) {
+    sql += ` AND (location = ? OR city = ?)`;
+    params.push(city, city);
   }
-  if (verified === "true") { 
-    sql += ` AND verified = 1`; 
+  if (verified === "true") {
+    sql += ` AND verified = 1`;
   }
-  
+
+  // The Invite modal used to list every validator on the platform regardless
+  // of what audience the mission was actually built for — this scopes it down
+  // to the same real audience-matching criteria the mission's own "N matching
+  // members" count and Audience tab already use, so "Invite" only ever
+  // surfaces people who actually fit this mission.
+  let missionAudience = null;
+  let invitedMap = {};
+  if (missionId) {
+    const mission = await db.prepare(`SELECT audience_json FROM missions WHERE id = ? AND builder_id = ?`).get(missionId, req.builder.id);
+    if (mission) {
+      if (mission.audience_json) {
+        try { missionAudience = JSON.parse(mission.audience_json); } catch (e) {}
+      }
+      if (missionAudience) {
+        const { clauses, params: audienceParams } = buildAudienceClauses(missionAudience);
+        if (clauses.length) {
+          sql += ` AND ${clauses.join(" AND ")}`;
+          params.push(...audienceParams);
+        }
+      }
+      const invites = await db.prepare(`SELECT validator_id, status FROM mission_invitations WHERE mission_id = ? AND status != 'cancelled'`).all(missionId);
+      invitedMap = Object.fromEntries(invites.map(i => [i.validator_id, i.status]));
+    }
+  }
+
   // Order by rating so highest rated real validators show up first
   sql += ` ORDER BY rating DESC`;
 
@@ -32,16 +57,13 @@ router.get("/", async (req, res) => {
     params.push(parseInt(limit, 10));
   }
 
-  const rows = await db.prepare(sql).all(...params);
-
-  let invitedMap = {};
-  if (missionId) {
-    const owns = await db.prepare(`SELECT id FROM missions WHERE id = ? AND builder_id = ?`).get(missionId, req.builder.id);
-    if (owns) {
-      const invites = await db.prepare(`SELECT validator_id, status FROM mission_invitations WHERE mission_id = ? AND status != 'cancelled'`).all(missionId);
-      invitedMap = Object.fromEntries(invites.map(i => [i.validator_id, i.status]));
-    }
-  }
+  // Passed as one array, not spread — db.js's flat() unwraps a lone
+  // array-valued argument back into "the whole params list" (that's how
+  // getRealMatchCount below always calls it), which is exactly right for a
+  // multi-param list but wrongly shreds a single ANY(?) array param (e.g.
+  // just one audience filter group active) back into bare scalars if spread
+  // turned it into the sole argument here instead.
+  const rows = await db.prepare(sql).all(params);
 
   const mapped = rows.map(v => {
     let expertise = [];
@@ -79,14 +101,19 @@ router.get("/", async (req, res) => {
     };
   });
 
-  res.json({ members: mapped, filters: FILTERS });
+  res.json({ members: mapped, filters: FILTERS, missionAudience });
 });
 
-export async function getRealMatchCount(db, audience) {
+// Shared by getRealMatchCount (the Audience Explorer/wizard's live reach
+// count) and the GET / route above (the Invite modal's mission-scoped
+// candidate list) — one clause builder so both agree on exactly what "this
+// person matches the mission's audience" means. Each group is AND'd
+// together; values within a group are OR'd.
+function buildAudienceClauses(audience) {
   const clauses = [];
   const params = [];
 
-  for (const [group, values] of Object.entries(audience)) {
+  for (const [group, values] of Object.entries(audience || {})) {
     if (!Array.isArray(values) || !values.length) continue;
 
     if (group === "Geography") {
@@ -145,6 +172,11 @@ export async function getRealMatchCount(db, audience) {
     }
   }
 
+  return { clauses, params };
+}
+
+export async function getRealMatchCount(db, audience) {
+  const { clauses, params } = buildAudienceClauses(audience);
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const row = await db.prepare(`SELECT COUNT(*) AS c FROM validators ${where}`).get(params);
   return parseInt(row.c, 10) || 0;

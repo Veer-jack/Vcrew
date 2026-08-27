@@ -62,6 +62,17 @@ function perSlotEscrow(rewardAmount) {
   return { fee, cost: (rewardAmount || 0) + fee };
 }
 
+// `deadline` arrives as a bare "YYYY-MM-DD" calendar date from the wizard's
+// <input type="date">, but the column is TIMESTAMPTZ — writing that string
+// as-is lets Postgres interpret it in whatever timezone the session
+// defaults to, which silently shifts the stored instant by a day whenever
+// that isn't UTC. Anchoring it to explicit UTC midnight removes the
+// ambiguity so `.toISOString().slice(0,10)` on the way back out always
+// reproduces exactly the date that was sent, regardless of session timezone.
+function toUtcMidnight(dateStr) {
+  return dateStr ? `${String(dateStr).slice(0, 10)}T00:00:00.000Z` : null;
+}
+
 function kindFromMime(mime) {
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
@@ -407,14 +418,24 @@ router.get("/:id", async (req, res) => {
 // POST /api/missions  — create from the Create Mission wizard
 router.post("/", async (req, res) => {
   const b = req.body || {};
-  if (!b.name || !b.category || !b.ptype) {
+  const status = b.status === "active" ? "active" : "draft";
+  // A draft is deliberately allowed to start with almost nothing — the
+  // wizard auto-promotes it the moment ANY field is touched (see
+  // hasContent() on the frontend), well before category/ptype are
+  // necessarily chosen yet (those come from Steps 1-2's own cards). Requiring
+  // them here too meant every promote attempt before that point failed with
+  // a 400 and silently retried on the next edit, so a mission with just a
+  // title typed wouldn't actually save until the builder happened to reach
+  // both pickers — not a timing bug, a validation mismatch. Publishing
+  // (status "active") still requires all three, same as always — you can't
+  // go live with an incomplete mission.
+  if (status === "active" && (!b.name || !b.category || !b.ptype)) {
     return res.status(400).json({ error: "name, category and ptype are required" });
   }
 
   const reward = b.reward || {};
   const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
   const id = "m_" + randomUUID().slice(0, 8);
-  const status = b.status === "active" ? "active" : "draft";
   const target = Number(b.target) || 0;
   const rewardAmount = Number(reward.amount) || 0;
 
@@ -483,7 +504,7 @@ router.post("/", async (req, res) => {
         id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
         target, rewardType, rewardAmount, spend,
         b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []),
-        b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, b.deadline || null, durationDays
+        b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, toUtcMidnight(b.deadline), durationDays
       );
 
       if (status === "active") {
@@ -524,13 +545,31 @@ router.patch("/:id", async (req, res) => {
   // The edit-mission modal already blocks these client-side, but this route has
   // no other validation at all otherwise — anything sent here gets written
   // straight to the row, so these need to hold even if a request bypasses the UI.
-  if (req.body.target !== undefined && (!Number.isFinite(newTarget) || newTarget < 1)) {
+  //
+  // Only enforced when actually going/staying live — same reasoning as the
+  // create endpoint's name/category/ptype relaxation. The wizard's own
+  // autosave payload always includes target (never omits the field), but
+  // it's genuinely an empty string until the Reward step is reached — every
+  // draft-autosave PATCH before that point was hitting this 400 (Number("")
+  // is 0, which fails the < 1 check), even though nothing was actually
+  // wrong: it's just a draft that hasn't gotten there yet. Publishing still
+  // requires a real target, unchanged — the frontend's own readyToPublish
+  // check already blocks Publish until participants > 0 regardless.
+  if (newStatus === "active" && req.body.target !== undefined && (!Number.isFinite(newTarget) || newTarget < 1)) {
     return res.status(400).json({ error: "Target participants must be at least 1" });
   }
   if (req.body.name !== undefined && !String(req.body.name).trim()) {
     return res.status(400).json({ error: "Name is required" });
   }
-  if (req.body.deadline) {
+  // Same "only when actually going/staying live" gating as target and
+  // name/category/ptype above. A draft's deadline is allowed to sit in the
+  // past — it naturally drifts there just from time passing while the draft
+  // sits untouched, with nothing wrong having happened; every autosave
+  // after that point was getting rejected purely because of the calendar,
+  // not anything the builder did. The frontend's own missingInfo check
+  // already blocks Publish for exactly this reason, so nothing that
+  // actually goes live can carry a past deadline either way.
+  if (newStatus === "active" && req.body.deadline) {
     const todayStr = new Date().toISOString().slice(0, 10);
     if (String(req.body.deadline).slice(0, 10) < todayStr) {
       return res.status(400).json({ error: "Deadline can't be in the past" });
@@ -638,11 +677,22 @@ router.patch("/:id", async (req, res) => {
           } else if (key === "durationDays") {
             updates.push(`duration_days = ?`);
             params.push(Math.min(30, Math.max(2, Number(req.body.durationDays) || 7)));
+          } else if (key === "target") {
+            // The wizard's draft-autosave payload always includes target,
+            // even before the Reward step sets a real one — pushing the raw
+            // "" straight into this INTEGER column would throw regardless of
+            // the validation above. newTarget (computed at the top of this
+            // handler) is already the coerced number.
+            updates.push(`target = ?`);
+            params.push(Number.isFinite(newTarget) ? newTarget : 0);
           } else if (key === "reward") {
             const reward = req.body.reward || {};
             const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
             updates.push(`reward_type = ?, reward_amount = ?`);
             params.push(rewardType, Number(reward.amount) || 0);
+          } else if (key === "deadline") {
+            updates.push(`deadline = ?`);
+            params.push(toUtcMidnight(req.body.deadline));
           } else {
             updates.push(`${key} = ?`);
             params.push(req.body[key]);
@@ -1270,9 +1320,19 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
     mission: { id: mission.id, name: mission.name, target: mission.target },
     submissions: responses.map(r => {
       let data = [];
-      try { 
-        const parsed = r.data_json ? JSON.parse(r.data_json) : []; 
-        data = Array.isArray(parsed) ? parsed : [parsed];
+      try {
+        const parsed = r.data_json ? JSON.parse(r.data_json) : [];
+        // A response can be left in this shape if a validator's resubmission
+        // after a revision request never actually completed server-side —
+        // it's still whatever the last draft autosave wrote: a wrapped
+        // {answers, curIdx} object, not the plain per-task array a real
+        // submission stores. Unwrapping it the same way the validator's own
+        // resume screen already does (frontend/src/vpages/Workspace.jsx)
+        // means this still shows the real, if incomplete, answers instead of
+        // dumping the wrapper itself — including its internal curIdx
+        // bookkeeping field — as if it were a submitted answer.
+        const wrapped = parsed && !Array.isArray(parsed) && Array.isArray(parsed.answers);
+        data = wrapped ? parsed.answers : (Array.isArray(parsed) ? parsed : [parsed]);
       } catch {}
       
       const breakdown = data.map((ans, i) => {
@@ -1345,6 +1405,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         city: "Remote",
         trust: Math.round((r.trust_score || 0) * 10),
         status: r.status || "pending",
+        revisionCount: r.revision_count || 0,
         quality: r.flagged ? "flagged" : "medium",
         date: new Date(r.submitted_at).toLocaleDateString(),
         // Prefer real tracked active time (tab visible + focused) over the
@@ -1501,10 +1562,16 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
   
-  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  const response = await db.prepare(`SELECT validator_id, revision_count FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
   if (!response) return res.status(404).json({ error: "Submission not found" });
+  // Enforced here, not just hidden in the UI — one revision cycle only, so
+  // a submission can't loop indefinitely between builder and validator with
+  // neither side ever actually resolving it.
+  if ((response.revision_count || 0) >= 1) {
+    return res.status(400).json({ error: "This submission has already been sent back for revision once — approve or reject it instead." });
+  }
 
-  await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  await db.prepare(`UPDATE responses SET status = 'revision', revision_count = revision_count + 1 WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)

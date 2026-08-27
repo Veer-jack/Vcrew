@@ -20,6 +20,7 @@ export function publicBuilder(b) {
     designation: b.designation || null, website: b.website || null,
     persona: b.persona || null, profile,
     verified: !!b.verified_at, verifiedAt: b.verified_at || null,
+    onboardingCompleted: !!b.onboarding_completed_at,
     preferredLanguage: b.preferred_language || "en",
     oauthProvider: b.oauth_provider || null,
   };
@@ -124,16 +125,13 @@ router.post("/signup", async (req, res) => {
   res.status(201).json({ token, builder: publicBuilder(builder) });
 });
 
-router.post("/login", async (req, res, next) => { try {
-  console.error("LOGIN STEP 1");
+router.post("/login", async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: "Email and password are required" });
 
-  console.error("LOGIN STEP 2");
   const builder = await db.prepare(`SELECT * FROM builders WHERE email = ?`).get(String(email).toLowerCase().trim());
   if (!builder || !builder.password_hash) return res.status(401).json({ error: "Invalid email or password" });
 
-  console.error("LOGIN STEP 3");
   const { valid, needsRehash } = await comparePassword(password, builder.password_hash);
   if (!valid) return res.status(401).json({ error: "Invalid email or password" });
 
@@ -142,10 +140,8 @@ router.post("/login", async (req, res, next) => { try {
     await db.prepare(`UPDATE builders SET password_hash = ? WHERE id = ?`).run(await hashPassword(password), builder.id);
   }
 
-  console.error("LOGIN STEP 4");
   const token = await createSession(builder.id, req.ip || req.headers["x-forwarded-for"]?.split(",")[0]?.trim(), req.headers["user-agent"]);
-  console.error("LOGIN STEP 5");
-  res.json({ token, builder: publicBuilder(builder) }); } catch(e) { console.error("LOGIN ERR:", e.message); next(e); }
+  res.json({ token, builder: publicBuilder(builder) });
 });
 
 router.post("/logout", authMiddleware, async (req, res) => {
@@ -211,8 +207,8 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
   }
 
   await db.prepare(`
-    UPDATE builders 
-    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ? 
+    UPDATE builders
+    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ?, onboarding_completed_at = NOW()
     WHERE id = ?
   `).run(
     org || req.builder.name,

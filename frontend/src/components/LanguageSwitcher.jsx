@@ -29,15 +29,15 @@ export default function LanguageSwitcher({ onSave, style, openUp }) {
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="btn btn-ghost"
-        style={{ gap: 7, fontSize: 13.5 }}
+        className="btn btn-outline"
+        style={{ gap: 7, fontSize: 13, borderRadius: 20, padding: "4px 12px", height: "auto" }}
         aria-label={t("settings.language")}
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span>{current.flag}</span>
-        <span>{current.nativeName}</span>
-        <Icon name="chevronDown" size={13} />
+        <Icon name="globe" size={14} />
+        <span style={{ fontWeight: 600 }}>{lang.toUpperCase()}</span>
+        <Icon name="chevronDown" size={13} style={{ marginLeft: 2 }} />
       </button>
 
       {open && (

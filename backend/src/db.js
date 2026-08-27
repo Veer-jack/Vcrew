@@ -135,7 +135,9 @@ export async function initDb() {
     // already-generated tasks themselves loaded fine.
     if (!mCols.includes('test_case_form_json')) await client.query('ALTER TABLE missions ADD COLUMN test_case_form_json TEXT');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
-    if (!rCols.rows.map(r => r.column_name).includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
+    const rColNames = rCols.rows.map(r => r.column_name);
+    if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
+    if (!rColNames.includes('revision_count')) await client.query('ALTER TABLE responses ADD COLUMN revision_count INTEGER DEFAULT 0');
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);
@@ -227,10 +229,42 @@ export async function initDb() {
       }
     }
 
+    // threads.builder_read_at/validator_read_at power the real per-side
+    // unread tracking in messages.js/vmessages.js. schema.sql only creates
+    // them on a brand-new install (CREATE TABLE IF NOT EXISTS doesn't touch
+    // an existing table), so any environment whose `threads` table predates
+    // this column needs the same backfill every other column migration here gets.
+    const trCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='threads'");
+    const trColNames = trCols.rows.map(r => r.column_name);
+    for (const col of ['builder_read_at', 'validator_read_at']) {
+      if (!trColNames.includes(col)) {
+        await client.query(`ALTER TABLE threads ADD COLUMN ${col} TIMESTAMPTZ`);
+      }
+    }
+
     const bCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='builders'");
     const bColNames = bCols.rows.map(r => r.column_name);
     if (!bColNames.includes('status')) {
       await client.query(`ALTER TABLE builders ADD COLUMN status TEXT DEFAULT 'active'`);
+    }
+    if (!bColNames.includes('onboarding_completed_at')) {
+      await client.query(`ALTER TABLE builders ADD COLUMN onboarding_completed_at TIMESTAMPTZ`);
+      // Backfill: profile_json alone doesn't prove real onboarding happened —
+      // Settings' partial-field save (e.g. just Company Details) populates it
+      // too, which used to make "!builder.profile" wrongly read as "onboarded"
+      // for an account that never actually went through the wizard. Verified
+      // accounts and anyone who's published a mission have unambiguously been
+      // through it for real; created_at approximates when, since no exact
+      // timestamp exists pre-migration. Everyone else stays NULL on purpose —
+      // that's what correctly re-shows the "complete your profile" nudge for
+      // an account that only ever touched Settings.
+      await client.query(`
+        UPDATE builders SET onboarding_completed_at = created_at
+        WHERE onboarding_completed_at IS NULL
+          AND (verified_at IS NOT NULL OR EXISTS (
+            SELECT 1 FROM missions WHERE missions.builder_id = builders.id AND missions.status != 'draft'
+          ))
+      `);
     }
 
     await client.query(`

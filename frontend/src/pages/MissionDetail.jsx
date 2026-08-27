@@ -260,6 +260,56 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   const { t } = useTranslation();
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
+  // Opens the exact same review drawer the Responses tab uses. Participant
+  // cards only carry validator_id, not a response id, so this is a small
+  // on-demand fetch of the same list the Responses tab already fetches for
+  // itself — the two tabs don't share state, and duplicating one cheap GET
+  // on click is simpler and safer than lifting that fetch up to a common
+  // parent just to avoid it.
+  const [openSub, setOpenSub] = useState(null);
+  const [loadingSubId, setLoadingSubId] = useState(null);
+
+  const openSubmission = async (p) => {
+    if (loadingSubId) return;
+    setLoadingSubId(p.id);
+    try {
+      const d = await api.get(`/missions/${mission.id}/submissions`);
+      const sub = (d.submissions || []).find(s => s.validatorId === p.validator_id);
+      if (sub) setOpenSub(sub);
+      else showToast(t("missionDetail.submissionNotFound", null, "Couldn't find this participant's submission."), "error");
+    } catch {
+      showToast(t("missionDetail.submissionLoadFailed", null, "Couldn't load this submission — try again."), "error");
+    } finally {
+      setLoadingSubId(null);
+    }
+  };
+
+  // Mirrors ResponseReview's own handleAction (same endpoints, same
+  // messaging) — kept as a separate copy rather than shared, since this
+  // component has no access to that tab's local `subs` state to update in
+  // place; it only needs to reflect the outcome on its own participant card.
+  const handleSubAction = async (subId, action, reason, rating) => {
+    const name = openSub?.name || t("review.validatorFallbackName", null, "Validator");
+    const validatorId = openSub?.validatorId;
+    try {
+      if (action === "approved") {
+        await api.post(`/missions/${mission.id}/submissions/${subId}/approved`, { rating });
+        showToast(`${t("review.approvedSubFrom", null, "Approved submission from")} ${name}`, "success");
+        setParticipants(ps => ps.map(pp => pp.validator_id === validatorId ? { ...pp, stage: "rewarded" } : pp));
+      } else if (action === "rejected") {
+        await api.post(`/missions/${mission.id}/submissions/${subId}/rejected`, { note: reason, rating });
+        showToast(`${t("review.rejectedSubFrom", null, "Rejected submission from")} ${name}`, "error");
+        setParticipants(ps => ps.map(pp => pp.validator_id === validatorId ? { ...pp, stage: "rejected" } : pp));
+      } else if (action === "revision") {
+        await api.post(`/missions/${mission.id}/submissions/${subId}/revision`, { note: reason });
+        showToast(`${t("review.revisionReqSentTo", null, "Revision request sent to")} ${name}`, "warning");
+      }
+    } catch (err) {
+      alert(err.message || t("review.anErrorOccurred", null, "An error occurred"));
+      return;
+    }
+    setOpenSub(null);
+  };
 
   const move = async (id, stage) => {
     let prevStage;
@@ -336,7 +386,12 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                       setDrag(p.id);
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    style={(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? { cursor: "default", opacity: 0.85 } : {}}>
+                    onClick={() => { if (p.stage === "submitted") openSubmission(p); }}
+                    title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : undefined}
+                    style={{
+                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" ? { cursor: "default", opacity: 0.85 } : {}),
+                      ...(p.stage === "submitted" ? { cursor: "pointer", opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
+                    }}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -379,6 +434,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
         <b>{t("missionDetail.tip", null, "Tip:")}</b> {t("missionDetail.dragAndDropTip", null, "Drag and drop participants between stages to update their progress.")}
         <a href="#" style={{ marginLeft: 'auto', fontWeight: 600, color: "var(--accent)" }}>{t("missionDetail.learnMorePipeline", null, "Learn more about participant pipeline")} <Icon name="externalLink" size={12} style={{ verticalAlign: -2 }} /></a>
       </div>
+      {openSub && <SlideOver sub={openSub} onClose={() => setOpenSub(null)} onAction={handleSubAction} />}
     </div>
   );
 }
@@ -422,12 +478,24 @@ function SlideOver({ sub, onClose, onAction }) {
 
   if (!sub) return null;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
-      <div style={{ flex: 1, background: "rgba(0,0,0,.4)", backdropFilter: "blur(2px)" }} onClick={onClose} />
+  // Rendered via a portal straight onto <body> — mounted in place, this sat
+  // deep inside the page's own DOM/stacking context, so no z-index here could
+  // actually win against the topbar's own stacking context. The Notifications
+  // panel gets the same "cover everything" effect by living at the layout
+  // root instead; portaling is the equivalent escape hatch from here. Overlay
+  // color/blur/z-index now match .drawer-overlay (builder.css) exactly, the
+  // same values .notif-overlay uses under a different class name.
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex" }}>
+      <div style={{ flex: 1, background: "rgba(8,10,18,.34)", backdropFilter: "blur(2px)" }} onClick={onClose} />
       <div style={{ width: 660, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
+        {/* Sticky as a group so the submission's identity + at-a-glance
+            stats stay visible while scrolling through task responses below —
+            expanding a long task used to push this entirely out of view,
+            leaving no context for what's actually being reviewed. */}
+        <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg)" }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{sub.name[0]}</div>
           <div style={{ flex: 1 }}>
@@ -454,6 +522,7 @@ function SlideOver({ sub, onClose, onAction }) {
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
             <div><QualityBadge quality={sub.quality} /></div>
           </div>
+        </div>
         </div>
 
         {sub.checkins && sub.checkins.length > 0 && (
@@ -547,9 +616,16 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {view === "review" && sub.status === "pending" && (
           <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
-            <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
-              <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
-            </button>
+            {/* One revision cycle only — once this submission has already
+                been sent back once, the only real outcomes left are Approve
+                or Reject, not another round-trip with no resolution. The
+                backend enforces this too (see the /revision route); this
+                just keeps a dead-end action off the screen. */}
+            {(sub.revisionCount || 0) < 1 && (
+              <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
+                <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
+              </button>
+            )}
             <div style={{ flex: 1 }} />
             <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
               <Icon name="x" size={14} /> {t("actions.reject", null, "Reject")}
@@ -616,7 +692,8 @@ function SlideOver({ sub, onClose, onAction }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -637,7 +714,7 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
   const { t } = useTranslation();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("pending");
+  const [tab, setTab] = useState("all");
   const [selected, setSelected] = useState(null);
   const [replyingId, setReplyingId] = useState(null);
 
@@ -714,15 +791,20 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
 
   return (
     <div>
-      <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 18 }}>
-        <KpiCard label={t("review.totalReceived", null, "Total received")} value={subs.length} icon="users" />
-        <KpiCard label={t("status.approved", null, "Approved")} value={counts.approved} icon="check" tone="green" />
-        <KpiCard label={t("review.pendingReview", null, "Pending review")} value={counts.pending} icon="clock" tone="amber" />
-        <KpiCard label={t("metrics.avgTime", null, "Avg time")} value={avgMins} unit=" min" icon="timer" />
-      </div>
+      {/* The four KPI cards used to repeat, almost number-for-number, both the
+          Overview row above this tab (Submitted ≈ subs.length) and the status
+          tabs right below (Approved/Pending ≈ counts.approved/counts.pending)
+          — same shape, same numbers, twice. Avg time was the only one of the
+          four that didn't exist anywhere else on the page, so it's kept, just
+          as a small inline pill next to Export instead of its own card row. */}
       <div className="toolbar">
         <div className="tabs">{RESPONSE_REVIEW_TABS(t).map(tb => <button key={tb.k} className={tab === tb.k ? "on" : ""} onClick={() => setTab(tb.k)}>{tb.l} <span className="cnt mono">{counts[tb.k]}</span></button>)}</div>
         <span className="grow" />
+        {subs.length > 0 && (
+          <span className="pill" style={{ fontSize: 12, marginRight: 8 }}>
+            <Icon name="clock" size={12} />{t("review.avgTimePill", { mins: avgMins }, `Avg ${avgMins} min`)}
+          </span>
+        )}
         <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV(
           "submissions.csv",
           [t("missionDetail.thName", null, "Name"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thSubmitted", null, "Submitted"), t("metrics.timeTaken", null, "Time Taken"), t("metrics.tasks", null, "Tasks"), t("metrics.quality", null, "Quality"), t("missionDetail.thStatus", null, "Status")],

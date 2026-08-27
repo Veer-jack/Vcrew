@@ -38,25 +38,37 @@ export default function Messages() {
       setActiveId(prev => {
         if (requested) return requested.id;
         if (prev && d.threads.some(t => t.id === prev)) return prev;
-        return d.threads.length ? d.threads[0].id : null;
+        // Deliberately not defaulting to threads[0] — WhatsApp Web doesn't
+        // open a chat until you pick one, and neither should this, unless a
+        // notification link or an explicit click asked for a specific one.
+        return null;
       });
-    }).finally(() => setRefetching(false));
+    }).catch(() => {}).finally(() => setRefetching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedThreadId, dataVersion]);
 
   useEffect(() => {
     if (!activeId) return;
-    api.thread(activeId).then(d => setActive(d.thread));
+    api.thread(activeId).then(d => setActive(d.thread)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, dataVersion]);
 
   // No WebSocket/push infra in this app yet — polling the open thread is the
   // lazy stand-in for "real time": a few seconds of lag instead of a socket
   // server, connection handling, and auth-over-socket for one feature.
+  // Best-effort: a poll tick failing (a network blip, a brief server restart)
+  // shouldn't spam the console with an unhandled rejection every 5s — the
+  // next tick just tries again.
   useEffect(() => {
     if (!activeId) return;
     const interval = setInterval(() => {
-      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread)));
+      // A poll can still be in flight when send() optimistically appends the
+      // just-sent message. If that older response lands after the append, it
+      // carries fewer messages than what's already on screen — applying it
+      // would make the message just sent flicker away until the next tick
+      // catches up. Never go backwards in count; only ever adopt server data
+      // that has caught up to (or moved past) what we're already showing.
+      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length >= d.thread.messages.length ? prev : d.thread))).catch(() => {});
     }, 5000);
     return () => clearInterval(interval);
   }, [activeId]);
@@ -68,7 +80,7 @@ export default function Messages() {
   // thread selection.
   useEffect(() => {
     const interval = setInterval(() => {
-      api.threads().then(d => setThreads(d.threads));
+      api.threads().then(d => setThreads(d.threads)).catch(() => {});
     }, 8000);
     return () => clearInterval(interval);
   }, []);
@@ -108,7 +120,7 @@ export default function Messages() {
 
   return (
     <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", height: "calc(100vh - 64px)" }}>
-      <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0 }}>
+      <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           {refetching && <div style={{ marginBottom: 8 }}><UpdatingBadge show /></div>}
           <div className="seg-search" style={{ maxWidth: "100%" }}><Icon name="search" size={16} /><input placeholder={t("messages.searchPlaceholder", null, "Search conversations…")} value={q} onChange={e => setQ(e.target.value)} /></div>
@@ -136,8 +148,8 @@ export default function Messages() {
           )}
         </div>
       </div>
-      {active && (
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+      {active ? (
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <div className="row gap-3" style={{ padding: "12px 24px", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <Avatar name={active.name} size={40} />
             <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)}</div></div>
@@ -172,6 +184,12 @@ export default function Messages() {
               style={{ flex: 1, padding: "11px 14px", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel-inset)", fontFamily: "inherit", fontSize: 14, color: "var(--text)", outline: "none" }} />
             <Btn variant="primary" icon="send" onClick={send} disabled={!draft.trim()}>{t("actions.send", null, "Send")}</Btn>
           </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, minWidth: 0, background: "var(--bg)" }}>
+          <span style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--panel-inset)", display: "grid", placeItems: "center", color: "var(--text-faint)" }}><Icon name="message" size={24} /></span>
+          <b style={{ fontSize: 15 }}>{t("messages.selectConversation", null, "Select a conversation")}</b>
+          <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.selectConversationHint", null, "Choose someone from the list on the left to view your messages.")}</p>
         </div>
       )}
     </div>

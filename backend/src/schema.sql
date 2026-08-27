@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS builders (
   verified_at TIMESTAMPTZ,
   status TEXT DEFAULT 'active',
   preferred_language TEXT DEFAULT 'en',
+  onboarding_completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -209,7 +210,12 @@ CREATE TABLE IF NOT EXISTS responses (
   -- and focused, tracked client-side and reported on every draft save and
   -- final submit — distinct from submitted_at - joined_at, which counts
   -- wall-clock time including however long the task sat open unattended.
-  active_seconds INTEGER
+  active_seconds INTEGER,
+  -- How many times a builder has sent this response back for revision.
+  -- Capped at one revision cycle: once this is >= 1, the builder's only
+  -- options are Approve or Reject, not another revision request — avoids an
+  -- unbounded back-and-forth with no resolution.
+  revision_count INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS activity (
@@ -565,7 +571,14 @@ CREATE TABLE IF NOT EXISTS translation_cache (
 -- ==============================================
 -- PERFORMANCE INDEXES (O(log N) Lookups)
 -- ==============================================
-CREATE INDEX IF NOT EXISTS idx_missions_builder_id ON missions(builder_id);
+-- Composite, not a plain builder_id index — covers every existing
+-- builder_id-only query via the B-tree leftmost-prefix rule (analytics,
+-- dashboard summaries), while also directly serving the builder_id+status
+-- queries (drafts list, active-mission cap checks) without an extra
+-- in-memory filter step. One index instead of two overlapping ones, so
+-- write-time maintenance cost doesn't double.
+DROP INDEX IF EXISTS idx_missions_builder_id;
+CREATE INDEX IF NOT EXISTS idx_missions_builder_status ON missions(builder_id, status);
 CREATE INDEX IF NOT EXISTS idx_participants_mission_id ON participants(mission_id);
 CREATE INDEX IF NOT EXISTS idx_participants_validator_id ON participants(validator_id);
 CREATE INDEX IF NOT EXISTS idx_responses_mission_id ON responses(mission_id);

@@ -174,14 +174,18 @@ html[data-direction="mono"] .utabs button.on::after { background: var(--text); }
 .fld > label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .fld > label .opt { font-weight: 600; color: var(--text-faint); font-size: 12px; }
 .fin { width: 100%; padding: 11px 14px; font-family: inherit; font-size: 14.5px; color: var(--text);
-  background: var(--panel-inset); border: var(--hairline) solid var(--border); border-radius: var(--radius-sm);
-  outline: none; transition: border-color .14s, box-shadow .14s, background .14s; }
+  background-color: var(--panel-inset); border: var(--hairline) solid var(--border); border-radius: var(--radius-sm);
+  outline: none; transition: border-color .14s, box-shadow .14s, background-color .14s; }
 .fin::placeholder { color: var(--text-faint); }
-.fin:focus { border-color: var(--accent); box-shadow: var(--ring); background: var(--panel); }
+.fin:focus { border-color: var(--accent); box-shadow: var(--ring); background-color: var(--panel); }
+.opt-pill { transition: border-color .14s, box-shadow .14s, background-color .14s; }
+.opt-pill:focus-within { border-color: var(--accent) !important; box-shadow: var(--ring); background-color: var(--panel) !important; }
+.opt-pill input:focus { outline: none !important; box-shadow: none !important; border-color: transparent !important; }
 textarea.fin { resize: vertical; min-height: 96px; line-height: 1.55; }
 select.fin { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 36px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='%238b94a6' d='M1 1.5 6 6.5l5-5'/></svg>");
   background-repeat: no-repeat; background-position: right 14px center; }
+select.fin:focus { box-shadow: none; border-color: var(--border); }
 .inw { position: relative; display: flex; align-items: center; }
 .inw .pre { position: absolute; left: 0; height: 100%; display: flex; align-items: center; padding: 0 13px;
   font-family: var(--mono); font-size: 14px; color: var(--text-muted); border-right: var(--hairline) solid var(--border); }
@@ -262,13 +266,18 @@ html[data-direction="signal"] .wz-rail { background: #0e1019; }
 .wz-step .sd svg { width: 14px; height: 14px; }
 .wz-step.done .sd { background: var(--success); border-color: var(--success); color: #fff; }
 .wz-step.cur .sd { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 0 4px var(--accent-weak); }
+/* A step already passed can go invalid again later (e.g. clearing every test
+   case after Continue was clicked past it) — this overrides done/cur's own
+   color so the rail flags it at a glance, not just in the Review step's
+   "Can't publish yet" card. */
+.wz-step.issue .sd { background: var(--danger); border-color: var(--danger); color: #fff; }
 .wz-step .sm b { display: block; font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; }
 .wz-step.up .sm b { color: var(--text-muted); }
 .wz-step .sm p { margin: 1px 0 0; font-size: 11.5px; color: var(--text-faint); }
 .wz-steps .wz-step::before { content: ""; position: absolute; left: 23px; top: -2px; width: 1.6px; height: 13px; background: var(--border); }
 .wz-steps .wz-step:first-child::before { display: none; }
 .wz-steps .wz-step.done::before, .wz-steps .wz-step.cur::before { background: var(--success); }
-.wz-rail-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.wz-rail-foot { margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 
 .wz-main { min-width: 0; display: flex; flex-direction: column; }
 .wz-top { display: none; align-items: center; gap: 16px; padding: 0 28px; height: 60px;
@@ -278,7 +287,6 @@ html[data-direction="signal"] .wz-rail { background: #0e1019; }
 .wz-content { flex: 1; padding: 40px 48px 130px; width: 100%; max-width: 720px; margin: 0 auto; }
 .wz[data-layout="topbar"] .wz-content { max-width: 860px; }
 .wz-content.wide { max-width: 1120px; }
-.wz-content.wide-lg { max-width: 1084px; }
 .wz-head { margin-bottom: 26px; }
 .wz-head .step-of { font-family: var(--mono); font-size: 11.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; }
 html[data-direction="signal"] .wz-head .step-of { color: var(--accent-2); }
@@ -356,7 +364,6 @@ html[data-direction="signal"] .reach .r-ic { color: var(--accent-2); }
 .fcheck .fcount { margin-left: auto; font-size: 11px; color: var(--text-faint); font-weight: 500; font-family: var(--font-mono); }
 
 .subgroup { margin-bottom: 12px; border: none; background: transparent; }
-.subgroup.open { }
 .subgroup-h { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 6px; background: var(--panel); font-size: 12.5px; font-weight: 700; color: var(--accent); cursor: pointer; text-align: left; transition: all .2s; }
 .subgroup-h:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, var(--panel)); }
 .subgroup.open .subgroup-h { border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
@@ -526,15 +533,20 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
 .seg-search svg { width: 16px; height: 16px; flex: none; }
 .split { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .sticky-side { position: sticky; top: 84px; }
-.tc-split { display: grid; grid-template-columns: 380px minmax(0,1fr); gap: 24px; align-items: start; }
-/* Generated test cases scroll in their own column instead of growing the
-   whole page — with several custom tasks added, the form would otherwise
-   scroll far out of view along with the Continue button. Same treatment on
-   the left (form + custom task list) — .sticky-side is shared with other
-   pages' short static sidebars, so this is scoped to .tc-split only rather
-   than changing that base class everywhere. */
-.tc-results { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; }
-.tc-split .sticky-side { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 4px; }
+.tc-split { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 32px; align-items: start; }
+/* Only the results column stays pinned — it's the shorter, simpler side
+   (often just the empty state), so keeping it visible as a reference while
+   scrolling a long form makes sense. The form column used to get the same
+   sticky + capped-height treatment, but that math assumes the element
+   starts near the top of the viewport — it doesn't, since the onboarding
+   banner and step header push it down first, so its computed bottom edge
+   could extend past the viewport before any scroll had even happened,
+   forcing a page-level scroll to reach the Generate button regardless of
+   its own internal overflow. Letting the form flow normally with the page
+   avoids that entirely — it's the one thing actually meant to scroll the
+   ordinary way here. */
+.tc-results { max-height: calc(100vh - 140px); overflow-y: auto; padding-right: 32px; padding-left: 6px; padding-bottom: 80px; }
+.tc-form { padding-left: 6px; }
 /* keeps the main column at its normal ~720px width and puts the side card in
    the extra space, instead of .split's approach of shrinking the main column
    to make room for it */
@@ -586,7 +598,7 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   .split, .aud, .wz, .tc-split, .split-slim { grid-template-columns: 1fr; }
   .filter-panel { position: static; max-height: none; }
   .wz-rail { display: none; }
-  .wz-content, .wz-content.wide, .wz-content.wide-lg { padding: 22px 18px 130px; max-width: 100%; }
+  .wz-content, .wz-content.wide { padding: 22px 18px 130px; max-width: 100%; }
   .wz[data-layout="topbar"] .wz-content { max-width: 100%; }
   /* mobile wizard: surface the stepper + exit bar even in rail layout */
   .wz[data-layout="rail"] .wz-top, .wz[data-layout="topbar"] .wz-top { display: flex; height: 54px; padding: 0 18px; }

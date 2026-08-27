@@ -1,34 +1,23 @@
-import React, { useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
+import { Modal } from "../components/Modal";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 
 const TC_PLATFORMS = ["All", "Web", "iOS", "Android"];
 const TC_GOALS = ["All", "Core flow", "UX", "Willingness to pay"];
 
-// Whether the generated test cases no longer reflect what's currently typed/
-// selected on this step — used both for the inline warning here and for the
-// wizard's own "you're continuing with the old ones" toast on Step 3 exit.
-export function isTestCasesStale(d) {
-  if (!d.genFor) return false;
-  if (d.genFor.cat !== d.cat || d.genFor.ptype !== d.ptype) return true;
-  const form = d.testCaseForm || {};
-  return d.genFor.desc !== form.desc
-    || d.genFor.url !== form.url
-    || JSON.stringify(d.genFor.platforms) !== JSON.stringify(form.platforms || [])
-    || JSON.stringify(d.genFor.goals) !== JSON.stringify(form.goals || [])
-    || d.genFor.users !== form.users;
-}
+import { isTestCasesStale } from "../utils/isTestCasesStale";
 
 const SEV = {
   crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
-  imp:  { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
+  imp: { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
   nice: { l: "Nice to have", color: "var(--success)", bg: "var(--success-weak)" },
 };
 
-function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOverCard, onDrop, onDragEnd, expanded, onToggle, onDelete, onEdit }) {
+function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, onDrop, onDragEnd, expanded, onToggle, onDelete, onEdit }) {
   const { t } = useTranslation();
   const sev = SEV[task.severity] || SEV.imp;
   const incomplete = task.steps.length === 0 || task.steps.some(s => !s.trim())
@@ -44,7 +33,7 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
     s[stepIdx] = val;
     onEdit(idx, { steps: s });
   };
-  
+
   const deleteStep = (stepIdx) => {
     const s = [...task.steps];
     s.splice(stepIdx, 1);
@@ -56,7 +45,7 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
     qs[qIdx] = { ...qs[qIdx], text: val };
     onEdit(idx, { questions: qs });
   };
-  
+
   const deleteQuestion = (qIdx) => {
     const qs = [...task.questions];
     qs.splice(qIdx, 1);
@@ -76,13 +65,13 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
       onDrop={e => { e.preventDefault(); onDrop(); }}
       onDragEnd={onDragEnd}
       className={`card rise`} style={{
-      overflow: "hidden",
-      marginBottom: 10,
-      border: incomplete ? "1.5px solid var(--danger)" : expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-      boxShadow: dragOver ? "0 -2px 0 0 var(--accent)" : expanded ? "0 0 0 1px var(--accent)" : undefined,
-      opacity: dragging ? 0.45 : 1,
-      animationDelay: `${idx * 0.07}s`,
-    }}>
+        overflow: "hidden",
+        marginBottom: 10,
+        border: incomplete ? "1.5px solid var(--danger)" : expanded ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+        boxShadow: dragOver ? "0 -2px 0 0 var(--accent)" : expanded ? "0 0 0 1px var(--accent)" : undefined,
+        opacity: dragging ? 0.45 : 1,
+        animationDelay: `${idx * 0.07}s`,
+      }}>
       {/* Header */}
       <div
         onClick={onToggle}
@@ -108,12 +97,12 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
         </span>
         {!expanded && (
           <button
-              onClick={e => { e.stopPropagation(); onDelete(idx); }}
-              data-tooltip={t("testCases.deleteTask", null, "Delete Task")}
-              style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
-            ><Icon name="trash" size={13} style={{ color: "var(--danger)" }} /></button>
+            onClick={e => { e.stopPropagation(); onDelete(idx); }}
+            data-tooltip={t("testCases.deleteTask", null, "Delete Task")}
+            style={{ width: 28, height: 28, borderRadius: 6, background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 25%,transparent)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}
+          ><Icon name="trash" size={13} style={{ color: "var(--danger)" }} /></button>
         )}
-          <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+        <Icon name={expanded ? "chevronDown" : "chevronRight"} size={15} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
       </div>
 
       {/* Body */}
@@ -154,18 +143,55 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
                       <button onClick={e => { e.stopPropagation(); deleteQuestion(i); }} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 4 }}><Icon name="trash" size={14} /></button>
                     </div>
                     <div>
-                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); }} onClick={e => e.stopPropagation()} style={{ fontSize: 12, padding: "2px 26px 2px 8px", width: "auto", display: "inline-block" }}>
+                      <select className="fin" value={q.type} onChange={e => { const qs = [...task.questions]; qs[i] = { ...qs[i], type: e.target.value }; onEdit(idx, { questions: qs }); e.target.blur(); }} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 28px 4px 10px", width: "auto", display: "inline-block" }}>
                         <option value="multiple_choice">{t("testCases.qTypeMultipleChoice", null, "Multiple choice")}</option>
                         <option value="yes_no_detail">{t("testCases.qTypeYesNoDetail", null, "Yes/No + detail")}</option>
                         <option value="rating">{t("testCases.qTypeRating", null, "Rating (1-5)")}</option>
                         <option value="text">{t("testCases.qTypeOpenText", null, "Open text")}</option>
                       </select>
                     </div>
-                    {q.options && (
+                    {q.type === 'multiple_choice' && (
                       <div style={{ display: "flex", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                        {q.options.map((o, oi) => (
-                          <span key={oi} style={{ padding: "2px 9px", borderRadius: 20, background: "var(--panel-inset)", border: "1px solid var(--border)", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)" }}>{o}</span>
+                        {(q.options || []).map((o, oi) => (
+                          <div key={oi} className="opt-pill" style={{ display: "flex", alignItems: "center", background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: 20, padding: "2px 6px 2px 9px" }}>
+                            <input
+                              value={o}
+                              autoFocus={o === "" && oi === (q.options || []).length - 1}
+                              placeholder={t("testCases.optionPlaceholder", null, "Option")}
+                              onChange={e => {
+                                const qs = [...task.questions];
+                                const opts = [...(qs[i].options || [])];
+                                opts[oi] = e.target.value;
+                                qs[i] = { ...qs[i], options: opts };
+                                onEdit(idx, { questions: qs });
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              style={{ border: "none", background: "transparent", fontSize: 11.5, fontWeight: 600, color: "var(--text-muted)", width: `${Math.max((o || "").length + 1, 8)}ch`, outline: "none", boxShadow: "none", padding: 0 }}
+                            />
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                const qs = [...task.questions];
+                                qs[i] = { ...qs[i], options: (qs[i].options || []).filter((_, x) => x !== oi) };
+                                onEdit(idx, { questions: qs });
+                              }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-faint)", marginLeft: 2, padding: 2, display: "flex", alignItems: "center" }}
+                            >
+                              <Icon name="x" size={12} />
+                            </button>
+                          </div>
                         ))}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            const qs = [...task.questions];
+                            qs[i] = { ...qs[i], options: [...(qs[i].options || []), ""] };
+                            onEdit(idx, { questions: qs });
+                          }}
+                          style={{ padding: "2px 9px", borderRadius: 20, background: "transparent", border: "1px dashed var(--border-strong)", fontSize: 11.5, color: "var(--text-muted)", cursor: "pointer" }}
+                        >
+                          + {t("testCases.addOption", null, "Add option")}
+                        </button>
                       </div>
                     )}
                   </div>
@@ -181,24 +207,19 @@ function TaskCard({ task, idx, total, dragging, dragOver, onDragStart, onDragOve
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span className="eyebrow" style={{ letterSpacing: 0 }}>{t("testCases.severity", null, "Severity")}</span>
-              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 26px 4px 8px", width: 130 }}>
+              <select className="fin" value={task.severity} onChange={e => onEdit(idx, { severity: e.target.value })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 28px 4px 10px", width: 130 }}>
                 <option value="crit">{sevLabel.crit}</option>
                 <option value="imp">{sevLabel.imp}</option>
                 <option value="nice">{sevLabel.nice}</option>
               </select>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="eyebrow" style={{ letterSpacing: 0 }}>{t("testCases.minTimeMin", null, "Min time (min)")}</span>
-              <input type="number" min="1" className="fin" value={Math.ceil((task.min_time_seconds || 120) / 60)} onChange={e => onEdit(idx, { min_time_seconds: Math.max(1, parseInt(e.target.value || 1)) * 60 })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 8px", width: 60, textAlign: "center" }} />
-            </div>
-
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: 10 }}>
-              <input 
-                type="checkbox" 
-                checked={task.proof === "screenshot"} 
-                onChange={e => onEdit(idx, { proof: e.target.checked ? "screenshot" : null })} 
-                onClick={e => e.stopPropagation()} 
+              <input
+                type="checkbox"
+                checked={task.proof === "screenshot"}
+                onChange={e => onEdit(idx, { proof: e.target.checked ? "screenshot" : null })}
+                onClick={e => e.stopPropagation()}
               />
               {t("testCases.requireProof", null, "Require screenshot or video proof")}
             </label>
@@ -243,6 +264,7 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
   const [urlFormatInvalid, setUrlFormatInvalid] = useState(false);
   const [fetchFailReason, setFetchFailReason] = useState(null);
   const [expanded, setExpanded] = useState(null);
+  const [showRegenWarning, setShowRegenWarning] = useState(false);
   // The generated test cases render in the right-hand column, which on
   // narrower viewports sits below the fold relative to the form — scroll it
   // into view the moment generation starts so the loading state (and then
@@ -316,7 +338,10 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
 
   const generate = async (skipConfirm = false) => {
     if (!canGen) return;
-    if (!skipConfirm && hasTasks && !window.confirm(t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited."))) return;
+    if (!skipConfirm && hasTasks) {
+      setShowRegenWarning(true);
+      return;
+    }
     setGenState("loading");
     set({ tasks: [] });
     setExpanded(null);
@@ -341,7 +366,7 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
       setGenState("done");
       setExpanded(0);
       setFallbackReason(res.fallback ? (res.reason || "unknown") : null);
-    } catch (err) {
+    } catch {
       set({ tasks: [] });
       setGenState("idle");
       setFallbackReason(null);
@@ -383,9 +408,9 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
 
   return (
     <div className="rise tc-split">
-      <div className="sticky-side">
+      <div className="tc-form">
         {/* FORM */}
-        <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel-2)", padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div className="fld" style={{ marginBottom: 0 }}>
             <label>{t("testCases.whatDidYouBuild", null, "What did you build?")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("testCases.beSpecific", null, "be specific")}</span></label>
             <textarea className="fin" rows={4} placeholder={t("testCases.descPlaceholder", null, "e.g. A subscription app for curated D2C products. Users browse, subscribe, and manage deliveries. We want to test the core shopping flow before launch.")} value={form.desc} onChange={e => patch({ desc: e.target.value })} style={{ minHeight: 108 }} />
@@ -406,12 +431,12 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
               urlFormatInvalid
                 ? <p className="fhint" style={{ color: "var(--danger)", marginTop: 6 }}>{t("testCases.urlFormatInvalid", null, "Please enter a valid URL, starting with http:// or https://")}</p>
                 : urlContext
-                ? <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>{t("testCases.pageAnalysed", null, "✓ Page analysed — context added")}</p>
-                : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>
+                  ? <p className="fhint" style={{ color: "var(--success)", marginTop: 6 }}>{t("testCases.pageAnalysed", null, "✓ Page analysed — context added")}</p>
+                  : <p className="fhint" style={{ color: "var(--text-faint)", marginTop: 6 }}>
                     {fetchFailReason === "timeout" ? t("testCases.fetchTimeout", null, "This page took too long to respond — you can still generate from your description")
-                    : fetchFailReason === "non_html" ? t("testCases.fetchNonHtml", null, "That link doesn't point to a webpage (not HTML) — you can still generate from your description")
-                    : fetchFailReason === "empty" ? t("testCases.fetchEmpty", null, "Couldn't find any usable content on that page — you can still generate from your description")
-                    : t("testCases.pageAnalyseFailed", null, "Couldn't reach that page — you can still generate from your description")}
+                      : fetchFailReason === "non_html" ? t("testCases.fetchNonHtml", null, "That link doesn't point to a webpage (not HTML) — you can still generate from your description")
+                        : fetchFailReason === "empty" ? t("testCases.fetchEmpty", null, "Couldn't find any usable content on that page — you can still generate from your description")
+                          : t("testCases.pageAnalyseFailed", null, "Couldn't reach that page — you can still generate from your description")}
                   </p>
             )}
           </div>
@@ -530,6 +555,20 @@ export default forwardRef(function StepTestCases({ d, set }, ref) {
           </div>
         )}
       </div>
+
+      {showRegenWarning && (
+        <Modal title={t("testCases.regenerateConfirmTitle", null, "Generate new test cases?")} onClose={() => setShowRegenWarning(false)} width={400} hideCloseIcon>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
+              {t("testCases.regenerateConfirm", null, "Generate new test cases? This replaces the current ones, including any you've added or edited.")}
+            </p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn btn-quiet" onClick={() => setShowRegenWarning(false)} style={{ color: "var(--text-muted)" }}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-primary" onClick={() => { setShowRegenWarning(false); generate(true); }}>{t("testCases.regenerateWithAI", null, "Regenerate with AI")}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 });

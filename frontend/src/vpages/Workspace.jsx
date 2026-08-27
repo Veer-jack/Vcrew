@@ -6,48 +6,6 @@ import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { useTranslation } from "../i18n/index.jsx";
 
-function Timer({ secs, onDone, taskKey, isDone }) {
-  const { t } = useTranslation();
-  const getInitialRem = () => {
-    if (!taskKey) return secs;
-    const startStr = localStorage.getItem("timer_start_" + taskKey);
-    if (startStr) {
-      const elapsed = Math.floor((Date.now() - parseInt(startStr)) / 1000);
-      return Math.max(0, secs - elapsed);
-    }
-    localStorage.setItem("timer_start_" + taskKey, Date.now().toString());
-    return secs;
-  };
-  const onDoneRef = useRef(onDone);
-  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
-
-  const [rem, setRem] = useState(getInitialRem);
-  const done = rem <= 0 || rem === 9999;
-  useEffect(() => {
-    if (done) { 
-      if (!isDone) onDoneRef.current?.(); 
-      return; 
-    }
-    const id = setInterval(() => setRem(r => r - 1), 1000);
-    return () => clearInterval(id);
-  }, [done, isDone]);
-  const m = Math.floor(Math.abs(rem) / 60), s = Math.abs(rem) % 60;
-  const cls = done ? "done" : rem < 30 ? "warn" : "";
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 14px",
-      borderRadius: 20, fontFamily: "var(--mono)", fontWeight: 600, fontSize: 14,
-      border: `1.5px solid ${done ? "color-mix(in srgb, var(--success) 35%, transparent)" : "var(--border)"}`,
-      background: done ? "var(--success-weak)" : "var(--panel)",
-      color: done ? "var(--success)" : rem < 30 ? "var(--warning)" : "var(--text)",
-      transition: "all .3s",
-    }}>
-      <Icon name="clock" size={14} />
-      {done || rem === 9999 ? `✓ ${t("status.completed", null, "Completed")}` : `${m}:${String(s).padStart(2, "0")} ${t("missions.remaining", null, "remaining")}`}
-    </span>
-  );
-}
-
 function RatingQ({ ans, setAns, readOnly }) {
   return (
     <div style={{ display: "flex", gap: 6 }}>
@@ -122,7 +80,6 @@ export default function Workspace() {
   const [curIdx, setCurIdx] = useState(0);
   const [stepsDone, setStepsDone] = useState([]);
   const [answers, setAnswers] = useState([]);
-  const [timerDone, setTimerDone] = useState([]);
   const [proofUploaded, setProofUploaded] = useState([]);
   const [showSummary, setShowSummary] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -174,7 +131,6 @@ export default function Workspace() {
           setIsReadOnly(true);
           setAnswers(data.responses);
           setStepsDone(t.map(tk => new Set(tk.steps.map((_, j) => j))));
-          setTimerDone(t.map(() => true));
           setProofUploaded(t.map((_, i) => data.responses[i]?._proof || false));
         } else {
           let savedAnswers = t.map(() => ({}));
@@ -197,7 +153,6 @@ export default function Workspace() {
              const hasAns = savedAnswers[i] && Object.keys(savedAnswers[i]).length > 0;
              return hasAns ? new Set(tk.steps.map((_, j) => j)) : new Set();
           }));
-          setTimerDone(t.map((_, i) => i < savedIdx));
           setProofUploaded(t.map((_, i) => savedAnswers[i]?._proof || false));
         }
       } catch (err) {
@@ -232,7 +187,7 @@ export default function Workspace() {
   const isFinalTask = curIdx === tasks.length - 1;
   const requiresLiveSession = mission?.ptype === "interview" || mission?.ptype === "focus";
   const liveSessionOk = !isFinalTask || !requiresLiveSession || scheduleStatus === "completed";
-  const canNext = timerDone[curIdx] && stepsComplete && allAnswered && proofOk && liveSessionOk;
+  const canNext = stepsComplete && allAnswered && proofOk && liveSessionOk;
 
   const toggleStep = (si) => {
     setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
@@ -264,10 +219,14 @@ export default function Workspace() {
           return c;
         });
         await vapi.submitWorkspaceData(id, { answers: finalAnswers, activeSeconds: activeSecondsRef.current });
+        // Only reachable on a real success — showing this screen after a
+        // failed submit told the validator they were done when nothing had
+        // actually been saved, leaving the response stuck server-side with
+        // no way for either side to notice.
+        setShowSummary(true);
       } catch (err) {
-        console.error("Submission failed:", err);
+        alert(err.message || t("missions.submitFailed", null, "Couldn't submit your response — please try again."));
       }
-      setShowSummary(true);
       setSubmitting(false);
     } else {
       setCurIdx(i => i + 1);
@@ -367,10 +326,6 @@ export default function Workspace() {
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
           <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>{t("missions.taskNOfTotal", { n: curIdx + 1, total: tasks.length }, `Task ${curIdx + 1} of ${tasks.length}`)} {isReadOnly && t("missions.reviewMode", null, "(Review Mode)")}</span>
           <span style={{ flex: 1 }} />
-          <Timer key={curIdx} taskKey={`task_timer_${id}_${task.id}`} secs={isReadOnly ? 0 : task.min_time_seconds} isDone={timerDone[curIdx]} onDone={() => setTimerDone(p => { 
-            if (p[curIdx] === true) return p;
-            const a = [...p]; a[curIdx] = true; return a; 
-          })} />
           <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
             <Icon name="x" size={14} /> {t("actions.exit", null, "Exit")}
           </button>
@@ -478,7 +433,6 @@ export default function Workspace() {
             <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb,var(--warning) 30%,transparent)", borderRadius: "var(--radius)", padding: "12px 16px", fontSize: 13, color: "var(--warning)" }}>
               <b>{t("missions.beforeContinuing", null, "Before continuing:")}</b>
               <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
-                {!timerDone[curIdx] && <li>{t("missions.waitForTimer", null, "Wait for the timer to reach zero")}</li>}
                 {!stepsComplete && <li>{t("missions.checkOffSteps", null, "Check off all steps above")}</li>}
                 {!allAnswered && <li>{t("missions.answerAllQuestions", null, "Answer all questions")}</li>}
                 {!proofOk && <li>{t("missions.uploadProof", null, "Upload a screenshot as proof")}</li>}

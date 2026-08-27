@@ -16,6 +16,7 @@ const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMa
 // Firebase surfaces raw SDK error codes/messages (e.g. "Firebase: Error
 // (auth/error-code:-39)."); map the common ones to copy a user can act on
 // instead of showing the SDK string verbatim.
+// eslint-disable-next-line react-refresh/only-export-components
 export function friendlyAuthError(err, t, fallback) {
   const code = err?.code || "";
   const map = {
@@ -147,6 +148,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       // friendlyAuthError's Firebase-code map, which doesn't apply to these
       // errors and was swallowing them into a generic "Something went wrong."
       setError(err.message || t("errors.somethingWentWrong"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally { setBusy(false); }
   };
 
@@ -207,6 +209,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       goAfterAuth();
     } catch (err) {
       setError(friendlyAuthError(err, t));
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally { setBusy(false); }
   };
 
