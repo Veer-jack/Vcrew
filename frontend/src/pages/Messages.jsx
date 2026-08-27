@@ -62,7 +62,13 @@ export default function Messages() {
   useEffect(() => {
     if (!activeId) return;
     const interval = setInterval(() => {
-      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread))).catch(() => {});
+      // A poll can still be in flight when send() optimistically appends the
+      // just-sent message. If that older response lands after the append, it
+      // carries fewer messages than what's already on screen — applying it
+      // would make the message just sent flicker away until the next tick
+      // catches up. Never go backwards in count; only ever adopt server data
+      // that has caught up to (or moved past) what we're already showing.
+      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length >= d.thread.messages.length ? prev : d.thread))).catch(() => {});
     }, 5000);
     return () => clearInterval(interval);
   }, [activeId]);
