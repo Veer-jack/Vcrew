@@ -246,10 +246,20 @@ export default function VOnboarding() {
   const isDirty = !!validatorType && !showPending;
   useUnsavedChangesWarning(isDirty, t("vOnboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
 
+  // Fired unconditionally on every mount before, so it could show twice from
+  // any double-render, and would wrongly reappear on a later, unrelated visit
+  // to this same page (e.g. Settings' "Reapply for Verified Tester" routes
+  // back through here for an account that isn't new). A persisted per-account
+  // flag makes this genuinely once-ever, regardless of how many times the
+  // page happens to mount.
   useEffect(() => {
+    if (!validator?.id) return;
+    const key = `vc_onboarding_toast_shown_${validator.id}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
     toast.success(t("onboarding.accountCreated", null, "Account created!"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [validator?.id]);
 
   const handleDone = async (data, vtype) => {
     setError("");
