@@ -560,9 +560,16 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {view === "review" && sub.status === "pending" && (
           <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
-            <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
-              <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
-            </button>
+            {/* One revision cycle only — once this submission has already
+                been sent back once, the only real outcomes left are Approve
+                or Reject, not another round-trip with no resolution. The
+                backend enforces this too (see the /revision route); this
+                just keeps a dead-end action off the screen. */}
+            {(sub.revisionCount || 0) < 1 && (
+              <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
+                <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
+              </button>
+            )}
             <div style={{ flex: 1 }} />
             <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
               <Icon name="x" size={14} /> {t("actions.reject", null, "Reject")}

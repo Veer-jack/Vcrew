@@ -564,6 +564,7 @@ const fr = {
     todaysScreenshot: "Capture d'écran d'aujourd'hui",
     screenshotUploaded: "Capture d'écran téléchargée",
     failedUploadProof: "Échec du téléchargement de la preuve",
+    submitFailed: "Impossible d'envoyer votre réponse — veuillez réessayer.",
     dropScreenshot: "Cliquez ou déposez la capture d'écran ici",
     imageFormatReq: "PNG ou JPG · maximum 10 Mo",
     checkinResetTime: "L'enregistrement quotidien est réinitialisé à minuit",

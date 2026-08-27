@@ -210,7 +210,12 @@ CREATE TABLE IF NOT EXISTS responses (
   -- and focused, tracked client-side and reported on every draft save and
   -- final submit — distinct from submitted_at - joined_at, which counts
   -- wall-clock time including however long the task sat open unattended.
-  active_seconds INTEGER
+  active_seconds INTEGER,
+  -- How many times a builder has sent this response back for revision.
+  -- Capped at one revision cycle: once this is >= 1, the builder's only
+  -- options are Approve or Reject, not another revision request — avoids an
+  -- unbounded back-and-forth with no resolution.
+  revision_count INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS activity (

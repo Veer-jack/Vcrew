@@ -564,6 +564,7 @@ const bn = {
     todaysScreenshot: "আজকের স্ক্রিনশট",
     screenshotUploaded: "স্ক্রিনশট আপলোড করা হয়েছে",
     failedUploadProof: "প্রমাণ আপলোড করতে ব্যর্থ হয়েছে",
+    submitFailed: "আপনার উত্তর জমা দেওয়া যায়নি — অনুগ্রহ করে আবার চেষ্টা করুন।",
     dropScreenshot: "এখানে স্ক্রিনশট ক্লিক করুন বা ড্রপ করুন",
     imageFormatReq: "PNG বা JPG · সর্বোচ্চ 10MB",
     checkinResetTime: "12:00 AM এ দৈনিক চেক-ইন রিসেট হয়",

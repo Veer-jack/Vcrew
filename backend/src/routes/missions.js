@@ -1320,9 +1320,19 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
     mission: { id: mission.id, name: mission.name, target: mission.target },
     submissions: responses.map(r => {
       let data = [];
-      try { 
-        const parsed = r.data_json ? JSON.parse(r.data_json) : []; 
-        data = Array.isArray(parsed) ? parsed : [parsed];
+      try {
+        const parsed = r.data_json ? JSON.parse(r.data_json) : [];
+        // A response can be left in this shape if a validator's resubmission
+        // after a revision request never actually completed server-side —
+        // it's still whatever the last draft autosave wrote: a wrapped
+        // {answers, curIdx} object, not the plain per-task array a real
+        // submission stores. Unwrapping it the same way the validator's own
+        // resume screen already does (frontend/src/vpages/Workspace.jsx)
+        // means this still shows the real, if incomplete, answers instead of
+        // dumping the wrapper itself — including its internal curIdx
+        // bookkeeping field — as if it were a submitted answer.
+        const wrapped = parsed && !Array.isArray(parsed) && Array.isArray(parsed.answers);
+        data = wrapped ? parsed.answers : (Array.isArray(parsed) ? parsed : [parsed]);
       } catch {}
       
       const breakdown = data.map((ans, i) => {
@@ -1395,6 +1405,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         city: "Remote",
         trust: Math.round((r.trust_score || 0) * 10),
         status: r.status || "pending",
+        revisionCount: r.revision_count || 0,
         quality: r.flagged ? "flagged" : "medium",
         date: new Date(r.submitted_at).toLocaleDateString(),
         // Prefer real tracked active time (tab visible + focused) over the
@@ -1551,10 +1562,16 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
   
-  const response = await db.prepare(`SELECT validator_id FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
+  const response = await db.prepare(`SELECT validator_id, revision_count FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
   if (!response) return res.status(404).json({ error: "Submission not found" });
+  // Enforced here, not just hidden in the UI — one revision cycle only, so
+  // a submission can't loop indefinitely between builder and validator with
+  // neither side ever actually resolving it.
+  if ((response.revision_count || 0) >= 1) {
+    return res.status(400).json({ error: "This submission has already been sent back for revision once — approve or reject it instead." });
+  }
 
-  await db.prepare(`UPDATE responses SET status = 'revision' WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  await db.prepare(`UPDATE responses SET status = 'revision', revision_count = revision_count + 1 WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)

@@ -564,6 +564,7 @@ const zh = {
     todaysScreenshot: "今天的截图",
     screenshotUploaded: "截图已上传",
     failedUploadProof: "上传证明失败",
+    submitFailed: "无法提交您的回复——请重试。",
     dropScreenshot: "单击或将屏幕截图拖放到此处",
     imageFormatReq: "PNG 或 JPG · 最大 10MB",
     checkinResetTime: "每日签到重置时间为中午 12:00",

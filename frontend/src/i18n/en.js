@@ -567,6 +567,7 @@ const en = {
     todaysScreenshot: "Today's screenshot",
     screenshotUploaded: "Screenshot uploaded",
     failedUploadProof: "Failed to upload proof",
+    submitFailed: "Couldn't submit your response — please try again.",
     dropScreenshot: "Click or drop screenshot here",
     imageFormatReq: "PNG or JPG · max 10MB",
     checkinResetTime: "Daily check-in resets at 12:00 AM",

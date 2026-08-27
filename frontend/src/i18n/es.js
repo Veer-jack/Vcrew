@@ -564,6 +564,7 @@ const es = {
     todaysScreenshot: "La captura de pantalla de hoy",
     screenshotUploaded: "Captura de pantalla cargada",
     failedUploadProof: "No se pudo cargar la prueba",
+    submitFailed: "No se pudo enviar tu respuesta — inténtalo de nuevo.",
     dropScreenshot: "Haga clic o suelte la captura de pantalla aquí",
     imageFormatReq: "PNG o JPG · máx. 10 MB",
     checkinResetTime: "El check-in diario se reinicia a las 12:00 a. m.",

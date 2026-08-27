@@ -135,7 +135,9 @@ export async function initDb() {
     // already-generated tasks themselves loaded fine.
     if (!mCols.includes('test_case_form_json')) await client.query('ALTER TABLE missions ADD COLUMN test_case_form_json TEXT');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
-    if (!rCols.rows.map(r => r.column_name).includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
+    const rColNames = rCols.rows.map(r => r.column_name);
+    if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
+    if (!rColNames.includes('revision_count')) await client.query('ALTER TABLE responses ADD COLUMN revision_count INTEGER DEFAULT 0');
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);

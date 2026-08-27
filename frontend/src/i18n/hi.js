@@ -564,6 +564,7 @@ const hi = {
     todaysScreenshot: "आज का स्क्रीनशॉट",
     screenshotUploaded: "स्क्रीनशॉट अपलोड किया गया",
     failedUploadProof: "सबूत अपलोड करने में विफल",
+    submitFailed: "आपका जवाब सबमिट नहीं हो सका — कृपया फिर से कोशिश करें।",
     dropScreenshot: "यहां स्क्रीनशॉट पर क्लिक करें या छोड़ें",
     imageFormatReq: "पीएनजी या जेपीजी · अधिकतम 10एमबी",
     checkinResetTime: "दैनिक चेक-इन रात्रि 12:00 बजे रीसेट होता है",

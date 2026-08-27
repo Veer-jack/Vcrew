@@ -221,10 +221,14 @@ export default function Workspace() {
           return c;
         });
         await vapi.submitWorkspaceData(id, { answers: finalAnswers, activeSeconds: activeSecondsRef.current });
+        // Only reachable on a real success — showing this screen after a
+        // failed submit told the validator they were done when nothing had
+        // actually been saved, leaving the response stuck server-side with
+        // no way for either side to notice.
+        setShowSummary(true);
       } catch (err) {
-        console.error("Submission failed:", err);
+        alert(err.message || t("missions.submitFailed", null, "Couldn't submit your response — please try again."));
       }
-      setShowSummary(true);
       setSubmitting(false);
     } else {
       setCurIdx(i => i + 1);

@@ -564,6 +564,7 @@ const ar = {
     todaysScreenshot: "لقطة الشاشة اليوم",
     screenshotUploaded: "تم تحميل لقطة الشاشة",
     failedUploadProof: "فشل تحميل الإثبات",
+    submitFailed: "تعذّر إرسال ردّك — يرجى المحاولة مرة أخرى.",
     dropScreenshot: "انقر أو أسقط لقطة الشاشة هنا",
     imageFormatReq: "PNG أو JPG · الحد الأقصى 10 ميغابايت",
     checkinResetTime: "تتم إعادة ضبط تسجيل الوصول يوميًا عند الساعة 12:00 صباحًا",

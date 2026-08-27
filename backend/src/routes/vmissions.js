@@ -427,8 +427,11 @@ router.post("/:id/workspace/proof", (req, res, next) => {
     return res.status(404).json({ error: "Mission not found" });
   }
 
+  // A revision request keeps the mission at status "revision", not "active" —
+  // re-uploading proof is exactly what a validator needs to do to fix the
+  // task the builder flagged, so it must be allowed from either state.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  if (!mm || mm.status !== "active") {
+  if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: "Mission not active or not accepted" });
   }

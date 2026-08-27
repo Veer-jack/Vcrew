@@ -564,6 +564,7 @@ const ur = {
     todaysScreenshot: "آج کا اسکرین شاٹ",
     screenshotUploaded: "اسکرین شاٹ اپ لوڈ ہو گیا۔",
     failedUploadProof: "ثبوت اپ لوڈ کرنے میں ناکام",
+    submitFailed: "آپ کا جواب جمع نہیں ہو سکا — براہ کرم دوبارہ کوشش کریں۔",
     dropScreenshot: "یہاں اسکرین شاٹ پر کلک کریں یا ڈراپ کریں۔",
     imageFormatReq: "PNG یا JPG · زیادہ سے زیادہ 10MB",
     checkinResetTime: "روزانہ چیک ان 12:00 AM پر دوبارہ ترتیب دیا جاتا ہے۔",

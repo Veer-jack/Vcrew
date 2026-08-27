@@ -564,6 +564,7 @@ const ru = {
     todaysScreenshot: "Сегодняшний скриншот",
     screenshotUploaded: "Скриншот загружен.",
     failedUploadProof: "Не удалось загрузить доказательство.",
+    submitFailed: "Не удалось отправить ваш ответ — попробуйте ещё раз.",
     dropScreenshot: "Нажмите или оставьте скриншот здесь",
     imageFormatReq: "PNG или JPG · максимум 10 МБ",
     checkinResetTime: "Ежедневная регистрация сбрасывается в 12:00.",
