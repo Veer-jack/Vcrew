@@ -136,7 +136,9 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   // subgroup instead of just what's actually selected here. The generic
   // "Other" marker is excluded — it's a derived flag, not a real selection.
   const realOptions = isGenericOther ? options.filter(o => o !== otherValue) : options;
-  const ownSelectedCount = realOptions.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
+  // A checked custom entry is a real selection just like any predefined
+  // option, so it counts toward this subgroup's total too.
+  const ownSelectedCount = realOptions.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0) + savedOther.reduce((n, v) => n + (sel.has(v) ? 1 : 0), 0);
   const allSelected = realOptions.length > 0 && realOptions.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
@@ -283,14 +285,31 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               )}
             </div>
           )}
-          {Array.isArray(opts) ? (
-            <FilterGroup
-              title={g} options={opts} sel={d.filters[g]} toggle={toggle}
-              otherEntries={d.otherEntries?.[`${g}:Other`]}
-              onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [`${g}:Other`]: entries } })}
-              onSelectAll={(opts, catchAll) => selectAllInGroup(g, opts, opts.includes("Other") ? `${g}:Other` : undefined, catchAll)}
-            />
-          ) : (
+          {Array.isArray(opts) ? (() => {
+            // A literal "Other" in the list gets its own trailing section
+            // instead of sitting inline among the real options — it isn't a
+            // real value like the rest, just a trigger for custom text, and
+            // mixing it into the main grid buried its saved entries (and
+            // hid them from "Select all"/"Clear all" affordances that don't
+            // apply to it — it has no bulk-fillable content of its own).
+            const hasOther = opts.includes("Other");
+            const mainOpts = hasOther ? opts.filter(o => o !== "Other") : opts;
+            const otherKey = `${g}:Other`;
+            return (
+              <>
+                <FilterGroup title={g} options={mainOpts} sel={d.filters[g]} toggle={toggle}
+                  onSelectAll={(o, catchAll) => selectAllInGroup(g, o, undefined, catchAll)}
+                />
+                {hasOther && (
+                  <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={toggle}
+                    otherEntries={d.otherEntries?.[otherKey]}
+                    onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
+                    otherValue="Other"
+                  />
+                )}
+              </>
+            );
+          })() : (
             Object.entries(opts).map(([sub, subOpts]) => {
               // "India - 9 cities" reuses "India" itself as its catch-all —
               // there's no literal "Other" in that subgroup's option list, so
@@ -301,15 +320,30 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               // (Lifestyle, Industry, Product Types), so the trigger word
               // alone isn't a unique enough key to keep their custom entries
               // from bleeding into each other's list.
-              const subOther = subOpts.includes("Other") ? "Other" : subOpts.includes("India") ? "India" : null;
+              const hasGenericOther = subOpts.includes("Other");
+              const subOther = hasGenericOther ? "Other" : subOpts.includes("India") ? "India" : null;
               const otherKey = subOther ? `${g}:${sub}:${subOther}` : undefined;
+              // "India" stays inline (it's a real, meaningful value in its
+              // own right, not just a text-entry trigger like generic
+              // "Other"), so only a literal "Other" gets split into its own
+              // trailing section here.
+              const mainOpts = hasGenericOther ? subOpts.filter(o => o !== "Other") : subOpts;
               return (
-                <FilterGroup key={g + sub} title={sub} options={subOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                  otherEntries={otherKey ? d.otherEntries?.[otherKey] : undefined}
-                  onOtherEntriesChange={otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
-                  otherValue={subOther || "Other"}
-                  onSelectAll={(subOpts, catchAll) => selectAllInGroup(g, subOpts, otherKey, catchAll)}
-                />
+                <React.Fragment key={g + sub}>
+                  <FilterGroup title={sub} options={mainOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                    otherEntries={!hasGenericOther && otherKey ? d.otherEntries?.[otherKey] : undefined}
+                    onOtherEntriesChange={!hasGenericOther && otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
+                    otherValue={subOther || "Other"}
+                    onSelectAll={(so, catchAll) => selectAllInGroup(g, so, hasGenericOther ? undefined : otherKey, catchAll)}
+                  />
+                  {hasGenericOther && (
+                    <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                      otherEntries={d.otherEntries?.[otherKey]}
+                      onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
+                      otherValue="Other"
+                    />
+                  )}
+                </React.Fragment>
               );
             })
           )}
@@ -1159,13 +1193,7 @@ export default function CreateMissionWizard() {
       finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
       geoBeforeWorldwide = restore ? null : (snapshot ?? p.geoBeforeWorldwide);
     }
-    const next = { ...p, filters: { ...p.filters, [group]: finalSet }, geoBeforeWorldwide };
-    // Clearing the group that owns an "Other" catch-all should also drop its
-    // custom text entries — otherwise they'd sit orphaned in state (hidden
-    // since the checkbox that reveals them is now off) and reappear
-    // unexpectedly if that catch-all gets checked again later.
-    if (allIn && otherKey) next.otherEntries = { ...p.otherEntries, [otherKey]: [] };
-    return next;
+    return { ...p, filters: { ...p.filters, [group]: finalSet }, geoBeforeWorldwide };
   });
 
   const cost = computeCost(d, rewards, platformFeePct);
