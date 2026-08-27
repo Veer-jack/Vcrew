@@ -43,23 +43,26 @@ export default function Messages() {
         // notification link or an explicit click asked for a specific one.
         return null;
       });
-    }).finally(() => setRefetching(false));
+    }).catch(() => {}).finally(() => setRefetching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestedThreadId, dataVersion]);
 
   useEffect(() => {
     if (!activeId) return;
-    api.thread(activeId).then(d => setActive(d.thread));
+    api.thread(activeId).then(d => setActive(d.thread)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, dataVersion]);
 
   // No WebSocket/push infra in this app yet — polling the open thread is the
   // lazy stand-in for "real time": a few seconds of lag instead of a socket
   // server, connection handling, and auth-over-socket for one feature.
+  // Best-effort: a poll tick failing (a network blip, a brief server restart)
+  // shouldn't spam the console with an unhandled rejection every 5s — the
+  // next tick just tries again.
   useEffect(() => {
     if (!activeId) return;
     const interval = setInterval(() => {
-      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread)));
+      api.thread(activeId).then(d => setActive(prev => (prev?.messages?.length === d.thread.messages.length ? prev : d.thread))).catch(() => {});
     }, 5000);
     return () => clearInterval(interval);
   }, [activeId]);
@@ -71,7 +74,7 @@ export default function Messages() {
   // thread selection.
   useEffect(() => {
     const interval = setInterval(() => {
-      api.threads().then(d => setThreads(d.threads));
+      api.threads().then(d => setThreads(d.threads)).catch(() => {});
     }, 8000);
     return () => clearInterval(interval);
   }, []);
