@@ -214,11 +214,6 @@ function TaskCard({ task, idx, dragging, dragOver, onDragStart, onDragOverCard, 
               </select>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="eyebrow" style={{ letterSpacing: 0 }}>{t("testCases.minTimeMin", null, "Min time (min)")}</span>
-              <input type="number" min="1" className="fin" value={Math.ceil((task.min_time_seconds || 120) / 60)} onChange={e => onEdit(idx, { min_time_seconds: Math.max(1, parseInt(e.target.value || 1)) * 60 })} onClick={e => e.stopPropagation()} style={{ fontSize: 13, padding: "4px 8px", width: 60, textAlign: "center" }} />
-            </div>
-
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer", marginLeft: 10 }}>
               <input
                 type="checkbox"
