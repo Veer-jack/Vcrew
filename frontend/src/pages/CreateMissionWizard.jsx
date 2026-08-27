@@ -781,7 +781,6 @@ export default function CreateMissionWizard() {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [deletingDraft, setDeletingDraft] = useState(false);
   const [showStartFreshWarning, setShowStartFreshWarning] = useState(false);
-  const [showClearFieldsWarning, setShowClearFieldsWarning] = useState(false);
   const [showStaleWarning, setShowStaleWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   // Always starts true — even the fresh-wizard path needs one round trip
@@ -1107,23 +1106,6 @@ export default function CreateMissionWizard() {
     setStep(0);
     setMaxReached(0);
     if (missionId) navigate("/missions/new", { replace: true, state: { skipDraftPicker: true, cameFromDraftTab: openedFromDraftTab } });
-  };
-
-  // Non-destructive alternative to Start Fresh, only offered for an
-  // already-live mission nobody has committed to yet (canFullyEdit — see
-  // the sidebar button above). Purely local: blanks the form in place, same
-  // mission id, same route, no API call at all. Nothing on the server
-  // changes until "Save changes" is explicitly clicked afterward — same as
-  // any other unsaved edit to a live mission, per the existing no-autosave-
-  // while-wasActive rule. maxReached is deliberately left untouched: it's
-  // pinned to the last step for any active mission regardless (see the
-  // mission-fetch effect), so every rail step already stays freely
-  // reachable, unlike a genuine in-progress draft.
-  const clearAllFields = () => setShowClearFieldsWarning(true);
-  const doClearAllFields = () => {
-    setShowClearFieldsWarning(false);
-    setD(freshDraft());
-    setStep(0);
   };
 
   // The two choices on the "Create Mission" draft picker (see draftPicker
@@ -1685,16 +1667,6 @@ export default function CreateMissionWizard() {
         </div>
         <div className="wz-rail-foot">
           <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
-          {/* Only offered for an already-live mission nobody has committed to
-              yet (canFullyEdit) — a non-destructive alternative to Start
-              Fresh for this one case: blanks the form in place, same
-              mission id, no delete/create of anything, so nothing already
-              sent to a validator (an invite, a notification) ever points at
-              something that stops existing. Save changes afterward PATCHes
-              this same row, same as any other live-mission edit. */}
-          {wasActive && canFullyEdit && (
-            <button className="backlink" onClick={clearAllFields}><Icon name="refresh" size={16} /> {t("createMission.clearAllFields", null, "Clear all fields")}</button>
-          )}
           {step === 0 ? (
             <button className="btn" onClick={handleCancelClick} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
@@ -1945,20 +1917,6 @@ export default function CreateMissionWizard() {
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
               <button className="btn outline" onClick={() => setShowStartFreshWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
               <button className="btn btn-primary" onClick={doStartFresh}>{t("createMission.startFresh", null, "Start fresh")}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showClearFieldsWarning && (
-        <Modal title={t("createMission.clearAllFieldsTitle", null, "Clear all fields?")} onClose={() => setShowClearFieldsWarning(false)} width={420} hideCloseIcon dismissible={false}>
-          <div style={{ padding: 20 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
-              {t("createMission.clearAllFieldsConfirm", null, "This clears everything currently entered in this form. The published mission itself won't change until you save.")}
-            </p>
-            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => setShowClearFieldsWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
-              <button className="btn btn-primary" onClick={doClearAllFields}>{t("createMission.clearAllFields", null, "Clear all fields")}</button>
             </div>
           </div>
         </Modal>
