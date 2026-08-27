@@ -39,8 +39,8 @@ function wzSteps(t) {
 function LockedHint() {
   const { t } = useTranslation();
   return (
-    <p className="fhint" style={{ background: "var(--panel-inset)", padding: "10px 12px", borderRadius: "var(--radius)", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
-      <Icon name="lock" size={13} style={{ flexShrink: 0, color: "var(--text-faint)" }} />
+    <p style={{ background: "var(--warning-weak)", color: "var(--warning)", fontWeight: 600, fontSize: 13.5, padding: "10px 12px", borderRadius: "var(--radius)", margin: "0 0 14px", display: "flex", alignItems: "center", gap: 8 }}>
+      <Icon name="lock" size={13} style={{ flexShrink: 0 }} />
       {t("createMission.fieldsLockedHint", null, "Locked because a validator has already accepted this mission — shown here for reference.")}
     </p>
   );
