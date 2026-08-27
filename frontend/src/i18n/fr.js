@@ -778,12 +778,12 @@ const fr = {
   verify: {
     step: "Vérification",
     title: "Instaurez la confiance",
-    sub: "Les comptes vérifiés obtiennent de meilleurs relecteurs et des correspondances plus rapides. Vérifiez ce que vous pouvez dès maintenant — complétez le reste à tout moment depuis votre tableau de bord.",
+    sub: "Les comptes vérifiés obtiennent de meilleurs relecteurs et des correspondances plus rapides.",
     websiteTitle: "Site web",
     websiteDesc: "Confirme que vous êtes propriétaire du domaine via une balise meta ou un enregistrement DNS.",
     linkedinTitle: "Page LinkedIn",
     linkedinDescCampaigns: "Relie vos campagnes à une organisation réelle et publique.",
-    optionalFooter: "La vérification est facultative pour terminer la configuration. Les informations soumises sont examinées par notre équipe de confiance et ne sont jamais partagées avec les validateurs.",
+    footer: "Les informations soumises sont examinées par notre équipe de confiance et ne sont jamais partagées avec les validateurs.",
     gstTitle: "Enregistrement GST",
     registryBadgeDesc: "Ajoute un badge de registre commercial.",
     taxIdTitle: "Numéro fiscal / d'entreprise",
@@ -1444,6 +1444,9 @@ const fr = {
   errors: {
     required: "Ce champ est obligatoire",
     invalidEmail: "Entrez une adresse e-mail valide",
+    invalidRegNo: "Veuillez saisir un numéro d'enregistrement valide (au moins 6 caractères, dont un chiffre).",
+    invalidTaxId: "Veuillez saisir un identifiant fiscal/professionnel valide.",
+    notAcademicEmail: "Veuillez utiliser votre adresse e-mail universitaire (un domaine .edu ou .ac).",
     passwordTooShort: "Le mot de passe doit contenir au moins 8 caractères",
     passwordMismatch: "Les mots de passe ne correspondent pas",
     emailExists: "Un compte avec cette adresse e-mail existe déjà",
@@ -2255,6 +2258,7 @@ const fr = {
     free: "Gratuit",
   },
   status: {
+    started: "Commencé",
     rewarded: "Récompensé",
     rejected: "Rejeté",
     failed: "Échoué — check-ins manqués",

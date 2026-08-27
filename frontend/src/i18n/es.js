@@ -778,12 +778,12 @@ const es = {
   verify: {
     step: "Verificación",
     title: "Genera confianza",
-    sub: "Las cuentas verificadas obtienen mejores revisores y coincidencias más rápidas. Verifica lo que puedas ahora — completa el resto cuando quieras desde tu panel.",
+    sub: "Las cuentas verificadas obtienen mejores revisores y coincidencias más rápidas.",
     websiteTitle: "Sitio web",
     websiteDesc: "Confirma que eres el propietario del dominio mediante una etiqueta meta o un registro DNS.",
     linkedinTitle: "Página de LinkedIn",
     linkedinDescCampaigns: "Vincula tus campañas a una organización real y pública.",
-    optionalFooter: "La verificación es opcional para completar la configuración. Los detalles enviados son revisados por nuestro equipo de confianza y nunca se comparten con los validadores.",
+    footer: "Los detalles enviados son revisados por nuestro equipo de confianza y nunca se comparten con los validadores.",
     gstTitle: "Registro de GST",
     registryBadgeDesc: "Añade una insignia de registro empresarial.",
     taxIdTitle: "ID fiscal / de empresa",
@@ -1444,6 +1444,9 @@ const es = {
   errors: {
     required: "Este campo es obligatorio",
     invalidEmail: "Introduzca una dirección de correo electrónico válida",
+    invalidRegNo: "Introduce un número de registro válido (al menos 6 caracteres, incluyendo un número).",
+    invalidTaxId: "Introduce un ID fiscal/empresarial válido.",
+    notAcademicEmail: "Usa tu correo universitario (un dominio .edu o .ac).",
     passwordTooShort: "La contraseña debe tener al menos 8 caracteres.",
     passwordMismatch: "Las contraseñas no coinciden",
     emailExists: "Ya existe una cuenta con ese correo electrónico",
@@ -2255,6 +2258,7 @@ const es = {
     free: "Gratis",
   },
   status: {
+    started: "Iniciado",
     rewarded: "Recompensado",
     rejected: "Rechazado",
     failed: "Fallido — check-ins perdidos",

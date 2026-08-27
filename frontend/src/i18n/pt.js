@@ -778,12 +778,12 @@ const pt = {
   verify: {
     step: "Verificação",
     title: "Construa confiança",
-    sub: "Contas verificadas recebem melhores revisores e correspondências mais rápidas. Verifique o que puder agora — complete o resto quando quiser pelo seu painel.",
+    sub: "Contas verificadas recebem melhores revisores e correspondências mais rápidas.",
     websiteTitle: "Site",
     websiteDesc: "Confirma que você é o proprietário do domínio por meio de uma tag meta ou registro DNS.",
     linkedinTitle: "Página do LinkedIn",
     linkedinDescCampaigns: "Vincula suas campanhas a uma organização real e pública.",
-    optionalFooter: "A verificação é opcional para concluir a configuração. Os detalhes enviados são revisados pela nossa equipe de confiança e nunca são compartilhados com os validadores.",
+    footer: "Os detalhes enviados são revisados pela nossa equipe de confiança e nunca são compartilhados com os validadores.",
     gstTitle: "Registro de GST",
     registryBadgeDesc: "Adiciona um selo de registro empresarial.",
     taxIdTitle: "CNPJ / ID fiscal",
@@ -1444,6 +1444,9 @@ const pt = {
   errors: {
     required: "Este campo é obrigatório",
     invalidEmail: "Insira um endereço de e-mail válido",
+    invalidRegNo: "Insira um número de registro válido (pelo menos 6 caracteres, incluindo um número).",
+    invalidTaxId: "Insira um CNPJ/ID fiscal válido.",
+    notAcademicEmail: "Use seu e-mail universitário (um domínio .edu ou .ac).",
     passwordTooShort: "A senha deve ter pelo menos 8 caracteres",
     passwordMismatch: "As senhas não coincidem",
     emailExists: "Já existe uma conta com esse e-mail",
@@ -2255,6 +2258,7 @@ const pt = {
     free: "Grátis",
   },
   status: {
+    started: "Iniciado",
     rewarded: "Recompensado",
     rejected: "Rejeitado",
     failed: "Falhou — check-ins perdidos",

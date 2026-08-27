@@ -778,12 +778,12 @@ const zh = {
   verify: {
     step: "验证",
     title: "建立信任",
-    sub: "已验证的账户能获得更好的审核者和更快的匹配。现在验证您能验证的内容 — 其余部分可以随时在您的仪表盘中完成。",
+    sub: "已验证的账户能获得更好的审核者和更快的匹配。",
     websiteTitle: "网站",
     websiteDesc: "通过元标签或 DNS 记录确认您拥有该域名。",
     linkedinTitle: "领英页面",
     linkedinDescCampaigns: "将您的活动与真实、公开的组织关联起来。",
-    optionalFooter: "验证是可选的，不影响完成设置。提交的信息将由我们的信任团队审核，且绝不会与验证者共享。",
+    footer: "提交的信息将由我们的信任团队审核，且绝不会与验证者共享。",
     gstTitle: "GST 注册",
     registryBadgeDesc: "添加商业注册徽章。",
     taxIdTitle: "企业 / 税号",
@@ -1444,6 +1444,9 @@ const zh = {
   errors: {
     required: "此字段是必需的",
     invalidEmail: "输入有效的电子邮件地址",
+    invalidRegNo: "请输入有效的注册号（至少6个字符，且包含数字）。",
+    invalidTaxId: "请输入有效的营业执照/税号。",
+    notAcademicEmail: "请使用您的大学邮箱（.edu 或 .ac 域名）。",
     passwordTooShort: "密码必须至少为 8 个字符",
     passwordMismatch: "密码不匹配",
     emailExists: "使用该电子邮件地址的帐户已存在",
@@ -2255,6 +2258,7 @@ const zh = {
     free: "免费",
   },
   status: {
+    started: "已开始",
     rewarded: "奖励",
     rejected: "被拒绝",
     failed: "失败 — 错过打卡",
