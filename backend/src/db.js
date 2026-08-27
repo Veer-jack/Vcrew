@@ -229,6 +229,19 @@ export async function initDb() {
       }
     }
 
+    // threads.builder_read_at/validator_read_at power the real per-side
+    // unread tracking in messages.js/vmessages.js. schema.sql only creates
+    // them on a brand-new install (CREATE TABLE IF NOT EXISTS doesn't touch
+    // an existing table), so any environment whose `threads` table predates
+    // this column needs the same backfill every other column migration here gets.
+    const trCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='threads'");
+    const trColNames = trCols.rows.map(r => r.column_name);
+    for (const col of ['builder_read_at', 'validator_read_at']) {
+      if (!trColNames.includes(col)) {
+        await client.query(`ALTER TABLE threads ADD COLUMN ${col} TIMESTAMPTZ`);
+      }
+    }
+
     const bCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='builders'");
     const bColNames = bCols.rows.map(r => r.column_name);
     if (!bColNames.includes('status')) {
