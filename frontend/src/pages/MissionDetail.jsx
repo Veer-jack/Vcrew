@@ -714,7 +714,7 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
   const { t } = useTranslation();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("pending");
+  const [tab, setTab] = useState("all");
   const [selected, setSelected] = useState(null);
   const [replyingId, setReplyingId] = useState(null);
 

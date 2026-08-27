@@ -99,21 +99,45 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   const filtered = activeQuery.trim() ? options.filter(o => o.toLowerCase().includes(activeQuery.toLowerCase())) : options;
   if (hasExternalQuery && externalQuery.trim() && filtered.length === 0) return null;
   const isOpen = (hasExternalQuery && externalQuery.trim()) ? true : expanded;
-  const showOtherInput = onOtherEntriesChange && sel.has(otherValue);
   const savedOther = otherEntries || [];
+  // "Other" is a free-text catch-all with no meaning of its own — unlike
+  // "India" (a real, independently selectable place), checking it only ever
+  // means "reveal the custom-entry input". Its on/off state below is driven
+  // by whether this specific subgroup's own saved entries exist (or the
+  // input is manually opened), not by raw Set membership — `sel` is shared
+  // across sibling subgroups (e.g. Interests' Lifestyle/Industry/Product
+  // Types), so reading sel.has("Other") directly would show a sibling's
+  // saved entries as checked here too. "India" keeps its normal, independent
+  // toggle behavior since it's a real value.
+  const isGenericOther = otherValue === "Other";
+  const [otherOpen, setOtherOpen] = React.useState(false);
+  const showOtherInput = onOtherEntriesChange && (isGenericOther ? (otherOpen || savedOther.length > 0) : sel.has(otherValue));
   const saveOther = () => {
     const v = draftOther.trim();
     if (!v) return;
     onOtherEntriesChange([...savedOther, v]);
+    // Keep "Other" a real (if derived) Set member so the existing
+    // payload/resume-draft logic elsewhere keeps working unchanged — it just
+    // isn't user-toggleable directly anymore, see isGenericOther above.
+    if (isGenericOther && !sel.has(otherValue)) toggle(title, otherValue);
+    toggle(title, v);
     setDraftOther("");
     setAddingOther(false);
+  };
+  const removeOther = (val, i) => {
+    const next = savedOther.filter((_, j) => j !== i);
+    onOtherEntriesChange(next);
+    if (sel.has(val)) toggle(title, val);
+    if (isGenericOther && next.length === 0 && sel.has(otherValue)) toggle(title, otherValue);
   };
   // Scoped to this group's own options — `sel` is shared across sibling
   // subgroups (e.g. all of Geography's regions share one Set), so counting
   // sel.size directly would show the whole category's total on every
-  // subgroup instead of just what's actually selected here.
-  const ownSelectedCount = options.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
-  const allSelected = options.length > 0 && options.every(o => sel.has(o));
+  // subgroup instead of just what's actually selected here. The generic
+  // "Other" marker is excluded — it's a derived flag, not a real selection.
+  const realOptions = isGenericOther ? options.filter(o => o !== otherValue) : options;
+  const ownSelectedCount = realOptions.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0);
+  const allSelected = realOptions.length > 0 && realOptions.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
       <div className="row between" style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => setExpanded(v => !v)}>
@@ -124,7 +148,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
           {onSelectAll && (
-            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options); }}>
+            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options, isGenericOther ? otherValue : undefined); }}>
               {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
@@ -142,23 +166,37 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
             />
           )}
           <div className="chips">
-            {filtered.map(o => (
-              <button key={o} className={`chip ${sel.has(o) ? "on" : ""}`}
-                onClick={() => toggle(title, o)}>
-                <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
-              </button>
-            ))}
+            {filtered.map(o => {
+              const isTrigger = isGenericOther && o === otherValue;
+              const isOn = isTrigger ? showOtherInput : sel.has(o);
+              return (
+                <button key={o} className={`chip ${isOn ? "on" : ""}`}
+                  onClick={() => isTrigger ? setOtherOpen(v => !v) : toggle(title, o)}>
+                  <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
+                </button>
+              );
+            })}
             {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
             <div style={{ marginTop: 10 }}>
               {savedOther.length > 0 && (
-                <div className="row" style={{ flexWrap: "wrap", gap: 8, marginBottom: savedOther.length ? 8 : 0 }}>
+                <div className="chips" style={{ marginBottom: 8 }}>
                   {savedOther.map((val, i) => (
-                    <div key={i} className="afilter-chip">
-                      {val} <button onClick={() => onOtherEntriesChange(savedOther.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
+                    <div key={i} className={`chip ${sel.has(val) ? "on" : ""}`} style={{ paddingRight: 6, gap: 0 }}>
+                      <button type="button" onClick={() => toggle(title, val)} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "none", border: 0, padding: 0, font: "inherit", color: "inherit", cursor: "pointer" }}>
+                        <span className="ck"><Icon name="check" size={10} /></span>{val}
+                      </button>
+                      <button type="button" onClick={() => removeOther(val, i)} style={{ marginLeft: 8, background: "none", border: 0, padding: 0, display: "inline-flex", cursor: "pointer", color: "inherit", opacity: 0.7 }}>
+                        <Icon name="x" size={11} />
+                      </button>
                     </div>
                   ))}
+                  {!addingOther && (
+                    <button type="button" className="chip" style={{ borderStyle: "dashed" }} onClick={() => setAddingOther(true)}>
+                      <Icon name="plus" size={12} style={{ marginRight: 4 }} />{t("createMission.addAnotherOther", null, "Add more")}
+                    </button>
+                  )}
                 </div>
               )}
               {(savedOther.length === 0 || addingOther) ? (
@@ -174,11 +212,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
                   <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
                   <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); }}>{t("actions.cancel", null, "Cancel")}</button>
                 </div>
-              ) : (
-                <button type="button" className="backlink" style={{ margin: 0, fontSize: 12.5 }} onClick={() => setAddingOther(true)}>
-                  <Icon name="plus" size={13} style={{ verticalAlign: -2, marginRight: 4 }} />{t("createMission.addAnotherOther", null, "Add more")}
-                </button>
-              )}
+              ) : null}
             </div>
           )}
         </>
@@ -254,7 +288,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               title={g} options={opts} sel={d.filters[g]} toggle={toggle}
               otherEntries={d.otherEntries?.[`${g}:Other`]}
               onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [`${g}:Other`]: entries } })}
-              onSelectAll={opts => selectAllInGroup(g, opts, opts.includes("Other") ? `${g}:Other` : undefined)}
+              onSelectAll={(opts, catchAll) => selectAllInGroup(g, opts, opts.includes("Other") ? `${g}:Other` : undefined, catchAll)}
             />
           ) : (
             Object.entries(opts).map(([sub, subOpts]) => {
@@ -274,7 +308,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                   otherEntries={otherKey ? d.otherEntries?.[otherKey] : undefined}
                   onOtherEntriesChange={otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
                   otherValue={subOther || "Other"}
-                  onSelectAll={subOpts => selectAllInGroup(g, subOpts, otherKey)}
+                  onSelectAll={(subOpts, catchAll) => selectAllInGroup(g, subOpts, otherKey, catchAll)}
                 />
               );
             })
@@ -1101,10 +1135,23 @@ export default function CreateMissionWizard() {
   // Select-all / clear-all for one category or subcategory's own option list —
   // toggles based on whether every option in it is already selected, so the
   // button reads "Select all" until fully checked, then flips to "Clear all".
-  const selectAllInGroup = (group, opts, otherKey) => setD(p => {
+  const selectAllInGroup = (group, opts, otherKey, catchAll) => setD(p => {
     const s = new Set(p.filters[group]);
-    const allIn = opts.every(o => s.has(o));
-    if (allIn) opts.forEach(o => s.delete(o)); else opts.forEach(o => s.add(o));
+    // The generic "Other" catch-all is excluded from bulk select/clear — it
+    // has no meaning by itself (checking it via "Select all" would silently
+    // require typing custom text to mean anything), unlike a real value such
+    // as "India" which stays part of the bulk operation.
+    const realOpts = catchAll ? opts.filter(o => o !== catchAll) : opts;
+    const allIn = realOpts.every(o => s.has(o));
+    if (allIn) {
+      realOpts.forEach(o => s.delete(o));
+      // "Clear all" resets this subgroup's saved custom entries too, not
+      // just its predefined options — they're real (if derived) Set members
+      // now, same as any other selected value.
+      if (catchAll) { (p.otherEntries?.[otherKey] || []).forEach(v => s.delete(v)); s.delete(catchAll); }
+    } else {
+      realOpts.forEach(o => s.add(o));
+    }
     let geoBeforeWorldwide = p.geoBeforeWorldwide;
     let finalSet = s;
     if (group === GEO_GROUP) {
