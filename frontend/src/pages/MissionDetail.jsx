@@ -260,6 +260,56 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   const { t } = useTranslation();
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
+  // Opens the exact same review drawer the Responses tab uses. Participant
+  // cards only carry validator_id, not a response id, so this is a small
+  // on-demand fetch of the same list the Responses tab already fetches for
+  // itself — the two tabs don't share state, and duplicating one cheap GET
+  // on click is simpler and safer than lifting that fetch up to a common
+  // parent just to avoid it.
+  const [openSub, setOpenSub] = useState(null);
+  const [loadingSubId, setLoadingSubId] = useState(null);
+
+  const openSubmission = async (p) => {
+    if (loadingSubId) return;
+    setLoadingSubId(p.id);
+    try {
+      const d = await api.get(`/missions/${mission.id}/submissions`);
+      const sub = (d.submissions || []).find(s => s.validatorId === p.validator_id);
+      if (sub) setOpenSub(sub);
+      else showToast(t("missionDetail.submissionNotFound", null, "Couldn't find this participant's submission."), "error");
+    } catch {
+      showToast(t("missionDetail.submissionLoadFailed", null, "Couldn't load this submission — try again."), "error");
+    } finally {
+      setLoadingSubId(null);
+    }
+  };
+
+  // Mirrors ResponseReview's own handleAction (same endpoints, same
+  // messaging) — kept as a separate copy rather than shared, since this
+  // component has no access to that tab's local `subs` state to update in
+  // place; it only needs to reflect the outcome on its own participant card.
+  const handleSubAction = async (subId, action, reason, rating) => {
+    const name = openSub?.name || t("review.validatorFallbackName", null, "Validator");
+    const validatorId = openSub?.validatorId;
+    try {
+      if (action === "approved") {
+        await api.post(`/missions/${mission.id}/submissions/${subId}/approved`, { rating });
+        showToast(`${t("review.approvedSubFrom", null, "Approved submission from")} ${name}`, "success");
+        setParticipants(ps => ps.map(pp => pp.validator_id === validatorId ? { ...pp, stage: "rewarded" } : pp));
+      } else if (action === "rejected") {
+        await api.post(`/missions/${mission.id}/submissions/${subId}/rejected`, { note: reason, rating });
+        showToast(`${t("review.rejectedSubFrom", null, "Rejected submission from")} ${name}`, "error");
+        setParticipants(ps => ps.map(pp => pp.validator_id === validatorId ? { ...pp, stage: "rejected" } : pp));
+      } else if (action === "revision") {
+        await api.post(`/missions/${mission.id}/submissions/${subId}/revision`, { note: reason });
+        showToast(`${t("review.revisionReqSentTo", null, "Revision request sent to")} ${name}`, "warning");
+      }
+    } catch (err) {
+      alert(err.message || t("review.anErrorOccurred", null, "An error occurred"));
+      return;
+    }
+    setOpenSub(null);
+  };
 
   const move = async (id, stage) => {
     let prevStage;
@@ -336,7 +386,12 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                       setDrag(p.id);
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    style={(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? { cursor: "default", opacity: 0.85 } : {}}>
+                    onClick={() => { if (p.stage === "submitted") openSubmission(p); }}
+                    title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : undefined}
+                    style={{
+                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" ? { cursor: "default", opacity: 0.85 } : {}),
+                      ...(p.stage === "submitted" ? { cursor: "pointer", opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
+                    }}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
                       <div style={{ minWidth: 0, flex: 1 }}>
@@ -379,6 +434,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
         <b>{t("missionDetail.tip", null, "Tip:")}</b> {t("missionDetail.dragAndDropTip", null, "Drag and drop participants between stages to update their progress.")}
         <a href="#" style={{ marginLeft: 'auto', fontWeight: 600, color: "var(--accent)" }}>{t("missionDetail.learnMorePipeline", null, "Learn more about participant pipeline")} <Icon name="externalLink" size={12} style={{ verticalAlign: -2 }} /></a>
       </div>
+      {openSub && <SlideOver sub={openSub} onClose={() => setOpenSub(null)} onAction={handleSubAction} />}
     </div>
   );
 }
