@@ -75,10 +75,14 @@ export function InviteValidatorModal({ mission, onClose }) {
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
   // The mission's own saved audience definition (Geography/Professional/
-  // Interests/etc.) — the candidate list from the API is already scoped to
-  // it server-side; this is only kept to show what that scoping actually is
-  // as read-only chips, so the builder can see why this list is what it is.
+  // Interests/etc.) — used to turn it into the same interactive pills as
+  // Recommended/Trust 90+ below, so there's one filter row instead of a
+  // separate read-only "Targeting" line.
   const [missionAudience, setMissionAudience] = useState(null);
+  // The filter taxonomy (backend/src/meta.js FILTERS) — tells us which group
+  // (and, for Demographics, which sub-group) each selected audience value
+  // belongs to, so a pill click can filter validators by the right field.
+  const [filtersMeta, setFiltersMeta] = useState(null);
 
   // New States for UI
   const [search, setSearch] = useState("");
@@ -93,19 +97,46 @@ export function InviteValidatorModal({ mission, onClose }) {
   useEffect(() => {
     api.audience({ missionId: mission.id })
       .then(res => {
-        const reqRole = mission.ptype === 'trial' ? 'Tester' : 'Validator';
-        const filtered = (res.members || []).filter(v => v.role === reqRole || v.role === 'Validator');
-        setValidators(filtered);
+        // The server already scopes `members` to the mission's full saved
+        // audience (every group, including "ValidationCrew Role") via the
+        // same buildAudienceClauses the Audience tab's "N matching members"
+        // count uses — re-filtering to just Validator/Tester here used to
+        // silently drop real matches whose role is "User", undercounting
+        // vs. the Audience tab. Trust the server's list as-is.
+        setValidators(res.members || []);
         setMissionAudience(res.missionAudience || null);
+        setFiltersMeta(res.filters || null);
       })
       .catch(() => toast.error(t("invite.failedToLoadAudience", null, "Failed to load audience")))
       .finally(() => setLoading(false));
   }, [mission, t]);
 
+  // value -> { group, subgroup } lookup built from the filter taxonomy, so a
+  // clicked pill knows which validator field to match against (e.g.
+  // "Product Manager" -> Professional -> v.occ, "25-34" -> Demographics/Age
+  // -> v.age_group). Mirrors the backend's own buildAudienceClauses grouping.
+  const filterIndex = useMemo(() => {
+    const idx = {};
+    if (!filtersMeta) return idx;
+    for (const [group, val] of Object.entries(filtersMeta)) {
+      if (Array.isArray(val)) {
+        for (const v of val) idx[v] = { group };
+      } else if (val && typeof val === "object") {
+        for (const [subgroup, arr] of Object.entries(val)) {
+          for (const v of arr) idx[v] = { group, subgroup };
+        }
+      }
+    }
+    return idx;
+  }, [filtersMeta]);
+
   // Flattened, de-duplicated list of the mission's own selected audience
   // values (skipping the same no-op markers the backend's own matching does —
-  // Worldwide/Remote/Other carry no filter meaning of their own) — purely for
-  // display, so the builder can see what this list is already scoped to.
+  // Worldwide/Remote/Other carry no filter meaning of their own). These
+  // become interactive pills alongside Recommended/Trust 90+ below, instead
+  // of a separate read-only "Targeting" line — only ever what this mission
+  // actually asked for, never auto-guessed from whoever happens to be in the
+  // matched pool.
   const audienceFilterChips = useMemo(() => {
     if (!missionAudience) return [];
     const vals = new Set();
@@ -119,23 +150,28 @@ export function InviteValidatorModal({ mission, onClose }) {
     return Array.from(vals);
   }, [missionAudience]);
 
-  // Derived state for skills to show in filter pills
-  const availableSkills = useMemo(() => {
-    const skills = new Set();
-    validators.forEach(v => {
-      (v.expertise || []).forEach(e => skills.add(e));
-    });
-    return Array.from(skills).slice(0, 5); // Take top 5 skills
-  }, [validators]);
-
-  // Derived state for occupations to show in filter pills
-  const availableOccupations = useMemo(() => {
-    const occs = new Set();
-    validators.forEach(v => {
-      if (v.occ && v.occ !== "Unspecified") occs.add(v.occ);
-    });
-    return Array.from(occs); // Show all occupations
-  }, [validators]);
+  // Does a candidate match one specific audience value, given which
+  // group/sub-group it belongs to? Same field mapping the backend's SQL uses.
+  const matchesAudienceValue = useCallback((v, val) => {
+    const meta = filterIndex[val];
+    if (!meta) return true; // unknown value — don't block on it
+    const { group, subgroup } = meta;
+    if (group === "ValidationCrew Role") return v.role === val;
+    if (group === "Professional") return v.occ === val;
+    if (group === "Interests") return v.industry === val || (v.expertise || []).includes(val);
+    if (group === "Geography") {
+      if (/worldwide|remote/i.test(val) || val.toLowerCase() === "other") return true;
+      return (v.city || "").toLowerCase().includes(val.toLowerCase());
+    }
+    if (group === "Demographics") {
+      if (subgroup === "Age") return v.age_group === val;
+      if (subgroup === "Gender") return v.gender === val;
+      if (subgroup === "Income Bracket") return v.income === val;
+      if (subgroup === "Marital Status") return v.marital === val;
+      if (subgroup === "Has Kids") return !!v.has_kids === (val === "Yes");
+    }
+    return true;
+  }, [filterIndex]);
 
   const toggleFilter = useCallback((f) => {
     setActiveFilters(prev => {
@@ -189,20 +225,22 @@ export function InviteValidatorModal({ mission, onClose }) {
       list = list.filter(v => v.trust >= 90);
     }
 
-    availableSkills.forEach(s => {
-      if (activeFilters.has(s)) {
-        list = list.filter(v => (v.expertise || []).includes(s));
-      }
-    });
-
-    availableOccupations.forEach(o => {
-      if (activeFilters.has(o)) {
-        list = list.filter(v => v.occ === o);
-      }
-    });
+    // Active audience-filter pills, grouped by which taxonomy group they
+    // came from — values within the same group are OR'd (matching any one
+    // is enough, same as the backend's own ANY() clauses), different groups
+    // are AND'd together.
+    const activeByGroup = {};
+    for (const val of audienceFilterChips) {
+      if (!activeFilters.has(val)) continue;
+      const group = filterIndex[val]?.group || "_";
+      (activeByGroup[group] ||= []).push(val);
+    }
+    for (const vals of Object.values(activeByGroup)) {
+      list = list.filter(v => vals.some(val => matchesAudienceValue(v, val)));
+    }
 
     return list;
-  }, [validators, search, activeFilters, viewOnlySelected, selectedIds, availableSkills, availableOccupations, t]);
+  }, [validators, search, activeFilters, viewOnlySelected, selectedIds, audienceFilterChips, filterIndex, matchesAudienceValue, t]);
 
   const handleBulkInvite = async () => {
     if (selectedIds.size === 0) return;
@@ -275,15 +313,6 @@ export function InviteValidatorModal({ mission, onClose }) {
             </button>
           </div>
           
-          {audienceFilterChips.length > 0 && (
-            <div className="row" style={{ flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 12 }}>
-              <span className="muted" style={{ fontSize: 12, fontWeight: 600, marginRight: 2 }}>{t("invite.targetingLabel", null, "Targeting")}:</span>
-              {audienceFilterChips.map(f => (
-                <span key={f} className="chip on" style={{ pointerEvents: "none", fontSize: 11.5 }}>{trFilterLabel(t, f)}</span>
-              ))}
-            </div>
-          )}
-
           <div className="row ac search-wrapper" style={{ background: "#fff", borderRadius: 8, padding: "12px 16px", marginBottom: 16 }}>
             <Icon name="search" size={16} color="var(--text-muted)" style={{ marginRight: 10 }} />
             <input 
@@ -328,26 +357,15 @@ export function InviteValidatorModal({ mission, onClose }) {
               >
                 {t("invite.trust90", null, "Trust 90+")}
               </Btn>
-              {availableOccupations.map(o => (
-                <Btn 
-                  key={o}
-                  variant={activeFilters.has(o) ? "primary" : "ghost"} 
-                  size="sm" 
-                  onClick={() => toggleFilter(o)}
-                  style={{ borderRadius: 20, border: activeFilters.has(o) ? "none" : "1px solid var(--border)" }}
-                >
-                  {trFilterLabel(t, o)}
-                </Btn>
-              ))}
-              {availableSkills.map(s => (
+              {audienceFilterChips.map(f => (
                 <Btn
-                  key={s}
-                  variant={activeFilters.has(s) ? "primary" : "ghost"}
+                  key={f}
+                  variant={activeFilters.has(f) ? "primary" : "ghost"}
                   size="sm"
-                  onClick={() => toggleFilter(s)}
-                  style={{ borderRadius: 20, border: activeFilters.has(s) ? "none" : "1px solid var(--border)" }}
+                  onClick={() => toggleFilter(f)}
+                  style={{ borderRadius: 20, border: activeFilters.has(f) ? "none" : "1px solid var(--border)" }}
                 >
-                  {trFilterLabel(t, s)}
+                  {trFilterLabel(t, f)}
                 </Btn>
               ))}
             </div>
