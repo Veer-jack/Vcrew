@@ -422,9 +422,16 @@ function SlideOver({ sub, onClose, onAction }) {
 
   if (!sub) return null;
 
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }}>
-      <div style={{ flex: 1, background: "rgba(0,0,0,.4)", backdropFilter: "blur(2px)" }} onClick={onClose} />
+  // Rendered via a portal straight onto <body> — mounted in place, this sat
+  // deep inside the page's own DOM/stacking context, so no z-index here could
+  // actually win against the topbar's own stacking context. The Notifications
+  // panel gets the same "cover everything" effect by living at the layout
+  // root instead; portaling is the equivalent escape hatch from here. Overlay
+  // color/blur/z-index now match .drawer-overlay (builder.css) exactly, the
+  // same values .notif-overlay uses under a different class name.
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex" }}>
+      <div style={{ flex: 1, background: "rgba(8,10,18,.34)", backdropFilter: "blur(2px)" }} onClick={onClose} />
       <div style={{ width: 660, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
@@ -616,7 +623,8 @@ function SlideOver({ sub, onClose, onAction }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
