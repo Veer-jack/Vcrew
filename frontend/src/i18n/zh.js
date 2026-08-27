@@ -2706,7 +2706,7 @@ const zh = {
     addProfile: "在您的个人资料中添加一个",
     amountWithdraw: "提取金额",
     upTo: "最多",
-    disclaimer: "最低提款额为 200 卢比。资金会在 24 小时内到达您关联的 UPI/银行。",
+    disclaimer: "最低提款额为 500 卢比。资金会在 24 小时内到达您关联的 UPI/银行。",
     verifyTitle: "验证提现",
     reputation: "声誉",
     validationsTo: "验证到",

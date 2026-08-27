@@ -2706,7 +2706,7 @@ const es = {
     addProfile: "agrega uno en tu perfil",
     amountWithdraw: "Monto a retirar",
     upTo: "hasta",
-    disclaimer: "El retiro mínimo es ₹200. Los fondos llegan a su UPI/banco vinculado dentro de las 24 horas.",
+    disclaimer: "El retiro mínimo es ₹500. Los fondos llegan a su UPI/banco vinculado dentro de las 24 horas.",
     verifyTitle: "Verificar retiro",
     reputation: "Reputación",
     validationsTo: "validaciones a",

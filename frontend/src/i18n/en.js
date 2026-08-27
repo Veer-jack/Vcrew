@@ -2782,7 +2782,7 @@ const en = {
     addProfile: "add one in your profile",
     amountWithdraw: "Amount to withdraw",
     upTo: "Up to",
-    disclaimer: "Minimum withdrawal is ₹200. Funds land in your linked UPI/bank within 24h.",
+    disclaimer: "Minimum withdrawal is ₹500. Funds land in your linked UPI/bank within 24h.",
     verifyTitle: "Verify withdrawal",
     reputation: "Reputation",
     validationsTo: "validations to",
