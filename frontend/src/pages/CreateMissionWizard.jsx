@@ -301,7 +301,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                   onSelectAll={(o, catchAll) => selectAllInGroup(g, o, undefined, catchAll)}
                 />
                 {hasOther && (
-                  <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={toggle}
+                  <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                     otherEntries={d.otherEntries?.[otherKey]}
                     onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
                     otherValue="Other"
