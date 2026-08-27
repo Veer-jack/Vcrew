@@ -435,6 +435,11 @@ function SlideOver({ sub, onClose, onAction }) {
       <div style={{ width: 660, background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
+        {/* Sticky as a group so the submission's identity + at-a-glance
+            stats stay visible while scrolling through task responses below —
+            expanding a long task used to push this entirely out of view,
+            leaving no context for what's actually being reviewed. */}
+        <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg)" }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", fontWeight: 800, color: "#fff", flexShrink: 0 }}>{sub.name[0]}</div>
           <div style={{ flex: 1 }}>
@@ -461,6 +466,7 @@ function SlideOver({ sub, onClose, onAction }) {
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
             <div><QualityBadge quality={sub.quality} /></div>
           </div>
+        </div>
         </div>
 
         {sub.checkins && sub.checkins.length > 0 && (
