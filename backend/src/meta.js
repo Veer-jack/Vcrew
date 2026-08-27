@@ -363,7 +363,7 @@ export function matchCount(audience = {}) {
 }
 
 export const HELP_ARTICLES = [
-  { q: "How do I add funds to my wallet?", a: "Go to Wallet → Add funds. If card/UPI payments are configured, you can pay directly via Razorpay; otherwise funds are added for demo purposes.", cat: "Payments" },
+  { q: "How do I add funds to my wallet?", a: "Go to Wallet → Add funds. If card/UPI payments are configured, you can pay directly via card, UPI, or netbanking; otherwise funds are added for demo purposes.", cat: "Payments" },
   { q: "How are validators matched to my mission?", a: "Missions are matched to validators based on their expertise tags, past accuracy, and availability. You can also send direct invites from the Audience tab.", cat: "Missions" },
   { q: "What happens if I'm not satisfied with a submission?", a: "You can request changes or reject a submission with feedback before it's marked complete — this won't affect your wallet balance until you approve payment.", cat: "Missions" },
   { q: "How is pricing calculated for a mission?", a: "Pricing depends on mission type, number of participants, and turnaround time. You'll see an estimate before publishing, and funds are held in escrow until completion.", cat: "Payments" },

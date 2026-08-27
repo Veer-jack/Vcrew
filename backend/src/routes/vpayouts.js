@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
-import { isRazorpayXConfigured } from "../razorpayClient.js";
+import { isCashfreePayoutsConfigured } from "../cashfreeClient.js";
 
 export const router = Router();
 
 // GET /api/v/payouts/config — is real payout available
-router.get("/config", async (req, res) => res.json({ configured: isRazorpayXConfigured() }));
+router.get("/config", async (req, res) => res.json({ configured: isCashfreePayoutsConfigured() }));
 
 router.use(validatorAuthMiddleware);
 
@@ -17,15 +17,17 @@ router.post("/vpa", async (req, res) => {
   const vpa = String(req.body?.vpa || "").trim();
   if (!VPA_RE.test(vpa)) return res.status(400).json({ error: "Enter a valid UPI ID, e.g. yourname@bank" });
 
-  // Changing the VPA invalidates any cached Razorpay contact/fund account so a
-  // fresh one is created for the new VPA on the next withdrawal.
-  await db.prepare(`UPDATE validators SET payout_vpa = ?, razorpay_contact_id = NULL, razorpay_fund_account_id = NULL WHERE id = ?`)
+  // Changing the VPA invalidates any cached Cashfree beneficiary so a fresh
+  // one is created for the new VPA on the next withdrawal. (Cashfree ties a
+  // beneficiary to a specific instrument, unlike Razorpay's separate
+  // contact+fund-account split — one id now, not two.)
+  await db.prepare(`UPDATE validators SET payout_vpa = ?, cashfree_beneficiary_id = NULL WHERE id = ?`)
     .run(vpa, req.validator.id);
   res.json({ ok: true, vpa });
 });
 
 router.post("/remove", async (req, res) => {
-  await db.prepare(`UPDATE validators SET payout_vpa = NULL, razorpay_contact_id = NULL, razorpay_fund_account_id = NULL WHERE id = ?`)
+  await db.prepare(`UPDATE validators SET payout_vpa = NULL, cashfree_beneficiary_id = NULL WHERE id = ?`)
     .run(req.validator.id);
   res.json({ ok: true });
 });
