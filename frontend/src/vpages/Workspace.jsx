@@ -131,7 +131,6 @@ export default function Workspace() {
           setIsReadOnly(true);
           setAnswers(data.responses);
           setStepsDone(t.map(tk => new Set(tk.steps.map((_, j) => j))));
-          setTimerDone(t.map(() => true));
           setProofUploaded(t.map((_, i) => data.responses[i]?._proof || false));
         } else {
           let savedAnswers = t.map(() => ({}));
@@ -154,7 +153,6 @@ export default function Workspace() {
              const hasAns = savedAnswers[i] && Object.keys(savedAnswers[i]).length > 0;
              return hasAns ? new Set(tk.steps.map((_, j) => j)) : new Set();
           }));
-          setTimerDone(t.map((_, i) => i < savedIdx));
           setProofUploaded(t.map((_, i) => savedAnswers[i]?._proof || false));
         }
       } catch (err) {
