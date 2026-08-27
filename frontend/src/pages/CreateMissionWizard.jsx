@@ -139,7 +139,12 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   // A checked custom entry is a real selection just like any predefined
   // option, so it counts toward this subgroup's total too.
   const ownSelectedCount = realOptions.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0) + savedOther.reduce((n, v) => n + (sel.has(v) ? 1 : 0), 0);
-  const allSelected = realOptions.length > 0 && realOptions.every(o => sel.has(o));
+  // A standalone "Other" section (no predefined options besides the
+  // trigger) has nothing else to bulk-select, so "Select all"/"Clear all"
+  // operates on its saved entries instead — same one control, same result
+  // the user gets from the other sections.
+  const bulkTargets = realOptions.length > 0 ? realOptions : savedOther;
+  const allSelected = bulkTargets.length > 0 && bulkTargets.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
       <div className="row between" style={{ marginBottom: 10, cursor: "pointer" }} onClick={() => setExpanded(v => !v)}>
@@ -150,7 +155,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
           {onSelectAll && (
-            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(options, isGenericOther ? otherValue : undefined); }}>
+            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(bulkTargets, isGenericOther ? otherValue : undefined); }}>
               {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
@@ -304,6 +309,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                   <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                     otherEntries={d.otherEntries?.[otherKey]}
                     onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
+                    onSelectAll={(o, catchAll) => selectAllInGroup(g, o, otherKey, catchAll)}
                     otherValue="Other"
                   />
                 )}
@@ -340,6 +346,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                     <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                       otherEntries={d.otherEntries?.[otherKey]}
                       onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
+                      onSelectAll={(o, catchAll) => selectAllInGroup(g, o, otherKey, catchAll)}
                       otherValue="Other"
                     />
                   )}
