@@ -2355,8 +2355,7 @@ const zh = {
     anErrorOccurred: "发生错误",
     submissionReview: "提交审核",
     subsReceivedTotal: "已收到 {{target}} 提交的 {{count}}",
-    totalReceived: "收到总计",
-    pendingReview: "待审核",
+    avgTimePill: "平均 {{mins}} 分钟",
     noSubsInCategory: "此类别尚未提交任何作品。",
   },
   oauthCallback: {

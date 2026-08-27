@@ -2355,8 +2355,7 @@ const es = {
     anErrorOccurred: "Se produjo un error",
     submissionReview: "Revisión de envío",
     subsReceivedTotal: "{{count}} de envíos de {{target}} recibidos",
-    totalReceived: "Total recibido",
-    pendingReview: "Pendiente de revisión",
+    avgTimePill: "Prom. {{mins}} min",
     noSubsInCategory: "Aún no hay presentaciones en esta categoría.",
   },
   oauthCallback: {

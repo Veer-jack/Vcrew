@@ -2355,8 +2355,7 @@ const pt = {
     anErrorOccurred: "Ocorreu um erro",
     submissionReview: "Revisão de envio",
     subsReceivedTotal: "{{count}} de {{target}} envios recebidos",
-    totalReceived: "Total recebido",
-    pendingReview: "Revisão pendente",
+    avgTimePill: "Média {{mins}} min",
     noSubsInCategory: "Ainda não há inscrições nesta categoria.",
   },
   oauthCallback: {

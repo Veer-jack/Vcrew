@@ -2355,8 +2355,7 @@ const ar = {
     anErrorOccurred: "حدث خطأ",
     submissionReview: "مراجعة التقديم",
     subsReceivedTotal: "تم تلقي طلبات {{count}} من {{target}}",
-    totalReceived: "إجمالي المستلمة",
-    pendingReview: "في انتظار المراجعة",
+    avgTimePill: "متوسط {{mins}} دقيقة",
     noSubsInCategory: "لا يوجد تقديمات في هذه الفئة حتى الآن.",
   },
   oauthCallback: {

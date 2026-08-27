@@ -2355,8 +2355,7 @@ const ur = {
     anErrorOccurred: "ایک خرابی پیش آ گئی۔",
     submissionReview: "جمع کرانے کا جائزہ",
     subsReceivedTotal: "{{count}} کی {{target}} گذارشات موصول ہوئیں",
-    totalReceived: "کل موصول ہوا۔",
-    pendingReview: "زیر التواء جائزہ",
+    avgTimePill: "اوسط {{mins}} منٹ",
     noSubsInCategory: "اس زمرے میں ابھی تک کوئی گذارشات نہیں ہیں۔",
   },
   oauthCallback: {

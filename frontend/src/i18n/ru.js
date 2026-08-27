@@ -2355,8 +2355,7 @@ const ru = {
     anErrorOccurred: "Произошла ошибка",
     submissionReview: "Обзор подачи",
     subsReceivedTotal: "{{count}} из полученных заявок {{target}}",
-    totalReceived: "Всего получено",
-    pendingReview: "Ожидает рассмотрения",
+    avgTimePill: "Ср. {{mins}} мин",
     noSubsInCategory: "В этой категории пока нет заявок.",
   },
   oauthCallback: {

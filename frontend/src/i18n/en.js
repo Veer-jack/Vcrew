@@ -2418,8 +2418,7 @@ const en = {
     anErrorOccurred: "An error occurred",
     submissionReview: "Submission Review",
     subsReceivedTotal: "{{count}} of {{target}} submissions received",
-    totalReceived: "Total received",
-    pendingReview: "Pending review",
+    avgTimePill: "Avg {{mins}} min",
     noSubsInCategory: "No submissions in this category yet.",
   },
   oauthCallback: {

@@ -2355,8 +2355,7 @@ const fr = {
     anErrorOccurred: "Une erreur s'est produite",
     submissionReview: "Examen des soumissions",
     subsReceivedTotal: "{{count}} des soumissions {{target}} reçues",
-    totalReceived: "Total reçu",
-    pendingReview: "En attente d'examen",
+    avgTimePill: "Moy. {{mins}} min",
     noSubsInCategory: "Aucune soumission dans cette catégorie pour l'instant.",
   },
   oauthCallback: {

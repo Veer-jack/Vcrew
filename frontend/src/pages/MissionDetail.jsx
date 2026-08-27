@@ -714,15 +714,20 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
 
   return (
     <div>
-      <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)", marginBottom: 18 }}>
-        <KpiCard label={t("review.totalReceived", null, "Total received")} value={subs.length} icon="users" />
-        <KpiCard label={t("status.approved", null, "Approved")} value={counts.approved} icon="check" tone="green" />
-        <KpiCard label={t("review.pendingReview", null, "Pending review")} value={counts.pending} icon="clock" tone="amber" />
-        <KpiCard label={t("metrics.avgTime", null, "Avg time")} value={avgMins} unit=" min" icon="timer" />
-      </div>
+      {/* The four KPI cards used to repeat, almost number-for-number, both the
+          Overview row above this tab (Submitted ≈ subs.length) and the status
+          tabs right below (Approved/Pending ≈ counts.approved/counts.pending)
+          — same shape, same numbers, twice. Avg time was the only one of the
+          four that didn't exist anywhere else on the page, so it's kept, just
+          as a small inline pill next to Export instead of its own card row. */}
       <div className="toolbar">
         <div className="tabs">{RESPONSE_REVIEW_TABS(t).map(tb => <button key={tb.k} className={tab === tb.k ? "on" : ""} onClick={() => setTab(tb.k)}>{tb.l} <span className="cnt mono">{counts[tb.k]}</span></button>)}</div>
         <span className="grow" />
+        {subs.length > 0 && (
+          <span className="pill" style={{ fontSize: 12, marginRight: 8 }}>
+            <Icon name="clock" size={12} />{t("review.avgTimePill", { mins: avgMins }, `Avg ${avgMins} min`)}
+          </span>
+        )}
         <Btn variant="ghost" size="sm" icon="download" onClick={() => exportCSV(
           "submissions.csv",
           [t("missionDetail.thName", null, "Name"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thSubmitted", null, "Submitted"), t("metrics.timeTaken", null, "Time Taken"), t("metrics.tasks", null, "Tasks"), t("metrics.quality", null, "Quality"), t("missionDetail.thStatus", null, "Status")],

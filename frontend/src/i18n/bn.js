@@ -2355,8 +2355,7 @@ const bn = {
     anErrorOccurred: "একটি ত্রুটি ঘটেছে",
     submissionReview: "জমা পর্যালোচনা",
     subsReceivedTotal: "{{count}} এর মধ্যে {{target}} জমা দেওয়া হয়েছে৷",
-    totalReceived: "মোট প্রাপ্তি",
-    pendingReview: "মুলতুবি পর্যালোচনা",
+    avgTimePill: "গড় {{mins}} মিনিট",
     noSubsInCategory: "এই বিভাগে এখনও কোন জমা নেই.",
   },
   oauthCallback: {

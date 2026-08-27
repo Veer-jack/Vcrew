@@ -2355,8 +2355,7 @@ const hi = {
     anErrorOccurred: "एक त्रुटि हुई",
     submissionReview: "सबमिशन समीक्षा",
     subsReceivedTotal: "{{target}} सबमिशन में से {{count}} प्राप्त हुए",
-    totalReceived: "कुल प्राप्त हुआ",
-    pendingReview: "समीक्षा लंबित है",
+    avgTimePill: "औसत {{mins}} मिनट",
     noSubsInCategory: "इस श्रेणी में अभी तक कोई सबमिशन नहीं है.",
   },
   oauthCallback: {
