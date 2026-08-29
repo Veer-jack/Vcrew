@@ -11,24 +11,26 @@ import { useTranslation } from "../i18n/index.jsx";
 
 // TABS defined in component
 
-const RAZORPAY_SCRIPT_URL = "https://checkout.razorpay.com/v1/checkout.js";
+const CASHFREE_SCRIPT_URL = "https://sdk.cashfree.com/js/v3/cashfree.js";
+const CASHFREE_MODE = "sandbox"; // flip to "production" at go-live
 
-function loadRazorpayScript(t) {
+function loadCashfreeScript(t) {
   return new Promise((resolve, reject) => {
-    if (window.Razorpay) return resolve();
-    const existing = document.querySelector(`script[src="${RAZORPAY_SCRIPT_URL}"]`);
+    if (window.Cashfree) return resolve();
+    const existing = document.querySelector(`script[src="${CASHFREE_SCRIPT_URL}"]`);
     if (existing) {
       existing.addEventListener("load", () => resolve());
       existing.addEventListener("error", () => reject(new Error(t("wallet.errPaymentWidget", null, "Couldn't load payment widget"))));
       return;
     }
     const script = document.createElement("script");
-    script.src = RAZORPAY_SCRIPT_URL;
+    script.src = CASHFREE_SCRIPT_URL;
     script.onload = () => resolve();
     script.onerror = () => reject(new Error(t("wallet.errPaymentWidget", null, "Couldn't load payment widget")));
     document.body.appendChild(script);
   });
 }
+
 
 export default function Wallet() {
   const { t, dataVersion } = useTranslation();
@@ -81,39 +83,39 @@ export default function Wallet() {
     setBusy(true); setError(""); setInfo("");
     try {
       const order = await api.createOrder(Number(amount));
-      await loadRazorpayScript(t);
+      await loadCashfreeScript(t);
 
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        order_id: order.orderId,
-        amount: order.amount * 100,
-        currency: order.currency,
-        name: "ValidationCrew",
-        description: t("wallet.walletTopup", null, "Wallet top-up"),
-        prefill: { name: builder?.name, email: builder?.email },
-        theme: { color: "#4f46e5" },
-        handler: async (response) => {
-          try {
-            await api.verifyPayment({
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
-              amount: order.amount,
-            });
-            setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
-            setAdding(false);
-            await Promise.all([load(), refreshBuilder()]);
-          } catch (err) {
-            setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
-          } finally {
-            setBusy(false);
-          }
-        },
-        modal: {
-          ondismiss: () => setBusy(false),
-        },
+      const cashfree = window.Cashfree({ mode: CASHFREE_MODE });
+
+      const result = await cashfree.checkout({
+        paymentSessionId: order.paymentSessionId,
+        redirectTarget: "_modal",
       });
-      rzp.open();
+
+      if (result.error) {
+        setError(result.error.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
+        setBusy(false);
+        return;
+      }
+
+      if (!result.paymentDetails) {
+        setBusy(false);
+        return;
+      }
+
+      try {
+        await api.verifyPayment({
+          orderId: order.orderId,
+          amount: order.amount,
+        });
+        setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
+        setAdding(false);
+        await Promise.all([load(), refreshBuilder()]);
+      } catch (err) {
+        setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
+      } finally {
+        setBusy(false);
+      }
     } catch (err) {
       setError(err.message || t("wallet.errStartCheckout", null, "Couldn't start checkout"));
       setBusy(false);

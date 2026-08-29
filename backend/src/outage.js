@@ -8,8 +8,10 @@
  * a few minutes" rather than a generic 500 error).
  */
 
-// Known Razorpay outage / misconfiguration error patterns
-const RAZORPAY_OUTAGE_PATTERNS = [
+// Known payment gateway outage / misconfiguration error patterns.
+// Generic network-failure signatures — not provider-specific, so this same
+// list works whether the underlying fetch() call was to Razorpay or Cashfree.
+const PAYMENT_GATEWAY_OUTAGE_PATTERNS = [
   /network.*error/i,
   /ECONNREFUSED/i,
   /ETIMEDOUT/i,
@@ -32,15 +34,18 @@ function isOutage(err, patterns) {
   return patterns.some(p => p.test(msg));
 }
 
-export function handleRazorpayError(err, res) {
-  if (isOutage(err, RAZORPAY_OUTAGE_PATTERNS)) {
+// Renamed from handleRazorpayError — logic is unchanged and was never
+// actually Razorpay-specific (it only pattern-matches generic network
+// failure messages), so this works as-is for Cashfree errors too.
+export function handlePaymentGatewayError(err, res) {
+  if (isOutage(err, PAYMENT_GATEWAY_OUTAGE_PATTERNS)) {
     return res.status(503).json({
       error: "Payments are temporarily unavailable. Your wallet balance is not affected — please try again in a few minutes.",
       is_outage: true,
-      provider: "razorpay",
+      provider: "cashfree",
     });
   }
-  // Known Razorpay API errors (bad request, invalid params etc.)
+  // Known payment gateway API errors (bad request, invalid params etc.)
   return res.status(400).json({ error: err.message || "Payment request failed" });
 }
 

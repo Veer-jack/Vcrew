@@ -180,8 +180,7 @@ export async function initDb() {
       ['testing_bio', 'TEXT'],
       // From HEAD branch (stats and escrow)
       ['payout_vpa', 'TEXT'],
-      ['razorpay_contact_id', 'TEXT'],
-      ['razorpay_fund_account_id', 'TEXT'],
+      ['cashfree_beneficiary_id', 'TEXT'],
       ['industry', 'TEXT'],
       ['location', 'TEXT'],
       ['bio', 'TEXT'],
