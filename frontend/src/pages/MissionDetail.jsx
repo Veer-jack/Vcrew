@@ -143,10 +143,11 @@ function TaskOverviewCard({ task, idx, expanded, onToggle }) {
               </div>
             </div>
           )}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 4, fontSize: 12.5, color: "var(--text-muted)" }}>
-            <span>{t("testCases.minTimeMin", null, "Min time (min)")}: <b style={{ color: "var(--text)" }}>{Math.ceil((task.min_time_seconds || 120) / 60)}</b></span>
-            {task.proof === "screenshot" && <span className="row gap-1" style={{ alignItems: "center" }}><Icon name="image" size={13} />{t("testCases.requireProof", null, "Require screenshot or video proof")}</span>}
-          </div>
+          {task.proof === "screenshot" && (
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 4, fontSize: 12.5, color: "var(--text-muted)" }}>
+              <span className="row gap-1" style={{ alignItems: "center" }}><Icon name="image" size={13} />{t("testCases.requireProof", null, "Require screenshot or video proof")}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
