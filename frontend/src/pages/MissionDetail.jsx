@@ -335,8 +335,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
 
   return (
     <div>
-      <div className="row between" style={{ marginBottom: 14 }}>
-        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("missionDetail.dragParticipants", null, "Drag a card into a different column to update that participant's stage — they'll see the change on their end too.")} {participants.length} {t("missionDetail.totalInMission", null, "total in this mission.")}</p>
+      <div className="row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>
         <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
       </div>
       <div className="kanban">
@@ -428,11 +427,6 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
             </div>
           );
         })}
-      </div>
-      <div className="faint" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 24, padding: "12px 16px", background: "var(--accent-weak)", borderRadius: "var(--radius)", color: "var(--accent)" }}>
-        <div style={{ background: "var(--accent)", color: "#fff", borderRadius: "50%", padding: 4, display: 'flex' }}><Icon name="bolt" size={12} /></div>
-        <b>{t("missionDetail.tip", null, "Tip:")}</b> {t("missionDetail.dragAndDropTip", null, "Drag and drop participants between stages to update their progress.")}
-        <a href="#" style={{ marginLeft: 'auto', fontWeight: 600, color: "var(--accent)" }}>{t("missionDetail.learnMorePipeline", null, "Learn more about participant pipeline")} <Icon name="externalLink" size={12} style={{ verticalAlign: -2 }} /></a>
       </div>
       {openSub && <SlideOver sub={openSub} onClose={() => setOpenSub(null)} onAction={handleSubAction} />}
     </div>

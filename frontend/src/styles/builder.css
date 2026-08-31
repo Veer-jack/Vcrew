@@ -409,7 +409,8 @@ html[data-direction="signal"] .ring span { color: var(--accent-2); }
 .ring span i { font-style: normal; font-size: 8px; }
 
 /* ============ KANBAN ============ */
-.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: 264px; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: start; }
+.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: 264px; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: start; scrollbar-width: none; -ms-overflow-style: none; }
+.kanban::-webkit-scrollbar { display: none; }
 .kcol { background: var(--panel); border: var(--hairline) solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 240px; box-shadow: 0 4px 14px rgba(0,0,0,0.03); }
 .kcol.dragover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .kcol-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: var(--hairline) solid var(--border); }
