@@ -2290,6 +2290,12 @@ const en = {
     trustLabel: "Trust:",
     confirmStatusChange: "Are you sure you want to change the status to {{status}}?",
     missionMarkedAs: "Mission marked as {{status}}",
+    confirmCompleteTitle: "Mark this mission as complete?",
+    confirmCompleteBody: "This marks \"{{name}}\" as complete. Anyone still mid-task will be notified the mission has wrapped. This can't be undone.",
+    confirmCloseTitle: "Close this mission?",
+    confirmCloseBody: "This closes \"{{name}}\" early. Anyone still mid-task will be notified and won't be able to continue. This can't be undone.",
+    confirmArchiveTitle: "Archive this mission?",
+    confirmArchiveBody: "This moves \"{{name}}\" out of your everyday lists into Archived. You can still find it there.",
     loading: "Loading…",
     tabs: {
       overview: "Overview",

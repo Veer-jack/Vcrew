@@ -19,6 +19,28 @@ const menuItemStyle = {
   textAlign: "left", color: "var(--text)", fontSize: 13.5, fontFamily: "inherit",
 };
 
+// Confirmation copy for the mission header's status-change actions -- each
+// is a real, final transition (see the More menu), shown in the same
+// in-app Modal every other confirmation here uses, not the browser's
+// native confirm().
+function statusChangeCopy(t, status, name) {
+  if (status === "completed") return {
+    title: t("missionDetail.confirmCompleteTitle", null, "Mark this mission as complete?"),
+    body: t("missionDetail.confirmCompleteBody", { name }, `This marks "${name}" as complete. Anyone still mid-task will be notified the mission has wrapped. This can't be undone.`),
+    confirmLabel: t("actions.complete", null, "Mark as complete"),
+  };
+  if (status === "closed") return {
+    title: t("missionDetail.confirmCloseTitle", null, "Close this mission?"),
+    body: t("missionDetail.confirmCloseBody", { name }, `This closes "${name}" early. Anyone still mid-task will be notified and won't be able to continue. This can't be undone.`),
+    confirmLabel: t("actions.close", null, "Close"),
+  };
+  return {
+    title: t("missionDetail.confirmArchiveTitle", null, "Archive this mission?"),
+    body: t("missionDetail.confirmArchiveBody", { name }, `This moves "${name}" out of your everyday lists into Archived. You can still find it there.`),
+    confirmLabel: t("actions.archive", null, "Archive"),
+  };
+}
+
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
 // `min` blocks past dates AND past times on today's date in one shot
@@ -1498,6 +1520,10 @@ export default function MissionDetail() {
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Which status change (if any) is awaiting confirmation in the modal
+  // below -- null means no confirm modal is open.
+  const [pendingStatus, setPendingStatus] = useState(null);
+  const [changingStatus, setChangingStatus] = useState(false);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -1520,14 +1546,20 @@ export default function MissionDetail() {
     }
   };
 
+  // Confirmation itself now happens in the Modal rendered below (see
+  // pendingStatus) -- this just performs the change once the builder has
+  // actually confirmed it.
   const handleStatusChange = async (newStatus) => {
-    if (!window.confirm(t("missionDetail.confirmStatusChange", { status: newStatus }, "Are you sure you want to change the status to {{status}}?"))) return;
+    setChangingStatus(true);
     try {
       const { mission: updated } = await api.updateMission(id, { status: newStatus });
       setData(d => ({ ...d, mission: updated }));
       showToast(t("missionDetail.missionMarkedAs", { status: newStatus }, "Mission marked as {{status}}"));
+      setPendingStatus(null);
     } catch (err) {
       showToast(err.message, "error");
+    } finally {
+      setChangingStatus(false);
     }
   };
 
@@ -1652,17 +1684,17 @@ export default function MissionDetail() {
                       mid-flight or for a draft that already has its own
                       Delete action in the Missions table. */}
                   {mission.status === "active" && (
-                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); handleStatusChange("completed"); }} style={menuItemStyle}>
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("completed"); }} style={menuItemStyle}>
                       <Icon name="checkCircle" size={15} /> {t("actions.complete", null, "Mark as complete")}
                     </button>
                   )}
                   {mission.status === "active" && (
-                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); handleStatusChange("closed"); }} style={menuItemStyle}>
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("closed"); }} style={menuItemStyle}>
                       <Icon name="xCircle" size={15} /> {t("actions.close", null, "Close")}
                     </button>
                   )}
                   {(mission.status === "closed" || mission.status === "completed") && (
-                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); handleStatusChange("archived"); }} style={menuItemStyle}>
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("archived"); }} style={menuItemStyle}>
                       <Icon name="archive" size={15} /> {t("actions.archive", null, "Archive")}
                     </button>
                   )}
@@ -1718,6 +1750,25 @@ export default function MissionDetail() {
       {showWaitlistModal && mission && waitlist.length > 0 && (
         <WaitlistInviteModal mission={mission} waitlist={waitlist} onClose={() => setShowWaitlistModal(false)} showToast={showToast} />
       )}
+      {pendingStatus && mission && (() => {
+        const copy = statusChangeCopy(t, pendingStatus, mission.name);
+        return (
+          <Modal title={copy.title} onClose={() => { if (!changingStatus) setPendingStatus(null); }} width={420} hideCloseIcon dismissible={false}>
+            <div style={{ padding: 20 }}>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{copy.body}</p>
+              <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+                <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }}
+                  disabled={changingStatus} onClick={() => handleStatusChange(pendingStatus)}>
+                  {changingStatus ? t("actions.saving", null, "Saving…") : copy.confirmLabel}
+                </button>
+                <button className="btn btn-primary" disabled={changingStatus} onClick={() => setPendingStatus(null)}>
+                  {t("actions.cancel", null, "Cancel")}
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
