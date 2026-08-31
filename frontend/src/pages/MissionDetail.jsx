@@ -1718,6 +1718,19 @@ export default function MissionDetail() {
         </div>
       </div>
 
+      {mission.status === "active" && mission.deadline && new Date(mission.deadline) < new Date() && (
+        <div className="card" style={{ marginBottom: 18, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)", flexWrap: "wrap" }}>
+          <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+          <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)", minWidth: 240 }}>
+            {t("missionDetail.deadlinePassedWarning", null, "Mission deadline has passed. Update the deadline to continue, or mark the mission as completed or closed.")}
+          </p>
+          <div className="row gap-2" style={{ flexShrink: 0 }}>
+            <button className="btn" style={{ border: "1.5px solid var(--danger)", color: "var(--danger)", background: "transparent" }} onClick={() => setPendingStatus("closed")}>{t("actions.close", null, "Close")}</button>
+            <Btn variant="primary" size="sm" onClick={() => setPendingStatus("completed")}>{t("actions.complete", null, "Mark as complete")}</Btn>
+          </div>
+        </div>
+      )}
+
       <div className="kpis sec">
         <KpiCard label={t("metrics.participants", null, "Participants")} value={mission.participants.joined} unit={` / ${mission.participants.target}`} icon="users" />
         <KpiCard label={t("metrics.submitted", null, "Submitted")} value={mission.participants.submitted} icon="check" tone="green" />
