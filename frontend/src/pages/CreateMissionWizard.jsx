@@ -567,10 +567,14 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
       )}
       <div className="card" style={{ padding: "4px 20px 14px" }}>
         <ReviewRow icon="edit" color="--accent-2" label={t("createMission.missionTitleReviewLabel", null, "Mission title")} onEdit={() => onEditStep(0)}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
+        {d.desc && (
+          <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
+            <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
+            {descLong && <button className="backlink" style={{ margin: "4px 0 0", fontSize: 12.5 }} onClick={() => setDescExpanded(v => !v)}>{descExpanded ? t("actions.showLess", null, "Show less") : t("actions.readMore", null, "Read more")}</button>}
+          </ReviewRow>
+        )}
         <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
         <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
-        <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
-        <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
         {d.tasks?.length > 0 && (
           <ReviewRow icon="checkCircle" color="--success" label={t("createMission.testCasesEyebrow", { count: d.tasks.length }, `Test cases (${d.tasks.length})`)} onEdit={() => onEditStep(2)}>
             <div className="col gap-1" style={{ marginTop: 2 }}>
@@ -583,17 +587,13 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
             </div>
           </ReviewRow>
         )}
-        {d.desc && (
-          <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
-            <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
-            {descLong && <button className="backlink" style={{ margin: "4px 0 0", fontSize: 12.5 }} onClick={() => setDescExpanded(v => !v)}>{descExpanded ? t("actions.showLess", null, "Show less") : t("actions.readMore", null, "Read more")}</button>}
-          </ReviewRow>
-        )}
+        <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
         {allFilters.length > 0 && (
           <ReviewRow icon="filter" color="--accent" label={t("createMission.audienceFiltersEyebrow", null, "Audience filters")} onEdit={() => onEditStep(3)}>
             <div className="chips" style={{ marginTop: 4 }}>{allFilters.map(f => <span key={f} className="chip on" style={{ pointerEvents: "none" }}>{f}</span>)}</div>
           </ReviewRow>
         )}
+        <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
       </div>
     </div>
   );
