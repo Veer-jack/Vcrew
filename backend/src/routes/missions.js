@@ -1414,7 +1414,11 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         trust: Math.round((r.trust_score || 0) * 10),
         status: r.status || "pending",
         revisionCount: r.revision_count || 0,
-        quality: r.flagged ? "flagged" : "medium",
+        // Was always "medium" for anything not flagged -- a hardcoded
+        // placeholder never actually wired to real quality logic. Removed
+        // rather than keep showing a number that meant nothing; "flagged"
+        // is the one genuinely real signal this ever carried.
+        quality: r.flagged ? "flagged" : null,
         date: new Date(r.submitted_at).toLocaleDateString(),
         joinedAt: r.joined_at ? new Date(r.joined_at).toLocaleDateString() : null,
         // Prefer real tracked active time (tab visible + focused) over the

@@ -542,10 +542,12 @@ function SlideOver({ sub, onClose, onAction }) {
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="checkCircle" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.tasks", null, "Tasks")}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.tasks}</div>
           </div>
-          <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
-            <div><QualityBadge quality={sub.quality} /></div>
-          </div>
+          {sub.quality === "flagged" && (
+            <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
+              <div><QualityBadge quality="flagged" /></div>
+            </div>
+          )}
         </div>
         </div>
 
@@ -853,7 +855,7 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
                         <span>{t("review.joinedOn", null, "Joined on")}: {sub.joinedAt || "—"}</span>
                         <span>{t("review.submittedOn", null, "Submitted on")}: {sub.date}</span>
                         <span>{t("review.completionTime", null, "Completion time")}: {sub.mins} {t("metrics.min", null, "min")}</span>
-                        <QualityBadge quality={sub.flagged ? "flagged" : sub.quality} />
+                        {sub.quality === "flagged" && <QualityBadge quality="flagged" />}
                       </div>
                     </div>
                   </div>
