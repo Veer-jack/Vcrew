@@ -12,6 +12,13 @@ import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 
+// Shared by every row in the mission header's "More" menu.
+const menuItemStyle = {
+  display: "flex", alignItems: "center", gap: 10, width: "100%",
+  padding: "9px 14px", background: "none", border: "none", cursor: "pointer",
+  textAlign: "left", color: "var(--text)", fontSize: 13.5, fontFamily: "inherit",
+};
+
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
 // `min` blocks past dates AND past times on today's date in one shot
@@ -1490,6 +1497,7 @@ export default function MissionDetail() {
   const [waitlist, setWaitlist] = useState([]);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -1623,15 +1631,55 @@ export default function MissionDetail() {
         </div>
         <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
           <UpdatingBadge show={refetching} />
-          {mission.status === "active" && <Btn variant="ghost" icon="xCircle" onClick={() => handleStatusChange("closed")}>{t("actions.close", null, "Close")}</Btn>}
-          {mission.status === "closed" && <Btn variant="ghost" icon="checkCircle" onClick={() => handleStatusChange("completed")}>{t("actions.complete", null, "Complete")}</Btn>}
-          {(mission.status === "completed" || mission.status === "draft") && <Btn variant="ghost" icon="archive" onClick={() => handleStatusChange("archived")}>{t("actions.archive", null, "Archive")}</Btn>}
           <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>
-          <Btn variant="ghost" icon="download" onClick={() => exportCSV(
-            `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
-            [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
-            participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
-          )}>{t("actions.export", null, "Export")}</Btn>
+          <div style={{ position: "relative" }}>
+            <Btn variant="ghost" iconRight="chevronDown" onClick={() => setMoreOpen(o => !o)}>{t("actions.more", null, "More")}</Btn>
+            {moreOpen && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setMoreOpen(false)} />
+                <div role="menu" style={{
+                  position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
+                  background: "var(--bg)", border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
+                  minWidth: 190, padding: "6px 0",
+                }}>
+                  {/* Close and Complete are two separate, independent endings
+                      for an active mission -- not sequential steps -- so both
+                      are offered directly from "active" rather than gating
+                      Complete behind Close first. Archive is a housekeeping
+                      action for a mission that's already terminal one way or
+                      the other (closed or completed), not something offered
+                      mid-flight or for a draft that already has its own
+                      Delete action in the Missions table. */}
+                  {mission.status === "active" && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); handleStatusChange("completed"); }} style={menuItemStyle}>
+                      <Icon name="checkCircle" size={15} /> {t("actions.complete", null, "Mark as complete")}
+                    </button>
+                  )}
+                  {mission.status === "active" && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); handleStatusChange("closed"); }} style={menuItemStyle}>
+                      <Icon name="xCircle" size={15} /> {t("actions.close", null, "Close")}
+                    </button>
+                  )}
+                  {(mission.status === "closed" || mission.status === "completed") && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); handleStatusChange("archived"); }} style={menuItemStyle}>
+                      <Icon name="archive" size={15} /> {t("actions.archive", null, "Archive")}
+                    </button>
+                  )}
+                  <button role="menuitem" className="menu-item" onClick={() => {
+                    setMoreOpen(false);
+                    exportCSV(
+                      `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
+                      [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
+                      participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
+                    );
+                  }} style={menuItemStyle}>
+                    <Icon name="download" size={15} /> {t("actions.export", null, "Export")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           {mission.status === "active" && <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>{t("actions.invite", null, "Invite")}</Btn>}
         </div>
       </div>

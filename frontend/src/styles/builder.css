@@ -408,6 +408,8 @@ html[data-direction="signal"] .ring { background: conic-gradient(var(--accent-2)
 html[data-direction="signal"] .ring span { color: var(--accent-2); }
 .ring span i { font-style: normal; font-size: 8px; }
 
+.menu-item:hover { background: var(--panel-inset); }
+
 /* ============ KANBAN ============ */
 .kanban { display: grid; grid-auto-flow: column; grid-auto-columns: 264px; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: start; scrollbar-width: none; -ms-overflow-style: none; }
 .kanban::-webkit-scrollbar { display: none; }
