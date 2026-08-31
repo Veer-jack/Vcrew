@@ -1021,6 +1021,14 @@ export default function CreateMissionWizard() {
   }, []);
 
   useEffect(() => {
+    // While editing an existing mission, `d` starts as an empty placeholder
+    // draft for one render until the real mission loads and replaces it
+    // (see the api.mission(missionId) effect below) — firing this against
+    // that placeholder briefly shows a broad, near-unfiltered count (nearly
+    // everyone matches empty filters) right before the real, narrower count
+    // replaces it a moment later. Wait for the real draft to land instead of
+    // showing that flash.
+    if (loadingMission) return;
     setTimeout(() => setIsFetchingCount(true), 0);
     const audience = buildAudiencePayload(d);
     api.audienceMatchCount(audience)
@@ -1028,7 +1036,7 @@ export default function CreateMissionWizard() {
       .catch(() => {})
       .finally(() => setIsFetchingCount(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d.filters, d.otherEntries]);
+  }, [d.filters, d.otherEntries, loadingMission]);
 
   // Pre-promotion scratch safety net — the only local write that happens
   // before a real DB draft exists, and only once there's real content worth
