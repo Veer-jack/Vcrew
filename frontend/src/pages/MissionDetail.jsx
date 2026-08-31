@@ -821,7 +821,9 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
                         <span className="mono" style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 800 }}>★ {(sub.trust / 10).toFixed(1)}</span>
                       </div>
                       <div className="row gap-3 faint" style={{ fontSize: 12.5, marginTop: 4 }}>
-                        <span>{sub.date}</span><span>{sub.mins} {t("metrics.min", null, "min")}</span><span>{sub.tasks} {t("metrics.tasks", null, "tasks")}</span>
+                        <span>{t("review.invitedOn", null, "Invited on")}: {sub.joinedAt || "—"}</span>
+                        <span>{t("review.submittedOn", null, "Submitted on")}: {sub.date}</span>
+                        <span>{t("review.completionTime", null, "Completion time")}: {sub.mins} {t("metrics.min", null, "min")}</span>
                         <QualityBadge quality={sub.flagged ? "flagged" : sub.quality} />
                       </div>
                     </div>

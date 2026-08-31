@@ -2399,6 +2399,9 @@ const en = {
     flagged: "Flagged",
   },
   review: {
+    invitedOn: "Invited on",
+    submittedOn: "Submitted on",
+    completionTime: "Completion time",
     dailyCheckinHistory: "Daily check-in history ({{days}} days)",
     usedIt: "Used it:",
     wouldReturn: "Would return:",
