@@ -339,7 +339,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
         <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
       </div>
       <div className="kanban">
-        {STAGES.map(st => {
+        {STAGES.filter(st => st.id !== "rejected").map(st => {
           // A validator auto-failed for missing check-ins gets stage 'failed',
           // not one of the six real Kanban stages — no column for it means no
           // separate 7th column (would just add more horizontal scroll to an
