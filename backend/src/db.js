@@ -134,6 +134,10 @@ export async function initDb() {
     // Define-the-Test form from and it came back empty even though the
     // already-generated tasks themselves loaded fine.
     if (!mCols.includes('test_case_form_json')) await client.query('ALTER TABLE missions ADD COLUMN test_case_form_json TEXT');
+    // Set once, the moment status actually becomes 'completed' (see the
+    // PATCH /:id handler) -- powers the Missions "All" tab's Completed Date
+    // column, distinct from deadline (a planned date, not when it actually happened).
+    if (!mCols.includes('completed_at')) await client.query('ALTER TABLE missions ADD COLUMN completed_at TIMESTAMPTZ');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');

@@ -14,7 +14,7 @@ import NotificationsSidebar from "./NotificationsSidebar";
 const NAV_GROUPS = [
   { label: "Workspace", items: [
     { to: "/", label: "Dashboard", icon: "home", end: true },
-    { to: "/missions", label: "Missions", icon: "layers" },
+    { to: "/missions?tab=all", label: "Missions", icon: "layers" },
     { to: "/invitations", label: "Invitations", icon: "send" },
     { to: "/audience", label: "Audience", icon: "compass" },
     { to: "/messages", label: "Messages", icon: "inbox" },

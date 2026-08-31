@@ -129,6 +129,7 @@ function serializeMission(m, canFullyEdit) {
       : m.rating,
     description: m.description,
     deadline: m.deadline,
+    completedAt: m.completed_at || null,
     audience: JSON.parse(m.audience_json || "{}"),
     tasks: JSON.parse(m.tasks_json || "[]"),
     testCaseForm: m.test_case_form_json ? JSON.parse(m.test_case_form_json) : null,
@@ -703,7 +704,14 @@ router.patch("/:id", async (req, res) => {
         updates.push(`spend = spend + ?`);
         params.push(spendDelta);
       }
-      
+
+      // Recorded once, the moment the mission actually becomes completed --
+      // the Missions "All" tab's Completed Date column reads this, distinct
+      // from deadline (a planned date, not when it actually happened).
+      if (newStatus === "completed" && m.status !== "completed") {
+        updates.push(`completed_at = NOW()`);
+      }
+
       if (!updates.length) throw new Error("No valid fields to update");
       params.push(m.id);
       await tx.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);

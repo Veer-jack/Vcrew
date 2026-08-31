@@ -16,6 +16,7 @@ export default function Missions() {
   const { t, dataVersion } = useTranslation();
   const { builder } = useAuth();
   const TABS = [
+    { k: "all", l: t("missions.tabAll", null, "All") },
     { k: "active", l: t("missions.tabActive", null, "Active") },
     { k: "draft", l: t("missions.tabDraft", null, "Draft") },
     { k: "closed", l: t("missions.tabClosed", null, "Closed") },
@@ -26,7 +27,7 @@ export default function Missions() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { categories } = useMeta();
-  const [tab, setTab] = useState(searchParams.get("tab") || "active");
+  const [tab, setTab] = useState(searchParams.get("tab") || "all");
   const [q, setQ] = useState(searchParams.get("q") || "");
 
   // Only the initial mount read the tab from the URL — a notification link
@@ -34,7 +35,7 @@ export default function Missions() {
   // open wouldn't remount the component, so this state never picked it up
   // and the URL and the visible tab silently disagreed.
   useEffect(() => {
-    const urlTab = searchParams.get("tab") || "active";
+    const urlTab = searchParams.get("tab") || "all";
     setTab(prev => (prev === urlTab ? prev : urlTab));
   }, [searchParams]);
 
@@ -60,7 +61,10 @@ export default function Missions() {
 
   useEffect(() => {
     setTimeout(() => setRefetching(true), 0);
-    api.missions({ status: tab, q }).then(d => { setMissions(d.missions); setLoading(false); }).finally(() => setRefetching(false));
+    // "all" means no status filter at all (GET /missions with status
+    // omitted returns every status) -- there's no literal "all" status
+    // in the database to filter by.
+    api.missions({ status: tab === "all" ? "" : tab, q }).then(d => { setMissions(d.missions); setLoading(false); }).finally(() => setRefetching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, q, dataVersion]);
 
@@ -101,7 +105,7 @@ export default function Missions() {
 
   // counts per tab (one extra call, cheap and infrequent)
   useEffect(() => {
-    Promise.all(TABS.map(t => api.missions({ status: t.k }).then(d => [t.k, d.missions.length])))
+    Promise.all(TABS.map(t => api.missions({ status: t.k === "all" ? "" : t.k }).then(d => [t.k, d.missions.length])))
       .then(entries => setCounts(Object.fromEntries(entries)));
   }, [missions]);
 
@@ -144,10 +148,10 @@ export default function Missions() {
       </div>
       {loading ? <div className="muted" style={{ padding: 24 }}>{t("actions.loading", null, "Loading…")}</div>
         : missions.length === 0
-          ? <Empty icon="layers" title={`${t("missions.no", null, "No")} ${tab} ${t("missions.missionsLower", null, "missions")}`} action={tab === "draft" || tab === "active" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createFirstMission", null, "Create your first mission")}</Btn> : null}>{tab === "completed" ? t("missions.completedEmpty", null, "Completed missions will appear here once they wrap.") : t("missions.emptyDefault", null, "Nothing here yet.")}</Empty>
+          ? <Empty icon="layers" title={tab === "all" ? t("missions.noMissionsYet", null, "No missions yet — create your first one.") : `${t("missions.no", null, "No")} ${tab} ${t("missions.missionsLower", null, "missions")}`} action={tab === "draft" || tab === "active" || tab === "all" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createFirstMission", null, "Create your first mission")}</Btn> : null}>{tab === "completed" ? t("missions.completedEmpty", null, "Completed missions will appear here once they wrap.") : t("missions.emptyDefault", null, "Nothing here yet.")}</Empty>
           : (
             <div style={{ paddingBottom: 32 }}>
-              <MissionsTable rows={missions.slice(0, visibleCount)} nav={navigate} categories={categories} onDelete={handleDelete} />
+              <MissionsTable rows={missions.slice(0, visibleCount)} nav={navigate} categories={categories} onDelete={handleDelete} showAllColumns={tab === "all"} />
               {visibleCount < missions.length && (
                 <div style={{ textAlign: "center", marginTop: 16 }}>
                   <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</Btn>

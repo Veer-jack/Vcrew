@@ -13,7 +13,15 @@ function truncateRegion(region, max = 4) {
   return `${parts.slice(0, max).join(", ")} +${parts.length - max} more`;
 }
 
-export default function MissionsTable({ rows, nav, categories, onDelete }) {
+// The "All" tab mixes every status together, where per-status numbers like
+// Participants/Reward/Completion read as noise (a draft's are always dashed
+// out anyway) — Deadline and Completed Date matter more there: when is this
+// due, and for the ones that are done, when did that actually happen.
+function fmtDate(d) {
+  return d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : <span className="faint">—</span>;
+}
+
+export default function MissionsTable({ rows, nav, categories, onDelete, showAllColumns }) {
   const { t } = useTranslation();
   if (!rows.length) return <div className="muted" style={{ padding: 24 }}>{t("missions.noMissionsYet", null, "No missions yet — create your first one.")}</div>;
   return (
@@ -22,9 +30,18 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
         <thead>
           <tr>
             <th>{t("missions.missionCol", null, "Mission")}</th><th>{t("missions.typeCol", null, "Type")}</th><th>{t("missions.statusCol", null, "Status")}</th>
-            <th style={{ textAlign: "right" }}>{t("metrics.participants", null, "Participants")}</th>
-            <th style={{ textAlign: "right" }}>{t("metrics.reward", null, "Reward")}</th>
-            <th style={{ width: 150 }}>{t("metrics.completion", null, "Completion")}</th>
+            {showAllColumns ? (
+              <>
+                <th>{t("missions.deadlineCol", null, "Deadline")}</th>
+                <th>{t("missions.completedDateCol", null, "Completed Date")}</th>
+              </>
+            ) : (
+              <>
+                <th style={{ textAlign: "right" }}>{t("metrics.participants", null, "Participants")}</th>
+                <th style={{ textAlign: "right" }}>{t("metrics.reward", null, "Reward")}</th>
+                <th style={{ width: 150 }}>{t("metrics.completion", null, "Completion")}</th>
+              </>
+            )}
             {onDelete && <th style={{ width: 40 }}></th>}
           </tr>
         </thead>
@@ -64,21 +81,30 @@ export default function MissionsTable({ rows, nav, categories, onDelete }) {
                   )}
                 </div>
               </td>
-              <td className="num">
-                {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
-                  <span className="faint">—</span>
-                ) : (
-                  <>{m.participants.joined}<span className="faint"> / {m.participants.target}</span></>
-                )}
-              </td>
-              <td className="num">
-                {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
-                  <span className="faint">—</span>
-                ) : (
-                  m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)
-                )}
-              </td>
-              <td>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>
+              {showAllColumns ? (
+                <>
+                  <td>{fmtDate(m.deadline)}</td>
+                  <td>{m.status === "completed" ? fmtDate(m.completedAt) : <span className="faint">—</span>}</td>
+                </>
+              ) : (
+                <>
+                  <td className="num">
+                    {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
+                      <span className="faint">—</span>
+                    ) : (
+                      <>{m.participants.joined}<span className="faint"> / {m.participants.target}</span></>
+                    )}
+                  </td>
+                  <td className="num">
+                    {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
+                      <span className="faint">—</span>
+                    ) : (
+                      m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)
+                    )}
+                  </td>
+                  <td>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>
+                </>
+              )}
               {onDelete && (
                 <td>
                   <button
