@@ -155,7 +155,7 @@ export default function MissionDetails() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
           {[
             { ic: "clock", l: t("missions.time", null, "Time"), v: `~${task.minutes} min` },
-            { ic: "users", l: t("missions.spotsLeft", null, "Spots left"), v: `${task.spotsLeft} / ${task.spotsTotal}` },
+            { ic: "users", l: t("missions.spotsLeft", null, "Slots left"), v: `${task.spotsLeft} / ${task.spotsTotal}` },
             { ic: "calendar", l: t("missions.deadline", null, "Deadline"), v: deadlineLabel(task.deadline) },
             { ic: "target", l: t("missions.yourMatch", null, "Your match"), v: `${task.match}%` },
           ].map((x, i) => (
@@ -216,7 +216,7 @@ export default function MissionDetails() {
 
         <div style={{ padding: "0 var(--pad-card) var(--pad-card)" }}>
           <div className="row between" style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>
-            <span>{task.spotsLeft} of {task.spotsTotal} {t("missions.spotsRemaining", null, "spots remaining")}</span>
+            <span>{task.spotsLeft} of {task.spotsTotal} {t("missions.spotsRemaining", null, "slots remaining")}</span>
             <span className="mono" style={{ color: spotPct < 25 ? "var(--danger)" : "inherit" }}>{Math.round(100 - spotPct)}% {t("missions.filled", null, "filled")}</span>
           </div>
           <div className="lvl-meter"><i style={{ width: (100 - spotPct) + "%", background: spotPct < 25 ? "var(--danger)" : undefined }} /></div>

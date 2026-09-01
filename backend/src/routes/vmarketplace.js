@@ -41,7 +41,13 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
   const minutes = t.minutes ?? 10;
   const spotsTotal = t.spots_total ?? t.spotsTotal ?? t.target ?? 0;
   const spotsLeft = t.spots_left ?? t.spotsLeft ?? Math.max(0, spotsTotal - (t.joined || 0));
-  const deadline = t.deadline_label || t.deadline || "Soon";
+  // deadline_label is precomputed (TO_CHAR ... 'Mon DD') by the list queries
+  // that already know to do it -- this single-fetch route's plain SELECT *
+  // doesn't, so t.deadline was leaking through as a raw, unformatted
+  // timestamp (e.g. "2026-09-18T00:00:00.000Z") instead of a real label.
+  // Format it here too so every caller is covered, not just the ones that
+  // remember to precompute it in SQL.
+  const deadline = t.deadline_label || (t.deadline ? new Date(t.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Soon");
   
   let postedH = t.posted_h ?? t.postedH;
   if (postedH === undefined && t.created_at) {
