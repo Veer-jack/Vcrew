@@ -359,7 +359,9 @@ router.post("/:id/decline", async (req, res) => {
       const invite = await tx.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND validator_id = ? AND status = 'pending'`).get(t.id, req.validator.id);
       if (invite) {
         await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
-        await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
+        // A real stage, not a delete -- see the same change in
+        // vmissions.js's invitations/:id/decline for why.
+        await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
         await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
           .run(t.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${t.name}.`, t.id);
       }

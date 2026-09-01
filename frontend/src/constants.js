@@ -1,5 +1,6 @@
 export const STAGES = [
   { id: "invited",  label: "Invited",  color: "#8b94a6" },
+  { id: "declined", label: "Declined", color: "#d97706" },
   { id: "accepted", label: "Accepted", color: "var(--t-website)" },
   { id: "started",  label: "Started",  color: "var(--t-app)" },
   { id: "submitted",label: "Submitted",color: "var(--warning)" },

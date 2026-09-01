@@ -98,7 +98,7 @@ router.use(authMiddleware);
 // costs nothing. Once anyone accepts, those fields lock (but stay visible).
 async function missionCanFullyEdit(missionId, status) {
   if (status === "draft") return true;
-  const row = await db.prepare(`SELECT 1 FROM participants WHERE mission_id = ? AND stage != 'invited' LIMIT 1`).get(missionId);
+  const row = await db.prepare(`SELECT 1 FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'declined') LIMIT 1`).get(missionId);
   return !row;
 }
 
@@ -145,8 +145,8 @@ router.get("/", async (req, res) => {
     SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
-      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined,
-      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage != 'invited')) as no_committed_participants
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'declined', 'rejected', 'failed')) as real_joined,
+      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'declined'))) as no_committed_participants
     FROM missions m
     WHERE m.builder_id = ?
   `;
@@ -393,8 +393,8 @@ router.get("/:id", async (req, res) => {
   // real `participants` rows (e.g. a backfill that inserts rows directly) —
   // since we already have the full row set here, derive the true count from
   // it instead of trusting the stale column, same as `real_submitted` above.
-  m.real_joined = participants.filter(p => !["invited", "rejected", "failed"].includes(p.stage)).length;
-  const mission = serializeMission(m, m.status === "draft" || !participants.some(p => p.stage !== "invited"));
+  m.real_joined = participants.filter(p => !["invited", "declined", "rejected", "failed"].includes(p.stage)).length;
+  const mission = serializeMission(m, m.status === "draft" || !participants.some(p => p.stage !== "invited" && p.stage !== "declined"));
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
     const translated = await translateBatch([

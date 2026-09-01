@@ -380,7 +380,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
           const col = st.id === "rejected"
             ? participants.filter(p => p.stage === "rejected" || p.stage === "failed")
             : participants.filter(p => p.stage === st.id);
-          const droppable = st.id !== "rewarded" && st.id !== "rejected";
+          const droppable = st.id !== "rewarded" && st.id !== "rejected" && st.id !== "declined";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
               onDragOver={e => { e.preventDefault(); if (droppable) setOver(st.id); }}
@@ -406,9 +406,9 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed"}
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed" && p.stage !== "declined"}
                     onDragStart={(e) => {
-                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") {
+                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined") {
                         e.preventDefault();
                         return;
                       }
@@ -418,7 +418,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                     onClick={() => { if (p.stage === "submitted") openSubmission(p); }}
                     title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : undefined}
                     style={{
-                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" ? { cursor: "default", opacity: 0.85 } : {}),
+                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" ? { cursor: "default", opacity: 0.85 } : {}),
                       ...(p.stage === "submitted" ? { cursor: "pointer", opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
                     }}>
                     <div className="kcard-top">
@@ -447,10 +447,10 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                 {col.length === 0 && (
                   <div className="empty-kcol">
                     <div className="ec-ic" style={{ color: st.color, background: `color-mix(in srgb, ${st.color} 10%, transparent)` }}>
-                      <Icon name={st.id === "invited" ? "mail" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
+                      <Icon name={st.id === "invited" ? "mail" : st.id === "declined" ? "xCircle" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
                     </div>
-                    <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
-                    <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
+                    <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : st.id === "declined" ? t("missionDetail.noDeclinedParticipants", null, "No declined invites") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
+                    <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "declined" ? t("missionDetail.emptyDeclined", null, "Invites that get declined will appear here.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
                   </div>
                 )}
               </div>
@@ -1640,7 +1640,7 @@ export default function MissionDetail() {
   // joined, can't be reached in the Kanban stages that matter). Without
   // this, the tab badge and the KPI card show two different numbers for
   // the same word "Participants" on the same page.
-  const realParticipantsCount = participants.filter(p => !["invited", "rejected", "failed"].includes(p.stage)).length;
+  const realParticipantsCount = participants.filter(p => !["invited", "declined", "rejected", "failed"].includes(p.stage)).length;
   const baseTabs = TABS.map(tb => ({ ...tb, l: t(tb.lk, null, tb.l), c: tb.k === "participants" ? realParticipantsCount : tb.k === "responses" ? responses.length : null }));
 
   let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: t("missionDetail.tabs.shipments", null, "Shipments"), ic: "box", c: participants.length }, ...baseTabs.slice(3)] : baseTabs;

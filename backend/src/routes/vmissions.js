@@ -933,7 +933,11 @@ router.post("/invitations/:id/decline", async (req, res) => {
 
   await db.transaction(async (tx) => {
     await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
-    await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
+    // A real stage, not a delete -- the builder's Participants Kanban has a
+    // Declined column for exactly this, so a decline is visible there
+    // instead of the invitee just silently vanishing with no trace beyond
+    // the one-off notification.
+    await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
     if (m) {
       await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
         .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`, m.id);
