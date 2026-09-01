@@ -25,8 +25,11 @@ fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 // (started/submitted/rewarded/etc.), and calling it again on repeat actions
 // (e.g. day 2's check-in) is a harmless no-op.
 async function markParticipantStarted(missionId, validatorId) {
-  await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
+  const result = await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
     .run(missionId, validatorId);
+  // Lets a caller notify the builder only on the real accepted->started
+  // transition, not on every repeat call (e.g. every subsequent autosave).
+  return result.changes > 0;
 }
 
 const storage = multer.diskStorage({
@@ -360,7 +363,18 @@ router.patch("/:id/workspace/draft", async (req, res) => {
   await db.prepare(`UPDATE v_my_missions SET progress = ?, updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(progressPercent, req.params.id, req.validator.id);
 
-  await markParticipantStarted(req.params.id, req.validator.id);
+  const justStarted = await markParticipantStarted(req.params.id, req.validator.id);
+  // Every other ptype-specific "started" trigger (shipment received,
+  // interview accepted, focus group availability, daily check-in) already
+  // notifies the builder here -- this generic draft-autosave path, the one
+  // every plain survey/testing/feedback mission actually goes through, was
+  // the one case with no notification at all.
+  if (justStarted) {
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'application', 'mission_started', 'rocket', 'accent', 'Mission Started', ?, 'Just now', 1, ?)
+    `).run(m.builder_id, `${req.validator.name} has started working on "${m.name}".`, m.id);
+  }
 
   res.json({ ok: true, progress: progressPercent });
 });
