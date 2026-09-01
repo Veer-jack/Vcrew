@@ -1625,28 +1625,50 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
-  const validator = await db.prepare(`SELECT id, name, email, city FROM validators WHERE id = ?`).get(req.params.validatorId);
+  const validator = await db.prepare(`SELECT id, name, email, city, rating FROM validators WHERE id = ?`).get(req.params.validatorId);
   if (!validator) return res.status(404).json({ error: "Validator not found" });
 
-  // Prevent multiple invites
+  // Prevent multiple invites -- but a declined one isn't an active invite
+  // still in flight, it's a past no. Re-inviting is a legitimate thing to
+  // do (circumstances change), so only an actually-live invitation blocks
+  // a new one.
   const existing = await db.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
-  if (existing) return res.status(400).json({ error: "Validator has already been invited to this mission." });
+  if (existing && existing.status !== "declined") return res.status(400).json({ error: "Validator has already been invited to this mission." });
 
-  // Prevent inviting if they already joined
+  // Prevent inviting if they already joined -- same exception: a declined
+  // participant row (see the decline routes) never actually joined anything.
   const participant = await db.prepare(`SELECT * FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
-  if (participant) return res.status(400).json({ error: "Validator has already joined this mission." });
+  if (participant && participant.stage !== "declined") return res.status(400).json({ error: "Validator has already joined this mission." });
 
   const isWaitlist = await db.prepare(`SELECT 1 FROM v_saved WHERE task_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
 
   await db.transaction(async (tx) => {
-    await tx.prepare(`INSERT INTO mission_invitations (builder_id, validator_id, mission_id, status) VALUES (?, ?, ?, 'pending')`)
-      .run(req.builder.id, req.params.validatorId, req.params.id);
+    // A previously-declined invite already occupies the (mission, validator)
+    // row mission_invitations' UNIQUE constraint keys on -- reset it instead
+    // of inserting a second one, which would violate that constraint.
+    await tx.prepare(`
+      INSERT INTO mission_invitations (builder_id, validator_id, mission_id, status) VALUES (?, ?, ?, 'pending')
+      ON CONFLICT (mission_id, validator_id) DO UPDATE SET status = 'pending', builder_id = EXCLUDED.builder_id, created_at = NOW()
+    `).run(req.builder.id, req.params.validatorId, req.params.id);
 
     // Surface the invite in the Participants pipeline immediately — this row
     // is what BUG-037/036 were missing; without it, "Invited" always read
     // empty since nothing populated the participants table until acceptance.
-    await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city, stage, status) VALUES (?, ?, ?, ?, 'User', ?, 'invited', 'invited')`)
-      .run(req.params.id, req.params.validatorId, validator.name, validator.email, validator.city || 'Remote');
+    // trust mirrors the marketplace-apply formula below (rating * 20, unrated
+    // validators treated as the same 5.0 baseline used elsewhere when
+    // averaging in their first review).
+    const trust = Math.round((validator.rating || 5) * 20);
+    if (participant) {
+      // Reuse the existing (declined) row instead of inserting a second one
+      // for the same validator -- there's no DB constraint stopping a
+      // duplicate here (unlike mission_invitations above), so this has to
+      // be enforced in code.
+      await tx.prepare(`UPDATE participants SET stage = 'invited', status = 'invited', trust = ? WHERE mission_id = ? AND validator_id = ?`)
+        .run(trust, req.params.id, req.params.validatorId);
+    } else {
+      await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city, stage, status, trust) VALUES (?, ?, ?, ?, 'User', ?, 'invited', 'invited', ?)`)
+        .run(req.params.id, req.params.validatorId, validator.name, validator.email, validator.city || 'Remote', trust);
+    }
 
     if (isWaitlist) {
       await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'waitlist_invite', 'star', 'accent', ?, ?, 'Just now', 1, ?)`)
