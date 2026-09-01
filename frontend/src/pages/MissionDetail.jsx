@@ -1634,7 +1634,14 @@ export default function MissionDetail() {
   if (!data) return <div className="page rise"><div className="muted">{t("missionDetail.loading", null, "Loading…")}</div></div>;
 
   const { mission } = data;
-  const baseTabs = TABS.map(tb => ({ ...tb, l: t(tb.lk, null, tb.l), c: tb.k === "participants" ? participants.length : tb.k === "responses" ? responses.length : null }));
+  // Matches the KPI card's own "real joined" definition (backend's
+  // real_joined query) -- someone who's only been invited and hasn't
+  // accepted yet isn't a participant in any meaningful sense (hasn't
+  // joined, can't be reached in the Kanban stages that matter). Without
+  // this, the tab badge and the KPI card show two different numbers for
+  // the same word "Participants" on the same page.
+  const realParticipantsCount = participants.filter(p => !["invited", "rejected", "failed"].includes(p.stage)).length;
+  const baseTabs = TABS.map(tb => ({ ...tb, l: t(tb.lk, null, tb.l), c: tb.k === "participants" ? realParticipantsCount : tb.k === "responses" ? responses.length : null }));
 
   let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: t("missionDetail.tabs.shipments", null, "Shipments"), ic: "box", c: participants.length }, ...baseTabs.slice(3)] : baseTabs;
 
