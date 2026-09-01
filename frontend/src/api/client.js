@@ -78,6 +78,7 @@ export const api = {
   createMission: (payload) => request("/missions", { method: "POST", body: payload }),
   updateMission: (id, payload) => request(`/missions/${id}`, { method: "PATCH", body: payload }),
   deleteMission: (id) => request(`/missions/${id}`, { method: "DELETE" }),
+  bulkDeleteMissions: (ids) => request("/missions/bulk-delete", { method: "POST", body: { ids } }),
   inviteValidator: (missionId, validatorId) => request(`/missions/${missionId}/invite/${validatorId}`, { method: "POST" }),
   moveParticipant: (missionId, participantId, stage) =>
     request(`/missions/${missionId}/participants/${participantId}`, { method: "PATCH", body: { stage } }),

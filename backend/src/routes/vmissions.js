@@ -83,7 +83,7 @@ router.get("/", async (req, res) => {
              t.* FROM v_saved vs
       JOIN (${TASK_UNION}) t ON (t.id = vs.task_id)
       WHERE vs.validator_id = ?
-      ORDER BY vs.id DESC
+      ORDER BY vs.saved_at DESC
     `).all(req.validator.id);
   } else {
     let sql = `
@@ -891,8 +891,25 @@ router.post("/invitations/:id/accept", async (req, res) => {
       if (invitedRow) {
         await tx.prepare(`UPDATE participants SET stage = 'accepted', status = 'active' WHERE id = ?`).run(invitedRow.id);
       } else {
-        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
-          .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
+        // Same trust formula as the invited-row path above and marketplace
+        // apply — req.validator is a full row (see auth.js), so its rating
+        // is already on hand, no extra query needed.
+        const trust = Math.round((req.validator.rating || 5) * 20);
+        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city, trust) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+          .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote', trust);
+      }
+      // Marketplace-style direct joins (POST /marketplace/:id/apply) create
+      // this row up front; accepting an invite skipped it entirely, so a
+      // "sample" mission's builder could never mark an invited validator's
+      // shipment as shipped — the update always matched zero rows. Guarded
+      // with an existence check since this handler can run again for the
+      // same validator+mission (e.g. a re-sent invite after a decline).
+      if (m.category === "sample") {
+        const hasShipment = await tx.prepare(`SELECT 1 FROM sample_shipments WHERE mission_id = ? AND validator_id = ?`).get(m.id, req.validator.id);
+        if (!hasShipment) {
+          await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
+            .run(m.id, req.validator.id);
+        }
       }
       // A prior decline (see POST /marketplace/:id/decline) left a
       // 'declined' row here — a fresh invite shouldn't silently bypass

@@ -1,5 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+// Aliased — this file already has its own local `toast` state (the page's
+// own dismiss-with-X notification, used for every other showToast call
+// here). This one's for the single "changes saved" case below, which
+// deliberately matches the plain, centered, auto-dismissing style used for
+// the same event on Missions/Dashboard instead.
+import { toast as hotToast } from "react-hot-toast";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
@@ -46,10 +52,12 @@ function statusChangeCopy(t, status, name) {
 // datetime-local inputs use for their own value/min, so passing this as
 // `min` blocks past dates AND past times on today's date in one shot
 // (native browser behavior for datetime-local's min boundary).
-function nowLocalDatetimeString() {
-  const d = new Date();
+function toLocalDatetimeString(d) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function nowLocalDatetimeString() {
+  return toLocalDatetimeString(new Date());
 }
 
 // Native date/datetime-local inputs only open the picker when you click the
@@ -366,7 +374,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
       // validator's own status view now updates from the same call too (see the
       // backend's manual stage-move handler).
       const stageLabel = STAGES.find(s => s.id === stage)?.label || stage;
-      showToast(t("missionDetail.participantMoved", { name: target?.name || "Participant", stage: stageLabel }, `${target?.name || "Participant"} moved to ${stageLabel} — they'll see this update too.`));
+      hotToast.success(t("missionDetail.participantMoved", { name: target?.name || "Participant", stage: stageLabel }, `${target?.name || "Participant"} moved to ${stageLabel}`), { position: "top-center" });
     } catch {
       // Roll back the optimistic move — e.g. the backend rejected a stage it doesn't allow.
       setParticipants(ps => ps.map(p => p.id === id ? { ...p, stage: prevStage } : p));
@@ -442,6 +450,11 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                           {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>{t("status.rewarded", null, "Rewarded")}</span>}
                           {p.stage === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
                           {p.stage === "failed" && <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")} style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>{t("status.failed", null, "Failed — missed check-ins")}</span>}
+                          {/* Still sits in the Submitted column (they haven't
+                              resubmitted yet) — this is the only thing that
+                              tells this apart from a normal, never-reviewed
+                              submission. */}
+                          {p.stage === "submitted" && p.response_status === "revision" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.revisionReq", null, "Revision Req")}</span>}
                         </div>
                       </div>
                     </div>
@@ -652,16 +665,9 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {view === "review" && sub.status === "pending" && (
           <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
-            {/* One revision cycle only — once this submission has already
-                been sent back once, the only real outcomes left are Approve
-                or Reject, not another round-trip with no resolution. The
-                backend enforces this too (see the /revision route); this
-                just keeps a dead-end action off the screen. */}
-            {(sub.revisionCount || 0) < 1 && (
-              <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
-                <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
-              </button>
-            )}
+            <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
+              <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
+            </button>
             <div style={{ flex: 1 }} />
             <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
               <Icon name="x" size={14} /> {t("actions.reject", null, "Reject")}
@@ -708,7 +714,7 @@ function SlideOver({ sub, onClose, onAction }) {
             <textarea className="fin" placeholder={t("review.explainRejection", null, "Explain why this submission doesn't meet the requirements…")} rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
-              <button className="btn btn-danger" style={{ flex: 1, opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
+              <button className="btn" style={{ flex: 1, justifyContent: "center", color: "var(--danger)", background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
                 {isProcessing ? t("actions.rejecting", null, "Rejecting...") : t("actions.rejectSubmission", null, "Reject submission")}
               </button>
             </div>
@@ -746,7 +752,7 @@ const RESPONSE_REVIEW_TABS = (t) => [
 // same KPI cards, status tabs, and review drawer, now in-place on the
 // Responses tab instead of a full navigation away. Reply/Flag (unique to
 // this tab before) are kept as row-level quick actions.
-function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
+function ResponseReview({ missionId, navigate, showToast, tabBarRef, setParticipants }) {
   const { t } = useTranslation();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -786,7 +792,8 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
   const avgMins = subs.length ? Math.round(subs.reduce((a, s) => a + (s.mins || 0), 0) / subs.length) : 0;
 
   const handleAction = async (subId, action, reason, rating) => {
-    const subName = subs.find(s => s.id === subId)?.name || t("review.validatorFallbackName", null, "Validator");
+    const sub = subs.find(s => s.id === subId);
+    const subName = sub?.name || t("review.validatorFallbackName", null, "Validator");
     try {
       if (action === "approved") {
         await api.post(`/missions/${missionId}/submissions/${subId}/approved`, { rating });
@@ -803,6 +810,18 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
       return;
     }
     setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: action === "approved" ? "approved" : action === "rejected" ? "rejected" : "revision" } : s));
+    // The Participants Kanban (a sibling tab, not this component) reads from
+    // the same lifted `participants` state — without this, acting here left
+    // it stale until the whole mission was refetched (a reload, or leaving
+    // and coming back to the page), since nothing else was telling it a
+    // stage/response actually changed.
+    if (sub?.validatorId && setParticipants) {
+      setParticipants(ps => ps.map(pp => pp.validator_id !== sub.validatorId ? pp : {
+        ...pp,
+        stage: action === "approved" ? "rewarded" : action === "rejected" ? "rejected" : pp.stage,
+        response_status: action === "revision" ? "revision" : pp.response_status,
+      }));
+    }
     setSelected(null);
   };
 
@@ -870,9 +889,7 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
                     </div>
                   </div>
                   <div className="row gap-2" onClick={e => e.stopPropagation()}>
-                    {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ {t("status.approved", null, "Approved")}</span>}
-                    {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ {t("status.rejected", null, "Rejected")}</span>}
-                    {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ {t("status.revisionReq", null, "Revision Req")}</span>}
+                    {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>{t("status.rejected", null, "Rejected")}</span>}
                     <Btn variant="ghost" size="sm" icon="message" disabled={replyingId === sub.id} onClick={() => reply(sub)}>{replyingId === sub.id ? t("actions.opening", null, "Opening…") : t("actions.reply", null, "Reply")}</Btn>
                     <Btn variant={sub.flagged ? "primary" : "quiet"} size="sm" icon="flag" onClick={() => onFlag(sub, !sub.flagged)}>{sub.flagged ? t("actions.unflag", null, "Unflag") : t("actions.flag", null, "Flag")}</Btn>
                     {sub.status === "pending" && <Btn variant="primary" size="sm" icon="check" onClick={() => setSelected(sub.id)}>{t("actions.review", null, "Review")}</Btn>}
@@ -1133,6 +1150,10 @@ function MissionInterviewsTab({ missionId }) {
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [proposeInputs, setProposeInputs] = useState({});
+  // Which row is currently being re-opened for editing — only relevant for
+  // an already-"proposed" (still awaiting response) schedule; the empty/
+  // declined cases always show the input form, so they don't need this.
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
     api.missionSchedules(missionId).then(d => setSchedules(d.schedules)).catch(err => setError(err.message));
@@ -1142,14 +1163,25 @@ function MissionInterviewsTab({ missionId }) {
   if (!schedules) return <div className="muted">{t("missionDetail.loadingSchedules", null, "Loading schedules…")}</div>;
   if (schedules.length === 0) return <div className="muted">{t("missionDetail.noValidatorsAccepted", null, "No validators have accepted this mission yet.")}</div>;
 
+  const startEdit = (s) => {
+    setProposeInputs(t => ({ ...t, [s.validatorId]: { scheduledAt: s.scheduled_at, meetingLink: s.meeting_link || "" } }));
+    setEditingId(s.validatorId);
+  };
+  const cancelEdit = (validatorId) => {
+    setEditingId(null);
+    setProposeInputs(t => { const c = { ...t }; delete c[validatorId]; return c; });
+  };
+
   const propose = async (validatorId) => {
     setBusyId(validatorId);
     try {
       const input = proposeInputs[validatorId] || {};
       if (!input.scheduledAt) throw new Error(t("missionDetail.pickDateTimeFirst", null, "Pick a date and time first"));
       if (new Date(input.scheduledAt) < new Date()) throw new Error(t("missionDetail.candidateTimeInPast", null, "Candidate times can't be in the past"));
-      await api.proposeInterviewTime(missionId, validatorId, { scheduledAt: input.scheduledAt, meetingLink: input.meetingLink || "" });
-      setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "proposed", scheduled_at: input.scheduledAt, meeting_link: input.meetingLink || null } : sc));
+      if (!input.meetingLink?.trim()) throw new Error(t("missionDetail.meetingLinkRequired", null, "Add a meeting link first"));
+      await api.proposeInterviewTime(missionId, validatorId, { scheduledAt: input.scheduledAt, meetingLink: input.meetingLink.trim() });
+      setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "proposed", scheduled_at: input.scheduledAt, meeting_link: input.meetingLink.trim() } : sc));
+      setEditingId(null);
     } catch (err) {
       setError(err.message || t("missionDetail.couldntProposeTime", null, "Couldn't propose a time"));
     } finally {
@@ -1184,16 +1216,28 @@ function MissionInterviewsTab({ missionId }) {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {(!s.status || s.status === "declined") && (
+            {(!s.status || s.status === "declined" || editingId === s.validatorId) && (
               <>
-                <input className="fin" type="datetime-local" style={{ width: 200 }} min={nowLocalDatetimeString()} onClick={openPickerOnClick} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
-                <input className="fin" style={{ width: 200 }} placeholder={t("missionDetail.meetingLink", null, "Meeting link")} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], meetingLink: e.target.value } }))} />
+                <input className="fin" type="datetime-local" style={{ width: 200 }} min={nowLocalDatetimeString()}
+                  defaultValue={proposeInputs[s.validatorId]?.scheduledAt ? toLocalDatetimeString(new Date(proposeInputs[s.validatorId].scheduledAt)) : undefined}
+                  onClick={openPickerOnClick} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
+                <input className="fin" style={{ width: 200 }} placeholder={t("missionDetail.meetingLink", null, "Meeting link")}
+                  defaultValue={proposeInputs[s.validatorId]?.meetingLink}
+                  onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], meetingLink: e.target.value } }))} />
                 <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => propose(s.validatorId)}>
-                  {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : s.status === "declined" ? t("actions.proposeNewTime", null, "Propose new time") : t("actions.proposeTime", null, "Propose time")}
+                  {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : editingId === s.validatorId ? t("actions.saveChanges", null, "Save changes") : s.status === "declined" ? t("actions.proposeNewTime", null, "Propose new time") : t("actions.proposeTime", null, "Propose time")}
                 </button>
+                {editingId === s.validatorId && (
+                  <button className="btn" disabled={busyId === s.validatorId} onClick={() => cancelEdit(s.validatorId)}>{t("actions.cancel", null, "Cancel")}</button>
+                )}
               </>
             )}
-            {s.status === "proposed" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("missionDetail.awaitingResponse", null, "Awaiting response")}</span>}
+            {s.status === "proposed" && editingId !== s.validatorId && (
+              <>
+                <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("missionDetail.awaitingResponse", null, "Awaiting response")}</span>
+                <Btn variant="ghost" size="sm" icon="edit" onClick={() => startEdit(s)}>{t("actions.edit", null, "Edit")}</Btn>
+              </>
+            )}
             {s.status === "accepted" && (
               <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => complete(s.validatorId)}>
                 {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : t("actions.markSessionCompleted", null, "Mark session completed")}
@@ -1264,12 +1308,13 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
     setBusy(true);
     setError("");
     try {
+      if (!meetingLink.trim()) throw new Error(t("missionDetail.meetingLinkRequired", null, "Add a meeting link first"));
       const slots = slotInputs.filter(Boolean).map(s => new Date(s).toISOString());
       if (slots.length < 2) throw new Error(t("missionDetail.enterAtLeast2Times", null, "Enter at least 2 candidate times"));
       // The datetime-local input's `min` only constrains its native picker widget —
       // typing a value directly bypasses it, so this is the actual enforcement.
       if (slots.some(s => new Date(s) < new Date())) throw new Error(t("missionDetail.candidateTimeInPast", null, "Candidate times can't be in the past"));
-      await api.createMissionPoll(missionId, { meetingLink, slots });
+      await api.createMissionPoll(missionId, { meetingLink: meetingLink.trim(), slots });
       localStorage.removeItem(POLL_DRAFT_KEY);
       load();
     } catch (err) {
@@ -1566,7 +1611,7 @@ export default function MissionDetail() {
     try {
       const { mission: updated } = await api.updateMission(id, { status: newStatus });
       setData(d => ({ ...d, mission: updated }));
-      showToast(t("missionDetail.missionMarkedAs", { status: newStatus }, "Mission marked as {{status}}"));
+      hotToast.success(t("missionDetail.missionMarkedAs", { status: newStatus }, "Mission marked as {{status}}"), { position: "top-center" });
       setPendingStatus(null);
     } catch (err) {
       showToast(err.message, "error");
@@ -1574,6 +1619,23 @@ export default function MissionDetail() {
       setChangingStatus(false);
     }
   };
+
+  // Leaving an in-progress edit of THIS already-live mission (e.g. swipe-back
+  // before ever clicking "Save changes") flags its id here — see
+  // CreateMissionWizard's wasActive handling. Nothing about the mission
+  // itself changed; this only confirms the in-progress edit is still sitting
+  // there locally, waiting to be resumed. Scoped to `id` so landing here
+  // right after leaving a *different* mission's edit doesn't show a
+  // misleading toast — that case is instead caught generically by Missions/
+  // Dashboard, whichever page is actually landed on.
+  useEffect(() => {
+    let flagged = null;
+    try { flagged = sessionStorage.getItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    if (flagged !== id) return;
+    try { sessionStorage.removeItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    hotToast.success(t("createMission.liveEditSaved", null, "Changes are saved"), { position: "top-center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   useEffect(() => {
     setTimeout(() => setData(null), 0);
@@ -1760,7 +1822,7 @@ export default function MissionDetail() {
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} ptypes={ptypes} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => navigate(`/missions/${id}/edit?step=3`)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
-      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} />}
+      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} setParticipants={setParticipants} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
       {tab === "focusgroup" && <MissionFocusGroupTab mission={mission} missionId={id} onParticipantRemoved={handleParticipantRemoved} showToast={showToast} />}

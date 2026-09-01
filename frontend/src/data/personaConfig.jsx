@@ -500,6 +500,29 @@ function orgValid(key, d) {
 // one builder's in-progress onboarding draft (name, email, ...) to another.
 export const onboardingDraftKey = (builderId, role) => `vc_onboarding_draft_${builderId || "anon"}_${role}`;
 
+// Single source of truth for "which persona/step does Continue Setup resume
+// into" — a builder who hasn't committed a persona to the DB yet can still
+// have a real in-progress onboarding draft sitting in localStorage (keyed
+// per-role, see onboardingDraftKey above), and that draft is what actually
+// carries their real progress until the DB catches up. Anything that offers
+// a "continue setting up your profile" action (Dashboard's own banner, and
+// any other page's "Complete Profile" button) needs this same resolution —
+// a naive `builder?.persona` check alone misses the local-draft-only case
+// entirely and sends the builder back to persona selection from scratch,
+// discarding real progress that was never actually lost.
+export function resolveActivePersonaKey(builder) {
+  let activePersonaKey = builder?.persona;
+  if (!activePersonaKey) {
+    for (const key of Object.keys(PERSONA_CONFIG)) {
+      try {
+        const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, key)));
+        if (draft && typeof draft.step === "number") { activePersonaKey = key; break; }
+      } catch { /* ignore */ }
+    }
+  }
+  return activePersonaKey || null;
+}
+
 // Role metadata (icon, name, description, accent colour) shared between the
 // full-page role selector and the in-wizard role-switcher dropdown, so both
 // stay in sync with a single source of truth.

@@ -17,6 +17,7 @@ import {
 } from "../utils/missionDraft";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { resolveActivePersonaKey } from "../data/personaConfig";
 import { categoryLabel, categoryDesc, ptypeLabel, ptypeDesc, rewardLabel, rewardDesc } from "../bi18n";
 
 function wzSteps(t) {
@@ -653,10 +654,17 @@ function missionToDraft(mission, filters, categories, ptypes) {
     desc: mission.description || "",
     cat: mission.category || categories[0]?.id || "feedback",
     ptype: mission.ptype || ptypes[0]?.id || "ptest",
+    // Falling back to a real option ("fixed"/1 participant) here used to make
+    // a draft that never reached the Reward step look, on resume, exactly
+    // like one where Reward genuinely was filled in — which then made the
+    // step-resume calculation below (calcMax) think it could skip straight
+    // to Review. "" mirrors freshDraft()'s own untouched shape, so a
+    // genuinely-empty reward stays visibly empty when resumed instead of
+    // silently becoming Free / 1 participant.
     reward: {
-      type: mission.reward?.type || "fixed",
+      type: mission.reward?.type || "",
       amount: mission.reward?.amount || 0,
-      participants: mission.participants?.target || 1,
+      participants: mission.participants?.target || "",
     },
     filters: emptyF,
     testCaseForm: mission.testCaseForm?.form || null,
@@ -716,6 +724,21 @@ function plainToDraft(data, emptyF) {
   const out = { ...data, filters: { ...emptyF } };
   for (const k in (data.filters || {})) out.filters[k] = new Set(data.filters[k] || []);
   return out;
+}
+// The subset of fields that actually matter to an already-joined
+// participant — same scope the backend's own PATCH-route diff uses (see its
+// `_notify` handling) to decide what to mention in the "Mission Updated"
+// notification. Used here only to decide whether the end-of-session "done
+// editing" checkpoint (see notifyLiveEditIfChanged) is worth sending at all
+// — category/ptype/audience/target changes don't move this key, same as
+// they don't move the backend's own notification either.
+function liveEditCompareKey(d) {
+  return JSON.stringify({
+    name: d.title, description: d.desc, deadline: d.deadline,
+    rewardType: d.reward?.type, rewardAmount: d.reward?.amount,
+    tasks: JSON.stringify(d.tasks || []),
+    durationDays: d.durationDays,
+  });
 }
 
 export default function CreateMissionWizard() {
@@ -887,6 +910,26 @@ export default function CreateMissionWizard() {
   // stale one from whenever the component first rendered.
   const promotedIdRef = useRef(null);
   useEffect(() => { promotedIdRef.current = promotedId; }, [promotedId]);
+  // Same stale-closure problem as promotedIdRef, for wasActive — needed by
+  // the true-unmount cleanup below to tell "leaving a live mission's edit"
+  // apart from "leaving a draft", so each case sets its own backnav flag.
+  const wasActiveRef = useRef(false);
+  useEffect(() => { wasActiveRef.current = wasActive; }, [wasActive]);
+  // Whether the one-time "notify participants + confirmation email" call
+  // (see notifyLiveEditIfChanged below) has already fired for this editing
+  // session — it can be triggered two ways (the true-unmount cleanup, or an
+  // explicit Done click that then navigates away, itself triggering that
+  // same unmount) and must only ever actually notify once.
+  const liveEditNotifiedRef = useRef(false);
+  // The server's own field state at the moment a live mission finished
+  // loading — notifyLiveEditIfChanged (below) compares `d` against this at
+  // the end of the editing session to know exactly which fields actually
+  // changed, so the "Mission Updated" notification can name them instead of
+  // a generic "something changed". Every keystroke in between autosaves
+  // straight to the live record already (see the debounced update effect
+  // further down) — this baseline is only ever used for that one summary,
+  // never for the save itself.
+  const liveEditBaselineRef = useRef(null);
   // Reflects the real autosave effects below, not a cosmetic timer — "idle"
   // means nothing worth saving yet, "saving" while a create/update request
   // for the backend draft is actually in flight, "saved" once it lands.
@@ -924,7 +967,14 @@ export default function CreateMissionWizard() {
 
   useEffect(() => {
     return () => {
-      if (!publishedRef.current && contentRef.current) {
+      if (publishedRef.current) return;
+      // wasActive has its own end-of-session checkpoint (notifyLiveEditIfChanged,
+      // called from the pendingSaveRef-flush effect further down) which sets
+      // its own backnav flag — a live mission always hasContent(d) (there's
+      // a mission here, whether or not anything actually changed), so this
+      // flag would otherwise fire on every single visit regardless of edits.
+      if (wasActiveRef.current) return;
+      if (contentRef.current) {
         try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
       }
     };
@@ -949,6 +999,13 @@ export default function CreateMissionWizard() {
 
         const newD = missionToDraft(mission, filters, categories, ptypes);
         setD(newD);
+        // Snapshot of the participant-relevant fields at the moment this
+        // live mission finished loading — every further edit autosaves
+        // straight to the server already (see the debounced update effect
+        // below), so this is only ever used at the end of the session (see
+        // notifyLiveEditIfChanged) to know which of them actually changed.
+        liveEditBaselineRef.current = active ? liveEditCompareKey(newD) : null;
+        liveEditNotifiedRef.current = false;
 
         // Mirrors each step's own actual completion criteria (same fields
         // fieldsValid/missingX check elsewhere in this file) rather than
@@ -1079,11 +1136,16 @@ export default function CreateMissionWizard() {
   useEffect(() => {
     if (published) return;
     const handlePopState = () => {
+      // notifyLiveEditIfChanged is idempotent (see liveEditNotifiedRef) — a
+      // genuine back-navigation also triggers the true-unmount effect below
+      // moments later, so whichever of the two actually fires the request,
+      // this is a harmless no-op the second time.
+      if (wasActive) { notifyLiveEditIfChanged(missionId, dRef.current); return; }
       try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [published]);
+  }, [published, wasActive, missionId]);
 
   const startFresh = () => setShowStartFreshWarning(true);
   // "Start fresh" walks away from whatever draft is currently open without
@@ -1281,7 +1343,11 @@ export default function CreateMissionWizard() {
   // Fresh), or the Dashboard otherwise.
   const emptyLeaveTarget = (openedFromDraftTab || cameFromDraftTab) ? "/missions?tab=draft" : "/";
   const handleCancelClick = () => {
-    if (!wasActive && !saveWorthy) { navigate(emptyLeaveTarget); return; }
+    // wasActive has nothing left to warn about — every edit already
+    // autosaved as it was typed (see the debounced update effect above), so
+    // "Cancel" here is just "go back", not "discard unsaved work".
+    if (wasActive) { navigate(-1); return; }
+    if (!saveWorthy) { navigate(emptyLeaveTarget); return; }
     setShowExitWarning(true);
   };
 
@@ -1341,21 +1407,43 @@ export default function CreateMissionWizard() {
     }
   };
 
-  // Autosave while resuming an existing draft, or once a new mission has been
-  // auto-promoted above: edits are already backed by a real row that nobody
-  // else can see or is acting on yet, so there's no separate "Save as Draft"
-  // click to hang them on — debounce and PATCH the draft in place instead.
-  // Silently ignored on failure, same as any other autosave; the next
-  // successful edit/publish will catch it up.
+  // The one-time "done editing" checkpoint for a live mission — every
+  // keystroke already autosaved straight to the server (see the debounced
+  // update effect below), so this isn't what actually saves anything. Its
+  // only job is telling the backend the editing session is genuinely over,
+  // so it can notify participants of whatever changed (see the PATCH
+  // route's `_notify` gate) instead of on every intermediate autosave tick.
+  // Takes id/dArg explicitly rather than reading missionId/d from closure so
+  // it works correctly both from a normal click handler and from the
+  // true-unmount effect's empty-deps closure (which only ever sees refs).
+  const notifyLiveEditIfChanged = (id, dArg) => {
+    if (!id || liveEditNotifiedRef.current) return;
+    const base = liveEditBaselineRef.current;
+    if (base === null || liveEditCompareKey(dArg) === base) return;
+    liveEditNotifiedRef.current = true;
+    api.updateMission(id, { ...buildMissionPayload("active", dArg), _notify: true }).catch(() => {});
+    // Reused by MissionDetail/Missions/Dashboard to show a "changes saved"
+    // toast wherever the builder lands next — see those pages' matching
+    // effect. Genuinely accurate now (unlike when this cache was
+    // local-only): the backend call above really did just persist this.
+    try { sessionStorage.setItem("vcrew_mission_live_edit_backnav", id); } catch { /* ignore */ }
+  };
+
+  // Autosave while resuming an existing draft, once a new mission has been
+  // auto-promoted above, OR editing an already-live mission (wasActive):
+  // edits are already backed by a real row, so there's no separate "Save"
+  // click to hang them on — debounce and PATCH it in place instead. Silently
+  // ignored on failure, same as any other autosave; the next successful
+  // edit/checkpoint will catch it up.
   //
-  // Critical: must NOT run at all when wasActive is true. This same effect
-  // also covers editing an already-live mission (missionId set, no
-  // promotedId), and a live mission is a different situation entirely —
-  // validators may already be matched to it or working on it, so nothing
-  // should reach the real record until the builder explicitly clicks "Save
-  // changes". This used to autosave every field (not just status) to the
-  // live row on every keystroke with zero confirmation, so background-typing
-  // an edit and navigating away without saving still silently overwrote it.
+  // wasActive used to be excluded here entirely — a live mission already has
+  // real participants relying on it, so this once autosaved every keystroke
+  // straight to the live row with zero confirmation, and background-typing
+  // an edit and navigating away without saving silently overwrote it. Full
+  // autosave for a live mission too was a deliberate, later product call —
+  // see the PATCH route's `_notify` gate and notifyLiveEditIfChanged below,
+  // which is what keeps this safe now: participants get told exactly what
+  // changed, and only once per real editing session, not once per keystroke.
   useEffect(() => {
     const id = missionId || promotedId;
     // No id yet at all — this is still the pre-promotion phase, which only
@@ -1363,7 +1451,7 @@ export default function CreateMissionWizard() {
     // promoteIfNeeded and the true-unmount effect below), never by this
     // effect.
     if (!id) return;
-    if (loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
+    if (loadingMission || published) { pendingSaveRef.current = null; return; }
 
     // A mission created silently during THIS session (promotedId — never a
     // pre-existing missionId) that got typed into and then fully erased
@@ -1372,7 +1460,8 @@ export default function CreateMissionWizard() {
     // it. Scoped to promotedId only: a real, pre-existing draft (missionId,
     // opened from the Draft tab or resumed) is never touched here, even if
     // it's momentarily empty mid-edit — that's a much bigger, riskier
-    // behavior this isn't meant to cover.
+    // behavior this isn't meant to cover. Never reachable for wasActive:
+    // that always has missionId set, so !missionId is already false.
     if (!missionId && promotedId && !hasContent(d)) {
       const idToDelete = promotedId;
       pendingSaveRef.current = { kind: "delete", id: idToDelete, builderId };
@@ -1390,7 +1479,9 @@ export default function CreateMissionWizard() {
       return () => clearTimeout(timer);
     }
 
-    const payload = buildMissionPayload("draft");
+    // wasActive keeps its status "active" (there's nothing to publish, it
+    // already is) — buildMissionPayload("draft") here would be wrong for it.
+    const payload = buildMissionPayload(wasActive ? "active" : "draft");
     // Tracked outside the timer so the flush-on-unmount effect below can
     // still send this exact payload if the builder navigates away before
     // the debounce ever gets to fire — see that effect for why.
@@ -1434,21 +1525,22 @@ export default function CreateMissionWizard() {
       const pending = pendingSaveRef.current;
       if (pending?.kind === "update") {
         api.updateMission(pending.id, pending.payload).catch(() => {});
-        return;
-      }
-      if (pending?.kind === "delete") {
+      } else if (pending?.kind === "delete") {
         api.deleteMission(pending.id).then(() => {
           if (getRecentDraftId(pending.builderId) === pending.id) clearRecentDraftId(pending.builderId);
         }).catch(() => {});
-        return;
-      }
-      if (!missionId && !promotedIdRef.current && contentRef.current) {
+      } else if (!missionId && !promotedIdRef.current && contentRef.current) {
         const payload = buildMissionPayload("draft", dRef.current);
         api.createMission(payload).then(({ mission }) => {
           setRecentDraftId(builderId, mission.id);
           clearScratch(builderId);
         }).catch(() => {});
       }
+      // Independent of whichever branch above ran (or none — the debounce
+      // may have already flushed on its own before this unmount happened) —
+      // a live mission being edited gets its one "done editing" checkpoint
+      // here, a no-op if nothing participant-relevant actually changed.
+      if (wasActiveRef.current) notifyLiveEditIfChanged(missionId, dRef.current);
     };
   }, []);
 
@@ -1498,9 +1590,20 @@ export default function CreateMissionWizard() {
   const publish = async () => {
     setBusy(true); setError("");
     try {
-      const payload = buildMissionPayload("active");
       const existingId = missionId || promotedId;
+      // wasActive's edits are already autosaved as-typed (see the debounced
+      // update effect above) — this click's only remaining real job is the
+      // explicit "done editing" checkpoint, so participants get notified of
+      // whatever changed. _notify here (rather than a separate call after)
+      // means one request does both, and the flag stops the unmount that's
+      // about to happen from sending a second, redundant notification.
+      const payload = wasActive ? { ...buildMissionPayload("active"), _notify: true } : buildMissionPayload("active");
       const { mission } = existingId ? await api.updateMission(existingId, payload) : await api.createMission(payload);
+      // Only marked done once the request actually succeeded — a failed
+      // attempt should still let a retry (or the unmount checkpoint, if the
+      // builder gives up and leaves instead) have its normal chance to
+      // notify, rather than being silently skipped forever for this session.
+      if (wasActive) liveEditNotifiedRef.current = true;
       setPublished(true);
       clearAllLocalDraftState(builderId);
       await refreshBuilder();
@@ -1644,7 +1747,7 @@ export default function CreateMissionWizard() {
 
   return (
     <div className="wz" data-layout="rail">
-      {saveStatus !== "idle" && !wasActive && (
+      {saveStatus !== "idle" && (
         <span
           className="pill"
           style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", boxShadow: "var(--shadow-sm)" }}
@@ -1712,7 +1815,14 @@ export default function CreateMissionWizard() {
             <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
               {t("createMission.onboardingWarning", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
             </p>
-            <Btn variant="primary" size="sm" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
+            {/* builder?.persona alone missed a real in-progress onboarding
+                draft that hasn't been committed to the DB yet (see
+                resolveActivePersonaKey) — this used to send a builder who'd
+                already gotten partway through setup back to persona
+                selection from scratch instead of resuming where they left
+                off, same resume logic Dashboard's own "Continue Setup"
+                already uses. */}
+            <Btn variant="primary" size="sm" onClick={() => { const key = resolveActivePersonaKey(builder); navigate(key ? `/signup?role=${key}` : "/get-started/feedback"); }} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
           </div>
         )}
         <div className="wz-content wide">
@@ -1786,7 +1896,12 @@ export default function CreateMissionWizard() {
                   style={!readyToPublish ? { opacity: 0.5, pointerEvents: "none" } : undefined}
                 >
                   {wasActive
-                    ? (busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes"))
+                    // Edits already autosaved as they were typed (see the
+                    // debounced update effect above) — this button's only
+                    // remaining job is a deliberate "done editing" checkpoint,
+                    // not the thing that actually saves anything, so it no
+                    // longer claims to be a save action.
+                    ? (busy ? t("actions.finishing", null, "Finishing…") : t("actions.done", null, "Done"))
                     : (busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission"))}
                 </Btn>
               </span>
@@ -1810,24 +1925,7 @@ export default function CreateMissionWizard() {
         </div>
       </div>
 
-      {/* A live mission was never autosaved (see wasActive above) — Cancel
-          here just discards in-memory edits, nothing else. It's a distinct,
-          simpler action from leaving a draft, so it gets its own copy
-          instead of the drafts modal below. */}
-      {showExitWarning && wasActive && (
-        <Modal title={t("createMission.leaveWithoutSavingTitle", null, "Leave without saving?")} onClose={() => setShowExitWarning(false)} width={420} hideCloseIcon dismissible={false}>
-          <div style={{ padding: 20 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
-              {t("createMission.leaveWithoutSavingBody", null, "Your changes haven't been saved. If you leave now they'll be lost — the mission itself stays exactly as it is.")}
-            </p>
-            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => setShowExitWarning(false)}>{t("actions.keepEditing", null, "Keep editing")}</button>
-              <button className="btn btn-primary" onClick={() => navigate(-1)}>{t("createMission.leaveAnyway", null, "Leave anyway")}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
-      {showExitWarning && !wasActive && openedFromDraftTab && (
+      {showExitWarning && openedFromDraftTab && (
         // Deliberately opened this specific saved draft from a list (the
         // Draft tab, or Dashboard's recent-missions table) — the builder
         // already knows exactly which mission this is and chose to open it,

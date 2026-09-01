@@ -253,7 +253,7 @@ router.post("/:id/apply", async (req, res) => {
 
   if (isRealMission) {
     try {
-      const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+      const val = await db.prepare(`SELECT name, rating FROM validators WHERE id = ?`).get(req.validator.id);
       const missionCategory = await db.prepare(`SELECT name, category FROM missions WHERE id = ?`).get(t.id);
 
       await db.transaction(async (tx) => {
@@ -282,8 +282,13 @@ router.post("/:id/apply", async (req, res) => {
         await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
           .run(req.validator.id, t.id);
 
-        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
-          .run(t.id, req.validator.id, val ? val.name : "New Validator");
+        // trust used to be a flat 95 for every joiner regardless of track
+        // record — now derived from their real rating (unrated validators
+        // treated as the same 5.0 baseline used elsewhere when averaging in
+        // their first review), same formula the invite-accept path uses.
+        const trust = Math.round((val?.rating || 5) * 20);
+        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, ?)`)
+          .run(t.id, req.validator.id, val ? val.name : "New Validator", trust);
 
         if (missionCategory?.category === "sample") {
           await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)

@@ -138,6 +138,9 @@ export async function initDb() {
     // PATCH /:id handler) -- powers the Missions "All" tab's Completed Date
     // column, distinct from deadline (a planned date, not when it actually happened).
     if (!mCols.includes('completed_at')) await client.query('ALTER TABLE missions ADD COLUMN completed_at TIMESTAMPTZ');
+    // Same idea as completed_at, for when status actually becomes 'closed' --
+    // powers the Missions Closed tab's Closed Date column.
+    if (!mCols.includes('closed_at')) await client.query('ALTER TABLE missions ADD COLUMN closed_at TIMESTAMPTZ');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
@@ -223,6 +226,14 @@ export async function initDb() {
       if (!vmmColNames.includes(col)) {
         await client.query(`ALTER TABLE v_my_missions ADD COLUMN ${col} ${def}`);
       }
+    }
+
+    // vs.id was never a real column (v_saved's PK is validator_id+task_id) —
+    // the "Saved" tab's ORDER BY vs.id was broken from day one, just never
+    // hit until now. saved_at gives it a real, meaningful sort key instead.
+    const vsCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='v_saved'");
+    if (!vsCols.rows.some(r => r.column_name === 'saved_at')) {
+      await client.query('ALTER TABLE v_saved ADD COLUMN saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
     }
 
     const tmCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='thread_messages'");

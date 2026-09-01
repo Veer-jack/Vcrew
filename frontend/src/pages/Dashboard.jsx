@@ -7,7 +7,7 @@ import MissionsTable from "../components/MissionsTable";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
-import { PERSONA_CONFIG, onboardingDraftKey, stepLabel } from "../data/personaConfig";
+import { PERSONA_CONFIG, onboardingDraftKey, stepLabel, resolveActivePersonaKey } from "../data/personaConfig";
 import { useTranslation } from "../i18n/index.jsx";
 import { activityWho, activityText } from "../bi18n";
 import { getRecentDraftId, getScratch, hasContent, hasResumableDraft } from "../utils/missionDraft";
@@ -46,23 +46,12 @@ function ProfileCompletionBanner({ builder, nav }) {
   // dedicated signal (only set by the actual onboarding-completion route).
   if (builder?.onboardingCompleted) return null; // already completed
 
-  let activePersonaKey = builder?.persona;
+  const activePersonaKey = resolveActivePersonaKey(builder);
   let draftStepNum = null;
 
-  // If the user hasn't saved a persona to the DB yet, check if they started a draft
-  if (!activePersonaKey) {
-    for (const key of Object.keys(PERSONA_CONFIG)) {
-      try {
-        const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, key)));
-        if (draft && typeof draft.step === "number") {
-          activePersonaKey = key;
-          draftStepNum = draft.step + 1; // 1-indexed
-          break;
-        }
-      } catch { /* ignore */ }
-    }
-  } else {
-    // They have a persona in DB, but profile is incomplete. Check their draft for progress.
+  // Same draft this resolution just checked for *whether* one exists — read
+  // it again here for its step number specifically (1-indexed for display).
+  if (activePersonaKey) {
     try {
       const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
       if (draft && typeof draft.step === "number") {
@@ -284,6 +273,17 @@ export default function Dashboard() {
     }
   }, [builder?.id, t]);
 
+  // Same idea as above, for leaving an in-progress edit of an already-live
+  // mission — see Missions.jsx's matching effect for why this doesn't check
+  // which mission it was.
+  useEffect(() => {
+    let flagged = "";
+    try { flagged = sessionStorage.getItem("vcrew_mission_live_edit_backnav") || ""; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    toast.success(t("createMission.liveEditSaved", null, "Changes are saved"), { position: "top-center" });
+  }, [t]);
+
   useEffect(() => {
     refreshBuilder().catch(() => {});
     setTimeout(() => setRefetching(true), 0);
@@ -407,7 +407,14 @@ export default function Dashboard() {
               {showAllMissions ? t("actions.close", null, "Close") : t("actions.viewAllMissions", null, "View all missions")}
             </Btn>
           </div>
-          <MissionsTable rows={showAllMissions ? recentMissions : recentMissions.slice(0, 3)} nav={navigate} categories={categories} />
+          {/* The card itself has zero horizontal padding (see its own style
+              above) — the header row gets its own inset to compensate, but
+              the table was left to sit flush against the card's edges,
+              making its border and the card's border visually merge into
+              one line. Same inset as the header keeps both aligned. */}
+          <div style={{ padding: "0 18px" }}>
+            <MissionsTable rows={showAllMissions ? recentMissions : recentMissions.slice(0, 3)} nav={navigate} categories={categories} />
+          </div>
         </div>
       </div>
 

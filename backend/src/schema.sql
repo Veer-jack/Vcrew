@@ -169,7 +169,8 @@ CREATE TABLE IF NOT EXISTS missions (
   flagged INTEGER DEFAULT 0,
   flag_reason TEXT,
   flagged_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ
+  completed_at TIMESTAMPTZ,
+  closed_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS participants (
@@ -382,6 +383,7 @@ CREATE TABLE IF NOT EXISTS vtasks (
 CREATE TABLE IF NOT EXISTS v_saved (
   validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
   task_id TEXT NOT NULL REFERENCES vtasks(id) ON DELETE CASCADE,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (validator_id, task_id)
 );
 

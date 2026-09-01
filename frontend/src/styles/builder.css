@@ -123,6 +123,12 @@ html[data-direction="signal"] .feed-ic.accent { color: var(--accent-2); }
 /* ============ DATA TABLE ============ */
 .tbl-wrap { background: var(--panel); border: var(--hairline) solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); overflow-x: auto; overflow-y: hidden; }
+/* Missions table specifically: columns are sized generously enough that a
+   narrow viewport can still need to scroll horizontally, but the visible
+   scrollbar bar itself is unwanted there — this keeps the scroll fully
+   functional (trackpad, shift+wheel) while just not drawing the bar. */
+.missions-tbl-wrap { scrollbar-width: none; -ms-overflow-style: none; }
+.missions-tbl-wrap::-webkit-scrollbar { display: none; }
 .tbl { width: 100%; border-collapse: collapse; }
 .tbl thead th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-faint); padding: 12px 16px; border-bottom: var(--hairline) solid var(--border); white-space: nowrap; }

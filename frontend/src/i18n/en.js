@@ -130,6 +130,7 @@ const en = {
     back: "Back",
     next: "Next",
     done: "Done",
+    finishing: "Finishing…",
     close: "Close",
     upload: "Upload",
     download: "Download",
@@ -2042,6 +2043,7 @@ const en = {
     goToStep5: "Go to Step 5",
     savingStatus: "Saving…",
     autoSavedStatus: "Auto-saved",
+    liveEditSaved: "Changes are saved",
     availableMembers: "available members",
     selectAll: "Select all",
   },
@@ -2159,7 +2161,7 @@ const en = {
   },
   missionDetail: {
     thStatus: "Status",
-    participantMoved: "{{name}} moved to {{stage}} — they'll see this update too.",
+    participantMoved: "{{name}} moved to {{stage}}",
     recently: "recently",
     timeUnit: {
       year: "year",
@@ -2274,6 +2276,7 @@ const en = {
     reasonDeclined: "Reason declined:",
     preferredTimeHint: "Preferred time hint:",
     meetingLink: "Meeting link",
+    meetingLinkRequired: "Add a meeting link first",
     awaitingResponse: "Awaiting response",
     confirmRemove: "Are you sure you want to remove this participant from the mission?",
     participantRemoved: "Participant removed successfully!",

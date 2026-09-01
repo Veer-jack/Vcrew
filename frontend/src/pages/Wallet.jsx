@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
@@ -8,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
+import { hasResumableDraft } from "../utils/missionDraft";
 
 // TABS defined in component
 
@@ -56,6 +58,20 @@ export default function Wallet() {
     const t = setTimeout(() => setVisibleCount(20), 0);
     return () => clearTimeout(t);
   }, [tab]);
+
+  // "Add funds" on the Create Mission wizard's low-balance banner lands here
+  // — same backnav flag Dashboard/Missions already check when leaving an
+  // in-progress mission draft any other way, this is just another page that
+  // can be the very next one loaded after that happens.
+  useEffect(() => {
+    let flagged = false;
+    try { flagged = sessionStorage.getItem("vcrew_mission_draft_backnav") === "1"; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
+    if (hasResumableDraft(builder?.id)) {
+      toast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
+    }
+  }, [builder?.id, t]);
 
   const load = () => {
     setLoadError("");

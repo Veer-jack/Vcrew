@@ -89,6 +89,7 @@ function ExternalRedirect({ to }) {
 
 function BuilderRoutes() {
   const { builder, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
@@ -102,8 +103,24 @@ function BuilderRoutes() {
       <Route path="/get-started/feedback" element={builder?.profile ? <Navigate to="/" replace /> : <RoleSelect />} />
       <Route path="/signup" element={builder?.profile ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
-      <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
-      <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
+      {/* key={location.pathname} forces a real unmount/remount whenever the
+          URL moves between /missions/new and /missions/:id/edit, or between
+          two different draft ids — without it, these are two separate
+          <Route> entries rendering the identical element tree, and React's
+          reconciliation can treat that as the same component instance with
+          updated props rather than a fresh one. That silently let a stale
+          closure survive across "Continue draft": the wizard's one-time
+          true-unmount checkpoint (an effect with an empty dependency array,
+          so its cleanup closure is captured exactly once) kept believing
+          missionId was still undefined from the original /missions/new
+          mount, even long after the URL had moved to a real draft id — so
+          leaving the resumed draft still ran its "create a new mission from
+          this unpromoted session" fallback, using the resumed draft's own
+          content. That's the actual root cause of the reported duplicate
+          drafts: not a race in that fallback's guard, but this mount never
+          having reset in the first place. */}
+      <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
+      <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />

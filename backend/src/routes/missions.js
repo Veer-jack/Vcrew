@@ -73,6 +73,20 @@ function toUtcMidnight(dateStr) {
   return dateStr ? `${String(dateStr).slice(0, 10)}T00:00:00.000Z` : null;
 }
 
+// A reward type that hasn't been chosen yet must stay that way (empty), not
+// get silently promoted into "free" — once redisplayed, that's completely
+// indistinguishable from someone having actually picked Free. This used to
+// mean a draft's very first autosave (before the wizard ever reaches the
+// Reward step) locked in "free" regardless, which in turn made the resume
+// logic think Reward was already filled in and jumped straight to Review
+// instead of wherever the draft actually was. Only a genuinely non-empty but
+// unrecognized value (never sent by the wizard itself, only reachable via a
+// raw API call) still falls back to "free" as a defensive default.
+function normalizeRewardType(type) {
+  if (!type) return "";
+  return REWARDS.find(r => r.id === type) ? type : "free";
+}
+
 function kindFromMime(mime) {
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
@@ -130,6 +144,7 @@ function serializeMission(m, canFullyEdit) {
     description: m.description,
     deadline: m.deadline,
     completedAt: m.completed_at || null,
+    closedAt: m.closed_at || null,
     audience: JSON.parse(m.audience_json || "{}"),
     tasks: JSON.parse(m.tasks_json || "[]"),
     testCaseForm: m.test_case_form_json ? JSON.parse(m.test_case_form_json) : null,
@@ -152,7 +167,14 @@ router.get("/", async (req, res) => {
   `;
   const params = [req.builder.id];
   if (status) { sql += ` AND status = ?`; params.push(status); }
-  if (category) { sql += ` AND category = ?`; params.push(category); }
+  // Comma-separated so the Missions list's Type filter can pick more than
+  // one category at once (e.g. "Product Feedback, Product Testing")
+  // alongside whichever single status tab is active.
+  if (category) {
+    const cats = category.split(",").filter(Boolean);
+    if (cats.length === 1) { sql += ` AND category = ?`; params.push(cats[0]); }
+    else if (cats.length > 1) { sql += ` AND category = ANY(?)`; params.push(cats); }
+  }
   if (q) { sql += ` AND name ILIKE ?`; params.push(`%${q}%`); }
   if (excludeValidatorId) { 
     sql += ` AND m.id NOT IN (SELECT mission_id FROM participants WHERE validator_id = ?)`; 
@@ -232,7 +254,16 @@ router.get("/:id", async (req, res) => {
   `).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
 
-  const participants = await db.prepare(`SELECT * FROM participants WHERE mission_id = ?`).all(m.id);
+  // response_status backs the Participants Kanban's "Revision Req" tag on a
+  // Submitted card — a participant whose latest submission was sent back
+  // for revision still has stage='submitted' (they haven't resubmitted
+  // yet), so the Kanban had no way to tell that state apart from a normal,
+  // never-reviewed submission without this.
+  const participants = await db.prepare(`
+    SELECT p.*,
+      (SELECT r.status FROM responses r WHERE r.mission_id = p.mission_id AND r.validator_id = p.validator_id AND r.status != 'draft' ORDER BY r.id DESC LIMIT 1) as response_status
+    FROM participants p WHERE p.mission_id = ?
+  `).all(m.id);
   const responsesRaw = await db.prepare(`
     SELECT r.*, p.name, p.role, p.city, p.trust, v.rating as real_rating
     FROM responses r 
@@ -435,7 +466,7 @@ router.post("/", async (req, res) => {
   }
 
   const reward = b.reward || {};
-  const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
+  const rewardType = normalizeRewardType(reward.type);
   const id = "m_" + randomUUID().slice(0, 8);
   const target = Number(b.target) || 0;
   const rewardAmount = Number(reward.amount) || 0;
@@ -688,7 +719,7 @@ router.patch("/:id", async (req, res) => {
             params.push(Number.isFinite(newTarget) ? newTarget : 0);
           } else if (key === "reward") {
             const reward = req.body.reward || {};
-            const rewardType = REWARDS.find(r => r.id === reward.type) ? reward.type : "free";
+            const rewardType = normalizeRewardType(reward.type);
             updates.push(`reward_type = ?, reward_amount = ?`);
             params.push(rewardType, Number(reward.amount) || 0);
           } else if (key === "deadline") {
@@ -710,6 +741,10 @@ router.patch("/:id", async (req, res) => {
       // from deadline (a planned date, not when it actually happened).
       if (newStatus === "completed" && m.status !== "completed") {
         updates.push(`completed_at = NOW()`);
+      }
+      // Same idea, for the Missions Closed tab's Closed Date column.
+      if (newStatus === "closed" && m.status !== "closed") {
+        updates.push(`closed_at = NOW()`);
       }
 
       if (!updates.length) throw new Error("No valid fields to update");
@@ -780,15 +815,42 @@ router.patch("/:id", async (req, res) => {
         }
       }
 
-      // Notify active validators if mission details change
-      if (m.status === "active" && newStatus === "active" && updates.length > 0) {
-        // Skip if only audience changed
-        const onlyAudience = updates.length === 1 && updates[0].includes("audience_json");
-        if (!onlyAudience) {
+      // Notify active validators if mission details change — gated on
+      // req.body._notify, NOT just "an update happened": the wizard now
+      // autosaves an already-live mission continuously (same ~800ms debounce
+      // as a draft), so almost every keystroke reaches this route. Without
+      // this gate, typing a single character would fire one notification per
+      // debounce tick to every participant. The frontend only sets _notify
+      // on its two genuine "done editing" checkpoints — leaving the page, or
+      // the explicit Done button — never on an intermediate autosave tick.
+      // Also computes an actual per-field diff against the pre-update row
+      // (`m`) rather than "which keys were present in the request", since
+      // the wizard's payload always includes every field on every save
+      // regardless of whether that specific one changed.
+      if (m.status === "active" && newStatus === "active" && req.body._notify) {
+        const changedFields = [];
+        if (req.body.name !== undefined && String(req.body.name) !== String(m.name || "")) changedFields.push("Mission title");
+        if (req.body.description !== undefined && String(req.body.description || "") !== String(m.description || "")) changedFields.push("Description");
+        if (req.body.deadline !== undefined && toUtcMidnight(req.body.deadline) !== (m.deadline ? new Date(m.deadline).toISOString() : null)) changedFields.push("Deadline");
+        if (req.body.reward !== undefined) {
+          const reward = req.body.reward || {};
+          const rewardType = normalizeRewardType(reward.type);
+          if (rewardType !== m.reward_type || (Number(reward.amount) || 0) !== Number(m.reward_amount || 0)) changedFields.push("Reward");
+        }
+        if (req.body.tasks !== undefined && JSON.stringify(req.body.tasks || []) !== (m.tasks_json || "[]")) changedFields.push("Test cases");
+        if (req.body.durationDays !== undefined) {
+          const newDur = Math.min(30, Math.max(2, Number(req.body.durationDays) || 7));
+          if (newDur !== Number(m.duration_days || 7)) changedFields.push("Trial duration");
+        }
+        // Audience deliberately excluded — re-targeting only affects future
+        // matching (see the `audience` branch above), already-joined
+        // participants are untouched by it either way.
+        if (changedFields.length) {
           const activeValidators = await tx.prepare(`SELECT validator_id FROM v_my_missions WHERE mission_id = ? AND status IN ('active', 'revision')`).all(m.id);
+          const fieldList = changedFields.join(", ");
           for (const av of activeValidators) {
             await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'mission', 'mission_updated', 'info', 'primary', ?, ?, 'Just now', 1, ?)`)
-              .run(av.validator_id, "Mission Updated", `The builder has updated the requirements or details for "${m.name}". Please review them.`, m.id);
+              .run(av.validator_id, "Mission Updated", `The builder updated ${fieldList} for "${m.name}". Please review the changes.`, m.id);
           }
         }
       }
@@ -805,10 +867,11 @@ router.patch("/:id", async (req, res) => {
     }).catch(() => {});
     automodMission(m.id);
     await notifyMatchingValidators(m.id);
-  } else if (m.status === "active" && newStatus === "active" && updates.length > 0) {
-    // Editing an already-live mission, not a first publish — the builder
-    // gets their own confirmation email here, distinct from the "Mission
-    // Live" copy above so it doesn't read as a brand-new launch.
+  } else if (m.status === "active" && newStatus === "active" && req.body._notify) {
+    // Same _notify gate as the participant notification above, and the same
+    // reason — this used to fire on every update (including a continuous
+    // autosave's every-800ms tick), which meant a genuinely automated email
+    // per keystroke instead of one real "editing finished" confirmation.
     sendMissionUpdated({
       builderName: req.builder.name, builderEmail: req.builder.email,
       missionName: m.name, missionId: m.id,
@@ -1038,22 +1101,36 @@ router.post("/:id/schedules/:validatorId/propose", authMiddleware, async (req, r
 
   const { scheduledAt, meetingLink } = req.body || {};
   if (!scheduledAt) return res.status(400).json({ error: "A scheduled time is required" });
+  if (!meetingLink || !String(meetingLink).trim()) return res.status(400).json({ error: "A meeting link is required" });
+
+  // Editing an already-proposed (still awaiting response) time reuses this
+  // same route — track whether that's what's happening so the notification
+  // below can say "updated" instead of implying a brand new proposal.
+  const existing = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
+  const isEdit = existing?.status === "proposed";
 
   const result = await db.prepare(`
     INSERT INTO interview_schedules (mission_id, validator_id, status, scheduled_at, meeting_link)
     VALUES (?, ?, 'proposed', ?, ?)
     ON CONFLICT (mission_id, validator_id) DO UPDATE
       SET status = 'proposed', scheduled_at = EXCLUDED.scheduled_at, meeting_link = EXCLUDED.meeting_link, responded_at = NULL, completed_at = NULL
-      WHERE interview_schedules.status = 'declined'
-  `).run(req.params.id, req.params.validatorId, scheduledAt, meetingLink || null);
-  if (result.changes === 0) return res.status(400).json({ error: "This validator already has a pending or completed interview schedule" });
+      WHERE interview_schedules.status IN ('declined', 'proposed')
+  `).run(req.params.id, req.params.validatorId, scheduledAt, meetingLink.trim());
+  if (result.changes === 0) return res.status(400).json({ error: "This validator already accepted or completed their interview" });
 
   const m = await db.prepare(`SELECT name, builder_id FROM missions WHERE id = ?`).get(req.params.id);
   const b = await db.prepare(`SELECT org FROM builders WHERE id = ?`).get(m.builder_id);
   await db.prepare(`
     INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
-    VALUES (?, 'invite', 'schedule_proposed', 'calendar', 'primary', 'Interview Scheduled', ?, 'Just now', 1, ?)
-  `).run(req.params.validatorId, `${b?.org || 'The builder'} has proposed a time for an interview for "${m?.name || 'Unknown'}". Please check your workspace.`, req.params.id);
+    VALUES (?, 'invite', 'schedule_proposed', 'calendar', 'primary', ?, ?, 'Just now', 1, ?)
+  `).run(
+    req.params.validatorId,
+    isEdit ? "Interview Time Updated" : "Interview Scheduled",
+    isEdit
+      ? `${b?.org || 'The builder'} updated the interview time for "${m?.name || 'Unknown'}". Please check your workspace.`
+      : `${b?.org || 'The builder'} has proposed a time for an interview for "${m?.name || 'Unknown'}". Please check your workspace.`,
+    req.params.id
+  );
 
   res.json({ ok: true });
 });
@@ -1163,6 +1240,7 @@ router.post("/:id/poll", authMiddleware, async (req, res) => {
   if (mission.status !== "active") return res.status(400).json({ error: "This mission is no longer active — scheduling is closed." });
 
   const { meetingLink, slots } = req.body || {};
+  if (!meetingLink || !String(meetingLink).trim()) return res.status(400).json({ error: "A meeting link is required" });
   if (!Array.isArray(slots) || slots.length < 2 || slots.length > 4) return res.status(400).json({ error: "Between 2 and 4 candidate time slots are required" });
 
   // A restart leaves the "restarted, not yet replaced" flag set on the
@@ -1174,7 +1252,7 @@ router.post("/:id/poll", authMiddleware, async (req, res) => {
   let pollId;
   try {
     await db.transaction(async (tx) => {
-      const pollRes = await tx.prepare(`INSERT INTO focus_group_polls (mission_id, meeting_link, status, is_restart) VALUES (?, ?, 'open', ?)`).run(req.params.id, meetingLink || null, isRestart);
+      const pollRes = await tx.prepare(`INSERT INTO focus_group_polls (mission_id, meeting_link, status, is_restart) VALUES (?, ?, 'open', ?)`).run(req.params.id, meetingLink.trim(), isRestart);
       pollId = pollRes.lastInsertRowid;
       for (const scheduledAt of slots) {
         await tx.prepare(`INSERT INTO focus_group_slots (poll_id, scheduled_at) VALUES (?, ?)`).run(pollId, scheduledAt);
@@ -1577,12 +1655,6 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   
   const response = await db.prepare(`SELECT validator_id, revision_count FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
   if (!response) return res.status(404).json({ error: "Submission not found" });
-  // Enforced here, not just hidden in the UI — one revision cycle only, so
-  // a submission can't loop indefinitely between builder and validator with
-  // neither side ever actually resolving it.
-  if ((response.revision_count || 0) >= 1) {
-    return res.status(400).json({ error: "This submission has already been sent back for revision once — approve or reject it instead." });
-  }
 
   await db.prepare(`UPDATE responses SET status = 'revision', revision_count = revision_count + 1 WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
@@ -1595,29 +1667,70 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   res.json({ ok: true });
 });
 
+// Missions in one of these statuses never have anyone actively relying on
+// them staying around — a draft was never live, and closed/archived have
+// already had their outcome settled. Active and completed are excluded on
+// purpose: deleting either would silently erase a real participant/
+// submission history instead of the "this never should have existed"
+// cleanup delete is meant for. Closing a live mission (status -> closed) is
+// the correct way to end one, not deleting it.
+const DELETABLE_STATUSES = new Set(["draft", "closed", "archived"]);
+
+// Shared by the single and bulk delete routes below — refunds whatever
+// escrow wasn't already released via approvals, then cascades the delete.
+// Takes the transaction handle so bulk deletes can batch every mission into
+// one commit instead of one round-trip per row.
+async function deleteMissionTx(tx, mission, builderId) {
+  const approved = await tx.prepare(`SELECT COUNT(*) as c FROM responses WHERE mission_id = ? AND status = 'approved'`).get(mission.id);
+  const alreadyReleased = (parseInt(approved.c, 10) || 0) * perSlotEscrow(mission.reward_amount).cost;
+  const refund = Math.max(0, (mission.spend || 0) - alreadyReleased);
+
+  if (refund > 0) {
+    await tx.prepare(`UPDATE builders SET balance = balance + ?, pending = pending - ? WHERE id = ?`).run(refund, refund, builderId);
+    await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, 'credit', ?, 'completed', ?, ?)`)
+      .run(builderId, refund, null, `Escrow refund for deleted mission ${mission.name}`);
+  }
+
+  await tx.prepare(`DELETE FROM v_my_missions WHERE mission_id = ?`).run(mission.id);
+  await tx.prepare(`DELETE FROM participants WHERE mission_id = ?`).run(mission.id);
+  await tx.prepare(`DELETE FROM missions WHERE id = ?`).run(mission.id);
+}
+
 // DELETE /api/missions/:id
 router.delete("/:id", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (!DELETABLE_STATUSES.has(mission.status)) {
+    return res.status(400).json({ error: "Only draft, closed, or archived missions can be deleted — close an active mission first." });
+  }
 
-  await db.transaction(async (tx) => {
-    // Refund whatever escrow wasn't already released (as reward + fee) via approvals
-    const approved = await tx.prepare(`SELECT COUNT(*) as c FROM responses WHERE mission_id = ? AND status = 'approved'`).get(mission.id);
-    const alreadyReleased = (parseInt(approved.c, 10) || 0) * perSlotEscrow(mission.reward_amount).cost;
-    const refund = Math.max(0, (mission.spend || 0) - alreadyReleased);
-
-    if (refund > 0) {
-      await tx.prepare(`UPDATE builders SET balance = balance + ?, pending = pending - ? WHERE id = ?`).run(refund, refund, req.builder.id);
-      await tx.prepare(`INSERT INTO transactions (builder_id, type, amount, status, ref, detail) VALUES (?, 'credit', ?, 'completed', ?, ?)`)
-        .run(req.builder.id, refund, null, `Escrow refund for deleted mission ${mission.name}`);
-    }
-
-    await tx.prepare(`DELETE FROM v_my_missions WHERE mission_id = ?`).run(mission.id);
-    await tx.prepare(`DELETE FROM participants WHERE mission_id = ?`).run(mission.id);
-    await tx.prepare(`DELETE FROM missions WHERE id = ?`).run(mission.id);
-  });
+  await db.transaction(async (tx) => deleteMissionTx(tx, mission, req.builder.id));
 
   res.json({ ok: true });
+});
+
+// POST /api/missions/bulk-delete { ids: [...] } — one transaction for the
+// whole batch rather than N round-trips. Anything not owned by this builder,
+// already gone, or not in a deletable status is silently reported back in
+// `skipped` instead of failing the whole request — the UI never offers a
+// checkbox for those rows to begin with, but this is the authoritative check
+// a request that bypassed the UI still has to pass.
+router.post("/bulk-delete", authMiddleware, async (req, res) => {
+  const ids = Array.isArray(req.body?.ids) ? [...new Set(req.body.ids.filter(id => typeof id === "string" && id))] : [];
+  if (!ids.length) return res.status(400).json({ error: "No mission ids provided" });
+
+  const found = await db.prepare(`SELECT * FROM missions WHERE id = ANY(?) AND builder_id = ?`).all([ids, req.builder.id]);
+  const foundById = new Map(found.map(m => [m.id, m]));
+  const deletable = found.filter(m => DELETABLE_STATUSES.has(m.status));
+  const skipped = ids.filter(id => !foundById.has(id) || !DELETABLE_STATUSES.has(foundById.get(id).status));
+
+  if (deletable.length) {
+    await db.transaction(async (tx) => {
+      for (const mission of deletable) await deleteMissionTx(tx, mission, req.builder.id);
+    });
+  }
+
+  res.json({ deleted: deletable.map(m => m.id), skipped });
 });
 
 // POST /api/missions/:id/invite/:validatorId
@@ -1656,7 +1769,8 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
     // empty since nothing populated the participants table until acceptance.
     // trust mirrors the marketplace-apply formula below (rating * 20, unrated
     // validators treated as the same 5.0 baseline used elsewhere when
-    // averaging in their first review).
+    // averaging in their first review) — this insert used to omit trust
+    // entirely, leaving it at the schema default of 0.
     const trust = Math.round((validator.rating || 5) * 20);
     if (participant) {
       // Reuse the existing (declined) row instead of inserting a second one
