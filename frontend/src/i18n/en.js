@@ -2179,6 +2179,7 @@ const en = {
     justNow: "just now",
     joinedTime: "Joined {{time}}",
     joinedTimeAgo: "Joined {{time}} ago",
+    participationType: "Participation type",
     theBrief: "The brief",
     noDescription: "No description provided yet.",
     participantPipeline: "Participant pipeline",

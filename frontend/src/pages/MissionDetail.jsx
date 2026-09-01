@@ -3,7 +3,8 @@ import { createPortal } from "react-dom";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
-import { useMeta } from "../context/MetaContext";
+import { useMeta, ptypeOf } from "../context/MetaContext";
+import { ptypeLabel } from "../bi18n";
 import { api } from "../api/client";
 import { InviteValidatorModal } from "../components/InviteValidatorModal";
 import { Modal } from "../components/Modal";
@@ -183,15 +184,24 @@ function TaskOverviewCard({ task, idx, expanded, onToggle }) {
   );
 }
 
-function MissionOverview({ mission, participants, setTab, navigate }) {
+function MissionOverview({ mission, participants, setTab, navigate, ptypes }) {
   const { t } = useTranslation();
   const pipeline = STAGES.map(s => ({ ...s, n: participants.filter(p => p.stage === s.id).length }));
   const maxN = Math.max(...pipeline.map(p => p.n), 1);
   const [expandedTasks, setExpandedTasks] = useState(() => new Set());
   const toggleTask = (i) => setExpandedTasks(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const pt = ptypeOf(ptypes || [], mission.ptype);
   return (
     <div className="split rise">
       <div className="col gap-5">
+        <div className="card" style={{ padding: 20 }}>
+          <span className="eyebrow">{t("missionDetail.participationType", null, "Participation type")}</span>
+          <div className="row gap-2" style={{ marginTop: 10, alignItems: "center" }}>
+            <Icon name={pt.icon} size={18} style={{ color: "var(--accent)" }} />
+            <b style={{ fontSize: 15 }}>{ptypeLabel(t, pt)}</b>
+            {pt.est && <span className="faint" style={{ fontSize: 13 }}>· ~{pt.est}</span>}
+          </div>
+        </div>
         <div className="card" style={{ padding: 20 }}>
           <span className="eyebrow">{t("missionDetail.theBrief", null, "The brief")}</span>
           <p style={{ fontSize: 15, lineHeight: 1.65, margin: "10px 0 0", overflowWrap: "anywhere", wordBreak: "break-word" }}>{mission.description || t("missionDetail.noDescription", null, "No description provided yet.")}</p>
@@ -1507,7 +1517,7 @@ export default function MissionDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { categories } = useMeta();
+  const { categories, ptypes } = useMeta();
   const [tab, setTab] = useState(() => searchParams.get("tab") || "overview");
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
@@ -1747,7 +1757,7 @@ export default function MissionDetail() {
 
       <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
-      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
+      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} ptypes={ptypes} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => navigate(`/missions/${id}/edit?step=3`)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
       {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} />}
