@@ -7,6 +7,8 @@
 
   const T = {
     forBuilders: "For Builders",
+    ideaValidation: "Idea Validation",
+    userTesting: "User Testing",
     forValidators: "For Validators",
     useCases: "Use Cases",
     about: "About",
@@ -68,8 +70,8 @@
   // one-line addition, not a new dropdown to wire up.
   const links = [
     { l: T.forBuilders, h: "/site/builders.html", k: "builders", sub: [
-      { l: "Idea Validation", h: "/for-builders/idea-validation/" },
-      { l: "User Testing", h: "/for-builders/user-testing/" },
+      { l: T.ideaValidation, h: "/for-builders/idea-validation/" },
+      { l: T.userTesting, h: "/for-builders/user-testing/" },
     ] },
     { l: T.forValidators, h: "/site/validators.html", k: "validators" },
     { l: T.useCases, h: "/site/use-cases.html", k: "use-cases" },
@@ -143,8 +145,8 @@
       <div class="mobile-menu">
         ${links.map(x => `<a href="${x.h}">${x.l}</a>`).join("")}
         <div class="mm-lab">${T.forBuilders}</div>
-        <a class="mm-link" href="/for-builders/idea-validation/">Idea Validation</a>
-        <a class="mm-link" href="/for-builders/user-testing/">User Testing</a>
+        <a class="mm-link" href="/for-builders/idea-validation/">${T.ideaValidation}</a>
+        <a class="mm-link" href="/for-builders/user-testing/">${T.userTesting}</a>
         <a class="btn btn-primary" href="/login">${T.startValidating}</a>
         <a class="mm-link" href="/login">${T.builderLogin}</a>
         <div class="mm-lab">${T.forValidators}</div>

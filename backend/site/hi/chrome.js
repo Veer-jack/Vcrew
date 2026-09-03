@@ -7,6 +7,8 @@
 
   const T = {
     forBuilders: "बिल्डर्स के लिए",
+    ideaValidation: "विचार सत्यापन",
+    userTesting: "उपयोगकर्ता परीक्षण",
     forValidators: "सत्यापनकर्ताओं के लिए",
     useCases: "मामलों का प्रयोग करें",
     about: "के बारे में",
@@ -26,7 +28,7 @@
     builderLogin: "बिल्डर लॉगिन",
     becomeValidator: "एक सत्यापनकर्ता बनें",
     validatorLogin: "सत्यापनकर्ता लॉगिन",
-    blurb: "दुनिया का मानव सत्यापन नेटवर्क - उत्पादों, विचारों और निर्णयों को शिप करने से पहले सत्यापित करने के लिए बिल्डरों को सही इंसानों से जोड़ना।",
+    blurb: "वैलिडेशनक्रू एक मानव सत्यापन नेटवर्क है जो संरचित मानव प्रतिक्रिया के माध्यम से उत्पादों, विचारों और निर्णयों को मान्य करने के लिए संगठनों को मिलान वाले उपयोगकर्ताओं, परीक्षकों और विशेषज्ञों से जोड़ता है।",
     platform: "प्लैटफ़ॉर्म",
     company: "कंपनी",
     resources: "संसाधन",
@@ -49,8 +51,7 @@
     signOut: "साइन आउट",
     signedInAs: "आप वर्तमान में एक के रूप में साइन इन हैं",
     signOutFirst: "कृपया जारी रखने के लिए पहले साइन आउट करें",
-  
-};
+  };
 
   const ic = {
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>',
@@ -63,15 +64,33 @@
     grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
     logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>'
   };
+  // "For Builders" alone carries a hover menu of intent pages (Idea
+  // Validation, User Testing, ...) — a dedicated `sub` list here rather than
+  // a separate top-level nav entry each, so adding another one later is a
+  // one-line addition, not a new dropdown to wire up.
   const links = [
-    { l: T.forBuilders, h: "builders.html", k: "builders" },
-    { l: T.forValidators, h: "validators.html", k: "validators" },
-    { l: T.useCases, h: "use-cases.html", k: "use-cases" },
-    { l: T.about, h: "about.html", k: "about" },
+    { l: T.forBuilders, h: "/site/builders.html", k: "builders", sub: [
+      { l: T.ideaValidation, h: "/for-builders/idea-validation/" },
+      { l: T.userTesting, h: "/for-builders/user-testing/" },
+    ] },
+    { l: T.forValidators, h: "/site/validators.html", k: "validators" },
+    { l: T.useCases, h: "/site/use-cases.html", k: "use-cases" },
+    { l: T.about, h: "/site/about.html", k: "about" },
   ];
-  const linkHtml = links.map(x => `<a href="${x.h}"${x.k === page ? ' style="color:var(--ink);background:var(--bg-soft)"' : ""}>${x.l}</a>`).join("");
+  const linkHtml = links.map(x => {
+    const active = x.k === page ? ' style="color:var(--ink);background:var(--bg-soft)"' : "";
+    if (!x.sub) return `<a href="${x.h}"${active}>${x.l}</a>`;
+    // Hover-only, pure CSS (see .nav-drop-hover in site.css) — unlike the
+    // auth dropdowns below, this parent is a real destination in its own
+    // right, so clicking it still navigates to builders.html; the menu is
+    // just an extra way to jump straight to one of its intent pages.
+    return `<div class="nav-drop-hover">
+      <a href="${x.h}"${active}>${x.l}</a>
+      <div class="builder-menu">${x.sub.map(s => `<a href="${s.h}">${s.l}</a>`).join("")}</div>
+    </div>`;
+  }).join("");
 
-  const brand = `<a class="brand" href="index.html"><img src="/brand/vc-full-logo.png" alt="ValidationCrew" style="height:80px;width:auto;display:block"></a>`;
+  const brand = `<a class="brand" href="/site/index.html"><img src="/brand/vc-full-logo.png" alt="ValidationCrew" style="height:80px;width:auto;display:block"></a>`;
 
   const defaultCta = `
     <div class="nav-drop" data-drop>
@@ -126,10 +145,12 @@
       <div class="mobile-menu">
         ${links.map(x => `<a href="${x.h}">${x.l}</a>`).join("")}
         <div class="mm-lab">${T.forBuilders}</div>
+        <a class="mm-link" href="/for-builders/idea-validation/">${T.ideaValidation}</a>
+        <a class="mm-link" href="/for-builders/user-testing/">${T.userTesting}</a>
         <a class="btn btn-primary" href="/login">${T.startValidating}</a>
         <a class="mm-link" href="/login">${T.builderLogin}</a>
         <div class="mm-lab">${T.forValidators}</div>
-        <a class="btn btn-ghost" href="validators.html">${T.becomeValidator}</a>
+        <a class="btn btn-ghost" href="/site/validators.html">${T.becomeValidator}</a>
         <a class="mm-link" href="/validator/login">${T.validatorLogin}</a>
       </div>`;
       
@@ -174,14 +195,14 @@
                 ${social('<rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/>') /* ig */}
               </div>
             </div>
-            ${col(T.platform, [[T.forBuilders, "builders.html"], [T.forValidators, "validators.html"], [T.useCases, "use-cases.html"]])}
-            ${col(T.company, [[T.about, "about.html"], [T.careers, "about.html"], [T.blog, "#"], [T.press, "#"]])}
-            ${col(T.resources, [[T.helpCenter, "#"], [T.trustSafety, "about.html"], [T.apiDocs, "#"], [T.status, "#"]])}
-            ${col(T.legalStr, [[T.privacy, "privacy.html"], [T.terms, "terms.html"], [T.security, "privacy.html#security"], [T.contact, "contact.html"]])}
+            ${col(T.platform, [[T.forBuilders, "/site/builders.html"], [T.forValidators, "/site/validators.html"], [T.useCases, "/site/use-cases.html"]])}
+            ${col(T.company, [[T.about, "/site/about.html"], [T.careers, "/site/about.html"], [T.blog, "#"], [T.press, "#"]])}
+            ${col(T.resources, [[T.helpCenter, "#"], [T.trustSafety, "/site/about.html"], [T.apiDocs, "#"], [T.status, "#"]])}
+            ${col(T.legalStr, [[T.privacy, "/site/privacy.html"], [T.terms, "/site/terms.html"], [T.security, "/site/privacy.html#security"], [T.contact, "/site/contact.html"]])}
           </div>
           <div class="footer-bot">
             <span>© <span data-year></span> ValidationCrew, Inc.</span>
-            <div class="legal"><a href="privacy.html">${T.privacy}</a><a href="terms.html">${T.terms}</a><a href="privacy.html#cookies">${T.cookies}</a></div>
+            <div class="legal"><a href="/site/privacy.html">${T.privacy}</a><a href="/site/terms.html">${T.terms}</a><a href="/site/privacy.html#cookies">${T.cookies}</a></div>
           </div>
         </div>
       </footer>`;
