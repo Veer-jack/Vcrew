@@ -38,6 +38,11 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
   const tagline = t.tagline || (t.description ? t.description.slice(0, 100) : "");
   const company = t.company || t.brand || "Independent";
   const reward = t.reward ?? t.reward_amount ?? 0;
+  // A "sample"/"free" reward is genuinely ₹0 in cash — without this, the
+  // validator has no way to tell "this pays nothing" apart from "this ships
+  // a product after approval", since both show as a bare 0. vtasks never had
+  // a reward_type column at all (always cash), hence the "fixed" fallback.
+  const rewardType = t.reward_type || "fixed";
   const minutes = t.minutes ?? 10;
   const spotsTotal = t.spots_total ?? t.spotsTotal ?? t.target ?? 0;
   const spotsLeft = t.spots_left ?? t.spotsLeft ?? Math.max(0, spotsTotal - (t.joined || 0));
@@ -66,7 +71,7 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
 
   return {
     id: t.id, type: normType, ptype: t.ptype || null, category: t.category || null, product, tagline, company,
-    reward, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
+    reward, rewardType, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
     deadline, postedH, brief, steps,
     hot, verified, featured,
     saved: savedIds.has(t.id), 
@@ -95,15 +100,15 @@ router.get("/", async (req, res) => {
   // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
   const baseCTE = `
     WITH base_tasks AS (
-      SELECT id::text, COALESCE(ptype, 'mvp')::text as raw_type, name::text as product, description::text as tagline, COALESCE(brand, 'Independent')::text as company, 
-             COALESCE(reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(target, 0) - COALESCE(joined, 0))::int as spots_left, 
+      SELECT id::text, COALESCE(ptype, 'mvp')::text as raw_type, name::text as product, description::text as tagline, COALESCE(brand, 'Independent')::text as company,
+             COALESCE(reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(target, 0) - COALESCE(joined, 0))::int as spots_left,
              COALESCE(target, 0)::int as spots_total, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - created_at))/3600)::int as posted_h,
-             description::text as brief, tasks_json::text as steps_json, (COALESCE(joined,0) > COALESCE(target,1)/2)::boolean as hot, true::boolean as verified, 
-             false::boolean as featured, 'missions' as source, status::text as status
+             description::text as brief, tasks_json::text as steps_json, (COALESCE(joined,0) > COALESCE(target,1)/2)::boolean as hot, true::boolean as verified,
+             false::boolean as featured, 'missions' as source, status::text as status, COALESCE(reward_type, 'fixed')::text as reward_type
       FROM missions WHERE status IN ('active','live','published')
       UNION ALL
-      SELECT id::text, type::text as raw_type, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, spots_left::int, 
-             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status
+      SELECT id::text, type::text as raw_type, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, spots_left::int,
+             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status, 'fixed'::text as reward_type
       FROM vtasks
     )
   `;
@@ -208,11 +213,10 @@ router.post("/:id/save", async (req, res) => {
   
   const saved = !!req.body?.saved;
   if (saved) {
-    try {
-      await db.prepare(`INSERT INTO v_saved (validator_id, task_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(req.validator.id, t.id);
-    } catch(e) {
-      // Ignored for real missions due to vtasks FK constraint, unless dropped
-    }
+    // v_saved.task_id has no FK (see schema.sql) — it points at either
+    // vtasks or missions, so this insert now genuinely succeeds for both.
+    // ON CONFLICT DO NOTHING only covers "already saved this exact one".
+    await db.prepare(`INSERT INTO v_saved (validator_id, task_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(req.validator.id, t.id);
   } else {
     await db.prepare(`DELETE FROM v_saved WHERE validator_id = ? AND task_id = ?`).run(req.validator.id, t.id);
   }

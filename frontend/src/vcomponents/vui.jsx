@@ -57,12 +57,17 @@ export function StatTile({ label, value, sub, accent, icon }) {
   );
 }
 
-export function VReward({ amount, big }) {
-  return (
-    <span className="mono" style={{ fontWeight: 600, fontSize: big ? 22 : 15, color: "var(--success)", letterSpacing: "-.02em" }}>
-      ₹{amount}
-    </span>
-  );
+export function VReward({ amount, big, type }) {
+  const { t } = useTranslation();
+  const style = { fontWeight: 600, fontSize: big ? 22 : 15, color: "var(--success)", letterSpacing: "-.02em" };
+  // A "sample"/"free" mission genuinely pays ₹0 in cash — showing that bare
+  // number with no context read as "this mission has no reward at all",
+  // when what's actually true is the reward isn't money. Anything else
+  // (missing type included, for callers not yet passing it) keeps showing
+  // the amount exactly as before.
+  if (type === "sample") return <span className="mono" style={style}>{t("missions.rewardSample", null, "Product sample")}</span>;
+  if (type === "free") return <span className="mono" style={style}>{t("missions.rewardFree", null, "Community")}</span>;
+  return <span className="mono" style={style}>₹{amount}</span>;
 }
 
 export function VTypeTag({ type, vtypes, size }) {

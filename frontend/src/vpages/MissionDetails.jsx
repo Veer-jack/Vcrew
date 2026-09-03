@@ -148,7 +148,7 @@ export default function MissionDetails() {
                 <p className="muted" style={{ margin: "4px 0 0", fontSize: 15 }}>{task.tagline} · {task.company}</p>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} big /><div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div></div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big /><div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div></div>
           </div>
         </div>
 

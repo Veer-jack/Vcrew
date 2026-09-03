@@ -380,9 +380,16 @@ CREATE TABLE IF NOT EXISTS vtasks (
   featured INTEGER DEFAULT 0
 );
 
+-- task_id deliberately has no foreign key — it points at either vtasks(id)
+-- (legacy marketplace items) or missions(id) (real missions), and a single
+-- FK can only ever point at one table. Saving a real mission used to violate
+-- the old vtasks-only FK on every attempt, silently (an empty catch block
+-- swallowed it while still reporting success), so the row was never
+-- actually written — the Saved tab stayed empty no matter how many missions
+-- got "saved".
 CREATE TABLE IF NOT EXISTS v_saved (
   validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
-  task_id TEXT NOT NULL REFERENCES vtasks(id) ON DELETE CASCADE,
+  task_id TEXT NOT NULL,
   saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (validator_id, task_id)
 );

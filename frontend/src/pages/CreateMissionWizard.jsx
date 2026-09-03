@@ -71,7 +71,17 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
       {locked && <LockedHint />}
       <div className="optcards" style={locked ? { opacity: 0.6, pointerEvents: "none" } : undefined}>
         {categories.map(c => (
-          <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} disabled={locked} onClick={() => set({ cat: c.id })}>
+          <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} disabled={locked} onClick={() => set({
+            cat: c.id,
+            // Category "Focus Group" and participation type "Moderated Group
+            // Session" share the same internal id ("focus") but read as two
+            // completely different things — a builder picking this category
+            // has every reason to assume that alone sets up a focus group,
+            // not realizing Step 2 needs the (differently-worded) matching
+            // choice too. Only fills it in if ptype is still untouched, so a
+            // deliberate different choice on Step 2 is never overwritten.
+            ptype: (c.id === "focus" && !d.ptype) ? "focus" : d.ptype,
+          })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={c.icon} size={20} /></span>
             <b>{categoryLabel(t, c)}</b><p>{categoryDesc(t, c)}</p>
@@ -82,7 +92,7 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other" }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other", otherPlaceholder }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
@@ -90,6 +100,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   // otherEntries array below, so typing doesn't add a filter until Save.
   const [draftOther, setDraftOther] = React.useState("");
   const [addingOther, setAddingOther] = React.useState(false);
+  const [dupOtherError, setDupOtherError] = React.useState(false);
   // A caller-driven search (e.g. a modal-wide search bar) takes over this
   // group's own filtering instead of running alongside it — two active
   // queries at once would be confusing and the caller already decided
@@ -116,6 +127,12 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   const saveOther = () => {
     const v = draftOther.trim();
     if (!v) return;
+    // Case-insensitive — "India" and "india" are the same real-world value,
+    // and letting both through just shows the same thing selected twice.
+    if (savedOther.some(e => e.toLowerCase() === v.toLowerCase())) {
+      setDupOtherError(true);
+      return;
+    }
     onOtherEntriesChange([...savedOther, v]);
     // Keep "Other" a real (if derived) Set member so the existing
     // payload/resume-draft logic elsewhere keeps working unchanged — it just
@@ -124,6 +141,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
     toggle(title, v);
     setDraftOther("");
     setAddingOther(false);
+    setDupOtherError(false);
   };
   const removeOther = (val, i) => {
     const next = savedOther.filter((_, j) => j !== i);
@@ -156,7 +174,15 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
           {onSelectAll && (
-            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(bulkTargets, isGenericOther ? otherValue : undefined); }}>
+            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => {
+              e.stopPropagation();
+              // A standalone "Other" section with nothing saved yet has
+              // nothing for bulk-select to act on — opening the custom-entry
+              // input instead gives "Select all" something to actually do
+              // here, rather than silently no-op-ing on an empty array.
+              if (bulkTargets.length === 0 && isGenericOther) { setOtherOpen(true); return; }
+              onSelectAll(bulkTargets, isGenericOther ? otherValue : undefined);
+            }}>
               {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
@@ -184,8 +210,19 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
                 </button>
               );
             })}
-            {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
+            {/* Guarded on options.length > 1 — a standalone "Other"-only
+                section (a single-item list, no search box even rendered)
+                has nothing to search and should never be able to reach this
+                empty state at all; it was showing regardless once a stray
+                query value leaked in from elsewhere. */}
+            {filtered.length === 0 && options.length > 1 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
+          {/* This standalone trigger's own purpose isn't obvious from just
+              the word "Other" — say what clicking it actually does, once,
+              before it's opened. */}
+          {isGenericOther && options.length === 1 && !showOtherInput && (
+            <p className="fhint" style={{ marginTop: 6 }}>{t("createMission.otherSectionHint", null, "Not seeing what you need above? Click Other to type your own value.")}</p>
+          )}
           {showOtherInput && (
             <div style={{ marginTop: 10 }}>
               {savedOther.length > 0 && (
@@ -208,17 +245,20 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
                 </div>
               )}
               {(savedOther.length === 0 || addingOther) ? (
-                <div className="row gap-2" style={{ alignItems: "center" }}>
-                  <input
-                    className="fin"
-                    style={{ fontSize: 13, maxWidth: 220 }}
-                    placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
-                    value={draftOther}
-                    onChange={e => setDraftOther(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
-                  />
-                  <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
-                  <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); }}>{t("actions.cancel", null, "Cancel")}</button>
+                <div>
+                  <div className="row gap-2" style={{ alignItems: "center" }}>
+                    <input
+                      className="fin"
+                      style={{ fontSize: 13, maxWidth: 220 }}
+                      placeholder={otherPlaceholder || t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+                      value={draftOther}
+                      onChange={e => { setDraftOther(e.target.value); setDupOtherError(false); }}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
+                    />
+                    <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
+                    <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); setDupOtherError(false); }}>{t("actions.cancel", null, "Cancel")}</button>
+                  </div>
+                  {dupOtherError && <p className="ferr" style={{ marginTop: 6 }}>{t("createMission.otherDuplicateValue", null, "That value is already added.")}</p>}
                 </div>
               ) : null}
             </div>
@@ -312,6 +352,12 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                     onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
                     onSelectAll={(o, catchAll) => selectAllInGroup(g, o, otherKey, catchAll)}
                     otherValue="Other"
+                    // Geography keeps the concrete place-name examples — a
+                    // real hint there. Every other category (Professional,
+                    // ValidationCrew Role, ...) got that same geography-
+                    // flavored placeholder before, which read as nonsense
+                    // when the section had nothing to do with location.
+                    otherPlaceholder={g === GEO_GROUP ? undefined : t("createMission.otherGenericPlaceholder", { section: g.toLowerCase() }, `Add your own ${g.toLowerCase()} value`)}
                   />
                 )}
               </>
@@ -349,6 +395,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                       onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
                       onSelectAll={(o, catchAll) => selectAllInGroup(g, o, otherKey, catchAll)}
                       otherValue="Other"
+                      otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: sub.toLowerCase() }, `Add your own ${sub.toLowerCase()} value`)}
                     />
                   )}
                 </React.Fragment>
@@ -410,7 +457,7 @@ function StepParticipation({ d, set, ptypes, locked }) {
 
 const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
-function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchingCount, locked }) {
+function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchingCount, locked, platformFeePct }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
@@ -483,6 +530,17 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
           )}
         </div>
       </div>
+      {/* The Review step already had this exact breakdown (CostCard, below) —
+          it just wasn't also shown here, on the one step where the reward
+          amount is actually being typed in. The bottom bar's flat "₹X est."
+          total gives no sense of what it's made of (fee vs. the reward
+          itself), which read as an unexplained jump from "₹500 each" to a
+          different total number. */}
+      {d.reward.type && (
+        <div style={{ marginTop: 24, maxWidth: 360 }}>
+          <CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} />
+        </div>
+      )}
     </div>
   );
 }
@@ -525,7 +583,7 @@ function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
     </div>
   );
 }
-function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingFormat, missingTasks, missingReward }) {
+function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingFormat, missingTasks, missingAudience, missingReward, rewardIssueDetail }) {
   const { t } = useTranslation();
   const [descExpanded, setDescExpanded] = React.useState(false);
   const cat = categories.find(c => c.id === d.cat) || categories[0];
@@ -544,7 +602,8 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
     missingInfo && { label: t("createMission.issueInfo", null, "Mission info is incomplete"), step: 0, cta: t("createMission.goToStep1", null, "Go to Step 1") },
     missingFormat && { label: t("createMission.issueFormat", null, "Feedback format not selected"), step: 1, cta: t("createMission.goToStep2", null, "Go to Step 2") },
     missingTasks && { label: t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"), step: 2, cta: t("createMission.goToStep3", null, "Go to Step 3") },
-    missingReward && { label: t("createMission.issueReward", null, "Reward setup is incomplete or invalid"), step: 4, cta: t("createMission.goToStep5", null, "Go to Step 5") },
+    missingAudience && { label: t("createMission.issueAudience", null, "No audience filters selected"), step: 3, cta: t("createMission.goToStep4", null, "Go to Step 4") },
+    missingReward && { label: rewardIssueDetail, step: 4, cta: t("createMission.goToStep5", null, "Go to Step 5") },
   ].filter(Boolean);
   return (
     <div className="rise">
@@ -630,6 +689,18 @@ function buildAudiencePayload(d) {
   return audience;
 }
 
+// A Multiple Choice question with no (or all-empty) answer options is
+// missing the one thing that actually makes it multiple choice — every
+// other question type is complete once its text is filled in, but this one
+// needs at least 2 real options too, same minimum StepTestCases' own "Add
+// option" UI naturally builds toward. Shared by both the step-Continue gate
+// and the Review page's issue check below, so they can't drift apart.
+function isQuestionComplete(q) {
+  if (!q.text?.trim()) return false;
+  if (q.type !== "multiple_choice") return true;
+  return (q.options || []).filter(o => o.trim()).length >= 2;
+}
+
 function computeCost(d, rewards, platformFeePct) {
   const rw = rewards.find(r => r.id === d.reward.type);
   const n = +d.reward.participants || 0;
@@ -652,8 +723,14 @@ function missionToDraft(mission, filters, categories, ptypes) {
   const draft = {
     title: mission.name || "",
     desc: mission.description || "",
-    cat: mission.category || categories[0]?.id || "feedback",
-    ptype: mission.ptype || ptypes[0]?.id || "ptest",
+    // Same reasoning as reward/participants above (see missionToDraft's
+    // reward block) — "" mirrors freshDraft()'s own untouched shape. This
+    // used to fall back to the first real category/ptype option, which made
+    // a draft that never actually visited Step 1/2 look like it had already
+    // chosen one on resume — retroactively unlocking calcMax past those
+    // steps and landing the resume on the wrong step (BUG-071/079).
+    cat: mission.category || "",
+    ptype: mission.ptype || "",
     // Falling back to a real option ("fixed"/1 participant) here used to make
     // a draft that never reached the Reward step look, on resume, exactly
     // like one where Reward genuinely was filled in — which then made the
@@ -1280,7 +1357,7 @@ export default function CreateMissionWizard() {
     && (step !== 1 || !!d.ptype)
     && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
-      tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+      tk.questions?.length > 0 && tk.questions.every(isQuestionComplete)
     )))
     // A 0-match result still shows its own warning right on this step (see
     // StepAudience), but doesn't block Continue — the audience match count is
@@ -1302,20 +1379,42 @@ export default function CreateMissionWizard() {
   const missingFormat = !d.ptype;
   const missingTasks = !d.tasks || d.tasks.length === 0 || !d.tasks.every(tk =>
     tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
-    tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+    tk.questions?.length > 0 && tk.questions.every(isQuestionComplete)
   );
+  // Mirrors fieldsValid's own step-3 check — previously had no holistic
+  // equivalent at all, so a mission reached via the step rail (which only
+  // checks i <= maxReached, not real completeness) with zero audience
+  // filters actually selected could still publish, since nothing downstream
+  // ever re-checked audience the way info/format/tasks/reward all do.
+  const missingAudience = !(Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0));
   const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount);
-  const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingReward;
+  const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingAudience && !missingReward;
+  // missingReward collapses five genuinely different problems into one
+  // boolean — this picks out which one actually failed so the builder is
+  // told the real reason (e.g. "unverified accounts are capped at 25") instead
+  // of a generic "incomplete or invalid" that doesn't say what to fix. Checked
+  // in the same order the fields appear on the step, so the first thing
+  // that's actually wrong is what gets reported.
+  const rewardIssueDetail = !d.reward.type
+    ? t("createMission.issueRewardType", null, "Select a reward type")
+    : !rewardAmountOk
+    ? t("createMission.issueRewardAmount", null, "Enter a reward amount")
+    : !(d.reward.participants > 0)
+    ? t("createMission.issueRewardParticipants", null, "Enter how many participants you need")
+    : !participantsOk
+    ? t("createMission.issueRewardUnverifiedCap", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission — verify your website or lower the count`)
+    : !withinAudienceCount
+    ? t("createMission.issueRewardExceedsAudience", null, "This asks for more participants than your current audience can supply — broaden your filters or lower the count")
+    : t("createMission.issueReward", null, "Reward setup is incomplete or invalid");
 
   // Mirrors the Review step's own "Can't publish yet" issues list (same
   // flags) so a step that was already completed once and then broke (e.g.
   // deleting every test case on Step 3, then revisiting it via the rail)
   // flags itself both in the rail (a danger-colored badge instead of the
   // usual checkmark) and inline on the step's own page — not just when the
-  // builder eventually reaches Review. Indexed by step; Audience has no
-  // equivalent "missing" flag today, and Review already shows the full
-  // issues card itself, so both stay false.
-  const stepHasIssue = [missingInfo, missingFormat, missingTasks, false, missingReward, false];
+  // builder eventually reaches Review. Indexed by step; Review itself
+  // already shows the full issues card, so that last slot stays false.
+  const stepHasIssue = [missingInfo, missingFormat, missingTasks, missingAudience, missingReward, false];
   // Gated on i < maxReached — a step being filled in for the very first time
   // hasn't "broken" anything yet, so it stays on the existing field-level
   // (showErrors) validation instead of also flagging itself as an issue.
@@ -1325,7 +1424,7 @@ export default function CreateMissionWizard() {
     missingFormat && t("createMission.issueFormat", null, "Feedback format not selected"),
     missingTasks && t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"),
     null,
-    missingReward && t("createMission.issueReward", null, "Reward setup is incomplete or invalid"),
+    missingReward && rewardIssueDetail,
     null,
   ][step];
   const showStepIssue = railIssueAt(step);
@@ -1681,8 +1780,8 @@ export default function CreateMissionWizard() {
       </div>
     ) : <StepTestCases d={d} set={set} ref={testCasesRef} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} isFetchingCount={isFetchingCount} locked={fieldsLocked} />,
-    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingFormat={missingFormat} missingTasks={missingTasks} missingReward={missingReward} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} isFetchingCount={isFetchingCount} locked={fieldsLocked} platformFeePct={platformFeePct} />,
+    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingFormat={missingFormat} missingTasks={missingTasks} missingAudience={missingAudience} missingReward={missingReward} rewardIssueDetail={rewardIssueDetail} />,
   ][step];
 
   if (loadingMission) {

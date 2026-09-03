@@ -98,7 +98,7 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
         <i style={{ display: "block", height: "100%", width: (100 - spotPct) + "%", borderRadius: 20, background: spotPct < 25 ? "var(--danger)" : `var(${vt.accentVar})` }} />
       </div>
       <div className="row between" style={{ marginTop: 2, paddingTop: 11, borderTop: "1px solid var(--border)" }}>
-        <div><VReward amount={task.reward} /><span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span></div>
+        <div><VReward amount={task.reward} type={task.rewardType} /><span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span></div>
         <button className="btn btn-primary" style={{ padding: "8px 14px", ...myStatusButtonStyle(task.myStatus) }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
           {myStatusButtonLabel(t, task.myStatus, t("actions.resume", null, "Resume"), t("actions.view", null, "View"))}
           <Icon name="arrowRight" size={15} />
@@ -146,7 +146,7 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
             <span className="row gap-2" style={{ color: "var(--danger)", fontWeight: 700 }}><Icon name="bolt" size={14} />{deadlineLabel(task.deadline)}</span>
           </div>
           <div className="row gap-3" style={{ alignItems: "center" }}>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} big /><div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div></div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big /><div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div></div>
             <button className="btn btn-primary btn-lg" style={myStatusButtonStyle(task.myStatus)} onClick={e => { e.stopPropagation(); onOpen(task); }}>
               {myStatusButtonLabel(t, task.myStatus, t("actions.resumeMission", null, "Resume mission"), t("actions.startValidating", null, "Start validating"))} <Icon name="arrowRight" />
             </button>

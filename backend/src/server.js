@@ -30,6 +30,7 @@ import { router as bOAuthRouter } from "./routes/boauth.js";
 import { router as dashboardRouter } from "./routes/dashboard.js";
 import { router as missionsRouter } from "./routes/missions.js";
 import { router as audienceRouter } from "./routes/audience.js";
+import { router as publicStatsRouter } from "./routes/publicStats.js";
 import { router as analyticsRouter } from "./routes/analytics.js";
 import { router as walletRouter } from "./routes/wallet.js";
 import { router as supportRouter, buildSupportRouter } from "./routes/support.js";
@@ -218,6 +219,7 @@ app.use("/api/firebase", buildFirebaseConfigRouter());
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/missions", missionsRouter);
 app.use("/api/audience", audienceRouter);
+app.use("/api/public/stats", publicStatsRouter);
 app.use("/api/analytics", analyticsRouter);
 app.use("/api/wallet", walletRouter);
 app.use("/api/payments", paymentsRouter);
@@ -272,6 +274,26 @@ if (fs.existsSync(SITE_DIST)) {
   app.use("/site", express.static(SITE_DIST));
 }
 
+// ---- clean URLs for the "for builders" intent pages ----
+// Marketing specced these as /for-builders/<slug>/ rather than this site's
+// existing /site/<slug>.html pattern — dedicated routes here rather than a
+// broader URL-scheme change, since that would touch every other marketing
+// page's URL too, a much bigger call than just these two new pages needed.
+// The bare (no trailing slash) path 301s to the canonical slash version
+// instead of silently serving the same file at both, so there's only ever
+// one indexable URL per page.
+const INTENT_PAGES = { "idea-validation": "idea-validation.html", "user-testing": "user-testing.html" };
+for (const [slug, file] of Object.entries(INTENT_PAGES)) {
+  // A single route for both forms, not two app.get()s — Express ignores
+  // trailing slashes by default, so `/slug` and `/slug/` are the SAME route
+  // to it, and the no-slash handler kept "winning" and 301-ing to itself
+  // forever. Checking req.path here tells the two forms apart instead.
+  app.get(`/for-builders/${slug}{/}`, (req, res) => {
+    if (!req.path.endsWith("/")) return res.redirect(301, `/for-builders/${slug}/`);
+    res.sendFile(path.join(SITE_DIST, file));
+  });
+}
+
 // robots.txt and sitemap.xml previously had no route of their own, so both
 // fell through to the SPA catch-all below and served the app's index.html
 // instead of a real crawl file. Sitemap URLs point at /site/*.html (the
@@ -293,7 +315,13 @@ Sitemap: https://www.validationcrew.com/sitemap.xml
 
 app.get("/sitemap.xml", (req, res) => {
   const pages = ["index", "builders", "validators", "use-cases", "about", "contact", "privacy", "terms"];
-  const urls = pages.map(p => `  <url><loc>https://www.validationcrew.com/site/${p}.html</loc></url>`).join("\n");
+  const pageUrls = pages.map(p => `  <url><loc>https://www.validationcrew.com/site/${p}.html</loc></url>`);
+  // These two have real clean URLs (see the /for-builders/* routes above) —
+  // listed there instead of their /site/*.html fallback, which stays
+  // reachable but isn't the one crawlers should index (see the canonical
+  // tag on each page).
+  const intentUrls = Object.keys(INTENT_PAGES).map(slug => `  <url><loc>https://www.validationcrew.com/for-builders/${slug}/</loc></url>`);
+  const urls = [...pageUrls, ...intentUrls].join("\n");
   res.type("application/xml").send(
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
   );

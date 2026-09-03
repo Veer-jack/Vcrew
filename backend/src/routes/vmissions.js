@@ -57,7 +57,7 @@ function serializeRow(row) {
     taskId: row.id,
     src: row.src,
     type: row.category ? row.type : (VTYPES[row.type] ? row.type : "mvp"), category: row.category, product: row.product, tagline: row.tagline, company: row.company,
-    reward: row.reward, minutes: row.minutes, match: row.match_pct,
+    reward: row.reward, rewardType: row.reward_type || "fixed", minutes: row.minutes, match: row.match_pct,
     deadline: row.deadline_label,
     status: row.status, progress: row.progress, quality: row.quality, reason: row.reason,
     statusLabel: row.status_label,
@@ -66,9 +66,9 @@ function serializeRow(row) {
 
 // GET /api/v/missions?status=active
 const TASK_UNION = `
-  SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
+  SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src, 'fixed'::text as reward_type FROM vtasks
   UNION ALL
-  SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
+  SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src, COALESCE(reward_type, 'fixed')::text as reward_type FROM missions
 `;
 
 router.get("/", async (req, res) => {
@@ -192,8 +192,8 @@ router.get("/:taskId", async (req, res) => {
   }
 
   const taskData = isRealMission
-    ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", ptype: t.ptype || null, category: t.category || null, product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
-    : { id: t.id, type: t.type, ptype: null, category: null, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
+    ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", ptype: t.ptype || null, category: t.category || null, product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, rewardType: t.reward_type || "fixed", minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
+    : { id: t.id, type: t.type, ptype: null, category: null, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, rewardType: "fixed", minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
 
   let scheduleStatus = null;
   if (isRealMission && t.ptype === "interview") {

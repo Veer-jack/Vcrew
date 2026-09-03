@@ -423,7 +423,7 @@ export function InviteValidatorModal({ mission, onClose }) {
               {visibleCount < displayList.length && (
                 <div style={{ textAlign: "center", marginTop: 24, marginBottom: 12 }}>
                   <Btn variant="outline" onClick={() => setVisibleCount(c => c + 50)}>
-                    {t("actions.loadMore", null, "Load more")} ({displayList.length - visibleCount})
+                    {t("actions.loadMoreMembers", null, "Load more members")} ({displayList.length - visibleCount})
                   </Btn>
                 </div>
               )}

@@ -58,7 +58,7 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
         {m.reason && <p className="faint" style={{ margin: "7px 0 0", fontSize: 12.5 }}>{m.reason}</p>}
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
-        <div style={{ textAlign: "right" }}><VReward amount={m.reward} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
+        <div style={{ textAlign: "right" }}><VReward amount={m.reward} type={m.rewardType} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
         {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => {
           const dest = (m.type === "trial") ? "checkin"
             : (m.category === "sample") ? "shipment"
@@ -118,7 +118,7 @@ function InvitedMissionRow({ inv, ptypes, navigate, onAccept, onDecline }) {
         </div>
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
-        <div style={{ textAlign: "right" }}><VReward amount={inv.reward_amount} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
+        <div style={{ textAlign: "right" }}><VReward amount={inv.reward_amount} type={inv.reward_type} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
         <div className="row gap-2">
           <button className="btn btn-ghost" disabled={busy} onClick={async () => { setBusy(true); try { await onDecline(inv.invite_id); } finally { setBusy(false); } }}>{t("actions.decline", null, "Decline")}</button>
           <button className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); try { await onAccept(inv.invite_id); } finally { setBusy(false); } }}>{busy ? t("actions.working", null, "Working…") : t("actions.accept", null, "Accept")}</button>

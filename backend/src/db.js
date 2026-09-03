@@ -235,6 +235,11 @@ export async function initDb() {
     if (!vsCols.rows.some(r => r.column_name === 'saved_at')) {
       await client.query('ALTER TABLE v_saved ADD COLUMN saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
     }
+    // task_id's FK only ever pointed at vtasks(id) — saving a real mission
+    // (missions.id, never a vtasks row) violated it on every attempt,
+    // silently swallowed by an empty catch block that still reported
+    // success. See schema.sql's v_saved definition for the full story.
+    await client.query('ALTER TABLE v_saved DROP CONSTRAINT IF EXISTS v_saved_task_id_fkey');
 
     const tmCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='thread_messages'");
     const tmColNames = tmCols.rows.map(r => r.column_name);
