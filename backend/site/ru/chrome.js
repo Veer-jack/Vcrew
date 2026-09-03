@@ -5,6 +5,24 @@
 (function () {
   const page = document.body.dataset.page || "";
 
+  // Which language THIS page is actually written in — derived from the URL,
+  // not vc_lang in localStorage. Storage goes stale the moment a nav link
+  // drops you onto an English page while a language was still selected, and
+  // showing that stale value as today's language badge over English content
+  // is exactly the mismatch this fixes.
+  const SITE_LANGS = ["ar", "bn", "es", "fr", "hi", "pt", "ru", "ur", "zh"];
+  const pageLangMatch = location.pathname.match(/^\/site\/([a-z]{2})\//);
+  const pageLang = (pageLangMatch && SITE_LANGS.includes(pageLangMatch[1])) ? pageLangMatch[1] : "en";
+  // The two intent pages have a clean, extension-less English URL
+  // (/for-builders/<slug>/ — see server.js) instead of /site/<file>.html;
+  // translated versions still live at the normal /site/<lang>/<file>.html
+  // path, so a language-aware link needs this mapping both ways.
+  const INTENT_PAGES = { "idea-validation.html": "idea-validation", "user-testing.html": "user-testing" };
+  function langHref(filename) {
+    if (pageLang === "en") return INTENT_PAGES[filename] ? `/for-builders/${INTENT_PAGES[filename]}/` : `/site/${filename}`;
+    return `/site/${pageLang}/${filename}`;
+  }
+
   const T = {
     forBuilders: "Строителям",
     ideaValidation: "Проверка идеи",
@@ -69,13 +87,13 @@
   // a separate top-level nav entry each, so adding another one later is a
   // one-line addition, not a new dropdown to wire up.
   const links = [
-    { l: T.forBuilders, h: "/site/builders.html", k: "builders", sub: [
-      { l: T.ideaValidation, h: "/for-builders/idea-validation/" },
-      { l: T.userTesting, h: "/for-builders/user-testing/" },
+    { l: T.forBuilders, h: langHref("builders.html"), k: "builders", sub: [
+      { l: T.ideaValidation, h: langHref("idea-validation.html") },
+      { l: T.userTesting, h: langHref("user-testing.html") },
     ] },
-    { l: T.forValidators, h: "/site/validators.html", k: "validators" },
-    { l: T.useCases, h: "/site/use-cases.html", k: "use-cases" },
-    { l: T.about, h: "/site/about.html", k: "about" },
+    { l: T.forValidators, h: langHref("validators.html"), k: "validators" },
+    { l: T.useCases, h: langHref("use-cases.html"), k: "use-cases" },
+    { l: T.about, h: langHref("about.html"), k: "about" },
   ];
   const linkHtml = links.map(x => {
     const active = x.k === page ? ' style="color:var(--ink);background:var(--bg-soft)"' : "";
@@ -90,7 +108,7 @@
     </div>`;
   }).join("");
 
-  const brand = `<a class="brand" href="/site/index.html"><img src="/brand/vc-full-logo.png" alt="ValidationCrew" style="height:80px;width:auto;display:block"></a>`;
+  const brand = `<a class="brand" href="${langHref("index.html")}"><img src="/brand/vc-full-logo.png" alt="ValidationCrew" style="height:80px;width:auto;display:block"></a>`;
 
   const defaultCta = `
     <div class="nav-drop" data-drop>
@@ -145,12 +163,12 @@
       <div class="mobile-menu">
         ${links.map(x => `<a href="${x.h}">${x.l}</a>`).join("")}
         <div class="mm-lab">${T.forBuilders}</div>
-        <a class="mm-link" href="/for-builders/idea-validation/">${T.ideaValidation}</a>
-        <a class="mm-link" href="/for-builders/user-testing/">${T.userTesting}</a>
+        <a class="mm-link" href="${langHref("idea-validation.html")}">${T.ideaValidation}</a>
+        <a class="mm-link" href="${langHref("user-testing.html")}">${T.userTesting}</a>
         <a class="btn btn-primary" href="/login">${T.startValidating}</a>
         <a class="mm-link" href="/login">${T.builderLogin}</a>
         <div class="mm-lab">${T.forValidators}</div>
-        <a class="btn btn-ghost" href="/site/validators.html">${T.becomeValidator}</a>
+        <a class="btn btn-ghost" href="${langHref("validators.html")}">${T.becomeValidator}</a>
         <a class="mm-link" href="/validator/login">${T.validatorLogin}</a>
       </div>`;
       
@@ -449,7 +467,7 @@
     { code: 'ur', flag: '🇵🇰', native: 'اردو', english: 'Urdu' }
   ];
 
-  const currentLang = localStorage.getItem('vc_lang') || 'en';
+  const currentLang = pageLang; // the URL's truth, not stale localStorage — see pageLang above
   const currObj = langs.find(l => l.code === currentLang) || langs[0];
   if (langLabel) langLabel.textContent = currObj.code.toUpperCase();
 
@@ -475,12 +493,18 @@
         e.preventDefault();
         const selected = e.currentTarget.getAttribute('data-lang');
         localStorage.setItem('vc_lang', selected);
-        
-        const path = window.location.pathname;
-        let filename = path.split('/').pop() || 'index.html';
-        
+
+        // A clean /for-builders/<slug>/ URL has no ".html" segment to pop()
+        // off the end — that used to fall through to the 'index.html'
+        // default below and silently bounce you to the homepage instead of
+        // the translated intent page.
+        const segs = window.location.pathname.split('/').filter(Boolean);
+        const last = segs[segs.length - 1] || 'index.html';
+        const slugToFile = { 'idea-validation': 'idea-validation.html', 'user-testing': 'user-testing.html' };
+        const filename = last.endsWith('.html') ? last : (slugToFile[last] || 'index.html');
+
         if (selected === 'en') {
-          window.location.href = `/site/${filename}`;
+          window.location.href = INTENT_PAGES[filename] ? `/for-builders/${INTENT_PAGES[filename]}/` : `/site/${filename}`;
         } else {
           window.location.href = `/site/${selected}/${filename}`;
         }
