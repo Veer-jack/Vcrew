@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Empty, KpiCard, MatchRing } from "../components/ui";
@@ -10,6 +11,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { levelName, badgeLabel, badgeDesc } from "../vi18n";
 
 const EMPTY_SEL = (filters) => Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 
@@ -112,6 +114,119 @@ const matchOption = (m, g, o) => {
   }
   return false;
 };
+
+function StatTile({ label, value, accent }) {
+  return (
+    <div style={{ flex: 1, minWidth: 96, padding: "11px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 5 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", color: "var(--text-faint)" }}>{label}</span>
+      <span className="mono" style={{ fontSize: 17, fontWeight: 700, color: accent }}>{value}</span>
+    </div>
+  );
+}
+
+// Right-side drawer for "View Profile" — same shell (portal, dimmed/blurred
+// backdrop, sticky header, scrollable body) as the Missions -> Responses
+// submission drawer, so builders get one consistent overlay pattern instead
+// of a second, differently-shaped one. Match/Trust/Profile completion are
+// already on the card (m); level, badges and mission history need a real
+// fetch since they're computed server-side from the validator's full
+// history, not something the Audience list already carries per row.
+function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
+  const [detail, setDetail] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.validatorProfile(validator.id).then(d => { if (!cancelled) setDetail(d); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [validator.id]);
+
+  return createPortal(
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex" }}>
+      <div style={{ flex: 1, background: "rgba(8,10,18,.34)", backdropFilter: "blur(2px)" }} onClick={onClose} />
+      <div style={{ width: 600, maxWidth: "92vw", background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg)" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+              <Avatar name={validator.name} size={46} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                  {validator.name}
+                  {detail && (
+                    <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)", fontFamily: "var(--mono)", fontSize: 10.5 }}>
+                      {t("audience.levelPill", { n: detail.level.n, name: levelName(t, detail.level.n, detail.level.name) }, `Lvl ${detail.level.n} · ${detail.level.name}`)}
+                    </span>
+                  )}
+                  {validator.verified && <span className="verif"><Icon name="checkCircle" size={14} /></span>}
+                </div>
+                <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{trFilterLabel(t, validator.occ)} · {trFilterLabel(t, validator.city)} · <span className="mono">{trFilterLabel(t, validator.role)}</span></div>
+              </div>
+              <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
+            </div>
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" }}>
+              <StatTile label={t("audience.matchScore", null, "Match")} value={`${validator.match}%`} accent="var(--accent)" />
+              <StatTile label={t("audience.trustScore", null, "Trust score")} value={validator.trust > 0 ? validator.trust : "—"} />
+              <StatTile label={t("audience.completionRate", null, "Completion rate")} value={detail ? `${detail.completionRate}%` : "—"} />
+              <StatTile label={t("audience.missionsDone", null, "Missions done")} value={detail ? detail.completed : "—"} />
+            </div>
+          </div>
+
+          <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>
+            <h4 style={{ margin: "0 0 18px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.expertiseTags", null, "Expertise")}</h4>
+            <div className="aud-tags">{(validator.expertise || []).map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
+          </div>
+
+          <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>
+            <h4 style={{ margin: "0 0 18px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.verificationBadges", null, "Verification badges")}</h4>
+            {!detail ? (
+              <div className="muted" style={{ fontSize: 12.5 }}>{t("actions.loading", null, "Loading…")}</div>
+            ) : detail.badges.length === 0 ? (
+              <div className="muted" style={{ fontSize: 12, padding: "10px 12px", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", textAlign: "center" }}>
+                {t("audience.noBadgesYet", null, "No badges earned yet")}
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {detail.badges.map(b => (
+                  <div key={b.label} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                    <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--success-weak)", color: "var(--success)", display: "grid", placeItems: "center", flex: "none" }}>
+                      <Icon name={b.icon} size={16} />
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 12 }}>{badgeLabel(t, b.label)}</div>
+                      <div className="faint" style={{ fontSize: 10.5, lineHeight: 1.3 }}>{badgeDesc(t, b.label, b.desc)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ padding: "24px 26px" }}>
+            <h4 style={{ margin: "0 0 18px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.recentMissions", null, "Recent missions")}</h4>
+            {!detail ? (
+              <div className="muted" style={{ fontSize: 12.5 }}>{t("actions.loading", null, "Loading…")}</div>
+            ) : detail.recentMissions.length === 0 ? (
+              <div className="muted" style={{ fontSize: 12.5 }}>{t("audience.noRecentMissions", null, "No missions yet")}</div>
+            ) : (
+              detail.recentMissions.map((rm, i) => (
+                <div key={rm.id + i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{rm.name}</div>
+                    <div className="faint" style={{ fontSize: 11 }}>{rm.date ? new Date(rm.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—"}</div>
+                  </div>
+                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)", fontSize: 10.5, flex: "none" }}>{rm.statusLabel}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <div style={{ padding: "16px 22px", borderTop: "1px solid var(--border)", background: "var(--panel)" }}>
+          <Btn variant="primary" style={{ width: "100%" }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 export default function AudienceExplorer() {
   const { t } = useTranslation();
@@ -340,7 +455,6 @@ export default function AudienceExplorer() {
     <div className="page rise">
       <div className="ph">
         <div>
-          <span className="eyebrow">{t("audience.discovery", null, "Discovery")}</span>
           <h1>{t("audience.title", null, "Audience Explorer")}</h1>
           <p className="lead">{t("audience.lead", null, "Search verified members and layer filters to find exactly who should validate your product.")}</p>
         </div>
@@ -500,37 +614,12 @@ export default function AudienceExplorer() {
         <InviteToMissionModal validator={inviteModalValidator} onClose={() => setInviteModalValidator(null)} />
       )}
       {viewProfileValidator && (
-        <Modal title={t("audience.viewProfileTitle", null, "Validator Profile")} onClose={() => setViewProfileValidator(null)} width={440}>
-          <div style={{ padding: "0 20px 20px" }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 18 }}>
-              <Avatar name={viewProfileValidator.name} size={52} />
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", gap: 6 }}>
-                  {viewProfileValidator.name}
-                  {viewProfileValidator.verified && <span className="verif"><Icon name="checkCircle" size={14} /> {t("badge.verifiedBuilder", null, "Verified")}</span>}
-                </div>
-                <div className="muted" style={{ fontSize: 13 }}>{trFilterLabel(t, viewProfileValidator.occ)} · {trFilterLabel(t, viewProfileValidator.city)} · <span className="mono">{trFilterLabel(t, viewProfileValidator.role)}</span></div>
-              </div>
-            </div>
-            <div className="row gap-3" style={{ marginBottom: 18 }}>
-              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
-                <MatchRing value={viewProfileValidator.match} />
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.matchScore", null, "Match")}</div>
-              </div>
-              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
-                <b style={{ fontSize: 20 }}>{viewProfileValidator.trust > 0 ? viewProfileValidator.trust : "—"}</b>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.trustScore", null, "Trust score")}</div>
-              </div>
-              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
-                <b style={{ fontSize: 20 }}>{viewProfileValidator.profileCompletion}%</b>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.profileCompleteShort", null, "Profile complete")}</div>
-              </div>
-            </div>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>{t("audience.expertiseTags", null, "Expertise")}</div>
-            <div className="aud-tags" style={{ marginBottom: 20 }}>{(viewProfileValidator.expertise || []).map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
-            <Btn variant="primary" style={{ width: "100%" }} icon="userplus" onClick={() => { setInviteModalValidator(viewProfileValidator); setViewProfileValidator(null); }}>{t("actions.invite", null, "Invite")}</Btn>
-          </div>
-        </Modal>
+        <ValidatorProfileDrawer
+          validator={viewProfileValidator}
+          t={t}
+          onClose={() => setViewProfileValidator(null)}
+          onInvite={(v) => { setInviteModalValidator(v); setViewProfileValidator(null); }}
+        />
       )}
       {showRestoreModal && (
         <Modal title={t("audience.restoreTitle", null, "Restore your default audience?")} onClose={() => setShowRestoreModal(false)} width={420}>

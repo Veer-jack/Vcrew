@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { FILTERS } from "../meta.js";
+import { BADGES, levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -108,6 +109,71 @@ router.get("/", async (req, res) => {
   });
 
   res.json({ members: mapped, filters: FILTERS, missionAudience });
+});
+
+const MISSION_STATUS_LABELS = {
+  applied: "Applied", active: "In progress", revision: "Revision requested",
+  submitted: "Submitted", completed: "Completed", rejected: "Rejected",
+  failed: "Failed", closed: "Closed",
+};
+
+// The View Profile drawer's read-only detail view for a single validator --
+// reuses the exact level/badge rules vprofile.js computes for a validator's
+// own Profile page (so "earned" means the same thing in both places), just
+// scoped to whatever :id a builder is looking at instead of req.validator.
+// Recent missions is deliberately platform-wide (every builder this
+// validator has worked with, not just the one asking) — the product call
+// here trades a sliver of cross-builder mission-name visibility for a
+// fuller picture of how active/reliable this validator actually is.
+router.get("/:id/profile", async (req, res) => {
+  const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(req.params.id);
+  if (!v) return res.status(404).json({ error: "Validator not found" });
+
+  const missionsDone = v.missions_done || 0;
+  const lvl = levelForCompleted(missionsDone);
+
+  const statsRow = await db.prepare(`
+    SELECT COUNT(*) as total_graded, SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as total_approved
+    FROM responses WHERE validator_id = ? AND status IN ('approved', 'rejected')
+  `).get(v.id);
+  let accuracy = 100;
+  if (statsRow && statsRow.total_graded > 0) {
+    accuracy = Math.round((Number(statsRow.total_approved) / Number(statsRow.total_graded)) * 100);
+  }
+  const streak = v.streak || 0;
+
+  const earnedBadges = BADGES.filter(b => {
+    if (b.label === "Identity verified") return !!v.phone_verified;
+    if (b.label === "AI specialist") return missionsDone >= 50 && accuracy >= 90;
+    if (b.label === "30-day streak") return streak >= 4;
+    if (b.label === "Top 5% rated") return v.rating >= 4.8 && (v.reviews_count || 0) >= 50;
+    if (b.label === "SaaS expert") return missionsDone >= 25;
+    if (b.label === "Perfectionist") return accuracy >= 98 && missionsDone >= 30;
+    return false;
+  }).map(({ icon, label, desc }) => ({ icon, label, desc }));
+
+  const recentRows = await db.prepare(`
+    SELECT m.id as mission_id, m.name, vmm.status, vmm.status_label, vmm.updated_at
+    FROM v_my_missions vmm
+    JOIN missions m ON vmm.mission_id = m.id
+    WHERE vmm.validator_id = ? AND vmm.status != 'declined'
+    ORDER BY vmm.updated_at DESC
+    LIMIT 5
+  `).all(v.id);
+
+  res.json({
+    level: { n: lvl.n, name: lvl.name },
+    completed: missionsDone,
+    completionRate: 100,
+    badges: earnedBadges,
+    recentMissions: recentRows.map(r => ({
+      id: r.mission_id,
+      name: r.name,
+      status: r.status,
+      statusLabel: r.status_label || MISSION_STATUS_LABELS[r.status] || r.status,
+      date: r.updated_at,
+    })),
+  });
 });
 
 // Shared by getRealMatchCount (the Audience Explorer/wizard's live reach

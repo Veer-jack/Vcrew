@@ -107,6 +107,7 @@ export const api = {
     return request(`/audience${qs.toString() ? `?${qs}` : ""}`);
   },
   audienceMatchCount: (audience) => request("/audience/match-count", { method: "POST", body: audience }),
+  validatorProfile: (id) => request(`/audience/${id}/profile`),
 
   analytics: () => request("/analytics"),
 
