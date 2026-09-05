@@ -1745,6 +1745,18 @@ export default function MissionDetail() {
         <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
           <UpdatingBadge show={refetching} />
           <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>
+          {/* Archived is terminal with no further action offered anywhere
+              else on this page -- Export is the only thing the More menu
+              would ever contain for it (Complete/Close only apply to
+              active, Archive only to closed/completed), so it's just its
+              own button instead of a dropdown with one item in it. */}
+          {mission.status === "archived" ? (
+            <Btn variant="ghost" icon="download" onClick={() => exportCSV(
+              `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
+              [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
+              participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
+            )}>{t("actions.export", null, "Export")}</Btn>
+          ) : (
           <div style={{ position: "relative" }}>
             <Btn variant="ghost" iconRight="chevronDown" onClick={() => setMoreOpen(o => !o)}>{t("actions.more", null, "More")}</Btn>
             {moreOpen && (
@@ -1793,6 +1805,7 @@ export default function MissionDetail() {
               </>
             )}
           </div>
+          )}
           {mission.status === "active" && <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>{t("actions.invite", null, "Invite")}</Btn>}
         </div>
       </div>
