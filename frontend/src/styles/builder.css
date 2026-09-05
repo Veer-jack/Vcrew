@@ -178,9 +178,9 @@ html[data-direction="mono"] .tabs button.on .cnt { background: rgba(255,255,255,
   color: var(--text-muted); white-space: nowrap; transition: color .14s; display: inline-flex; align-items: center; gap: 7px; }
 .utabs button svg { width: 15px; height: 15px; }
 .utabs button:hover { color: var(--text); }
-.utabs button.on { color: var(--accent); }
-html[data-direction="signal"] .utabs button.on { color: var(--accent-2); }
-html[data-direction="mono"] .utabs button.on { color: var(--text); }
+.utabs button.on { color: var(--accent); background: var(--accent-weak); border-radius: var(--radius-sm); }
+html[data-direction="signal"] .utabs button.on { color: var(--accent-2); background: var(--accent-weak); }
+html[data-direction="mono"] .utabs button.on { color: var(--text); background: var(--panel-inset); }
 .utabs button.on::after { content: ""; position: absolute; left: 8px; right: 8px; bottom: -1px; height: 2px;
   background: var(--accent); border-radius: 2px; }
 html[data-direction="mono"] .utabs button.on::after { background: var(--text); }
