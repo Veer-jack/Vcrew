@@ -103,7 +103,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                 Deadline/Completed Date/Closed Date are all sized to fit
                 both their header label and a real value like "6 Sept 2026"
                 on one line without wrapping. */}
-            <th style={thStyle(210, "left")}>{t("missions.missionCol", null, "Mission")}</th>
+            <th style={thStyle(180, "left")}>{t("missions.missionCol", null, "Mission")}</th>
             <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
             {isAll && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
             <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>
