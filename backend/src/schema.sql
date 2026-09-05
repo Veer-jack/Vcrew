@@ -170,7 +170,8 @@ CREATE TABLE IF NOT EXISTS missions (
   flag_reason TEXT,
   flagged_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
-  closed_at TIMESTAMPTZ
+  closed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS participants (

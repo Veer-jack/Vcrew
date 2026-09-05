@@ -141,6 +141,10 @@ export async function initDb() {
     // Same idea as completed_at, for when status actually becomes 'closed' --
     // powers the Missions Closed tab's Closed Date column.
     if (!mCols.includes('closed_at')) await client.query('ALTER TABLE missions ADD COLUMN closed_at TIMESTAMPTZ');
+    // Set on every real PATCH /:id edit (see that handler) -- powers the
+    // Missions Draft tab's Last Edited column, distinct from created_at
+    // (when the draft was first started, not when it was last worked on).
+    if (!mCols.includes('updated_at')) await client.query('ALTER TABLE missions ADD COLUMN updated_at TIMESTAMPTZ');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');

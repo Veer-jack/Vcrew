@@ -546,6 +546,7 @@ const en = {
     deadlineCol: "Deadline",
     completedDateCol: "Completed Date",
     closedDateCol: "Closed Date",
+    lastEditedCol: "Last Edited",
     createdCol: "Created",
     filterTitle: "Filter",
     filterStatus: "Status",

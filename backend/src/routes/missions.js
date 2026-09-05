@@ -145,6 +145,7 @@ function serializeMission(m, canFullyEdit) {
     deadline: m.deadline,
     completedAt: m.completed_at || null,
     closedAt: m.closed_at || null,
+    updatedAt: m.updated_at || null,
     audience: JSON.parse(m.audience_json || "{}"),
     tasks: JSON.parse(m.tasks_json || "[]"),
     testCaseForm: m.test_case_form_json ? JSON.parse(m.test_case_form_json) : null,
@@ -748,6 +749,10 @@ router.patch("/:id", async (req, res) => {
       }
 
       if (!updates.length) throw new Error("No valid fields to update");
+      // Powers the Missions Draft tab's Last Edited column -- real fields are
+      // actually changing at this point (the guard above already rejected an
+      // empty request), so this is a genuine edit, not just a no-op PATCH.
+      updates.push(`updated_at = NOW()`);
       params.push(m.id);
       await tx.prepare(`UPDATE missions SET ${updates.join(", ")} WHERE id = ?`).run(...params);
       

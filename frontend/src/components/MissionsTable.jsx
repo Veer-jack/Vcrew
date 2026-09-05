@@ -44,6 +44,10 @@ const TAB_DATE_COL = {
   active: { key: "deadline", label: "missions.deadlineCol", fallback: "Deadline", get: m => m.deadline },
   closed: { key: "closedAt", label: "missions.closedDateCol", fallback: "Closed Date", get: m => m.closedAt },
   completed: { key: "completedAt", label: "missions.completedDateCol", fallback: "Completed Date", get: m => m.completedAt },
+  // Falls back to createdAt for a draft that's never actually been edited
+  // since it was made (e.g. auto-promoted with just a title typed so far) --
+  // updatedAt is only ever set once a real PATCH happens (see missions.js).
+  draft: { key: "updatedAt", label: "missions.lastEditedCol", fallback: "Last Edited", get: m => m.updatedAt || m.createdAt },
 };
 
 export default function MissionsTable({ rows, nav, categories, onDelete, tab, selectedIds, onToggleSelect, onToggleSelectAll }) {
