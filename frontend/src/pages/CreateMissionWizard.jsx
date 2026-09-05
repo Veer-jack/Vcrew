@@ -898,6 +898,12 @@ export default function CreateMissionWizard() {
   // from "resuming an unpublished draft", for the Step 6 button/toast copy.
   const [canFullyEdit, setCanFullyEdit] = useState(true);
   const [wasActive, setWasActive] = useState(false);
+  // The exact status (active/completed/closed) this mission already had when
+  // the wizard opened — wasActive alone can't tell those apart, which used to
+  // mean every save on a completed/closed mission silently forced it back to
+  // "active" (see the two buildMissionPayload(...) call sites below that used
+  // to hardcode "active" instead of reading this).
+  const [liveStatus, setLiveStatus] = useState("active");
   // Set once this brand-new mission's scratch draft has been silently
   // promoted to a real backend draft (see the auto-promote effect below).
   // Only ever relevant for the no-missionId ("/missions/new") case — once a
@@ -992,6 +998,11 @@ export default function CreateMissionWizard() {
   // apart from "leaving a draft", so each case sets its own backnav flag.
   const wasActiveRef = useRef(false);
   useEffect(() => { wasActiveRef.current = wasActive; }, [wasActive]);
+  // Same stale-closure problem, for liveStatus — notifyLiveEditIfChanged is
+  // called from that same true-unmount closure and must send the mission's
+  // real original status, not a stale/default "active".
+  const liveStatusRef = useRef("active");
+  useEffect(() => { liveStatusRef.current = liveStatus; }, [liveStatus]);
   // Whether the one-time "notify participants + confirmation email" call
   // (see notifyLiveEditIfChanged below) has already fired for this editing
   // session — it can be triggered two ways (the true-unmount cleanup, or an
@@ -1067,6 +1078,7 @@ export default function CreateMissionWizard() {
         setCanFullyEdit(!!mission.canFullyEdit);
         const active = mission.status !== "draft";
         setWasActive(active);
+        if (active) setLiveStatus(mission.status);
         // A live mission was never a "recent draft" — only point the resume
         // pointer at genuine drafts, however this one was opened (a fresh
         // auto-promote elsewhere, the Dashboard banner, or a direct Draft
@@ -1520,7 +1532,7 @@ export default function CreateMissionWizard() {
     const base = liveEditBaselineRef.current;
     if (base === null || liveEditCompareKey(dArg) === base) return;
     liveEditNotifiedRef.current = true;
-    api.updateMission(id, { ...buildMissionPayload("active", dArg), _notify: true }).catch(() => {});
+    api.updateMission(id, { ...buildMissionPayload(liveStatusRef.current, dArg), _notify: true }).catch(() => {});
     // Reused by MissionDetail/Missions/Dashboard to show a "changes saved"
     // toast wherever the builder lands next — see those pages' matching
     // effect. Genuinely accurate now (unlike when this cache was
@@ -1578,9 +1590,11 @@ export default function CreateMissionWizard() {
       return () => clearTimeout(timer);
     }
 
-    // wasActive keeps its status "active" (there's nothing to publish, it
-    // already is) — buildMissionPayload("draft") here would be wrong for it.
-    const payload = buildMissionPayload(wasActive ? "active" : "draft");
+    // wasActive keeps its existing status (there's nothing to publish, it
+    // already is) — buildMissionPayload("draft") here would be wrong for it,
+    // and hardcoding "active" would silently revive a completed/closed
+    // mission on the very first background autosave of an unrelated edit.
+    const payload = buildMissionPayload(wasActive ? liveStatus : "draft");
     // Tracked outside the timer so the flush-on-unmount effect below can
     // still send this exact payload if the builder navigates away before
     // the debounce ever gets to fire — see that effect for why.
@@ -1594,7 +1608,7 @@ export default function CreateMissionWizard() {
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, missionId, promotedId, loadingMission, published, wasActive, maxReached]);
+  }, [d, missionId, promotedId, loadingMission, published, wasActive, liveStatus, maxReached]);
 
   // The debounce above (the update-once-promoted effect) cancels its own
   // timer on every d change — that's the debounce working as intended. But
@@ -1696,7 +1710,7 @@ export default function CreateMissionWizard() {
       // whatever changed. _notify here (rather than a separate call after)
       // means one request does both, and the flag stops the unmount that's
       // about to happen from sending a second, redundant notification.
-      const payload = wasActive ? { ...buildMissionPayload("active"), _notify: true } : buildMissionPayload("active");
+      const payload = wasActive ? { ...buildMissionPayload(liveStatus), _notify: true } : buildMissionPayload("active");
       const { mission } = existingId ? await api.updateMission(existingId, payload) : await api.createMission(payload);
       // Only marked done once the request actually succeeded — a failed
       // attempt should still let a retry (or the unmount checkpoint, if the
