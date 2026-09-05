@@ -71,6 +71,29 @@ function selToProfilePatch(sel, filters) {
   };
 }
 
+// Real match against whatever the builder actually selected, instead of a
+// fixed per-validator "profile richness" score — each selected filter group
+// (Geography, Role, Professional, Interests, and each Demographics subgroup
+// independently) counts as one vote, using the exact same matchOption() the
+// results list itself filters by, so "100% match" and "shows up in results"
+// can never disagree. No filters selected at all means there's nothing to
+// differentiate members by, so everyone is a full match.
+function computeMatch(m, sel, filters) {
+  const groups = [];
+  const vote = (g, opts) => { if (opts && opts.size > 0) groups.push([...opts].some(o => matchOption(m, g, o))); };
+  const specificGeo = sel.Geography ? new Set([...sel.Geography].filter(v => !/worldwide|remote/i.test(v))) : null;
+  vote("Geography", specificGeo);
+  vote("ValidationCrew Role", sel["ValidationCrew Role"]);
+  vote("Professional", sel.Professional);
+  vote("Interests", sel.Interests);
+  for (const key of ["Age", "Gender", "Income Bracket", "Marital Status", "Has Kids"]) {
+    const opts = sel.Demographics ? new Set([...sel.Demographics].filter(o => filters.Demographics?.[key]?.includes(o))) : null;
+    vote("Demographics", opts);
+  }
+  if (!groups.length) return 100;
+  return Math.round((groups.filter(Boolean).length / groups.length) * 100);
+}
+
 const matchOption = (m, g, o) => {
   if (g === "Geography") {
     const qGeo = o.toLowerCase();
@@ -254,7 +277,8 @@ export default function AudienceExplorer() {
       
       const qq = !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase());
       return geo && role && occ && int && demo && qq;
-    }).sort((a, b) => {
+    }).map(m => ({ ...m, match: computeMatch(m, sel, filters) }))
+      .sort((a, b) => {
       if (sortKey === "trust") return (b.trust || 0) - (a.trust || 0);
       if (sortKey === "name") return a.name.localeCompare(b.name);
       return b.match - a.match;
@@ -430,7 +454,10 @@ export default function AudienceExplorer() {
                   <div className="aud-card rise" key={m.id}>
                   <div className="aud-card-top">
                     <Avatar name={m.name} size={44} />
-                    <MatchRing value={m.match} />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                      <MatchRing value={m.match} />
+                      <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em" }}>{t("audience.matchScore", null, "Match")}</span>
+                    </div>
                   </div>
                   <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
                   <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
