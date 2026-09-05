@@ -109,17 +109,19 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
             <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>
             {isAll && <th style={thStyle(190, "center")}>{t("missions.deadlineCol", null, "Deadline")}</th>}
             {isAll && <th style={thStyle(210, "center")}>{t("missions.completedDateCol", null, "Completed Date")}</th>}
-            {/* Every branch below sums to the same 540px trailing budget as
+            {/* Non-Draft branches sum to the same 540px trailing budget as
                 "All"'s Status+Deadline+CompletedDate — 4 columns when
                 there's a date column (Active/Closed/Completed), 3 when
-                there isn't but Completion still applies (Archived), 2 on
-                Draft (no date column, and Completion is always "Not
-                started" there — see hideCompletion above). */}
+                there isn't but Completion still applies (Archived). Draft
+                doesn't try to match that budget — inflating its 2 remaining
+                columns to fill the same 540px just left a wide empty gap in
+                each and pushed Delete out past the fold; plain natural
+                widths instead, same as the dateCol case uses. */}
             {!isAll && dateCol && <th style={thStyle(160, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
             {!isAll && (
               <>
-                <th style={thStyle(dateCol ? 150 : hideCompletion ? 300 : 200, "center")}>{t("metrics.participants", null, "Participants")}</th>
-                <th style={thStyle(dateCol ? 90 : hideCompletion ? 240 : 140, "center")}>{t("metrics.reward", null, "Reward")}</th>
+                <th style={thStyle(dateCol || hideCompletion ? 150 : 200, "center")}>{t("metrics.participants", null, "Participants")}</th>
+                <th style={thStyle(dateCol || hideCompletion ? 90 : 140, "center")}>{t("metrics.reward", null, "Reward")}</th>
                 {!hideCompletion && <th style={thStyle(dateCol ? 140 : 200, "center")}>{t("metrics.completion", null, "Completion")}</th>}
               </>
             )}
