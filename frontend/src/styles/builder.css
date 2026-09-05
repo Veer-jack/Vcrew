@@ -416,6 +416,8 @@ html[data-direction="signal"] .ring span { color: var(--accent-2); }
 
 .menu-item:hover { background: var(--panel-inset); }
 
+.mtbl-del-btn:hover { background: var(--danger-weak); }
+
 /* ============ KANBAN ============ */
 .kanban { display: grid; grid-auto-flow: column; grid-auto-columns: 264px; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: start; scrollbar-width: none; -ms-overflow-style: none; }
 .kanban::-webkit-scrollbar { display: none; }

@@ -56,6 +56,11 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
   // deletable subset of whatever's selected.
   const allSelected = onToggleSelect && rows.every(m => selectedIds?.has(m.id));
   const isAll = tab === "all";
+  // A draft never ran — Completion is always "Not started" for every single
+  // row here, with no exception, unlike Archived (which can carry a real
+  // final % from before it got archived). Nothing to compare across rows,
+  // so the column is pure noise specifically on this tab.
+  const hideCompletion = tab === "draft";
   const dateCol = TAB_DATE_COL[tab];
   // Every column is now sized generously enough that nothing should need to
   // wrap at all — white-space: normal (overriding the shared .tbl header's
@@ -104,19 +109,21 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
             <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>
             {isAll && <th style={thStyle(190, "center")}>{t("missions.deadlineCol", null, "Deadline")}</th>}
             {isAll && <th style={thStyle(210, "center")}>{t("missions.completedDateCol", null, "Completed Date")}</th>}
-            {/* Both branches below sum to the same 540px trailing budget as
+            {/* Every branch below sums to the same 540px trailing budget as
                 "All"'s Status+Deadline+CompletedDate — 4 columns when
                 there's a date column (Active/Closed/Completed), 3 when
-                there isn't (Draft/Archived). */}
+                there isn't but Completion still applies (Archived), 2 on
+                Draft (no date column, and Completion is always "Not
+                started" there — see hideCompletion above). */}
             {!isAll && dateCol && <th style={thStyle(160, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
             {!isAll && (
               <>
-                <th style={thStyle(dateCol ? 150 : 200, "center")}>{t("metrics.participants", null, "Participants")}</th>
-                <th style={thStyle(dateCol ? 90 : 140, "center")}>{t("metrics.reward", null, "Reward")}</th>
-                <th style={thStyle(dateCol ? 140 : 200, "center")}>{t("metrics.completion", null, "Completion")}</th>
+                <th style={thStyle(dateCol ? 150 : hideCompletion ? 300 : 200, "center")}>{t("metrics.participants", null, "Participants")}</th>
+                <th style={thStyle(dateCol ? 90 : hideCompletion ? 240 : 140, "center")}>{t("metrics.reward", null, "Reward")}</th>
+                {!hideCompletion && <th style={thStyle(dateCol ? 140 : 200, "center")}>{t("metrics.completion", null, "Completion")}</th>}
               </>
             )}
-            {onDelete && <th style={thStyle(40, "center")}></th>}
+            {onDelete && <th style={thStyle(32, "center", { padding: "13px 8px" })}></th>}
           </tr>
         </thead>
         <tbody>
@@ -183,19 +190,20 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                       m.reward.type === "sample" ? t("reward.sample", null, "Sample") : m.reward.type === "free" ? t("reward.free", null, "Free") : inr(m.reward.amount)
                     )}
                   </td>
-                  <td style={cx("center")}>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>
+                  {!hideCompletion && <td style={cx("center")}>{m.status === "draft" ? <span className="faint" style={{ fontSize: 12.5 }}>{t("status.notStarted", null, "Not started")}</span> : <PBarRow value={m.completion} green={m.completion >= 90} />}</td>}
                 </>
               )}
               {onDelete && (
-                <td style={cx("center")}>
+                <td style={cx("center", { padding: "13px 8px" })}>
                   {DELETABLE_STATUSES.has(m.status) && (
                   <button
+                    className="mtbl-del-btn"
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
+                      width: 30,
+                      height: 30,
+                      borderRadius: "var(--radius-sm)",
                       border: "none",
-                      background: "var(--danger-weak)",
+                      background: "transparent",
                       color: "var(--danger)",
                       display: "grid",
                       placeItems: "center",
