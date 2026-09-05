@@ -255,11 +255,10 @@ export default function Missions() {
           <span className="grow" />
           <Btn variant="ghost" size="sm" icon="download" onClick={handleBulkExport}>{t("actions.export", null, "Export")}</Btn>
           {selectedDeletableCount > 0 && (
-            <Btn variant="ghost" size="sm" icon="trash" onClick={handleBulkDelete}>
+            <Btn size="sm" icon="trash" onClick={handleBulkDelete} style={{ background: "var(--danger)", color: "#fff" }}>
               {t("missions.bulkDeleteLabel", { count: selectedDeletableCount }, `Delete (${selectedDeletableCount})`)}
             </Btn>
           )}
-          <Btn variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>{t("actions.clearSelection", null, "Clear")}</Btn>
         </div>
       )}
       {loading ? <div className="muted" style={{ padding: 24 }}>{t("actions.loading", null, "Loading…")}</div>
