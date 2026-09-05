@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Btn, Empty } from "../components/ui";
 import Icon from "../components/Icon";
@@ -14,16 +14,50 @@ const STATUS_STYLE = {
   cancelled: { bg: "var(--panel-inset)", fg: "var(--text-muted)" },
 };
 
-function StatusPill({ status, t }) {
-  const style = STATUS_STYLE[status] || STATUS_STYLE.closed;
-  const label = {
+function statusLabel(status, t) {
+  return {
     pending: t("invitations.statusPending", null, "Pending"),
     accepted: t("invitations.statusAccepted", null, "Accepted"),
     declined: t("invitations.statusDeclined", null, "Declined"),
     closed: t("invitations.statusClosed", null, "Closed"),
     cancelled: t("invitations.statusCancelled", null, "Cancelled"),
   }[status] || status;
-  return <span className="tag" style={{ background: style.bg, color: style.fg }}>{label}</span>;
+}
+
+function StatusPill({ status, t }) {
+  const style = STATUS_STYLE[status] || STATUS_STYLE.closed;
+  return <span className="tag" style={{ background: style.bg, color: style.fg }}>{statusLabel(status, t)}</span>;
+}
+
+// Collapsed-row summary for a validator with multiple invitations — a single
+// pill would have to pick one status and hide the rest, which is actively
+// misleading when (e.g.) one invite is still Pending and another Declined.
+const STATUS_ORDER = ["pending", "accepted", "declined", "closed", "cancelled"];
+function statusSummary(items, t) {
+  const counts = {};
+  for (const inv of items) counts[inv.status] = (counts[inv.status] || 0) + 1;
+  return STATUS_ORDER.filter(s => counts[s]).map(s => `${counts[s]} ${statusLabel(s, t)}`).join(" · ");
+}
+
+// Grouping by validator so the same person invited to five missions shows up
+// once, not as five rows repeating their name/avatar. Groups with at least
+// one still-Pending invite float to the top — those are the ones that might
+// still need action (a Withdraw), unlike a validator who's fully
+// Declined/Cancelled everywhere.
+function groupInvitations(invitations) {
+  const map = new Map();
+  for (const inv of invitations) {
+    const key = inv.validator.id;
+    if (!map.has(key)) map.set(key, { validator: inv.validator, items: [] });
+    map.get(key).items.push(inv);
+  }
+  const groups = [...map.values()];
+  groups.sort((a, b) => {
+    const aPending = a.items.some(i => i.status === "pending");
+    const bPending = b.items.some(i => i.status === "pending");
+    return aPending === bPending ? 0 : aPending ? -1 : 1;
+  });
+  return groups;
 }
 
 export default function Invitations() {
@@ -32,6 +66,13 @@ export default function Invitations() {
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
+  const [expanded, setExpanded] = useState(new Set());
+
+  const toggleExpand = (validatorId) => setExpanded(prev => {
+    const next = new Set(prev);
+    if (next.has(validatorId)) next.delete(validatorId); else next.add(validatorId);
+    return next;
+  });
 
   useEffect(() => {
     api.missionInvitations()
@@ -81,31 +122,75 @@ export default function Invitations() {
               </tr>
             </thead>
             <tbody>
-              {invitations.map(inv => (
-                <tr key={inv.id}>
-                  <td>
-                    <div className="t-name">
-                      <Avatar name={inv.validator.name} size={32} />
-                      <div>
-                        <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-                          {inv.validator.name}
-                          {inv.isWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
+              {groupInvitations(invitations).map(g => {
+                const hasWaitlist = g.items.some(i => i.isWaitlist);
+                if (g.items.length === 1) {
+                  const inv = g.items[0];
+                  return (
+                    <tr key={inv.id}>
+                      <td>
+                        <div className="t-name">
+                          <Avatar name={inv.validator.name} size={32} />
+                          <div>
+                            <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                              {inv.validator.name}
+                              {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
+                            </div>
+                            <div className="t-sub">{inv.validator.city}</div>
+                          </div>
                         </div>
-                        <div className="t-sub">{inv.validator.city}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
-                  <td><StatusPill status={inv.status} t={t} /></td>
-                  <td>
-                    {inv.status === "pending" && (
-                      <Btn variant="ghost" size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)}>
-                        {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
-                      </Btn>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                      </td>
+                      <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
+                      <td><StatusPill status={inv.status} t={t} /></td>
+                      <td>
+                        {inv.status === "pending" && (
+                          <Btn variant="ghost" size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)}>
+                            {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
+                          </Btn>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                }
+                const isOpen = expanded.has(g.validator.id);
+                return (
+                  <Fragment key={g.validator.id}>
+                    <tr className="click" onClick={() => toggleExpand(g.validator.id)}>
+                      <td>
+                        <div className="t-name">
+                          <Avatar name={g.validator.name} size={32} />
+                          <div>
+                            <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                              {g.validator.name}
+                              <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{g.items.length}</span>
+                              {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
+                              <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={14} style={{ color: "var(--text-muted)" }} />
+                            </div>
+                            <div className="t-sub">{g.validator.city}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{t("invitations.missionsCount", { n: g.items.length }, `${g.items.length} missions`)}</td>
+                      <td className="muted" style={{ fontSize: 13 }}>{statusSummary(g.items, t)}</td>
+                      <td></td>
+                    </tr>
+                    {isOpen && g.items.map(inv => (
+                      <tr key={inv.id} style={{ background: "var(--panel-inset)" }}>
+                        <td></td>
+                        <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
+                        <td><StatusPill status={inv.status} t={t} /></td>
+                        <td>
+                          {inv.status === "pending" && (
+                            <Btn variant="ghost" size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)}>
+                              {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
+                            </Btn>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

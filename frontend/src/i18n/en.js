@@ -2160,6 +2160,7 @@ const en = {
     statusCol: "Status",
     waitlistTitle: "Invited from Waitlist",
     uninvite: "Withdraw",
+    missionsCount: "{{n}} missions",
   },
   messages: {
     selectConversation: "Select a conversation",
