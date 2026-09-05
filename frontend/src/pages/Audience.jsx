@@ -330,6 +330,11 @@ export default function AudienceExplorer() {
   };
 
   const verifiedPct = members.length ? Math.round((members.filter(a => a.verified).length / members.length) * 100) : 0;
+  // Averaged over the currently matching set (results), same cohort the
+  // "Matching members" card counts — previously a hardcoded "88" with no
+  // relationship to who's actually in the pool.
+  const avgTrust = results.length ? Math.round(results.reduce((s, m) => s + (m.trust || 0), 0) / results.length) : 0;
+  const activeThisWeekPct = results.length ? Math.round((results.filter(m => m.activeThisWeek).length / results.length) * 100) : 0;
 
   return (
     <div className="page rise">
@@ -358,8 +363,8 @@ export default function AudienceExplorer() {
       <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
         <KpiCard label={t("audience.matchingMembers", null, "Matching members")} value={results.length} icon="users" />
         <KpiCard label={t("audience.verified", null, "Verified")} value={verifiedPct} unit="%" icon="shield" tone="green" />
-        <KpiCard label={t("audience.avgTrustScore", null, "Avg trust score")} value="88" icon="award" />
-        <KpiCard label={t("audience.activeThisWeek", null, "Active this week")} value="71%" icon="bolt" tone="amber" />
+        <KpiCard label={t("audience.avgTrustScore", null, "Avg trust score")} value={avgTrust} icon="award" />
+        <KpiCard label={t("audience.activeThisWeek", null, "Active this week")} value={activeThisWeekPct} unit="%" icon="bolt" tone="amber" />
       </div>
 
       <div className="aud">

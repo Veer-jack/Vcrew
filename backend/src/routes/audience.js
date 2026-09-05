@@ -78,7 +78,12 @@ router.get("/", async (req, res) => {
 
     // Calculate a dynamic match percentage based on profile completeness and rating
     const completeness = (v.location ? 20 : 0) + (v.bio ? 20 : 0) + (expertise.length > 0 ? 30 : 0) + (v.verified ? 30 : 0);
-    const match_pct = Math.min(100, 50 + completeness); 
+    const match_pct = Math.min(100, 50 + completeness);
+
+    // Same last_active_date the mission-workspace streak logic already stamps
+    // on every real action (see vmissions.js) — reused here instead of a new
+    // field so "active this week" means the same thing everywhere it's shown.
+    const activeThisWeek = !!(v.last_active_date && (Date.now() - new Date(v.last_active_date).getTime()) <= 7 * 24 * 60 * 60 * 1000);
 
     return {
       id: v.id, 
@@ -97,6 +102,7 @@ router.get("/", async (req, res) => {
       marital: v.marital_status,
       has_kids: v.has_kids,
       profileCompletion: v.profile_completion || 60,
+      activeThisWeek,
       invitedStatus: invitedMap[v.id] || null,
     };
   });
