@@ -92,37 +92,29 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   ref={el => { if (el) el.indeterminate = !allSelected && rows.some(m => selectedIds?.has(m.id)); }} />
               </th>
             )}
-            {/* Checkbox/Mission/Type/Created/Delete all get a fixed width
-                that's identical no matter which tab is showing — table-
-                layout: fixed distributes proportionally to the *sum* of
-                every column's declared width, so as long as that sum is the
-                same 1136px "budget" on every tab (540px split across
-                whichever trailing columns that tab actually needs), these
-                leading columns land at the exact same rendered position on
-                every tab, not just the same declared px value. Created/
-                Deadline/Completed Date/Closed Date are all sized to fit
-                both their header label and a real value like "6 Sept 2026"
-                on one line without wrapping. */}
+            {/* Checkbox/Mission/Type/Created/Delete all get the same fixed
+                width regardless of tab, so they land at the exact same
+                rendered position everywhere — this only works because the
+                table itself doesn't stretch to fill its container (see
+                .missions-tbl-wrap .tbl in builder.css); table-layout: fixed
+                otherwise distributes any leftover container width
+                proportionally across every column, including these, which
+                used to make them visibly wider on tabs with fewer/narrower
+                trailing columns (Draft) than on ones with more (Active).
+                No need to chase a matching total width per tab anymore —
+                each column just gets whatever it actually needs. */}
             <th style={thStyle(180, "left")}>{t("missions.missionCol", null, "Mission")}</th>
             <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
             {isAll && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
             <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>
             {isAll && <th style={thStyle(190, "center")}>{t("missions.deadlineCol", null, "Deadline")}</th>}
             {isAll && <th style={thStyle(210, "center")}>{t("missions.completedDateCol", null, "Completed Date")}</th>}
-            {/* Non-Draft branches sum to the same 540px trailing budget as
-                "All"'s Status+Deadline+CompletedDate — 4 columns when
-                there's a date column (Active/Closed/Completed), 3 when
-                there isn't but Completion still applies (Archived). Draft
-                doesn't try to match that budget — inflating its 2 remaining
-                columns to fill the same 540px just left a wide empty gap in
-                each and pushed Delete out past the fold; plain natural
-                widths instead, same as the dateCol case uses. */}
             {!isAll && dateCol && <th style={thStyle(160, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
             {!isAll && (
               <>
-                <th style={thStyle(dateCol || hideCompletion ? 150 : 200, "center")}>{t("metrics.participants", null, "Participants")}</th>
-                <th style={thStyle(dateCol || hideCompletion ? 90 : 140, "center")}>{t("metrics.reward", null, "Reward")}</th>
-                {!hideCompletion && <th style={thStyle(dateCol ? 140 : 200, "center")}>{t("metrics.completion", null, "Completion")}</th>}
+                <th style={thStyle(150, "center")}>{t("metrics.participants", null, "Participants")}</th>
+                <th style={thStyle(100, "center")}>{t("metrics.reward", null, "Reward")}</th>
+                {!hideCompletion && <th style={thStyle(150, "center")}>{t("metrics.completion", null, "Completion")}</th>}
               </>
             )}
             {onDelete && <th style={thStyle(32, "center", { padding: "13px 8px" })}></th>}

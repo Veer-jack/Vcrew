@@ -129,6 +129,17 @@ html[data-direction="signal"] .feed-ic.accent { color: var(--accent-2); }
    functional (trackpad, shift+wheel) while just not drawing the bar. */
 .missions-tbl-wrap { scrollbar-width: none; -ms-overflow-style: none; }
 .missions-tbl-wrap::-webkit-scrollbar { display: none; }
+/* Only this table needs its declared per-column widths to mean the same
+   thing on every tab (Mission/Type/Created pinned to one spot regardless of
+   which trailing columns a given tab shows). The shared .tbl below is
+   width:100%, and table-layout:fixed distributes any leftover container
+   width proportionally across every column when the declared widths add up
+   to less than that -- stretching even the shared leading columns wider
+   whenever a tab happens to have fewer/narrower trailing ones (Draft) than
+   another (Active). Overriding to width:auto here means the table is
+   always exactly the sum of its own declared column widths, so nothing
+   stretches; any leftover space just stays blank to the right. */
+.missions-tbl-wrap .tbl { width: auto; }
 .tbl { width: 100%; border-collapse: collapse; }
 .tbl thead th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-faint); padding: 12px 16px; border-bottom: var(--hairline) solid var(--border); white-space: nowrap; }
