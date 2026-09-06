@@ -461,7 +461,12 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .asplit-stat span { font-size: 11px; color: var(--text-faint); }
 .asplit-proof { margin-top: 18px; font-size: 11.5px; color: var(--text-faint); }
 
-.asplit-form-col { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+/* align-items: flex-start (not center) so the form always starts at the
+   same fixed offset from the top -- Sign in (fewer fields) and Create
+   account (more fields) are different heights, and centering each one
+   independently in the same fixed-height column made Sign in visibly
+   start lower than Create account when switching tabs. */
+.asplit-form-col { display: flex; align-items: flex-start; justify-content: center; padding: 64px 24px 40px; }
 .asplit-form { width: 100%; max-width: 420px; }
 .asplit-tabs { display: flex; border: var(--hairline) solid var(--border); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 24px; }
 .asplit-tabs button {
