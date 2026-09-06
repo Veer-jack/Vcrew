@@ -1738,7 +1738,10 @@ export default function MissionDetail() {
   return (
     <div className="page rise">
       <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
-      <div className="crumbs"><a onClick={() => navigate("/missions")} style={{ cursor: "pointer" }}>{t("missionDetail.missionsLink", null, "Missions")}</a><Icon name="chevronRight" size={13} /><span>{mission.name}</span></div>
+      {/* Falls back to the plain (All-tab) list when this mission wasn't
+          opened from a specific status tab at all — e.g. a Dashboard widget
+          or notification link — where there's no originating tab to honor. */}
+      <div className="crumbs"><a onClick={() => navigate(location.state?.fromTab ? `/missions?tab=${location.state.fromTab}` : "/missions")} style={{ cursor: "pointer" }}>{t("missionDetail.missionsLink", null, "Missions")}</a><Icon name="chevronRight" size={13} /><span>{mission.name}</span></div>
       <div className="ph" style={{ marginBottom: 18 }}>
         <div className="row gap-3" style={{ alignItems: "flex-start" }}>
           <MissionLogo name={mission.name} cat={mission.category} size={54} />
@@ -1875,11 +1878,11 @@ export default function MissionDetail() {
               <p style={{ margin: "0 0 14px", fontSize: 14 }}>{copy.body}</p>
               <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
                 <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }}
-                  disabled={changingStatus} onClick={() => handleStatusChange(pendingStatus)}>
-                  {changingStatus ? t("actions.saving", null, "Saving…") : copy.confirmLabel}
-                </button>
-                <button className="btn btn-primary" disabled={changingStatus} onClick={() => setPendingStatus(null)}>
+                  disabled={changingStatus} onClick={() => setPendingStatus(null)}>
                   {t("actions.cancel", null, "Cancel")}
+                </button>
+                <button className="btn btn-primary" disabled={changingStatus} onClick={() => handleStatusChange(pendingStatus)}>
+                  {changingStatus ? t("actions.saving", null, "Saving…") : copy.confirmLabel}
                 </button>
               </div>
             </div>

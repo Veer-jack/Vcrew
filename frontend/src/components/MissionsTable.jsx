@@ -132,8 +132,11 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
               // list" apart from "landed here via Create Mission / the
               // banner" — same URL either way, so this rides along on the
               // navigation itself (browser history state) rather than the
-              // URL. See CreateMissionWizard's exit-warning modal.
-              m.status === "draft" ? { state: { fromDraftList: true } } : undefined
+              // URL. See CreateMissionWizard's exit-warning modal. For a
+              // non-draft row, carries which tab this list was on so the
+              // mission detail page's "Missions" breadcrumb can return here
+              // instead of always landing back on the default All tab.
+              m.status === "draft" ? { state: { fromDraftList: true } } : { state: { fromTab: tab } }
             )}>
               {onToggleSelect && (
                 <td onClick={e => e.stopPropagation()} style={cx("center")}>
