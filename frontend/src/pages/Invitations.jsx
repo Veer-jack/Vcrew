@@ -98,7 +98,6 @@ export default function Invitations() {
     <div className="page rise">
       <div className="ph">
         <div>
-          <span className="eyebrow">{t("invitations.eyebrow", null, "Outreach")}</span>
           <h1>{t("invitations.title", null, "Invitations")}</h1>
           <p className="lead">{t("invitations.lead", null, "Everyone you've invited to a mission, and whether they've responded.")}</p>
         </div>

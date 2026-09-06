@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS missions (
   flagged_at TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,
   closed_at TIMESTAMPTZ,
+  archived_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ
 );
 

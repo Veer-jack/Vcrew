@@ -366,7 +366,6 @@ export default function Dashboard() {
       <MissionDraftBanner builder={builder} nav={navigate} />
       <div className="ph">
         <div>
-          <span className="eyebrow">{t("dashboard.builderWorkspace", null, "Builder workspace")}</span>
           <h1>{t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
           <p className="lead">{t("dashboard.howMissionsTracking", { org: builder?.org }, `Here's how ${builder?.org || ""}'s validation missions are tracking today.`)}</p>
         </div>

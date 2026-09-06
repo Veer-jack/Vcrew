@@ -187,7 +187,7 @@ export default function Wallet() {
   return (
     <div className="page rise">
       <div className="ph">
-        <div><span className="eyebrow">{t("wallet.walletAndBilling", null, "Wallet & billing")}</span><h1>{t("wallet.title", null, "Wallet")}</h1><p className="lead">{t("wallet.lead", { org: builder?.org }, `Top up, track mission spend and manage how ${builder?.org} pays.`)}</p></div>
+        <div><h1>{t("wallet.title", null, "Wallet")}</h1><p className="lead">{t("wallet.lead", { org: builder?.org }, `Top up, track mission spend and manage how ${builder?.org} pays.`)}</p></div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="ghost" icon="download" onClick={exportStatement}>{t("actions.statement", null, "Statement")}</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>{t("actions.addFunds", null, "Add funds")}</Btn></div>
       </div>
 

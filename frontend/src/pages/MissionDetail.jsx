@@ -59,6 +59,9 @@ function toLocalDatetimeString(d) {
 function nowLocalDatetimeString() {
   return toLocalDatetimeString(new Date());
 }
+function fmtShortDate(d) {
+  return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
 
 // Native date/datetime-local inputs only open the picker when you click the
 // small calendar glyph — clicking the text itself just places a cursor for
@@ -383,9 +386,11 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
 
   return (
     <div>
-      <div className="row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>
-        <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
-      </div>
+      {mission.status === "active" && (
+        <div className="row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>
+          <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
+        </div>
+      )}
       <div className="kanban">
         {STAGES.filter(st => st.id !== "rejected").map(st => {
           // A validator auto-failed for missing check-ins gets stage 'failed',
@@ -910,7 +915,7 @@ function MissionAudienceTab({ audience, onEdit }) {
     <div className="split rise">
       <div className="col gap-5">
         <div className="card" style={{ padding: 20 }}>
-          <div className="sec-head"><h3 className="h-md">{t("missionDetail.audienceDef", null, "Audience definition")}</h3><Btn variant="ghost" size="sm" icon="edit" onClick={onEdit}>{t("actions.edit", null, "Edit")}</Btn></div>
+          <div className="sec-head"><h3 className="h-md">{t("missionDetail.audienceDef", null, "Audience definition")}</h3>{onEdit && <Btn variant="ghost" size="sm" icon="edit" onClick={onEdit}>{t("actions.edit", null, "Edit")}</Btn>}</div>
           {audience.defn.length === 0
             ? <p className="muted" style={{ margin: "6px 0 0", fontSize: 14 }}>{t("missionDetail.noAudienceFilters", null, "No audience filters were set")} {t("missionDetail.openToAllEligibleNote", null, "for this mission — it's open to all eligible members.")}</p>
             : (
@@ -1739,12 +1744,17 @@ export default function MissionDetail() {
           <MissionLogo name={mission.name} cat={mission.category} size={54} />
           <div>
             <div className="row gap-2 wrap" style={{ marginBottom: 7 }}><h1 style={{ fontSize: 23, margin: 0 }}>{mission.name}</h1><StatusTag status={mission.status} /></div>
-            <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {t("missionDetail.closes", null, "Closes")} {mission.deadline ? new Date(mission.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : t("missionDetail.closesSoon", null, "Soon")}</span></div>
+            <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {mission.status === "completed" && mission.completedAt
+              ? `${t("missionDetail.completedOn", null, "Completed on")} ${fmtShortDate(mission.completedAt)}`
+              : mission.status === "archived" && mission.archivedAt
+              ? `${t("missionDetail.archivedOn", null, "Archived on")} ${fmtShortDate(mission.archivedAt)}`
+              : `${t("missionDetail.closes", null, "Closes")} ${mission.deadline ? fmtShortDate(mission.deadline) : t("missionDetail.closesSoon", null, "Soon")}`
+            }</span></div>
           </div>
         </div>
         <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
           <UpdatingBadge show={refetching} />
-          <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>
+          {mission.status !== "archived" && <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>}
           {/* Archived is terminal with no further action offered anywhere
               else on this page -- Export is the only thing the More menu
               would ever contain for it (Complete/Close only apply to
@@ -1833,7 +1843,7 @@ export default function MissionDetail() {
       <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} ptypes={ptypes} />}
-      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => navigate(`/missions/${id}/edit?step=3`)} />}
+      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={mission.status === "archived" ? null : () => navigate(`/missions/${id}/edit?step=3`)} />}
       {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
       {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} setParticipants={setParticipants} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}

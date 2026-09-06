@@ -644,7 +644,6 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   .app.mob-open .side { transform: none; }
   .app.mob-open .mob-scrim { display: block; position: fixed; inset: 0; z-index: 70; background: rgba(8,10,18,.4); backdrop-filter: blur(2px); animation: fade .2s ease; }
   .mob-burger { display: inline-grid; }
-  .topbar h1 { font-size: 18px; }
   .topbar .search { display: none; }
   .topbar .tabs[title="Design direction"] { display: none; }
   .page { padding: 22px 18px 60px; }

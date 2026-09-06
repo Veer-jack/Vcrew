@@ -141,6 +141,9 @@ export async function initDb() {
     // Same idea as completed_at, for when status actually becomes 'closed' --
     // powers the Missions Closed tab's Closed Date column.
     if (!mCols.includes('closed_at')) await client.query('ALTER TABLE missions ADD COLUMN closed_at TIMESTAMPTZ');
+    // Same idea, for when status actually becomes 'archived' -- powers the
+    // mission detail header's "Archived on" date.
+    if (!mCols.includes('archived_at')) await client.query('ALTER TABLE missions ADD COLUMN archived_at TIMESTAMPTZ');
     // Set on every real PATCH /:id edit (see that handler) -- powers the
     // Missions Draft tab's Last Edited column, distinct from created_at
     // (when the draft was first started, not when it was last worked on).

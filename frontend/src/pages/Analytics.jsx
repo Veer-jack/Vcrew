@@ -56,7 +56,7 @@ export default function Analytics() {
   return (
     <div className="page rise">
       <div className="ph">
-        <div><span className="eyebrow">{t("analytics.reports", null, "Reports")}</span><h1>{t("analytics.title", null, "Analytics & Reports")}</h1><p className="lead">{t("analytics.lead", null, "Aggregate insight across every mission you've run.")}</p></div>
+        <div><h1>{t("analytics.title", null, "Analytics & Reports")}</h1><p className="lead">{t("analytics.lead", null, "Aggregate insight across every mission you've run.")}</p></div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}>
           <UpdatingBadge show={refetching} />
           <Btn variant="ghost" size="sm" icon="fileText" onClick={exportPDF}>{t("actions.pdf", null, "PDF")}</Btn>

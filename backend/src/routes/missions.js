@@ -145,6 +145,7 @@ function serializeMission(m, canFullyEdit) {
     deadline: m.deadline,
     completedAt: m.completed_at || null,
     closedAt: m.closed_at || null,
+    archivedAt: m.archived_at || null,
     updatedAt: m.updated_at || null,
     audience: JSON.parse(m.audience_json || "{}"),
     tasks: JSON.parse(m.tasks_json || "[]"),
@@ -571,6 +572,10 @@ router.post("/", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) return res.status(404).json({ error: "Mission not found" });
+  // Archived is a terminal state with no unarchive path anywhere in the UI --
+  // block every further write here (not just the ones the UI currently hides
+  // buttons for) so a direct request can't edit a mission the UI shows as read-only.
+  if (m.status === "archived") return res.status(400).json({ error: "This mission is archived and can no longer be edited." });
 
   const newStatus = req.body.status !== undefined ? req.body.status : m.status;
   const newTarget = req.body.target !== undefined ? Number(req.body.target) : m.target;
@@ -746,6 +751,10 @@ router.patch("/:id", async (req, res) => {
       // Same idea, for the Missions Closed tab's Closed Date column.
       if (newStatus === "closed" && m.status !== "closed") {
         updates.push(`closed_at = NOW()`);
+      }
+      // Same idea, for the mission detail header's "Archived on" date.
+      if (newStatus === "archived" && m.status !== "archived") {
+        updates.push(`archived_at = NOW()`);
       }
 
       if (!updates.length) throw new Error("No valid fields to update");
@@ -1742,6 +1751,7 @@ router.post("/bulk-delete", authMiddleware, async (req, res) => {
 router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
   const mission = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
+  if (mission.status !== "active") return res.status(400).json({ error: "Invites can only be sent while a mission is active." });
 
   const validator = await db.prepare(`SELECT id, name, email, city, rating FROM validators WHERE id = ?`).get(req.params.validatorId);
   if (!validator) return res.status(404).json({ error: "Validator not found" });

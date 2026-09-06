@@ -90,17 +90,6 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
   );
 }
 
-const TITLES = {
-  "/": "Dashboard", "/missions": "Missions", "/audience": "Audience Explorer",
-  "/analytics": "Analytics", "/wallet": "Wallet", "/messages": "Messages",
-};
-function pageTitle(pathname) {
-  if (TITLES[pathname]) return TITLES[pathname];
-  if (pathname.startsWith("/missions/new")) return "Create Mission";
-  if (pathname.startsWith("/missions/")) return "Mission";
-  return "ValidationCrew";
-}
-
 export default function AppLayout() {
   const { t, dataVersion } = useTranslation();
   const { builder, logout } = useAuth();
@@ -151,9 +140,8 @@ export default function AppLayout() {
       <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          <h1>{t("nav." + pageTitle(location.pathname).toLowerCase(), null, pageTitle(location.pathname))}</h1>
           {location.pathname !== "/audience" && (
-            <div className="search" style={{ marginLeft: 18 }}>
+            <div className="search">
               <Icon name="search" size={16} />
               <input
                 placeholder={t("actions.search", null, "Search missions…")}

@@ -178,13 +178,12 @@ export default function Support() {
     .filter(h => !q || (h.q + h.a + h.cat).toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="page" style={{ maxWidth: 880, margin: "0 auto" }}>
+    <div className="page rise">
       <div className="rise" style={{ marginBottom: 22 }}>
         <div className="row between" style={{ alignItems: "flex-start" }}>
-          <div className="eyebrow" style={{ marginBottom: 6 }}>{t("support.title", null, "Support")}</div>
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("support.helpCenter", null, "Help center")}</h2>
           <UpdatingBadge show={refetching} />
         </div>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("support.helpCenter", null, "Help center")}</h2>
         <p className="muted" style={{ margin: "6px 0 0", fontSize: 15 }}>{t("support.subtitle", null, "Find an answer fast, or raise a ticket and our team will get back within a few hours.")}</p>
       </div>
 

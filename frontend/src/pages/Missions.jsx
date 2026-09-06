@@ -210,7 +210,7 @@ export default function Missions() {
       )}
 
       <div className="ph">
-        <div><span className="eyebrow">{t("missions.eyebrow", null, "Mission management")}</span><h1>{t("missions.title", null, "Missions")}</h1><p className="lead">{t("missions.lead", null, "Every study you've run, in flight, or drafted.")}</p></div>
+        <div><h1>{t("missions.title", null, "Mission Management")}</h1><p className="lead">{t("missions.lead", null, "Every study you've run, in flight, or drafted.")}</p></div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn></div>
       </div>
       <div className="toolbar">

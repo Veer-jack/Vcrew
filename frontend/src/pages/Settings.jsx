@@ -149,7 +149,7 @@ export default function Settings() {
   return (
     <div className="page rise">
       <div className="ph">
-        <div><span className="eyebrow">{t("settings.account", null, "Account")}</span><h1>{t("settings.title", null, "Settings")}</h1><p className="lead">{t("settings.leadBuilder", null, "Manage your workspace, sign-in and security options.")}</p></div>
+        <div><h1>{t("settings.title", null, "Account Settings")}</h1><p className="lead">{t("settings.leadBuilder", null, "Manage your workspace, sign-in and security options.")}</p></div>
       </div>
 
       <div className="col gap-5" style={{ maxWidth: 640 }}>
