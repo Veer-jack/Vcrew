@@ -168,7 +168,9 @@ html[data-direction="mono"] .tabs { border-radius: 6px; }
 html[data-direction="mono"] .tabs button { border-radius: 4px; }
 .tabs button svg { width: 14px; height: 14px; }
 .tabs button .cnt { font-family: var(--mono); font-size: 11px; padding: 0 6px; border-radius: 20px; background: var(--panel); color: var(--text-faint); }
-.tabs button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow-sm); }
+.tabs button.on { background: var(--accent); color: var(--accent-text); box-shadow: var(--shadow-sm); }
+.tabs button.on .cnt { background: rgba(255,255,255,.25); color: var(--accent-text); }
+html[data-direction="signal"] .tabs button.on { background: var(--accent-2); }
 html[data-direction="mono"] .tabs button.on { background: var(--text); color: #fff; }
 html[data-direction="mono"] .tabs button.on .cnt { background: rgba(255,255,255,.2); color: #fff; }
 
