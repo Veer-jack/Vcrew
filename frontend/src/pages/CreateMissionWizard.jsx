@@ -334,16 +334,27 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
         // (Geography, Interests) — previously only grouped categories had the
         // wrapper, so flat ones looked like loose, unrelated sections by contrast.
         <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
-          {!Array.isArray(opts) && (
-            <div className="row between" style={{ marginBottom: 2 }}>
-              <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
-              {d.filters[g].size > 0 && (
-                <span className="cnt mono" style={{ color: "var(--accent)" }}>
-                  {t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
-                </span>
-              )}
-            </div>
-          )}
+          {!Array.isArray(opts) && (() => {
+            // The literal "Other" marker is a derived flag (kept in the Set
+            // only so existing payload/resume-draft logic elsewhere keeps
+            // working — see FilterGroup's saveOther), not a real selection.
+            // Unchecking a subgroup's only custom entry removes that value
+            // but leaves the marker behind, since it's shared across every
+            // sibling subgroup's own Other box — counting it here made the
+            // category header read "1 selected" with nothing actually
+            // checked anywhere underneath.
+            const realSelectedCount = [...d.filters[g]].filter(v => v !== "Other").length;
+            return (
+              <div className="row between" style={{ marginBottom: 2 }}>
+                <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
+                {realSelectedCount > 0 && (
+                  <span className="cnt mono" style={{ color: "var(--accent)" }}>
+                    {t("createMission.selectedCount", { count: realSelectedCount }, `${realSelectedCount} selected`)}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           {Array.isArray(opts) ? (() => {
             // A literal "Other" in the list gets its own trailing section
             // instead of sitting inline among the real options — it isn't a
