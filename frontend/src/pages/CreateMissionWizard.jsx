@@ -127,9 +127,13 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   const saveOther = () => {
     const v = draftOther.trim();
     if (!v) return;
-    // Case-insensitive — "India" and "india" are the same real-world value,
-    // and letting both through just shows the same thing selected twice.
-    if (savedOther.some(e => e.toLowerCase() === v.toLowerCase())) {
+    // Case-insensitive, and checked against this section's own real options
+    // too, not just past custom entries — "India"/"india" are the same
+    // real-world value, and so is typing "UK" here when UK is already a
+    // normal checkbox above it; either way the same thing would end up
+    // selected twice, once as a checkbox and once as a custom entry.
+    const vLower = v.toLowerCase();
+    if (savedOther.some(e => e.toLowerCase() === vLower) || realOptions.some(o => o.toLowerCase() === vLower)) {
       setDupOtherError(true);
       return;
     }
@@ -158,11 +162,13 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   // A checked custom entry is a real selection just like any predefined
   // option, so it counts toward this subgroup's total too.
   const ownSelectedCount = realOptions.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0) + savedOther.reduce((n, v) => n + (sel.has(v) ? 1 : 0), 0);
-  // A standalone "Other" section (no predefined options besides the
-  // trigger) has nothing else to bulk-select, so "Select all"/"Clear all"
-  // operates on its saved entries instead — same one control, same result
-  // the user gets from the other sections.
-  const bulkTargets = realOptions.length > 0 ? realOptions : savedOther;
+  // Includes this section's saved custom entries alongside its predefined
+  // options — a standalone "Other" section (no predefined options besides
+  // the trigger) naturally falls back to just its saved entries here, since
+  // realOptions is empty for it. Selecting/clearing everything for a
+  // category from its main "Select all" should also cover whatever's been
+  // typed into that category's own Other box, not just the checkboxes.
+  const bulkTargets = [...realOptions, ...savedOther];
   const allSelected = bulkTargets.length > 0 && bulkTargets.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
@@ -202,10 +208,23 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
           <div className="chips">
             {filtered.map(o => {
               const isTrigger = isGenericOther && o === otherValue;
-              const isOn = isTrigger ? showOtherInput : sel.has(o);
+              // The section this renders in is already titled "Other" — a
+              // chip that also just says "Other" and has to be clicked
+              // before the real input even appears was a redundant extra
+              // step. A "+ Add other" action says what it does and skips
+              // straight to the input; it hides once that input is open so
+              // it isn't sitting there doing nothing next to it.
+              if (isTrigger) {
+                if (showOtherInput) return null;
+                return (
+                  <button key={o} type="button" className="chip" style={{ borderStyle: "dashed" }} onClick={() => setOtherOpen(true)}>
+                    <Icon name="plus" size={12} style={{ marginRight: 4 }} />{t("createMission.addOtherTrigger", null, "Add other")}
+                  </button>
+                );
+              }
+              const isOn = sel.has(o);
               return (
-                <button key={o} className={`chip ${isOn ? "on" : ""}`}
-                  onClick={() => isTrigger ? setOtherOpen(v => !v) : toggle(title, o)}>
+                <button key={o} className={`chip ${isOn ? "on" : ""}`} onClick={() => toggle(title, o)}>
                   <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
                 </button>
               );
@@ -217,12 +236,6 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
                 query value leaked in from elsewhere. */}
             {filtered.length === 0 && options.length > 1 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
-          {/* This standalone trigger's own purpose isn't obvious from just
-              the word "Other" — say what clicking it actually does, once,
-              before it's opened. */}
-          {isGenericOther && options.length === 1 && !showOtherInput && (
-            <p className="fhint" style={{ marginTop: 6 }}>{t("createMission.otherSectionHint", null, "Not seeing what you need above? Click Other to type your own value.")}</p>
-          )}
           {showOtherInput && (
             <div style={{ marginTop: 10 }}>
               {savedOther.length > 0 && (
@@ -344,7 +357,12 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
             return (
               <>
                 <FilterGroup title={g} options={mainOpts} sel={d.filters[g]} toggle={toggle}
-                  onSelectAll={(o, catchAll) => selectAllInGroup(g, o, undefined, catchAll)}
+                  // Read-only here (no onOtherEntriesChange) — this doesn't
+                  // grow an "add other" UI of its own, it just lets this
+                  // group's own "Select all" / selected-count also account
+                  // for whatever's saved in the sibling Other section below.
+                  otherEntries={hasOther ? d.otherEntries?.[otherKey] : undefined}
+                  onSelectAll={(o, catchAll) => selectAllInGroup(g, o, hasOther ? otherKey : undefined, catchAll)}
                 />
                 {hasOther && (
                   <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
@@ -383,12 +401,20 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               const mainOpts = hasGenericOther ? subOpts.filter(o => o !== "Other") : subOpts;
               return (
                 <React.Fragment key={g + sub}>
-                  <FilterGroup title={sub} options={mainOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                    otherEntries={!hasGenericOther && otherKey ? d.otherEntries?.[otherKey] : undefined}
-                    onOtherEntriesChange={!hasGenericOther && otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
-                    otherValue={subOther || "Other"}
-                    onSelectAll={(so, catchAll) => selectAllInGroup(g, so, hasGenericOther ? undefined : otherKey, catchAll)}
-                  />
+                  {/* A subgroup made up of nothing but the literal "Other"
+                      marker (Geography's own "Other" region, whose entire
+                      option list is just ["Other"]) has zero real options
+                      left once that marker is filtered out — rendering it
+                      here too was showing an empty, pointless second "Other"
+                      section right next to the real one below. */}
+                  {mainOpts.length > 0 && (
+                    <FilterGroup title={sub} options={mainOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                      otherEntries={otherKey ? d.otherEntries?.[otherKey] : undefined}
+                      onOtherEntriesChange={!hasGenericOther && otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
+                      otherValue={subOther || "Other"}
+                      onSelectAll={(so, catchAll) => selectAllInGroup(g, so, otherKey, catchAll)}
+                    />
+                  )}
                   {hasGenericOther && (
                     <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                       otherEntries={d.otherEntries?.[otherKey]}
@@ -530,17 +556,6 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
           )}
         </div>
       </div>
-      {/* The Review step already had this exact breakdown (CostCard, below) —
-          it just wasn't also shown here, on the one step where the reward
-          amount is actually being typed in. The bottom bar's flat "₹X est."
-          total gives no sense of what it's made of (fee vs. the reward
-          itself), which read as an unexplained jump from "₹500 each" to a
-          different total number. */}
-      {d.reward.type && (
-        <div style={{ marginTop: 24, maxWidth: 360 }}>
-          <CostCard d={d} rewards={rewards} balance={builder?.balance} platformFeePct={platformFeePct} />
-        </div>
-      )}
     </div>
   );
 }

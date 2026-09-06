@@ -2005,7 +2005,7 @@ const en = {
     otherGeoPlaceholder: "e.g. Nepal, Sri Lanka…",
     otherGenericPlaceholder: "Add your own {{section}} value",
     otherDuplicateValue: "That value is already added.",
-    otherSectionHint: "Not seeing what you need above? Click Other to type your own value.",
+    addOtherTrigger: "Add other",
     confirmAudienceHint: "Confirm your audience selection to continue",
     noFiltersWarning: "Please select at least one filter to define your audience.",
     zeroMatchingWarning: "No matching audience found with your current filters. Try adjusting your filters or expanding the location to reach more people.",
