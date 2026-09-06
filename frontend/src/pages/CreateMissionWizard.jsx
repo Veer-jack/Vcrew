@@ -1326,17 +1326,30 @@ export default function CreateMissionWizard() {
   // Trade-off accepted knowingly: while expanded, the backend matches an
   // explicit place-name list instead of true "no restriction", which can
   // match slightly fewer validators than a bare Worldwide marker would.
-  const applyWorldwideTransition = (prevSet, naiveNext) => {
+  // Every custom place typed into any of Geography's own Other boxes —
+  // "Worldwide" means no restriction at all, which should cover a
+  // builder's own typed-in region just as much as the predefined list.
+  // These live in otherEntries (keyed "Geography:<subgroup>:<trigger>"),
+  // entirely separate from the static `filters` taxonomy flatOptions()
+  // reads, so Worldwide's cascade needs to pull them in explicitly.
+  const geoOtherValues = (otherEntries) => {
+    const out = [];
+    for (const [key, vals] of Object.entries(otherEntries || {})) {
+      if (key.startsWith(`${GEO_GROUP}:`)) out.push(...(vals || []));
+    }
+    return out;
+  };
+  const applyWorldwideTransition = (prevSet, naiveNext, otherEntries) => {
     const prevHasW = prevSet.has(WORLDWIDE);
     const nextHasW = naiveNext.has(WORLDWIDE);
-    if (!prevHasW && nextHasW) return { s: new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE]), snapshot: [...prevSet] };
+    if (!prevHasW && nextHasW) return { s: new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE, ...geoOtherValues(otherEntries)]), snapshot: [...prevSet] };
     if (prevHasW && !nextHasW) return { s: new Set(), snapshot: undefined, restore: true };
     return { s: naiveNext };
   };
   const toggle = (group, opt) => setD(p => {
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
     if (group !== GEO_GROUP) return { ...p, filters: { ...p.filters, [group]: s } };
-    const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s);
+    const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s, p.otherEntries);
     const finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
     return { ...p, filters: { ...p.filters, [GEO_GROUP]: finalSet }, geoBeforeWorldwide: restore ? null : (snapshot ?? p.geoBeforeWorldwide) };
   });
@@ -1363,7 +1376,7 @@ export default function CreateMissionWizard() {
     let geoBeforeWorldwide = p.geoBeforeWorldwide;
     let finalSet = s;
     if (group === GEO_GROUP) {
-      const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s);
+      const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s, p.otherEntries);
       finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
       geoBeforeWorldwide = restore ? null : (snapshot ?? p.geoBeforeWorldwide);
     }
