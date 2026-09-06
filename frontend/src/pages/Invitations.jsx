@@ -14,6 +14,10 @@ const STATUS_STYLE = {
   cancelled: { bg: "var(--panel-inset)", fg: "var(--text-muted)" },
 };
 
+function fmtDate(d) {
+  return d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+}
+
 function statusLabel(status, t) {
   return {
     pending: t("invitations.statusPending", null, "Pending"),
@@ -27,16 +31,6 @@ function statusLabel(status, t) {
 function StatusPill({ status, t }) {
   const style = STATUS_STYLE[status] || STATUS_STYLE.closed;
   return <span className="tag" style={{ background: style.bg, color: style.fg }}>{statusLabel(status, t)}</span>;
-}
-
-// Collapsed-row summary for a validator with multiple invitations — a single
-// pill would have to pick one status and hide the rest, which is actively
-// misleading when (e.g.) one invite is still Pending and another Declined.
-const STATUS_ORDER = ["pending", "accepted", "declined", "closed", "cancelled"];
-function statusSummary(items, t) {
-  const counts = {};
-  for (const inv of items) counts[inv.status] = (counts[inv.status] || 0) + 1;
-  return STATUS_ORDER.filter(s => counts[s]).map(s => `${counts[s]} ${statusLabel(s, t)}`).join(" · ");
 }
 
 // Grouping by validator so the same person invited to five missions shows up
@@ -116,8 +110,9 @@ export default function Invitations() {
               <tr>
                 <th>{t("invitations.memberCol", null, "Member")}</th>
                 <th>{t("invitations.missionCol", null, "Mission")}</th>
+                <th>{t("invitations.invitedOnCol", null, "Invited on")}</th>
                 <th>{t("invitations.statusCol", null, "Status")}</th>
-                <th style={{ width: 120 }}></th>
+                <th style={{ width: 120 }}>{t("invitations.actionCol", null, "Action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -140,13 +135,14 @@ export default function Invitations() {
                         </div>
                       </td>
                       <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
+                      <td className="muted" style={{ fontSize: 13 }}>{fmtDate(inv.createdAt)}</td>
                       <td><StatusPill status={inv.status} t={t} /></td>
                       <td>
-                        {inv.status === "pending" && (
-                          <Btn variant="ghost" size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)}>
+                        {inv.status === "pending" ? (
+                          <Btn size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)} style={{ background: "var(--accent)", color: "#fff" }}>
                             {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
                           </Btn>
-                        )}
+                        ) : <span className="faint">—</span>}
                       </td>
                     </tr>
                   );
@@ -161,7 +157,7 @@ export default function Invitations() {
                           <div>
                             <div className="row" style={{ gap: 6, alignItems: 'center' }}>
                               {g.validator.name}
-                              <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{g.items.length}</span>
+                              <span className="tag" title={g.items.map(i => i.mission.name).join("\n")} style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{g.items.length}</span>
                               {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
                               <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={14} style={{ color: "var(--text-muted)" }} />
                             </div>
@@ -169,21 +165,36 @@ export default function Invitations() {
                           </div>
                         </div>
                       </td>
-                      <td>{t("invitations.missionsCount", { n: g.items.length }, `${g.items.length} missions`)}</td>
-                      <td className="muted" style={{ fontSize: 13 }}>{statusSummary(g.items, t)}</td>
+                      {/* Blank once expanded -- the real per-invite mission/date/status
+                          is about to appear directly below, so a pre-aggregated
+                          summary here (a single ambiguous date, "N missions") would
+                          just be a second, less precise copy of the same info. */}
+                      <td></td>
+                      <td></td>
+                      <td></td>
                       <td></td>
                     </tr>
+                    {isOpen && (
+                      <tr style={{ background: "var(--panel-inset)" }}>
+                        <td></td>
+                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.missionCol", null, "Mission")}</td>
+                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.invitedOnCol", null, "Invited on")}</td>
+                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.statusCol", null, "Status")}</td>
+                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.actionCol", null, "Action")}</td>
+                      </tr>
+                    )}
                     {isOpen && g.items.map(inv => (
                       <tr key={inv.id} style={{ background: "var(--panel-inset)" }}>
                         <td></td>
                         <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
+                        <td className="muted" style={{ fontSize: 13 }}>{fmtDate(inv.createdAt)}</td>
                         <td><StatusPill status={inv.status} t={t} /></td>
                         <td>
-                          {inv.status === "pending" && (
-                            <Btn variant="ghost" size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)}>
+                          {inv.status === "pending" ? (
+                            <Btn size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)} style={{ background: "var(--accent)", color: "#fff" }}>
                               {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
                             </Btn>
-                          )}
+                          ) : <span className="faint">—</span>}
                         </td>
                       </tr>
                     ))}
