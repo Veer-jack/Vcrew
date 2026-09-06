@@ -63,6 +63,7 @@ export default function Missions() {
   // applies on top of whichever tab is active rather than replacing it.
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [typeSearch, setTypeSearch] = useState("");
   const toggleCategory = (id) => setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
   useEffect(() => {
@@ -228,29 +229,39 @@ export default function Missions() {
           </button>
           {filterOpen && (
             <>
-              <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setFilterOpen(false)} />
+              <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => { setFilterOpen(false); setTypeSearch(""); }} />
               <div role="menu" style={{
-                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50, width: 240,
+                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50, width: 260,
                 background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
-                boxShadow: "var(--shadow-md)", padding: "12px 14px",
+                boxShadow: "var(--shadow-md)", padding: "14px",
               }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 8 }}>
-                  {t("missions.filterType", null, "Type")}
+                <div className="row" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{t("missions.filterType", null, "Filter by Type")}</div>
+                  {selectedCategories.length > 0 && (
+                    <button style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12.5, fontWeight: 700, color: "var(--accent)" }}
+                      onClick={() => setSelectedCategories([])}>
+                      {t("actions.clearAll", null, "Clear all")}
+                    </button>
+                  )}
                 </div>
-                <div className="col gap-1" style={{ marginBottom: 14 }}>
-                  {categories.map(c => (
-                    <label key={c.id} className="menu-item" style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 8px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5, fontWeight: selectedCategories.includes(c.id) ? 700 : 500, color: selectedCategories.includes(c.id) ? "var(--accent)" : "var(--text)" }}>
-                      <input type="checkbox" checked={selectedCategories.includes(c.id)} onChange={() => toggleCategory(c.id)} style={{ cursor: "pointer" }} />
-                      {categoryLabel(t, c)}
-                    </label>
-                  ))}
+                <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>{t("missions.filterTypeHint", null, "Select one or more types")}</div>
+                <div className="row" style={{ alignItems: "center", gap: 8, padding: "7px 10px", marginBottom: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)" }}>
+                  <Icon name="search" size={14} style={{ color: "var(--text-faint)", flex: "none" }} />
+                  <input value={typeSearch} onChange={e => setTypeSearch(e.target.value)} placeholder={t("missions.searchTypes", null, "Search types…")}
+                    style={{ flex: 1, border: "none", outline: "none", background: "none", fontSize: 13, color: "var(--text)" }} />
                 </div>
-                {selectedCategories.length > 0 && (
-                  <button className="menu-item" style={{ width: "100%", padding: "7px 8px", background: "none", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", textAlign: "left", fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}
-                    onClick={() => setSelectedCategories([])}>
-                    {t("actions.resetFilters", null, "Reset filters")}
-                  </button>
-                )}
+                <div className="col gap-1 scroll-hover" style={{ maxHeight: 280, overflowY: "auto" }}>
+                  {categories.filter(c => categoryLabel(t, c).toLowerCase().includes(typeSearch.toLowerCase())).map(c => {
+                    const on = selectedCategories.includes(c.id);
+                    return (
+                      <label key={c.id} className="menu-item" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "8px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}>
+                        <input type="checkbox" checked={on} onChange={() => toggleCategory(c.id)} style={{ cursor: "pointer" }} />
+                        <Icon name={c.icon} size={15} style={{ flex: "none", color: on ? "var(--accent)" : "var(--text-faint)" }} />
+                        {categoryLabel(t, c)}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             </>
           )}
