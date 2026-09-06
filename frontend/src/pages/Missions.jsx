@@ -7,6 +7,7 @@ import MissionsTable, { DELETABLE_STATUSES } from "../components/MissionsTable";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { categoryLabel } from "../bi18n";
 import { useAuth } from "../context/AuthContext";
 import { getRecentDraftId, hasResumableDraft, clearAllLocalDraftState } from "../utils/missionDraft";
 import { exportCSV } from "../exportUtils";
@@ -62,6 +63,7 @@ export default function Missions() {
   // applies on top of whichever tab is active rather than replacing it.
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const toggleCategory = (id) => setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
   useEffect(() => {
     const t = setTimeout(() => { setVisibleCount(20); setSelectedIds(new Set()); }, 0);
@@ -233,16 +235,22 @@ export default function Missions() {
                 boxShadow: "var(--shadow-md)", padding: "12px 14px",
               }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)", marginBottom: 8 }}>
-                  {t("missions.filterStatus", null, "Status")}
+                  {t("missions.filterType", null, "Type")}
                 </div>
                 <div className="col gap-1" style={{ marginBottom: 14 }}>
-                  {TABS.map(tb => (
-                    <button key={tb.k} className="menu-item" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "7px 8px", background: "none", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", textAlign: "left", fontSize: 13.5, fontFamily: "inherit", fontWeight: tab === tb.k ? 700 : 500, color: tab === tb.k ? "var(--accent)" : "var(--text)" }}
-                      onClick={() => { selectTab(tb.k); setFilterOpen(false); }}>
-                      {tb.l}<span className="cnt">{counts[tb.k] ?? "·"}</span>
-                    </button>
+                  {categories.map(c => (
+                    <label key={c.id} className="menu-item" style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 8px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5, fontWeight: selectedCategories.includes(c.id) ? 700 : 500, color: selectedCategories.includes(c.id) ? "var(--accent)" : "var(--text)" }}>
+                      <input type="checkbox" checked={selectedCategories.includes(c.id)} onChange={() => toggleCategory(c.id)} style={{ cursor: "pointer" }} />
+                      {categoryLabel(t, c)}
+                    </label>
                   ))}
                 </div>
+                {selectedCategories.length > 0 && (
+                  <button className="menu-item" style={{ width: "100%", padding: "7px 8px", background: "none", border: "none", cursor: "pointer", borderRadius: "var(--radius-sm)", textAlign: "left", fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)" }}
+                    onClick={() => setSelectedCategories([])}>
+                    {t("actions.resetFilters", null, "Reset filters")}
+                  </button>
+                )}
               </div>
             </>
           )}
