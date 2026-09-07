@@ -219,7 +219,7 @@ const en = {
     goToDashboard: "Go to my dashboard",
     goBack: "Go back",
     startOver: "Start over",
-    skipForNow: "Skip for now",
+    skipForNow: "Skip",
     creatingAccount: "Creating account…",
     createWorkspace: "Create my workspace",
     continueAsRole: "Continue as {{role}}",

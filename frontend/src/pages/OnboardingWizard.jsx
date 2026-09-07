@@ -49,10 +49,10 @@ function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, on
       <div className="wz-rail-foot">
         <button className="backlink" onClick={onStartFresh} style={{ marginLeft: 8 }}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
         {current === 0 ? (
-          <button className="btn" onClick={onSkip} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
+          <button className="btn" onClick={onSkip} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
         ) : (
           <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-            <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
+            <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
             <button className="btn" onClick={onBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
           </div>
         )}
@@ -340,7 +340,7 @@ export default function OnboardingWizard() {
               mission wizard's own mobile behavior (Start fresh is
               rail-exclusive there too; Cancel/Back stay reachable). */}
           <div className="wiz-mob-nav">
-            <button className="btn" onClick={handleSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
+            <button className="btn" onClick={handleSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
             {step > 0 && <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>}
           </div>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
