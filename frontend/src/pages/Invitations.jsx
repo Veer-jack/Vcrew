@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Btn, Empty } from "../components/ui";
 import Icon from "../components/Icon";
@@ -30,7 +30,12 @@ function statusLabel(status, t) {
 
 function StatusPill({ status, t }) {
   const style = STATUS_STYLE[status] || STATUS_STYLE.closed;
-  return <span className="tag" style={{ background: style.bg, color: style.fg }}>{statusLabel(status, t)}</span>;
+  return (
+    <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: style.bg, color: style.fg }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
+      {statusLabel(status, t)}
+    </span>
+  );
 }
 
 // Grouping by validator so the same person invited to five missions shows up
@@ -104,105 +109,71 @@ export default function Invitations() {
           {t("invitations.emptyBody", null, "Invite validators to a mission from the Audience tab or a mission's participant panel.")}
         </Empty>
       ) : (
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>{t("invitations.memberCol", null, "Member")}</th>
-                <th>{t("invitations.missionCol", null, "Mission")}</th>
-                <th>{t("invitations.invitedOnCol", null, "Invited on")}</th>
-                <th>{t("invitations.statusCol", null, "Status")}</th>
-                <th style={{ width: 120 }}>{t("invitations.actionCol", null, "Action")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groupInvitations(invitations).map(g => {
-                const hasWaitlist = g.items.some(i => i.isWaitlist);
-                if (g.items.length === 1) {
-                  const inv = g.items[0];
-                  return (
-                    <tr key={inv.id}>
-                      <td>
-                        <div className="t-name">
-                          <Avatar name={inv.validator.name} size={32} />
-                          <div>
-                            <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-                              {inv.validator.name}
-                              {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
-                            </div>
-                            <div className="t-sub">{inv.validator.city}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
-                      <td className="muted" style={{ fontSize: 13 }}>{fmtDate(inv.createdAt)}</td>
-                      <td><StatusPill status={inv.status} t={t} /></td>
-                      <td>
-                        {inv.status === "pending" ? (
-                          <Btn size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)} style={{ background: "var(--accent)", color: "#fff" }}>
-                            {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
-                          </Btn>
-                        ) : <span className="faint">—</span>}
-                      </td>
-                    </tr>
-                  );
-                }
-                const isOpen = expanded.has(g.validator.id);
-                return (
-                  <Fragment key={g.validator.id}>
-                    <tr className="click" onClick={() => toggleExpand(g.validator.id)}>
-                      <td>
-                        <div className="t-name">
-                          <Avatar name={g.validator.name} size={32} />
-                          <div>
-                            <div className="row" style={{ gap: 6, alignItems: 'center' }}>
-                              {g.validator.name}
-                              <span className="tag" title={g.items.map(i => i.mission.name).join("\n")} style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}>{g.items.length}</span>
-                              {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
-                              <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={14} style={{ color: "var(--text-muted)" }} />
-                            </div>
-                            <div className="t-sub">{g.validator.city}</div>
-                          </div>
-                        </div>
-                      </td>
-                      {/* Blank once expanded -- the real per-invite mission/date/status
-                          is about to appear directly below, so a pre-aggregated
-                          summary here (a single ambiguous date, "N missions") would
-                          just be a second, less precise copy of the same info. */}
-                      <td></td>
-                      <td></td>
-                      <td></td>
-                      <td></td>
-                    </tr>
-                    {isOpen && (
-                      <tr style={{ background: "var(--panel-inset)" }}>
-                        <td></td>
-                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.missionCol", null, "Mission")}</td>
-                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.invitedOnCol", null, "Invited on")}</td>
-                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.statusCol", null, "Status")}</td>
-                        <td style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".06em", textTransform: "uppercase", color: "var(--text-faint)" }}>{t("invitations.actionCol", null, "Action")}</td>
-                      </tr>
-                    )}
-                    {isOpen && g.items.map(inv => (
-                      <tr key={inv.id} style={{ background: "var(--panel-inset)" }}>
-                        <td></td>
-                        <td className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
-                        <td className="muted" style={{ fontSize: 13 }}>{fmtDate(inv.createdAt)}</td>
-                        <td><StatusPill status={inv.status} t={t} /></td>
-                        <td>
-                          {inv.status === "pending" ? (
-                            <Btn size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)} style={{ background: "var(--accent)", color: "#fff" }}>
-                              {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
-                            </Btn>
-                          ) : <span className="faint">—</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+        // Each validator is its own card -- collapsed, it's just the name row;
+        // the Mission/Invited on/Status/Action columns only exist inside a
+        // card once it's actually expanded, not as a permanent header row
+        // sitting over every collapsed group too.
+        <div className="col gap-3">
+          {groupInvitations(invitations).map(g => {
+            const hasWaitlist = g.items.some(i => i.isWaitlist);
+            const isOpen = expanded.has(g.validator.id);
+            return (
+              <div key={g.validator.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
+                <div className="click row between" style={{ alignItems: "center", padding: "11px 20px", cursor: "pointer" }} onClick={() => toggleExpand(g.validator.id)}>
+                  {/* .t-name's flex-row + bold-name layout is CSS-scoped to a
+                      .tbl ancestor (it was always inside a <table> before) --
+                      this card header isn't one anymore, so both are set
+                      inline here instead of silently falling back to a
+                      stacked, unbolded layout. */}
+                  <div className="t-name" style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                    <Avatar name={g.validator.name} size={38} />
+                    <div>
+                      {/* fontWeight lives here now, not on the outer wrapper --
+                          that inherited down into .t-sub (the city line)
+                          below too, bolding text that was never meant to be. */}
+                      <div className="row" style={{ gap: 6, alignItems: "center", fontWeight: 700 }}>
+                        {g.validator.name}
+                        <span className="tag" title={g.items.map(i => i.mission.name).join("\n")} style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{g.items.length}</span>
+                        {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
+                      </div>
+                      <div className="t-sub">{g.validator.city}</div>
+                    </div>
+                  </div>
+                  <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                </div>
+                {isOpen && (
+                  <div className="tbl-wrap" style={{ borderTop: "var(--hairline) solid var(--border)", padding: "0 20px" }}>
+                    <table className="tbl">
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: "center" }}>{t("invitations.missionCol", null, "Mission")}</th>
+                          <th style={{ textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
+                          <th style={{ textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
+                          <th style={{ width: 120, textAlign: "center" }}>{t("invitations.actionCol", null, "Action")}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.items.map(inv => (
+                          <tr key={inv.id}>
+                            <td className="click" style={{ textAlign: "center" }} onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
+                            <td className="muted" style={{ fontSize: 13, textAlign: "center" }}>{fmtDate(inv.createdAt)}</td>
+                            <td style={{ textAlign: "center" }}><StatusPill status={inv.status} t={t} /></td>
+                            <td style={{ textAlign: "center" }}>
+                              {inv.status === "pending" ? (
+                                <Btn size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)} style={{ background: "var(--accent)", color: "#fff" }}>
+                                  {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
+                                </Btn>
+                              ) : <span className="faint">—</span>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

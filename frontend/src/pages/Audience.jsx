@@ -450,6 +450,7 @@ export default function AudienceExplorer() {
   // relationship to who's actually in the pool.
   const avgTrust = results.length ? Math.round(results.reduce((s, m) => s + (m.trust || 0), 0) / results.length) : 0;
   const activeThisWeekPct = results.length ? Math.round((results.filter(m => m.activeThisWeek).length / results.length) * 100) : 0;
+  const hasAnyFilter = Object.values(sel).some(s => s.size > 0);
 
   return (
     <div className="page rise">
@@ -474,8 +475,12 @@ export default function AudienceExplorer() {
         </div>
       )}
 
+      {/* "Matching" implies matched against something -- with every checkbox
+          unticked (no onboarding-selected audience, and nothing picked here
+          either) there's no actual criteria being matched, just the raw
+          pool, so the honest label there is "Available" instead. */}
       <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-        <KpiCard label={t("audience.matchingMembers", null, "Matching members")} value={results.length} icon="users" />
+        <KpiCard label={hasAnyFilter ? t("audience.matchingMembers", null, "Matching members") : t("audience.availableMembers", null, "Available members")} value={results.length} icon="users" />
         <KpiCard label={t("audience.verified", null, "Verified")} value={verifiedPct} unit="%" icon="shield" tone="green" />
         <KpiCard label={t("audience.avgTrustScore", null, "Avg trust score")} value={avgTrust} icon="award" />
         <KpiCard label={t("audience.activeThisWeek", null, "Active this week")} value={activeThisWeekPct} unit="%" icon="bolt" tone="amber" />
@@ -550,7 +555,6 @@ export default function AudienceExplorer() {
           
           <div className="toolbar">
             <div className="seg-search"><Icon name="search" size={16} /><input placeholder={citySuggestion || t("audience.searchPlaceholder", null, "Search by name, role, city…")} value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
-            <span className="muted" style={{ fontSize: 13 }}>{results.length} {t("audience.results", null, "results")}</span>
             <span className="grow" />
             <select
               value={sortKey}

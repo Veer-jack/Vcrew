@@ -147,7 +147,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
           <div className="row gap-2">
             <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
             <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
-            <button className="btn btn-quiet" onClick={useDifferentNumber}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
+            <button className="btn btn-ghost" onClick={useDifferentNumber}><Icon name="edit" size={15} />{t("actions.editNumber", null, "Edit Number")}</button>
           </div>
         )}
         {showAdd && (

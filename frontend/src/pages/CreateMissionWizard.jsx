@@ -653,6 +653,12 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
       )}
       <div className="card" style={{ padding: "4px 20px 14px" }}>
         <ReviewRow icon="edit" color="--accent-2" label={t("createMission.missionTitleReviewLabel", null, "Mission title")} onEdit={() => onEditStep(0)}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
+        {/* Right after the title, same order the field appears in on Step 1
+            itself, rather than after Category/Participation type where
+            nothing else on this page needs it. */}
+        <ReviewRow icon="calendar" color="--accent" label={t("createMission.deadlineReviewLabel", null, "Deadline")} onEdit={() => onEditStep(0)}>
+          {d.deadline ? new Date(d.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : <span className="faint">{t("settings.notSet", null, "Not set")}</span>}
+        </ReviewRow>
         {d.desc && (
           <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
             <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
@@ -1516,7 +1522,13 @@ export default function CreateMissionWizard() {
       status,
       target: dArg.reward.participants,
       reward: { type: dArg.reward.type, amount: dArg.reward.amount },
-      region: geo.length ? geo.join(", ") : "Worldwide",
+      // Empty, not a fabricated "Worldwide" -- geo.length === 0 means the
+      // builder never picked any Geography filter at all (they may still
+      // have picked something in a different filter group), not that they
+      // explicitly chose worldwide reach. region is a pure display string
+      // (confirmed unused by any audience-matching/count logic), so an
+      // honest empty value here doesn't affect who the mission matches.
+      region: geo.length ? geo.join(", ") : "",
       audience,
       tasks: dArg.tasks,
       testCaseForm: (dArg.testCaseForm || dArg.genFor) ? { form: dArg.testCaseForm || null, genFor: dArg.genFor || null } : null,
@@ -1946,7 +1958,10 @@ export default function CreateMissionWizard() {
           <div className="card" style={{ margin: "24px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
             <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
             <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
-              {t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}
+              {/* Two separate t() calls, not one interpolated string -- the
+                  balance needs to render as a real bold element, and the i18n
+                  helper only does plain string substitution, not JSX. */}
+              {t("createMission.lowBalanceWarningPre", null, "Your wallet balance is low —")} <b>{inr(builder?.balance)}</b>. {t("createMission.lowBalanceWarningPost", null, "Top up before publishing to avoid interruptions.")}
             </p>
             <Btn variant="primary" size="sm" icon="plus" onClick={() => navigate("/wallet")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.addFunds", null, "Add funds")}</Btn>
           </div>

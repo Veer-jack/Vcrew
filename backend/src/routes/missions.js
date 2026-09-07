@@ -537,7 +537,11 @@ router.post("/", async (req, res) => {
       `).run(
         id, req.builder.id, b.name, req.builder.org, b.category, b.ptype, status,
         target, rewardType, rewardAmount, spend,
-        b.region || "Pan-India", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []),
+        // No fabricated "Pan-India" -- an empty region means the builder
+        // never picked a Geography filter, not that "Pan-India" was chosen.
+        // region is a pure display string (PATCH /:id already stores it
+        // verbatim, no fallback there), so "" is the honest value to keep.
+        b.region || "", b.description || "", JSON.stringify(b.audience || {}), JSON.stringify(b.tasks || []),
         b.testCaseForm ? JSON.stringify(b.testCaseForm) : null, toUtcMidnight(b.deadline), durationDays
       );
 
