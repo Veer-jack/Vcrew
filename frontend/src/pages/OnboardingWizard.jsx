@@ -28,7 +28,7 @@ const PERSONA_NAME_FIELD = {
 function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, onBack }) {
   const { t } = useTranslation();
   return (
-    <aside className="wiz-rail">
+    <aside className="wiz-rail scroll-hover">
       <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
       <div className="col gap-1">
         {steps.map((s, i) => {

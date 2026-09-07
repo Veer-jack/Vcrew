@@ -20,7 +20,7 @@ const REGION = "india"; // same fixed value the onboarding wizard itself uses
 function StepRail({ persona, currentKey, dirty, onNavigate }) {
   const { t } = useTranslation();
   return (
-    <aside className="wiz-rail">
+    <aside className="wiz-rail scroll-hover">
       <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
       <div className="col gap-1">
         {persona.steps.map((s, i) => {
