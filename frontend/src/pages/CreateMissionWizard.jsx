@@ -92,7 +92,7 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other", otherPlaceholder }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other", otherPlaceholder, required }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
   const [expanded, setExpanded] = React.useState(initialExpanded);
@@ -176,6 +176,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
         <div className="row gap-2" style={{ alignItems: "center" }}>
           <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
           <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
+          {required && <span className="req-star" aria-hidden="true"> *</span>}
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}

@@ -13,6 +13,21 @@
 // split, so their *stored* value is the translated string itself (same
 // convention already used for the Job title / designation dropdown).
 
+// A bare 8-digit number was passing validation everywhere below regardless of
+// whether it looked like a real number — an Indian mobile (the only region
+// actually live, see OnboardingWizard's REGION constant) is always exactly
+// 10 digits, while a number with an explicit "+" country code can be
+// shorter/longer per the field's own hint text (8-15 total). Centralized here
+// so every persona's valid() and the live field-level error check below stay
+// in agreement instead of re-deriving this rule 5 times.
+export function isValidMobile(raw) {
+  const v = (raw || "").trim();
+  if (!v) return false;
+  const digits = v.replace(/\D/g, "");
+  if (v.startsWith("+")) return digits.length >= 8 && digits.length <= 15;
+  return digits.length === 10;
+}
+
 export const DESIGNATIONS = (t) => [
   t("onboarding.opts.designations.0", null, "Founder & CEO"),
   t("onboarding.opts.designations.1", null, "Co-founder"),

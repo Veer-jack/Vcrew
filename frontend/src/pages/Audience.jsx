@@ -100,9 +100,14 @@ const matchOption = (m, g, o) => {
   if (g === "Geography") {
     const qGeo = o.toLowerCase();
     if (qGeo.includes("worldwide") || qGeo.includes("remote")) return true;
-    const c = m.city.toLowerCase();
-    if (c.includes(qGeo)) return true;
-    if (COUNTRY_MAP[o] && COUNTRY_MAP[o].some(city => c.includes(city.toLowerCase()))) return true;
+    // Same four-field OR the backend's real match-count query runs (see
+    // buildAudienceClauses in backend/src/routes/audience.js) — checking
+    // only `city` here let a validator matched server-side by state/country
+    // alone silently disappear from this list, producing a mismatched count
+    // for the identical filters.
+    const fields = [m.city, m.addressCity, m.addressState, m.addressCountry];
+    if (fields.some(f => f && f.toLowerCase().includes(qGeo))) return true;
+    if (COUNTRY_MAP[o] && COUNTRY_MAP[o].some(city => (m.city || "").toLowerCase().includes(city.toLowerCase()))) return true;
     return false;
   }
   if (g === "ValidationCrew Role") return m.role === o;

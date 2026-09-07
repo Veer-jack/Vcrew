@@ -4,6 +4,7 @@ import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
 import { COUNTRIES } from "./auth/countries";
 import { FilterGroup } from "../pages/CreateMissionWizard";
+import { isValidMobile } from "../data/onboarding";
 
 const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
 
@@ -87,32 +88,29 @@ export function SelCards({ options, value, onChange, multi = false, cols = 2 }) 
   );
 }
 
+// Same `.reach`/`.r-*` classes and layout CreateMissionWizard's own
+// StepAudience reach banner uses (see builder.css) -- previously a plain
+// `.card` with its own bespoke markup, which is the "why doesn't this look
+// like the mission-creation audience step" gap the tester flagged.
 export function ReachMeter({ reach, base, firstLoad, updating }) {
   const { t } = useTranslation();
   const pct = firstLoad ? 0 : Math.max(4, Math.min(100, Math.round((reach / base) * 100)));
   return (
-    <div className="card" style={{ padding: 16, marginBottom: 6 }}>
-      <div className="row between" style={{ alignItems: "center" }}>
-        <div className="row gap-2" style={{ alignItems: "center" }}>
-          <Icon name="users" size={16} />
-          {firstLoad ? (
-            <div className="faint" style={{ fontSize: 13.5 }}>{t("onboardingFields.findingAudience", null, "Finding your audience…")}</div>
-          ) : (
-            <div>
-              <div className="row gap-2" style={{ alignItems: "baseline" }}>
-                <div style={{ fontWeight: 700, fontSize: 18, fontFamily: "var(--mono)", opacity: updating ? 0.5 : 1, transition: "opacity .15s" }}>
-                  {reach.toLocaleString("en-US")}
-                </div>
-                {updating && <span className="faint" style={{ fontSize: 11 }}>{t("onboardingFields.updating", null, "Updating…")}</span>}
-              </div>
-              <div className="faint" style={{ fontSize: 11.5 }}>{t("onboardingFields.peopleMatchNow", null, "people match right now")}</div>
-            </div>
-          )}
+    <div className="reach" style={{ marginBottom: 16 }}>
+      <div className="reach-top">
+        <span className="r-ic"><Icon name="users" size={22} /></span>
+        <div style={{ flex: 1, opacity: updating ? 0.5 : 1, transition: "opacity .2s" }}>
+          <div className="r-num">{firstLoad ? "—" : reach.toLocaleString("en-US")}</div>
+          <div className="r-lab">{firstLoad ? t("onboardingFields.findingAudience", null, "Finding your audience…") : t("onboardingFields.peopleMatchNow", null, "people match right now")}</div>
         </div>
+        {updating ? (
+          <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("onboardingFields.updating", null, "Updating…")}</span>
+        ) : (
+          <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
+        )}
       </div>
-      <div style={{ height: 6, borderRadius: 6, background: "var(--border)", marginTop: 10, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 6, transition: "width .25s" }} />
-      </div>
+      <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
+      <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
     </div>
   );
 }
@@ -130,6 +128,7 @@ export function LocationFields({ d, set, withCity, showErrors }) {
       <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
         <FilterGroup
           title={t("onboardingFields.country", null, "Country")}
+          required
           options={COUNTRY_NAMES}
           sel={countrySel}
           toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
@@ -286,30 +285,18 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
   );
 }
 
-// "Verify" steps store a claim for manual review — there is no automated
-// DNS/domain-ownership or document verification pipeline today, so this
-// records intent rather than pretending to confirm it instantly.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, verified, onVerify, onUnverify, optional, showErrors, validate }) {
-  const { t } = useTranslation();
-  const [errorMsg, setErrorMsg] = useState("");
-  const invalid = (showErrors && !optional && !verified) || !!errorMsg;
-
-  const handleVerify = () => {
-    if (validate) {
-      const err = validate(value);
-      if (err) {
-        setErrorMsg(err);
-        return;
-      }
-    }
-    setErrorMsg("");
-    onVerify();
-  };
-
-  const handleChange = (v) => {
-    onChange(v);
-    if (errorMsg) setErrorMsg("");
-  };
+// "Verify" steps record a claim for manual review — there is no automated
+// DNS/domain-ownership or document verification pipeline today. This used to
+// hide the input behind a Submit button and a "Submitted" pill once clicked,
+// which meant the value you'd just typed vanished from view with no way to
+// see it again short of hitting Edit — same shape as every other field in
+// the wizard now: a plain, always-visible, always-editable input with its
+// error (if any) shown live underneath, no separate submit step.
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate }) {
+  const trimmed = (value || "").trim();
+  const liveError = validate ? validate(value) : null;
+  const missingRequired = showErrors && !optional && !trimmed;
+  const invalid = missingRequired || (!!trimmed && !!liveError);
 
   return (
     <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }}>
@@ -317,25 +304,10 @@ export function VerifyRow({ icon, title, desc, placeholder, value, onChange, ver
         <Icon name={icon} size={16} />
       </span>
       <div style={{ flex: 1 }}>
-        <div className="row between" style={{ alignItems: "center" }}>
-          <b style={{ fontSize: 13.5 }}>{title} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</b>
-          {verified && (
-            <div className="row gap-2" style={{ alignItems: "center" }}>
-              <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}><Icon name="check" size={12} /> {t("onboardingFields.submitted", null, "Submitted")}</span>
-              <button type="button" className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={onUnverify}>{t("actions.edit", null, "Edit")}</button>
-            </div>
-          )}
-        </div>
+        <b style={{ fontSize: 13.5 }}>{title} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</b>
         <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
-        {!verified && (
-          <div className="col gap-1">
-            <div className="row gap-2">
-              <input className={`fin ${errorMsg ? "fin-invalid" : ""}`} style={{ flex: 1 }} value={value || ""} onChange={(e) => handleChange(e.target.value)} placeholder={placeholder} />
-              <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} disabled={!value} onClick={handleVerify}>{t("onboardingFields.submit", null, "Submit")}</button>
-            </div>
-            {errorMsg && <div className="err" style={{ fontSize: 12, color: "var(--danger)" }}>{errorMsg}</div>}
-          </div>
-        )}
+        <input className={`fin ${invalid ? "fin-invalid" : ""}`} style={{ width: "100%" }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+        {trimmed && liveError && <div className="err" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>{liveError}</div>}
       </div>
     </div>
   );
@@ -347,7 +319,6 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
   const defaultOptions = [t("onboardingFields.roleFounderCeo", null, "Founder & CEO"), t("onboardingFields.roleCofounder", null, "Co-founder"), t("onboardingFields.roleProductManager", null, "Product Manager"), t("onboardingFields.roleHeadOfProduct", null, "Head of Product"), t("onboardingFields.roleGrowthMarketing", null, "Growth / Marketing"), t("onboardingFields.roleDesignLead", null, "Design Lead"), t("onboardingFields.roleEngineeringLead", null, "Engineering Lead"), t("onboardingFields.roleOperations", null, "Operations"), otherLabel];
   const roleOptions = roleField?.options ? [...roleField.options, otherLabel] : defaultOptions;
   const isOther = d.designation === otherLabel;
-  const mobileDigits = (d.mobile || "").replace(/\D/g, "");
   return (
     <div className="fgrid c2">
       <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()}>
@@ -358,8 +329,8 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
       </Field>
       <Field
         label={t("onboardingFields.mobileNumber", null, "Mobile number")}
-        invalid={showErrors && mobileDigits.length < 8}
-        hint={t("onboardingFields.mobileNumberHint", null, "Local or international numbers are accepted — add a country code (e.g. +91) if you're outside India. 8–15 characters total.")}
+        invalid={showErrors && !isValidMobile(d.mobile)}
+        hint={t("onboardingFields.mobileNumberHint", null, "A 10-digit Indian mobile number, or add a country code (e.g. +1 555 123 4567) if you're outside India.")}
       >
         <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
       </Field>

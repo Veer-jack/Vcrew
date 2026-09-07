@@ -9,13 +9,27 @@ import {
   COMPANY_INDUSTRIES, EMP_SIZES, COMPANY_LOOKING, PRODUCT_STAGES,
   RES_DESIGNATIONS, QUALIFICATIONS, RESEARCH_AREAS, SUPPORT_TYPES, ETHICS_OPTIONS,
   ADDITIONAL_FILTERS, SAMPLE_SIZES, ORG_TYPES, ORG_LEARN, GEO_AREA, ORG_TARGET, ORG_SCALE,
-  FREQUENCY, PREFERRED_METHODS, foLabelList,
+  FREQUENCY, PREFERRED_METHODS, foLabelList, isValidMobile,
 } from "./onboarding";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
+import Icon from "../components/Icon";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Shared with each Verify step's own live validation below (GenericVerify,
+// OrgVerify) so the "does this count as a real submission" question is
+// answered identically there and here in the step-level valid() gates —
+// two copies of the same regex drifting apart would mean a value the field
+// itself accepts as valid still silently blocks Continue.
+const WEBSITE_RE = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i;
+const LINKEDIN_ORG_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/i;
+const GST_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+const isAcademicEmail = (v) => {
+  if (!v || !EMAIL_RE.test(v)) return false;
+  const domain = v.split("@")[1]?.toLowerCase() || "";
+  return domain.endsWith(".edu") || domain.includes(".ac.");
+};
 
 // Builds the same {Geography, Demographics, Professional, Interests} shape the real
 // Audience Explorer uses, from whatever subset of onboarding fields the current persona
@@ -134,6 +148,35 @@ function FoValidate({ d, set }) {
     </div>
   );
 }
+// Same per-category bordered card CreateMissionWizard's own StepAudience
+// wraps each filter group in -- previously each section here was just a
+// bare FSection heading floating in the page with nothing to visually group
+// it with its own controls, unlike the mission-creation audience step.
+const GROUP_CARD = { border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "18px 0" };
+
+// Same two warning banners StepAudience shows (verbatim copy, so they read
+// as the same feature in both places): nothing picked yet vs. picked
+// something that happens to match nobody -- materially different problems,
+// so each gets its own message pointing at the actual fix.
+function AudienceWarning({ hasAnyFilter, reach, firstLoad, updating, t }) {
+  if (!hasAnyFilter) {
+    return (
+      <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <Icon name="alertTriangle" size={16} />
+        {t("createMission.noFiltersWarning", null, "Please select at least one filter to define your audience.")}
+      </div>
+    );
+  }
+  if (!firstLoad && !updating && reach === 0) {
+    return (
+      <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <Icon name="alertTriangle" size={16} />
+        {t("createMission.zeroMatchingWarning", null, "No matching audience found with your current filters. Try adjusting your filters or expanding the location to reach more people.")}
+      </div>
+    );
+  }
+  return null;
+}
 function GenericAudience({ d, set, region, title, sub, showErrors }) {
   const { t } = useTranslation();
   const { filters } = useMeta();
@@ -141,20 +184,35 @@ function GenericAudience({ d, set, region, title, sub, showErrors }) {
   const rawInterests = [...(filters.Interests?.Lifestyle || []), ...(filters.Interests?.Industry || []), ...(filters.Interests?.["Product Types"] || [])];
   const interestOptions = [...new Set(rawInterests.filter(i => i !== "Other"))];
   if (rawInterests.includes("Other")) interestOptions.push("Other");
+  const hasAnyFilter = !!(
+    (d.validatorTypes || []).length || (d.ageBands || []).length || (d.genders || []).length ||
+    (Array.isArray(d.country) ? d.country.length : !!d.country) || d.state || d.district ||
+    (d.occupations || []).length || (d.educations || []).length || (d.incomeBands || []).length ||
+    (d.languages || []).length || (d.interests || []).length
+  );
   return (
     <div className="rise">
       <StepHead step={t("onboarding.audienceStep", null, "Audience")} title={title} sub={sub} />
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
-      <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
-      <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
-      <FSection label={t("onboarding.demographicsSection", null, "Demographics")} />
-      <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
-      <FSection label={t("onboarding.locationSection", null, "Location")} />
-      <LocationFields region={region} d={d} set={set} withCity showErrors={showErrors} />
-      <FSection label={t("onboarding.profileSection", null, "Profile")} />
-      <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional}
-        incomeOptions={filters.Demographics?.["Income Bracket"]} interestOptions={interestOptions}
-        show={{ occupation: true, education: true, income: true, languages: true, interests: true }} />
+      <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+        <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.demographicsSection", null, "Demographics")} />
+        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.locationSection", null, "Location")} />
+        <LocationFields region={region} d={d} set={set} withCity showErrors={showErrors} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.profileSection", null, "Profile")} />
+        <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional}
+          incomeOptions={filters.Demographics?.["Income Bracket"]} interestOptions={interestOptions}
+          show={{ occupation: true, education: true, income: true, languages: true, interests: true }} />
+      </div>
     </div>
   );
 }
@@ -162,20 +220,27 @@ function FoAudience(props) {
   const { t } = useTranslation();
   return <GenericAudience {...props} title={t("onboarding.founder.audience.title", null, "Who should weigh in?")} sub={t("onboarding.founder.audience.sub", null, "Describe the people whose opinion actually matters — we match you to validators who fit, we don't blast everyone.")} />;
 }
+// GST/Tax-ID docs are the one required registry proof; LinkedIn is optional
+// (not every founder/company/org has a company Page) as long as the URL
+// looks real when something is typed in. Website prefills from whatever was
+// already typed in the Company step, editable from here — re-asking for the
+// exact same URL from scratch is the "where did my website go" bug this
+// step used to have baked in.
 function GenericVerify({ d, set, websiteHint, docs, showErrors }) {
   const { t } = useTranslation();
+  const websiteValue = d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "");
   return (
     <div className="rise">
       <StepHead step={t("onboarding.verify.step", null, "Verification")} title={t("onboarding.verify.title", null, "Build trust")} sub={t("onboarding.verify.sub", null, "Verified accounts get better reviewers and faster matches.")} />
       <VerifyRow icon="browser" title={t("onboarding.verify.websiteTitle", null, "Website")} showErrors={showErrors} desc={t("onboarding.verify.websiteDesc", null, "Confirms you own the domain via a meta tag or DNS record.")}
-        placeholder={websiteHint} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)}
-        validate={(v) => (!v || /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
-      <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} showErrors={showErrors} desc={t("onboarding.verify.linkedinDescCampaigns", null, "Links your campaigns to a real, public organisation.")}
-        placeholder="linkedin.com/company/…" value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)} verified={d.vCompanyPage} onVerify={() => set("vCompanyPage", true)} onUnverify={() => set("vCompanyPage", false)}
-        validate={(v) => (!v || /^https?:\/\/(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v) || /^linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
+        placeholder={websiteHint} value={websiteValue} onChange={(v) => set("vWebsiteInput", v)}
+        validate={(v) => (!v || WEBSITE_RE.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
+      <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} optional showErrors={showErrors} desc={t("onboarding.verify.linkedinDescCampaigns", null, "Links your campaigns to a real, public organisation.")}
+        placeholder="linkedin.com/company/…" value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)}
+        validate={(v) => (!v || LINKEDIN_ORG_RE.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
       {docs.map((doc) => (
         <VerifyRow key={doc.key} icon="fileText" title={doc.title} showErrors={showErrors} desc={doc.desc} placeholder={doc.placeholder} validate={doc.validate}
-          value={d[doc.key]} onChange={(v) => set(doc.key, v)} verified={d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)} />
+          value={d[doc.key]} onChange={(v) => set(doc.key, v)} />
       ))}
       <p className="faint" style={{ fontSize: 12, marginTop: 4 }}>
         {t("onboarding.verify.footer", null, "Submitted details are reviewed by our trust team and never shared with validators.")}
@@ -187,16 +252,32 @@ function FoVerify({ d, set, region, showErrors }) {
   const { t } = useTranslation();
   return <GenericVerify d={d} set={set} region={region} showErrors={showErrors} websiteHint={d.website || "helixlabs.com"}
     docs={region === "india"
-      ? [{ key: "gst", title: t("onboarding.verify.gstTitle", null, "GST registration"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
+      ? [{ key: "gst", title: t("onboarding.verify.gstTitle", null, "GST registration"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || GST_RE.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
       : [{ key: "taxId", title: t("onboarding.verify.taxIdTitle", null, "Business / Tax ID"), desc: t("onboarding.verify.taxIdDesc", null, "EIN, VAT or company number."), placeholder: "e.g. 12-3456789", validate: (v) => (!v || (v.trim().length >= 4 && /\d/.test(v))) ? null : t("errors.invalidTaxId", null, "Please enter a valid business/tax ID.") }]} />;
 }
-function foValid(key, d) {
+// "verify" no longer gates on a separate submitted/verified flag (removed
+// along with VerifyRow's old Submit button) -- a step counts as complete
+// once its required raw values are actually present and pass the same regex
+// the field itself validates live, matching what the user sees on screen.
+function verifyStepValid(d, region) {
+  const web = (d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "")).trim();
+  const webOk = !!web && WEBSITE_RE.test(web);
+  const li = (d.vCompanyInput || "").trim();
+  const liOk = !li || LINKEDIN_ORG_RE.test(li); // optional
+  if (region === "india") {
+    const gst = (d.gst || "").trim();
+    return webOk && liOk && !!gst && GST_RE.test(gst.toUpperCase());
+  }
+  const taxId = (d.taxId || "").trim();
+  return webOk && liOk && taxId.length >= 4 && /\d/.test(taxId);
+}
+function foValid(key, d, region) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
     case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && !!d.stage && (d.industry !== "Other" || !!(d.industryOther && d.industryOther.trim()));
     case "validate": return (d.vTypes || []).length >= 1;
     case "audience": return (d.ageBands || []).length >= 1;
-    case "verify": return !!d.vWebsite && !!d.vCompanyPage && !!d.vRegistry;
+    case "verify": return verifyStepValid(d, region);
     default: return true;
   }
 }
@@ -270,16 +351,16 @@ function CoVerify({ d, set, region, showErrors }) {
   const { t } = useTranslation();
   return <GenericVerify d={d} set={set} region={region} showErrors={showErrors} websiteHint={d.website || "acmefoods.com"}
     docs={region === "india"
-      ? [{ key: "gst", title: t("onboarding.verify.gstNumberTitle", null, "GST number"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
+      ? [{ key: "gst", title: t("onboarding.verify.gstNumberTitle", null, "GST number"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || GST_RE.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
       : [{ key: "taxId", title: t("onboarding.verify.taxIdTitle", null, "Business / Tax ID"), desc: t("onboarding.verify.taxIdDesc", null, "EIN, VAT or company number."), placeholder: "e.g. 12-3456789", validate: (v) => (!v || (v.trim().length >= 4 && /\d/.test(v))) ? null : t("errors.invalidTaxId", null, "Please enter a valid business/tax ID.") }]} />;
 }
-function coValid(key, d) {
+function coValid(key, d, region) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8 && !!d.designation;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
     case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && (d.industry !== "Other" || !!(d.industryOther && d.industryOther.trim()));
     case "needs": return (d.looking || []).length >= 1 && !!(d.productName && d.productName.trim()) && (!(d.looking || []).includes("other-c") || !!(d.lookingOther && d.lookingOther.trim()));
     case "audience": return (d.ageBands || []).length >= 1;
-    case "verify": return !!d.vWebsite && !!d.vCompanyPage && !!d.vRegistry;
+    case "verify": return verifyStepValid(d, region);
     default: return true;
   }
 }
@@ -303,17 +384,37 @@ function ResAcademic({ d, set }) {
         <Field label={t("onboarding.researcher.academic.institutionLabel", null, "University / institution")} span><TextInput value={d.institution} onChange={(v) => set("institution", v)} placeholder="Indian Institute of Science" /></Field>
         <Field label={t("onboarding.researcher.academic.departmentLabel", null, "Department")} optional><TextInput value={d.department} onChange={(v) => set("department", v)} placeholder="Management Studies" /></Field>
         <Field label={t("onboarding.researcher.personal.roleLabel", null, "Designation")}><SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={RES_DESIGNATIONS(t)} placeholder={t("onboarding.researcher.academic.designationPlaceholder", null, "Select designation")} /></Field>
-        <Field label={t("onboarding.researcher.academic.qualificationLabel", null, "Highest qualification")} span><Chips options={QUALIFICATIONS(t)} value={d.qualification} onChange={(v) => set("qualification", v)} multi={false} /></Field>
+        <Field label={t("onboarding.researcher.academic.qualificationLabel", null, "Highest qualification")} span><SelectInput options={QUALIFICATIONS(t)} value={d.qualification} onChange={(v) => set("qualification", v)} placeholder={t("onboarding.researcher.academic.qualificationPlaceholder", null, "Select qualification")} /></Field>
       </div>
     </div>
   );
 }
+// Research areas can have more than one "something else" (e.g. both "Urban
+// planning" and "Sports science") -- a single areasOther text field only
+// ever held one, silently discarding whichever you typed second. Matches
+// ProfileChips' own occupation/interest "Other" pattern: typing a value adds
+// it as a real, independently-removable entry in d.areas instead of hiding
+// behind one shared override field, and the trigger chip itself never stays
+// "selected" -- it's just what opens the input.
 function ResResearch({ d, set, showErrors }) {
   const { t } = useTranslation();
   const support = d.support || [];
   const areaOptions = RESEARCH_AREAS(t);
   const otherAreaLabel = areaOptions[areaOptions.length - 1];
-  const isOtherArea = (d.areas || []).includes(otherAreaLabel);
+  const selectedAreas = d.areas || [];
+  const isOtherArea = selectedAreas.includes(otherAreaLabel);
+  const customAreas = selectedAreas.filter(a => !areaOptions.includes(a));
+  const [areaInput, setAreaInput] = useState("");
+
+  const saveArea = () => {
+    const val = areaInput.trim();
+    if (!val) return;
+    set("areas", [...selectedAreas.filter(a => a !== otherAreaLabel), val]);
+    setAreaInput("");
+  };
+  const cancelArea = () => { set("areas", selectedAreas.filter(a => a !== otherAreaLabel)); setAreaInput(""); };
+  const removeCustomArea = (val) => set("areas", selectedAreas.filter(a => a !== val));
+
   return (
     <div className="rise">
       <StepHead step={t("onboarding.researcher.research.step", null, "Step 3 · Research")} title={t("onboarding.researcher.research.title", null, "Tell us about your research")} sub={t("onboarding.researcher.research.sub", null, "Enough to match you with participants who genuinely fit it.")} />
@@ -322,12 +423,31 @@ function ResResearch({ d, set, showErrors }) {
         <Field label={t("onboarding.researcher.research.objectivesLabel", null, "Research objective(s)")} optional span><Textarea value={d.objectives} onChange={(v) => set("objectives", v)} placeholder="What are you trying to find out?" /></Field>
         <Field label={t("onboarding.researcher.research.completionLabel", null, "Expected completion")} optional><TextInput value={d.completion} onChange={(v) => set("completion", v)} placeholder="e.g. Dec 2026" /></Field>
       </div>
-      <FSection label={t("onboarding.researcher.research.areaSection", null, "Research area")} count={(d.areas || []).length ? t("onboarding.selectedCount", { count: d.areas.length }, `${d.areas.length} selected`) : null} required />
-      <Chips options={areaOptions} value={d.areas} onChange={(v) => set("areas", v)} />
+      <FSection label={t("onboarding.researcher.research.areaSection", null, "Research area")} count={selectedAreas.length ? t("onboarding.selectedCount", { count: selectedAreas.length }, `${selectedAreas.length} selected`) : null} required />
+      <Chips options={areaOptions} value={selectedAreas} onChange={(v) => set("areas", v)} />
+      {customAreas.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
+          <div className="row gap-2" style={{ flexWrap: "wrap" }}>
+            {customAreas.map(a => (
+              <div key={a} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {a}
+                <button type="button" onClick={() => removeCustomArea(a)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {isOtherArea && (
-        <div style={{ marginTop: 14, maxWidth: 360 }}>
-          <Field label={t("onboarding.researcher.research.areaOtherLabel", null, "Please specify")} invalid={showErrors && !(d.areasOther || "").trim()}>
-            <TextInput value={d.areasOther} onChange={(v) => set("areasOther", v)} placeholder={t("onboarding.researcher.research.areaOtherPlaceholder", null, "e.g. Urban planning")} />
+        <div style={{ marginTop: 14, maxWidth: 420 }}>
+          <Field label={t("onboarding.researcher.research.areaOtherLabel", null, "Please specify")} invalid={showErrors && !areaInput.trim() && customAreas.length === 0}>
+            <div className="row gap-2">
+              <TextInput value={areaInput} onChange={setAreaInput} placeholder={t("onboarding.researcher.research.areaOtherPlaceholder", null, "e.g. Urban planning")} />
+              <button type="button" className="btn" disabled={!areaInput.trim()} onClick={saveArea}>{t("actions.save", null, "Save")}</button>
+              <button type="button" className="btn btn-ghost" onClick={cancelArea}>{t("actions.cancel", null, "Cancel")}</button>
+            </div>
           </Field>
         </div>
       )}
@@ -340,19 +460,37 @@ function ResParticipants({ d, set, region, showErrors }) {
   const { t } = useTranslation();
   const { filters } = useMeta();
   const { reach, base, firstLoad, updating } = useAudienceReach(d);
+  const hasAnyFilter = !!(
+    (d.validatorTypes || []).length || !!d.sampleSize || (d.ageBands || []).length || (d.genders || []).length ||
+    (Array.isArray(d.country) ? d.country.length : !!d.country) || d.state || d.district ||
+    (d.occupations || []).length || (d.educations || []).length || (d.incomeBands || []).length || (d.filters || []).length
+  );
   return (
     <div className="rise">
       <StepHead step={t("onboarding.researcher.participants.step", null, "Step 4 · Participants")} title={t("onboarding.researcher.participants.title", null, "Who should take part?")} sub={t("onboarding.researcher.participants.sub", null, "Define your sample — we match you to participants who fit your criteria.")} />
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
-      <FSection label={t("onboarding.researcher.participants.sampleSizeSection", null, "Sample size needed")} />
-      <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")}><Chips options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} /></Field>
-      <FSection label={t("onboarding.locationSection", null, "Location")} />
-      <LocationFields region={region} d={d} set={set} showErrors={showErrors} />
-      <FSection label={t("onboarding.demographicsSection", null, "Demographics")} required />
-      <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
-      <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} />
-      <FSection label={t("onboarding.researcher.participants.additionalFiltersSection", null, "Additional filters")} />
-      <Chips options={ADDITIONAL_FILTERS(t)} value={d.filters} onChange={(v) => set("filters", v)} />
+      <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+        <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.researcher.participants.sampleSizeSection", null, "Sample size needed")} />
+        <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")}><Chips options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} /></Field>
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.locationSection", null, "Location")} />
+        <LocationFields region={region} d={d} set={set} showErrors={showErrors} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.demographicsSection", null, "Demographics")} required />
+        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+        <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.researcher.participants.additionalFiltersSection", null, "Additional filters")} />
+        <Chips options={ADDITIONAL_FILTERS(t)} value={d.filters} onChange={(v) => set("filters", v)} />
+      </div>
     </div>
   );
 }
@@ -362,6 +500,9 @@ function ResEthics({ d, set, showErrors }) {
     <div className="rise">
       <StepHead step={t("onboarding.researcher.ethics.step", null, "Step 5 · Ethics & verification")} title={t("onboarding.researcher.ethics.title", null, "Ethics & verification")} sub={t("onboarding.researcher.ethics.sub", null, "Approved, transparent studies get higher participation.")} />
       <FSection label={t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?")} required />
+      <p className="faint" style={{ fontSize: 12.5, margin: "-4px 0 12px", maxWidth: 560 }}>
+        {t("onboarding.researcher.ethics.approvalHint", null, "This means sign-off from your university's Institutional Review Board (IRB) or ethics committee, confirming your study protects participants and follows standard research-ethics guidelines. If your institution doesn't require this for your kind of study, or you haven't applied yet, pick whichever option below actually matches — it won't block you from continuing.")}
+      </p>
       <SelCards options={ETHICS_OPTIONS(t)} value={d.ethics} onChange={(v) => set("ethics", v)} cols={3} />
       {d.ethics === "yes" && (
         <div style={{ marginTop: 14 }}>
@@ -370,25 +511,27 @@ function ResEthics({ d, set, showErrors }) {
       )}
       <FSection label={t("onboarding.researcher.ethics.verifySection", null, "Verify your identity")} />
       <VerifyRow icon="message" title={t("onboarding.researcher.ethics.uniEmailTitle", null, "University email")} showErrors={showErrors} desc={t("onboarding.researcher.ethics.uniEmailDesc", null, "Confirms your academic affiliation via a .edu / .ac domain.")}
-        placeholder={d.email || "you@university.ac.in"} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)}
+        placeholder={d.email || "you@university.ac.in"} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)}
         validate={(v) => {
           if (!v) return null;
           if (!EMAIL_RE.test(v)) return t("errors.invalidEmail", null, "Please enter a valid email address.");
-          const domain = v.split("@")[1]?.toLowerCase() || "";
-          return (domain.endsWith(".edu") || domain.includes(".ac.")) ? null : t("errors.notAcademicEmail", null, "Please use your university email (a .edu or .ac domain).");
+          return isAcademicEmail(v) ? null : t("errors.notAcademicEmail", null, "Please use your university email (a .edu or .ac domain).");
         }} />
       <VerifyRow icon="flask" title={t("onboarding.researcher.ethics.scholarlyTitle", null, "Scholarly profile")} optional desc={t("onboarding.researcher.ethics.scholarlyDesc", null, "Google Scholar, ORCID, Scopus, ResearchGate or LinkedIn.")}
-        placeholder="Profile URL" value={d.researchProfile} onChange={(v) => set("researchProfile", v)} verified={d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)} />
+        placeholder="Profile URL" value={d.researchProfile} onChange={(v) => set("researchProfile", v)} />
     </div>
   );
 }
 function resValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile);
     case "academic": return !!(d.institution && d.institution.trim()) && !!d.designation && !!d.qualification;
-    case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).length >= 1 && (d.support || []).length >= 1 && (!(d.areas || []).includes("Other") || !!(d.areasOther && d.areasOther.trim()));
+    // "Other" alone (with no real area chosen and nothing saved into it yet)
+    // is a bare trigger, not a real selection -- same phantom-count guard as
+    // CreateMissionWizard's own audience filters use for the same marker.
+    case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).filter(a => a !== "Other").length >= 1 && (d.support || []).length >= 1;
     case "participants": return !!d.sampleSize && (d.ageBands || []).length >= 1;
-    case "ethics": return !!d.ethics && !!d.vWebsite;
+    case "ethics": return !!d.ethics && isAcademicEmail(d.vWebsiteInput);
     default: return true;
   }
 }
@@ -450,48 +593,75 @@ function OrgAudience(props) {
   const { d, set, region, showErrors } = props;
   const { filters } = useMeta();
   const { reach, base, firstLoad, updating } = useAudienceReach(d);
+  const hasAnyFilter = !!(
+    (d.validatorTypes || []).length || (Array.isArray(d.country) ? d.country.length : !!d.country) || d.state || d.district ||
+    (d.targetGroups || []).length || (d.ageBands || []).length || (d.genders || []).length ||
+    (d.incomeBands || []).length || (d.languages || []).length || !!d.scale
+  );
   return (
     <div className="rise">
       <StepHead step={t("onboarding.org.audience.step", null, "Step 4 · Audience")} title={t("onboarding.company.audience.title", null, "Who would you like to hear from?")} sub={t("onboarding.org.audience.sub", null, "Define the community you want feedback from.")} />
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
-      <FSection label={t("onboarding.locationSection", null, "Location")} />
-      <LocationFields region={region} d={d} set={set} withCity showErrors={showErrors} />
-      <FSection label={t("onboarding.org.audience.targetSection", null, "Target audience")} count={(d.targetGroups || []).length ? t("onboarding.selectedCount", { count: d.targetGroups.length }, `${d.targetGroups.length} selected`) : null} />
-      <Chips options={ORG_TARGET(t)} value={d.targetGroups} onChange={(v) => set("targetGroups", v)} />
-      <FSection label={t("onboarding.org.audience.demographicFiltersSection", null, "Demographic filters")} />
-      <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
-      <ProfileChips d={d} set={set} region={region} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ income: true, languages: true }} />
-      <FSection label={t("onboarding.org.audience.scaleSection", null, "Scale requirements")} />
-      <Field label={t("onboarding.org.audience.scaleLabel", null, "How many participants are typically needed?")}><Chips options={ORG_SCALE} value={d.scale} onChange={(v) => set("scale", v)} multi={false} /></Field>
+      <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+        <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.locationSection", null, "Location")} />
+        <LocationFields region={region} d={d} set={set} withCity showErrors={showErrors} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.org.audience.targetSection", null, "Target audience")} count={(d.targetGroups || []).length ? t("onboarding.selectedCount", { count: d.targetGroups.length }, `${d.targetGroups.length} selected`) : null} />
+        <Chips options={ORG_TARGET(t)} value={d.targetGroups} onChange={(v) => set("targetGroups", v)} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.org.audience.demographicFiltersSection", null, "Demographic filters")} />
+        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+        <ProfileChips d={d} set={set} region={region} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ income: true, languages: true }} />
+      </div>
+      <div style={GROUP_CARD}>
+        <FSection label={t("onboarding.org.audience.scaleSection", null, "Scale requirements")} />
+        <Field label={t("onboarding.org.audience.scaleLabel", null, "How many participants are typically needed?")}><Chips options={ORG_SCALE} value={d.scale} onChange={(v) => set("scale", v)} multi={false} /></Field>
+      </div>
     </div>
   );
 }
 function OrgVerify({ d, set, showErrors }) {
   const { t } = useTranslation();
+  const websiteValue = d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "");
   return (
     <div className="rise">
       <StepHead step={t("onboarding.org.verify.step", null, "Step 5 · Verification")} title={t("onboarding.org.verify.title", null, "Build trust with participants")} sub={t("onboarding.org.verify.sub", null, "Verified organizations get higher participation.")} />
       <VerifyRow icon="browser" title={t("onboarding.verify.websiteTitle", null, "Website")} showErrors={showErrors} desc={t("onboarding.org.verify.websiteDesc", null, "Confirms you own the domain.")} placeholder={d.website || "saksham.org"}
-        value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} verified={d.vWebsite} onVerify={() => set("vWebsite", true)} onUnverify={() => set("vWebsite", false)}
-        validate={(v) => (!v || /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
-      <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} showErrors={showErrors} desc={t("onboarding.org.verify.linkedinDesc", null, "Links initiatives to a real, public organisation.")} placeholder="linkedin.com/company/…"
-        value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)} verified={d.vCompanyPage} onVerify={() => set("vCompanyPage", true)} onUnverify={() => set("vCompanyPage", false)}
-        validate={(v) => (!v || /^https?:\/\/(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v) || /^linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
+        value={websiteValue} onChange={(v) => set("vWebsiteInput", v)}
+        validate={(v) => (!v || WEBSITE_RE.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
+      <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} optional showErrors={showErrors} desc={t("onboarding.org.verify.linkedinDesc", null, "Links initiatives to a real, public organisation.")} placeholder="linkedin.com/company/…"
+        value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)}
+        validate={(v) => (!v || LINKEDIN_ORG_RE.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
       <VerifyRow icon="fileText" title={t("onboarding.org.verify.regNoTitle", null, "Registration number")} showErrors={showErrors} desc={t("onboarding.org.verify.regNoDesc", null, "NGO / society / trust registration.")} placeholder="e.g. 80G / 12A / Society reg."
-        value={d.regNo} onChange={(v) => set("regNo", v)} verified={d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)}
+        value={d.regNo} onChange={(v) => set("regNo", v)}
         validate={(v) => (!v || (v.trim().length >= 6 && /\d/.test(v))) ? null : t("errors.invalidRegNo", null, "Please enter a valid registration number (at least 6 characters, including a number).")} />
       <VerifyRow icon="building" title={t("onboarding.org.verify.govTitle", null, "Government affiliation")} optional desc={t("onboarding.org.verify.govDesc", null, "If applicable — department, scheme or ministry linkage.")} placeholder="e.g. Ministry of Rural Development"
-        value={d.govAffiliation} onChange={(v) => set("govAffiliation", v)} verified={!!d.govAffiliation && d.vRegistry} onVerify={() => set("vRegistry", true)} onUnverify={() => set("vRegistry", false)} />
+        value={d.govAffiliation} onChange={(v) => set("govAffiliation", v)} />
     </div>
   );
 }
 function orgValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && !!d.designation && EMAIL_RE.test(d.email || "") && (d.mobile || "").replace(/\D/g, "").length >= 8;
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && !!d.designation && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile);
     case "organization": return !!(d.orgName && d.orgName.trim()) && !!d.orgType && (d.orgType !== "Other" || !!(d.orgTypeOther && d.orgTypeOther.trim()));
     case "goals": return (d.learn || []).length >= 1 && !!(d.initiativeName && d.initiativeName.trim());
     case "audience": return (d.targetGroups || []).length >= 1 || (d.ageBands || []).length >= 1;
-    case "verify": return !!d.vWebsite && !!d.vCompanyPage && !!d.vRegistry;
+    case "verify": {
+      const web = (d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "")).trim();
+      const webOk = !!web && WEBSITE_RE.test(web);
+      const li = (d.vCompanyInput || "").trim();
+      const liOk = !li || LINKEDIN_ORG_RE.test(li);
+      const reg = (d.regNo || "").trim();
+      const regOk = reg.length >= 6 && /\d/.test(reg);
+      return webOk && liOk && regOk;
+    }
     default: return true;
   }
 }
@@ -699,9 +869,18 @@ export function resolveCardStep(persona, card) {
 export const CARD_SUMMARY = {
   company: {
     titleKey: "settings.companyDetails", titleFallback: "Company Details",
+    // Founder and Company personas both resolve to this same "company" step
+    // key (they share the step-key-scoped card, not a persona-scoped one --
+    // see resolveCardStep above), but each fills in a different subset of
+    // these fields (stage is Founder-only, yearFounded/hq are Company-only).
+    // Whichever half doesn't apply to a given builder just reads "Not set",
+    // same as any other field they skipped -- honest, not wrong.
     fields: [
       { key: "industry", labelKey: "onboarding.founder.company.industryLabel", labelFallback: "Industry" },
       { key: "size", labelKey: "settings.companySize", labelFallback: "Company size" },
+      { key: "stage", labelKey: "onboarding.founder.company.stageSection", labelFallback: "Stage" },
+      { key: "yearFounded", labelKey: "onboarding.company.company.yearFoundedLabel", labelFallback: "Year founded" },
+      { key: "hq", labelKey: "onboarding.company.company.hqLabel", labelFallback: "Headquarters" },
     ],
   },
   organization: {
@@ -709,6 +888,7 @@ export const CARD_SUMMARY = {
     fields: [
       { key: "orgType", labelKey: "onboarding.org.info.typeSection", labelFallback: "Organization type" },
       { key: "yearFounded", labelKey: "onboarding.org.info.yearLabel", labelFallback: "Year established" },
+      { key: "hq", labelKey: "onboarding.company.company.hqLabel", labelFallback: "Headquarters" },
     ],
   },
   academic: {
@@ -716,8 +896,38 @@ export const CARD_SUMMARY = {
     fields: [
       { key: "institution", labelKey: "onboarding.researcher.academic.institutionLabel", labelFallback: "University / institution" },
       { key: "qualification", labelKey: "onboarding.researcher.academic.qualificationLabel", labelFallback: "Highest qualification" },
+      { key: "department", labelKey: "onboarding.researcher.academic.departmentLabel", labelFallback: "Department" },
     ],
   },
+};
+
+// The Verify/Ethics step's claims -- read-only here (see stepEditability's
+// "locked" case: these feed a real admin-review pipeline, so Settings shows
+// what was submitted but never lets it be silently re-edited). Field sets
+// genuinely differ per persona (GST vs. registration number vs. a scholarly
+// profile link), not just per step key, so this is keyed by persona directly
+// rather than forced into CARD_SUMMARY's step-key shape.
+export const VERIFICATION_SUMMARY = {
+  founder: [
+    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website" },
+    { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
+    { key: "gst", labelKey: "onboarding.verify.gstTitle", labelFallback: "GST registration" },
+  ],
+  company: [
+    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website" },
+    { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
+    { key: "gst", labelKey: "onboarding.verify.gstNumberTitle", labelFallback: "GST number" },
+  ],
+  organization: [
+    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website" },
+    { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
+    { key: "regNo", labelKey: "onboarding.org.verify.regNoTitle", labelFallback: "Registration number" },
+    { key: "govAffiliation", labelKey: "onboarding.org.verify.govTitle", labelFallback: "Government affiliation" },
+  ],
+  researcher: [
+    { key: "vWebsiteInput", labelKey: "onboarding.researcher.ethics.uniEmailTitle", labelFallback: "University email" },
+    { key: "researchProfile", labelKey: "onboarding.researcher.ethics.scholarlyTitle", labelFallback: "Scholarly profile" },
+  ],
 };
 
 // Which onboarding steps stay reachable for editing after a profile is

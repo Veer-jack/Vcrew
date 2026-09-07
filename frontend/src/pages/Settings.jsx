@@ -6,7 +6,7 @@ import { Avatar, Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
-import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY } from "../data/personaConfig";
+import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -20,10 +20,12 @@ export default function Settings() {
   // draft's persona when onboarding was never finished (builder.persona is
   // only set by the final completion step) -- same resolution the
   // Dashboard's profile-completion banner already uses.
-  const activePersona = PERSONA_CONFIG[resolveActivePersonaKey(builder)];
+  const activePersonaKey = resolveActivePersonaKey(builder);
+  const activePersona = PERSONA_CONFIG[activePersonaKey];
   const companyStepKey = resolveCardStep(activePersona, "company");
   const audienceStepKey = resolveCardStep(activePersona, "audience");
   const companySummary = CARD_SUMMARY[companyStepKey];
+  const verificationFields = VERIFICATION_SUMMARY[activePersonaKey];
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(builder?.name || "");
   const [designation, setDesignation] = useState(builder?.designation || "");
@@ -186,17 +188,22 @@ export default function Settings() {
               );
             })}
           </div>
-          {builder?.profile?.vWebsiteInput && (
-            <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
-              <div className="row between" style={{ alignItems: "center" }}>
-                <b style={{ fontSize: 13.5 }}>{t("settings.verificationWebsite", null, "Verification website")}</b>
-                {builder?.profile?.vWebsite && <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}>{t("onboardingFields.submitted", null, "Submitted")}</span>}
-              </div>
-              <div className="fin" style={{ display: "flex", alignItems: "center", marginTop: 6, color: "var(--text-muted)" }}>{builder.profile.vWebsiteInput}</div>
-              <p className="fhint">{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
-            </div>
-          )}
         </div>
+        )}
+
+        {verificationFields && verificationFields.some(f => builder?.profile?.[f.key]) && (
+          <div className="card" style={{ padding: "var(--pad-card)" }}>
+            <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>{t("settings.verificationDetails", null, "Verification")}</h2>
+            <p className="faint" style={{ margin: "0 0 12px", fontSize: 13 }}>{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
+            <div className="row gap-3 wrap">
+              {verificationFields.filter(f => builder?.profile?.[f.key]).map(f => (
+                <div key={f.key} className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t(f.labelKey, null, f.labelFallback)}</label>
+                  <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{builder.profile[f.key]}</div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {audienceStepKey && (
@@ -216,6 +223,14 @@ export default function Settings() {
               <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                 <label>{t("onboardingFields.country", null, "Country")}</label>
                 <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country?.length ? undefined : "var(--text-faint)" }}>{(Array.isArray(builder?.profile?.country) ? builder.profile.country.join(", ") : builder?.profile?.country) || t("settings.notSet", null, "Not set")}</div>
+              </div>
+              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                <label>{t("onboardingFields.gender", null, "Gender")}</label>
+                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.genders?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.genders?.length ? builder.profile.genders.join(", ") : t("settings.notSet", null, "Not set")}</div>
+              </div>
+              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                <label>{t("onboardingFields.occupation", null, "Occupation")}</label>
+                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.occupations?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.occupations?.length ? builder.profile.occupations.join(", ") : t("settings.notSet", null, "Not set")}</div>
               </div>
             </div>
           </div>

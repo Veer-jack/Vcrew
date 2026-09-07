@@ -87,11 +87,19 @@ router.get("/", async (req, res) => {
     const activeThisWeek = !!(v.last_active_date && (Date.now() - new Date(v.last_active_date).getTime()) <= 7 * 24 * 60 * 60 * 1000);
 
     return {
-      id: v.id, 
-      name: v.name, 
-      role: finalRole, 
-      city: v.city || v.location || "Unknown", 
-      occ: v.occupation || "Unspecified", 
+      id: v.id,
+      name: v.name,
+      role: finalRole,
+      city: v.city || v.location || "Unknown",
+      // Explorer's own client-side Geography matching (matchOption in
+      // Audience.jsx) used to only ever check `city` — the real backend
+      // count this same audience feeds elsewhere (getRealMatchCount, used by
+      // onboarding's reach meter and the mission wizard) ORs across all four
+      // of these columns, so a validator matched by state/country alone
+      // counted server-side but never showed up client-side, producing a
+      // genuine "the numbers don't agree" mismatch on identical filters.
+      addressCity: v.address_city, addressState: v.address_state, addressCountry: v.address_country,
+      occ: v.occupation || "Unspecified",
       industry: v.industry || "Unspecified", 
       verified: !!v.verified, 
       expertise: expertise,

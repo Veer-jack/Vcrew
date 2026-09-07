@@ -230,6 +230,21 @@ export default function OnboardingWizard() {
     } catch { /* ignore */ }
   };
 
+  // Belt-and-suspenders for the explicit saveDraft() calls below: those only
+  // fire at step transitions (Continue/Back/rail-jump), so anything typed on
+  // the CURRENT step was invisible to localStorage until the next transition
+  // — leaving it to survive only Continue/Back and be silently dropped by
+  // any other way of leaving (Skip's window.location.href, closing the tab
+  // past the unsaved-changes warning, the browser's own back button). This
+  // keeps the saved draft caught up with every keystroke instead, so no exit
+  // path can lose more than what the debounce hasn't flushed yet.
+  useEffect(() => {
+    if (done) return;
+    const timer = setTimeout(() => saveDraft(step, maxReached, d), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, maxReached, d, done]);
+
   const stepKey = persona ? persona.steps[step].key : null;
   const StepComponent = persona ? persona.components[stepKey] : null;
   const isValid = useMemo(() => persona ? persona.validate(stepKey, d, REGION) : false, [persona, stepKey, d]);
@@ -311,7 +326,14 @@ export default function OnboardingWizard() {
   // A real navigation (not react-router's navigate), same as the old plain
   // <a href="/"> -- preserves "same functionality" exactly rather than
   // switching to a soft SPA route change as a side effect of relocating it.
-  const handleSkip = () => { window.__bypassUnload = true; window.location.href = "/"; };
+  const handleSkip = () => {
+    // Flush synchronously -- the debounced autosave effect above might not
+    // have fired yet, and this navigation (a real page load) doesn't wait
+    // around for it the way an in-app route change would.
+    saveDraft(step, maxReached, d);
+    window.__bypassUnload = true;
+    window.location.href = "/";
+  };
 
   if (done) {
     return (
