@@ -206,6 +206,13 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       const idToken = await cred.user.getIdToken();
       const res = await adapter.phoneLoginVerify(idToken);
       adapter.onAuthed(res.token, res[adapter.userKey]);
+      // Phone auth silently creates a brand-new account for any unrecognized
+      // number (see buildFirebaseLoginRouter's createUser), regardless of
+      // which tab -- Sign in or Create account -- happened to be open. profile
+      // is the same "still needs onboarding" signal the route guards
+      // themselves gate on, so this catches a fresh account either way,
+      // instead of only the email path's signup mode ever reaching onboarding.
+      if (signupHref && !res[adapter.userKey]?.profile) { navigate(signupHref, { replace: true }); return; }
       goAfterAuth();
     } catch (err) {
       setError(friendlyAuthError(err, t));
