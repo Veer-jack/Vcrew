@@ -2125,6 +2125,7 @@ const en = {
     unverifiedDesc2: "To unlock unlimited campaigns, verify your website through your profile settings — an admin will review it within 24 hours.",
     builderWorkspace: "Builder workspace",
     welcomeBack: "Welcome back,",
+    gladYoureHere: "Glad you're here,",
     howMissionsTracking: "Here's how {{org}}'s validation missions are tracking today.",
     activeMissions: "Active Missions",
     completedMissions: "Completed Missions",

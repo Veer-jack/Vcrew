@@ -243,6 +243,21 @@ export default function Dashboard() {
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  // True only the very first time this browser renders the Dashboard for
+  // this account — a fresh signup lands here (whether it went through
+  // onboarding first or not), and "Welcome back" reads oddly for someone
+  // who's never been here before. The lazy initializer runs once per mount,
+  // and localStorage makes it stick across remounts/refreshes too, so this
+  // flips to "Welcome back" from the very next visit onward.
+  const [isFirstVisit] = useState(() => {
+    if (!builder?.id) return false;
+    const key = `vcrew_dash_seen_${builder.id}`;
+    try {
+      if (localStorage.getItem(key)) return false;
+      localStorage.setItem(key, "1");
+      return true;
+    } catch { return false; }
+  });
 
   useEffect(() => {
     // Prevent back-button going to login page
@@ -358,7 +373,7 @@ export default function Dashboard() {
       <MissionDraftBanner builder={builder} nav={navigate} />
       <div className="ph">
         <div>
-          <h1>{t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
+          <h1>{isFirstVisit ? t("dashboard.gladYoureHere", null, "Glad you're here,") : t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
           <p className="lead">{t("dashboard.howMissionsTracking", { org: builder?.org }, `Here's how ${builder?.org || ""}'s validation missions are tracking today.`)}</p>
         </div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}>
