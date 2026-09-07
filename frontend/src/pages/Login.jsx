@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthSplitScreen from "../components/auth/AuthSplitScreen";
 import { useTranslation } from "../i18n/index.jsx";
@@ -29,7 +29,21 @@ export default function Login() {
     foot: t("builder.login.foot", null, "Protected by SOC 2-grade security. We never share your idea with anyone outside your matched validators."),
   };
 
-  useEffect(() => { if (builder) navigate("/", { replace: true }); }, [builder, navigate]);
+  // Mount-time snapshot only, not a reactive dependency — this effect exists
+  // for someone landing on /login while already signed in from an earlier
+  // session (a stale bookmark, say), sending them straight to the app
+  // instead of showing the form again. Reacting to every `builder` change
+  // instead raced AuthSplitScreen's own post-signup navigate(signupHref):
+  // both fired in the same tick the instant signup set `builder`, and
+  // whichever `replace: true` call won the history entry decided whether a
+  // brand-new account landed on onboarding or skipped straight to the
+  // Dashboard. AuthSplitScreen already owns where a signup/login on this
+  // page should go next, so this effect has no reason to compete with it.
+  const wasAlreadySignedIn = useRef(!!builder);
+  useEffect(() => {
+    if (wasAlreadySignedIn.current) navigate("/", { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   if (builder) return null;
 
   const adapter = {
