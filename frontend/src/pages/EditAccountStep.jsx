@@ -166,9 +166,11 @@ export default function EditAccountStep() {
       {/* Fixed to the right regardless of scroll, same corner-anchored
           placement as the onboarding wizard's own Continue button, instead
           of sitting inline after the step content (where its screen
-          position varied with how tall each step happened to be). */}
+          position varied with how tall each step happened to be). right:110
+          (not a tighter 32) clears the support-chat bubble docked in the
+          same corner. */}
       {dirty && (
-        <div style={{ position: "fixed", bottom: 28, right: 32, zIndex: 40 }}>
+        <div style={{ position: "fixed", bottom: 28, right: 110, zIndex: 40 }}>
           <Btn variant="primary" onClick={handleSave} disabled={busy} style={{ boxShadow: "var(--shadow-lg)" }}>
             {busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}
           </Btn>

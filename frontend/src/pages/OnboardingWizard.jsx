@@ -47,7 +47,7 @@ function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, on
         })}
       </div>
       <div className="wz-rail-foot">
-        <button className="backlink" onClick={onStartFresh}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
+        <button className="backlink" onClick={onStartFresh} style={{ marginLeft: 8 }}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
         {current === 0 ? (
           <button className="btn" onClick={onSkip} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
         ) : (
@@ -353,8 +353,10 @@ export default function OnboardingWizard() {
           content, so it landed at a different screen position on every step
           depending on how tall that step was. Not the mission wizard's own
           full-width bottom bar (.wz-foot) -- just this one button, anchored
-          to a corner, since Back/Skip/Start over already moved into the rail. */}
-      <div style={{ position: "fixed", bottom: 28, right: 32, zIndex: 40 }}>
+          to a corner, since Back/Skip/Start over already moved into the rail.
+          right: 110 (not a tighter 32) clears the support-chat bubble that
+          also docks bottom-right, which otherwise sits on top of it. */}
+      <div style={{ position: "fixed", bottom: 28, right: 110, zIndex: 40 }}>
         <Btn variant="primary" onClick={goNext} disabled={busy} style={{ boxShadow: "var(--shadow-lg)" }}>
           {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
         </Btn>
