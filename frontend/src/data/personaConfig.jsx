@@ -674,3 +674,74 @@ export const PERSONA_CONFIG = {
     ],
   },
 };
+
+// Settings' "Company Details" and "Audience & Demographics" cards each edit
+// via the SAME step component onboarding itself uses, so the two never drift
+// apart -- but the step *key* (and its real-world meaning) differs per
+// persona: Researcher's audience-equivalent is "participants" not
+// "audience", and its closest equivalent to "tell us who you are" is
+// "academic" (institution/qualification), not "company" or "organization".
+const CARD_STEP_KEYS = { company: ["company", "organization", "academic"], audience: ["audience", "participants"] };
+export function resolveCardStep(persona, card) {
+  if (!persona) return null;
+  for (const key of CARD_STEP_KEYS[card] || []) {
+    if (persona.components[key]) return key;
+  }
+  return null;
+}
+
+// Settings' "Company Details" card title and its two read-only summary
+// fields change per the actual step key resolved above -- Organization's
+// real fields are orgType/yearFounded, not industry/size, and Researcher's
+// are institution/qualification; showing the founder/company field names
+// regardless of persona meant Organization and Researcher builders always
+// saw "Not set" for fields their onboarding never even asked them.
+export const CARD_SUMMARY = {
+  company: {
+    titleKey: "settings.companyDetails", titleFallback: "Company Details",
+    fields: [
+      { key: "industry", labelKey: "onboarding.founder.company.industryLabel", labelFallback: "Industry" },
+      { key: "size", labelKey: "settings.companySize", labelFallback: "Company size" },
+    ],
+  },
+  organization: {
+    titleKey: "settings.organizationDetails", titleFallback: "Organization Details",
+    fields: [
+      { key: "orgType", labelKey: "onboarding.org.info.typeSection", labelFallback: "Organization type" },
+      { key: "yearFounded", labelKey: "onboarding.org.info.yearLabel", labelFallback: "Year established" },
+    ],
+  },
+  academic: {
+    titleKey: "settings.academicDetails", titleFallback: "Academic Details",
+    fields: [
+      { key: "institution", labelKey: "onboarding.researcher.academic.institutionLabel", labelFallback: "University / institution" },
+      { key: "qualification", labelKey: "onboarding.researcher.academic.qualificationLabel", labelFallback: "Highest qualification" },
+    ],
+  },
+};
+
+// Which onboarding steps stay reachable for editing after a profile is
+// already complete, once the tester's "show every step, but only some
+// fields change" ask is in play:
+//  - "personal" (name/mobile/job title) is deliberately excluded here, not
+//    just locked -- it's already edited via Settings' own "Edit profile"
+//    and "Mobile number" cards (name/designation live in dedicated builders
+//    columns, mobile goes through real OTP verification), so a third copy
+//    of the same fields here would just be a second place to fall out of
+//    sync with those, not a new capability.
+//  - "verify" (website/LinkedIn/registry) and "ethics" (Researcher's ethics
+//    approval) are locked, not excluded -- they're claims that feed a real
+//    admin-review/trust pipeline, not preferences. Letting them be silently
+//    re-edited here would bypass that review, so the step still shows in
+//    the rail (per "show every step") but can't be entered.
+//  - Everything else (company/organization/academic/research info, what
+//    they're looking to validate, audience/participants, and the final
+//    frequency/methods preferences) is a plain preference with no
+//    compliance angle, so all of it is editable.
+const PERSONAL_STEP_KEYS = new Set(["personal"]);
+const LOCKED_STEP_KEYS = new Set(["verify", "ethics"]);
+export function stepEditability(key) {
+  if (PERSONAL_STEP_KEYS.has(key)) return "personal";
+  if (LOCKED_STEP_KEYS.has(key)) return "locked";
+  return "editable";
+}

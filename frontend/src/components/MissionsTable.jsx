@@ -173,7 +173,12 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
               )}
               <td style={cx("center")}>{fmtDate(m.createdAt)}</td>
               {isAll && <td style={cx("center")}>{fmtDate(m.deadline)}</td>}
-              {isAll && <td style={cx("center")}>{m.status === "completed" ? fmtDate(m.completedAt) : emptyDash()}</td>}
+              {/* completedAt is a permanent historical record, set once the moment
+                  a mission is actually completed and never cleared afterward --
+                  an archived mission that went through "completed" first should
+                  still show that date, not blank out just because it later moved
+                  on to a different status. */}
+              {isAll && <td style={cx("center")}>{m.completedAt ? fmtDate(m.completedAt) : emptyDash()}</td>}
               {!isAll && dateCol && <td style={cx("center")}>{fmtDate(dateCol.get(m))}</td>}
               {!isAll && (
                 <>

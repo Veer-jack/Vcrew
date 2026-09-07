@@ -25,6 +25,7 @@ import Analytics from "./pages/Analytics";
 import Wallet from "./pages/Wallet";
 import Support from "./pages/Support";
 import Settings from "./pages/Settings";
+import EditAccountStep from "./pages/EditAccountStep";
 import Messages from "./pages/Messages";
 
 import { VAuthProvider, useVAuth } from "./vcontext/VAuthContext";
@@ -121,6 +122,7 @@ function BuilderRoutes() {
           having reset in the first place. */}
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
       <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
+      <Route path="/settings/edit-step/:step" element={<RequireAuth><EditAccountStep key={location.pathname} /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />

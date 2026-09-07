@@ -19,7 +19,13 @@ const PERSONA_NAME_FIELD = {
   organization: "orgName",
 };
 
-function StepRail({ steps, current, maxReached, onJump }) {
+// Start over / Skip / Back live at the rail's bottom, same spot and the
+// same .wz-rail-foot styling CreateMissionWizard's own rail uses for its
+// Start fresh/Cancel/Back trio -- moved out of the top navbar so both
+// wizards read the same way. Skip stands in for Cancel there; Back keeps
+// its existing name and only appears past the first step, same condition
+// the old inline Back button used.
+function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, onBack }) {
   const { t } = useTranslation();
   return (
     <aside className="wiz-rail">
@@ -39,6 +45,17 @@ function StepRail({ steps, current, maxReached, onJump }) {
             </button>
           );
         })}
+      </div>
+      <div className="wz-rail-foot">
+        <button className="backlink" onClick={onStartFresh}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
+        {current === 0 ? (
+          <button className="btn" onClick={onSkip} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
+        ) : (
+          <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
+            <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
+            <button className="btn" onClick={onBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -281,6 +298,21 @@ export default function OnboardingWizard() {
     saveDraft(i, maxReached, d);
   };
 
+  // Reset (not remove) the draft: this stays on the same role, just restarts
+  // progress within it, so the dashboard's "which role / how far" banner
+  // stays in sync instead of reporting no role picked.
+  const startFresh = () => {
+    window.__bypassUnload = true;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: 0, maxReached: 0, d: { fullName: builder?.name || "", email: builder?.email || "" } }));
+    } catch { /* ignore */ }
+    window.location.reload();
+  };
+  // A real navigation (not react-router's navigate), same as the old plain
+  // <a href="/"> -- preserves "same functionality" exactly rather than
+  // switching to a soft SPA route change as a side effect of relocating it.
+  const handleSkip = () => { window.__bypassUnload = true; window.location.href = "/"; };
+
   if (done) {
     return (
       <div className="auth-shell">
@@ -297,37 +329,35 @@ export default function OnboardingWizard() {
         <RoleSwitcher currentKey={role} currentName={t(`onboarding.persona.${role}.name`, null, persona.name)} builder={builder} />
         <div style={{ flex: 1 }} />
         <LanguageSwitcher style={{ marginRight: 16 }} />
-        <button
-          onClick={() => {
-            window.__bypassUnload = true;
-            // Reset (not remove) the draft: this stays on the same role, just
-            // restarts progress within it, so the dashboard's "which role /
-            // how far" banner stays in sync instead of reporting no role picked.
-            try {
-              localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: 0, maxReached: 0, d: { fullName: builder?.name || "", email: builder?.email || "" } }));
-            } catch { /* ignore */ }
-            window.location.reload();
-          }}
-          className="faint"
-          style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginRight: 16 }}
-        >
-          {t("actions.startOver", null, "Start over")}
-        </button>
-        <a href="/" onClick={() => { window.__bypassUnload = true; }} className="faint" style={{ fontSize: 13 }}>{t("actions.skipForNow", null, "Skip for now")}</a>
       </header>
 
       <div className="wiz-body-grid">
-        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} />
+        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} onStartFresh={startFresh} onSkip={handleSkip} onBack={goBack} />
         <div className="wiz-content">
+          {/* .wiz-rail (Start over/Skip/Back's only other home) hides below
+              760px -- this keeps Skip and Back reachable on mobile without
+              duplicating the desktop rail's Start over too, matching the
+              mission wizard's own mobile behavior (Start fresh is
+              rail-exclusive there too; Cancel/Back stay reachable). */}
+          <div className="wiz-mob-nav">
+            <button className="btn" onClick={handleSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip for now")}</button>
+            {step > 0 && <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>}
+          </div>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
-          <div className="row gap-3" style={{ marginTop: 28 }}>
-            {step > 0 && <Btn variant="ghost" onClick={goBack}>{t("actions.back", null, "Back")}</Btn>}
-            <Btn variant="primary" onClick={goNext} disabled={busy}>
-              {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
-            </Btn>
-          </div>
         </div>
+      </div>
+
+      {/* Fixed to the right regardless of scroll or step content height --
+          previously part of the normal flow right after each step's own
+          content, so it landed at a different screen position on every step
+          depending on how tall that step was. Not the mission wizard's own
+          full-width bottom bar (.wz-foot) -- just this one button, anchored
+          to a corner, since Back/Skip/Start over already moved into the rail. */}
+      <div style={{ position: "fixed", bottom: 28, right: 32, zIndex: 40 }}>
+        <Btn variant="primary" onClick={goNext} disabled={busy} style={{ boxShadow: "var(--shadow-lg)" }}>
+          {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
+        </Btn>
       </div>
     </div>
   );

@@ -69,6 +69,17 @@ a { color: inherit; text-decoration: none; }
 *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
 *::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: content-box; }
 
+/* Scrollbar stays reserved (no layout shift) but invisible until the area
+   itself is hovered -- only the thumb's color toggles, not its width. Same
+   width and pale grey as a plain native browser scrollbar (--border-strong,
+   the same tone the sidebar's own border already uses) instead of the
+   darker/heavier custom tones tried earlier. */
+.side, .scroll-hover { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.side:hover, .scroll-hover:hover { scrollbar-color: var(--border-strong) transparent; }
+.side::-webkit-scrollbar, .scroll-hover::-webkit-scrollbar { width: 8px; }
+.side::-webkit-scrollbar-thumb, .scroll-hover::-webkit-scrollbar-thumb { background: transparent; border-radius: 20px; }
+.side:hover::-webkit-scrollbar-thumb, .scroll-hover:hover::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
 /* ============================================================
    APP SHELL
    ============================================================ */
@@ -432,10 +443,16 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 }
 .wiz-step-current .wiz-step-dot { background: var(--accent); color: #fff; }
 .wiz-step-done .wiz-step-dot { background: var(--success-weak); color: var(--success); }
+.wiz-mob-nav { display: none; }
 @media (max-width: 760px) {
   .wiz-body-grid { grid-template-columns: 1fr; }
   .wiz-rail { display: none; }
   .wiz-content { padding: 20px 16px; max-width: 100%; }
+  /* Skip/Back moved into the rail's footer for desktop parity with the
+     mission wizard's own Cancel/Back placement -- but the rail itself
+     hides on mobile, so without this Skip/Back would have nowhere to
+     render at all below this width. */
+  .wiz-mob-nav { display: flex; gap: 10px; margin-bottom: 18px; }
 }
 
 /* ===== Redesigned split-screen login / signup ===== */

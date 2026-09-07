@@ -1,20 +1,29 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { Avatar, Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
-import { INDUSTRIES, COMPANY_INDUSTRIES, COMPANY_SIZES, EMP_SIZES } from "../data/onboarding";
-import { PERSONA_CONFIG } from "../data/personaConfig";
-
-// Same fixed value the onboarding wizard itself uses — no region switcher
-// exists yet, so this isn't a per-builder setting to look up.
-const REGION = "india";
+import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY } from "../data/personaConfig";
 
 export default function Settings() {
   const { t } = useTranslation();
   const { builder, setBuilder } = useAuth();
+  const navigate = useNavigate();
+  // Company/Audience edits redirect into the real onboarding step component
+  // at /settings/edit-step/:step (see EditAccountStep.jsx, which also shows
+  // the full step rail from there) instead of a second, separately-maintained
+  // inline copy of the same form -- one step component, used by onboarding
+  // AND every later edit, can't drift apart. Falls back to the in-progress
+  // draft's persona when onboarding was never finished (builder.persona is
+  // only set by the final completion step) -- same resolution the
+  // Dashboard's profile-completion banner already uses.
+  const activePersona = PERSONA_CONFIG[resolveActivePersonaKey(builder)];
+  const companyStepKey = resolveCardStep(activePersona, "company");
+  const audienceStepKey = resolveCardStep(activePersona, "audience");
+  const companySummary = CARD_SUMMARY[companyStepKey];
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(builder?.name || "");
   const [designation, setDesignation] = useState(builder?.designation || "");
@@ -38,65 +47,6 @@ export default function Settings() {
     setChangingPassword(false);
     setPwdCurrent(""); setPwdNew(""); setPwdConfirm("");
     setPwdError(""); setForgotSent(false);
-  };
-
-  const [editingCompany, setEditingCompany] = useState(false);
-  const [industry, setIndustry] = useState(builder?.profile?.industry || "");
-  const [companySize, setCompanySize] = useState(builder?.profile?.size || "");
-  const [companyBusy, setCompanyBusy] = useState(false);
-  const [companyError, setCompanyError] = useState("");
-  // Onboarding uses different option sets (and different value codes, e.g.
-  // "2-10" vs "1-10") per persona for company size — Founder's own
-  // COMPANY_SIZES ("solo"/"2-10"/... ) vs Company persona's EMP_SIZES
-  // ("1-10"/... ). Settings previously always used EMP_SIZES regardless of
-  // persona, so a Founder's saved value never matched any option here and
-  // the dropdown showed blank instead of their real selection.
-  const industryOptions = (builder?.persona === "company" ? COMPANY_INDUSTRIES : INDUSTRIES)(t);
-  const sizeOptions = (builder?.persona === "company" ? EMP_SIZES : COMPANY_SIZES)(t);
-
-  const startEditCompany = () => {
-    setIndustry(builder?.profile?.industry || "");
-    setCompanySize(builder?.profile?.size || "");
-    setCompanyError(""); setEditingCompany(true);
-  };
-  const saveCompany = async (e) => {
-    e.preventDefault();
-    setCompanyBusy(true); setCompanyError("");
-    try {
-      const res = await api.updateProfile({ name: builder.name, org: builder.org, email: builder.email, website: builder.website, designation: builder.designation, profile: { industry, size: companySize } });
-      setBuilder(res.builder);
-      setEditingCompany(false);
-    } catch (err) {
-      setCompanyError(err.message || t("settings.errSave", null, "Couldn't save changes"));
-    } finally { setCompanyBusy(false); }
-  };
-
-  // Onboarding's "audience" step (Researcher's equivalent is keyed
-  // "participants") is already fully built per persona — reused directly
-  // here instead of re-declaring a second copy of its fields, options, and
-  // live reach meter for every persona.
-  const AudienceStep = PERSONA_CONFIG[builder?.persona]?.components?.audience
-    || PERSONA_CONFIG[builder?.persona]?.components?.participants;
-  const [editingAudience, setEditingAudience] = useState(false);
-  const [audienceD, setAudienceD] = useState(() => ({ ...(builder?.profile || {}) }));
-  const [audienceBusy, setAudienceBusy] = useState(false);
-  const [audienceError, setAudienceError] = useState("");
-  const setAudienceField = (k, v) => setAudienceD(s => ({ ...s, [k]: v }));
-
-  const startEditAudience = () => {
-    setAudienceD({ ...(builder?.profile || {}) });
-    setAudienceError(""); setEditingAudience(true);
-  };
-  const saveAudience = async (e) => {
-    e.preventDefault();
-    setAudienceBusy(true); setAudienceError("");
-    try {
-      const res = await api.updateProfile({ name: builder.name, org: builder.org, email: builder.email, website: builder.website, designation: builder.designation, profile: audienceD });
-      setBuilder(res.builder);
-      setEditingAudience(false);
-    } catch (err) {
-      setAudienceError(err.message || t("settings.errSave", null, "Couldn't save changes"));
-    } finally { setAudienceBusy(false); }
   };
 
   const sendForgotLink = async () => {
@@ -215,51 +165,27 @@ export default function Settings() {
             // (still sitting in profile.mobile in the DB) just comes right
             // back on the next reload or tab switch, no matter what local
             // state says.
-            const res = await api.updateProfile({ name: builder.name, org: builder.org, email: builder.email, website: builder.website, designation: builder.designation, profile: { mobile: null } });
+            const res = await api.updateProfile({ profile: { mobile: null } });
             setBuilder(res.builder);
           }} />
 
+        {companySummary && (
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
-            <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.companyDetails", null, "Company Details")}</h2>
-            {!editingCompany && <Btn variant="ghost" icon="edit" onClick={startEditCompany}>{t("actions.edit", null, "Edit")}</Btn>}
+            <h2 style={{ fontSize: 18, margin: 0 }}>{t(companySummary.titleKey, null, companySummary.titleFallback)}</h2>
+            <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${companyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
           </div>
-          {!editingCompany ? (
-            <div className="row gap-3 wrap">
-              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                <label>{t("onboarding.founder.company.industryLabel", null, "Industry")}</label>
-                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.industry ? undefined : "var(--text-faint)" }}>{builder?.profile?.industry || t("settings.notSet", null, "Not set")}</div>
-              </div>
-              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                <label>{t("settings.companySize", null, "Company size")}</label>
-                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.size ? undefined : "var(--text-faint)" }}>{builder?.profile?.size || t("settings.notSet", null, "Not set")}</div>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={saveCompany} className="col gap-4">
-              {companyError && <div className="err-banner">{companyError}</div>}
-              <div className="row gap-3 wrap">
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("onboarding.founder.company.industryLabel", null, "Industry")}</label>
-                  <select className="fin" value={industry} onChange={e => setIndustry(e.target.value)}>
-                    <option value="" disabled>{t("onboardingFields.selectPlaceholder", null, "Select…")}</option>
-                    {industryOptions.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+          <div className="row gap-3 wrap">
+            {companySummary.fields.map(f => {
+              const val = builder?.profile?.[f.key];
+              return (
+                <div key={f.key} className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t(f.labelKey, null, f.labelFallback)}</label>
+                  <div className="fin" style={{ display: "flex", alignItems: "center", color: val ? undefined : "var(--text-faint)" }}>{val || t("settings.notSet", null, "Not set")}</div>
                 </div>
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.companySize", null, "Company size")}</label>
-                  <select className="fin" value={companySize} onChange={e => setCompanySize(e.target.value)}>
-                    <option value="" disabled>{t("onboardingFields.selectPlaceholder", null, "Select…")}</option>
-                    {sizeOptions.map(o => <option key={o.v} value={o.v}>{o.t}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="row gap-2">
-                <Btn variant="primary" type="submit" disabled={companyBusy}>{companyBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
-                <Btn variant="quiet" type="button" onClick={() => { setEditingCompany(false); setCompanyError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
-              </div>
-            </form>
-          )}
+              );
+            })}
+          </div>
           {builder?.profile?.vWebsiteInput && (
             <div style={{ marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--border)" }}>
               <div className="row between" style={{ alignItems: "center" }}>
@@ -271,40 +197,27 @@ export default function Settings() {
             </div>
           )}
         </div>
+        )}
 
-        {AudienceStep && (
+        {audienceStepKey && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
               <div>
                 <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.audienceDetails", null, "Audience & Demographics")}</h2>
                 <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.audienceDetailsDesc", null, "Who you want to hear from — collected at onboarding, used as the starting point for the Audience Explorer.")}</p>
               </div>
-              {!editingAudience && <Btn variant="ghost" icon="edit" onClick={startEditAudience}>{t("actions.edit", null, "Edit")}</Btn>}
+              <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${audienceStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
             </div>
-            {!editingAudience ? (
-              <div className="row gap-3 wrap" style={{ marginTop: 10 }}>
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("onboardingFields.age", null, "Age")}</label>
-                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.ageBands?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.ageBands?.length ? builder.profile.ageBands.join(", ") : t("settings.notSet", null, "Not set")}</div>
-                </div>
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("onboardingFields.country", null, "Country")}</label>
-                  <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country?.length ? undefined : "var(--text-faint)" }}>{(Array.isArray(builder?.profile?.country) ? builder.profile.country.join(", ") : builder?.profile?.country) || t("settings.notSet", null, "Not set")}</div>
-                </div>
+            <div className="row gap-3 wrap" style={{ marginTop: 10 }}>
+              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                <label>{t("onboardingFields.age", null, "Age")}</label>
+                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.ageBands?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.ageBands?.length ? builder.profile.ageBands.join(", ") : t("settings.notSet", null, "Not set")}</div>
               </div>
-            ) : (
-              <form onSubmit={saveAudience} className="col gap-2">
-                {audienceError && <div className="err-banner">{audienceError}</div>}
-                <AudienceStep d={audienceD} set={setAudienceField} region={REGION} showErrors={false} />
-                {/* Sticky, not just marginTop — the Country list alone runs to ~190
-                    checkboxes, so a normal inline row scrolled out of view long
-                    before the bottom, making Save look like it wasn't there at all. */}
-                <div className="row gap-2" style={{ marginTop: 8, position: "sticky", bottom: 0, padding: "10px 0", background: "var(--panel)" }}>
-                  <Btn variant="primary" type="submit" disabled={audienceBusy}>{audienceBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
-                  <Btn variant="quiet" type="button" onClick={() => { setEditingAudience(false); setAudienceError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
-                </div>
-              </form>
-            )}
+              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                <label>{t("onboardingFields.country", null, "Country")}</label>
+                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country?.length ? undefined : "var(--text-faint)" }}>{(Array.isArray(builder?.profile?.country) ? builder.profile.country.join(", ") : builder?.profile?.country) || t("settings.notSet", null, "Not set")}</div>
+              </div>
+            </div>
           </div>
         )}
 
