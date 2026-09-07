@@ -197,6 +197,12 @@ a { color: inherit; text-decoration: none; }
   border-radius: var(--radius-sm); color: var(--text-faint);
 }
 .search input { border: none; background: none; outline: none; color: var(--text); font-family: inherit; font-size: 14px; width: 100%; }
+/* The global :focus-visible rule below (accent-colored ring, !important)
+   still wins by default -- this scoped override keeps the keyboard-focus
+   visibility that rule exists for (WCAG 2.4.7), just as a plain border
+   matching the rest of the card/panel language instead of a bright ring. */
+.search input:focus-visible { outline: none !important; }
+.search:focus-within { border-color: var(--border-strong); }
 .topbar-spacer { flex: 1; }
 .icon-btn {
   width: 38px; height: 38px; border-radius: var(--radius-sm); display: grid; place-items: center;

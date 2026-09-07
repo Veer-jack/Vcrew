@@ -140,7 +140,14 @@ export default function AppLayout() {
       <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          {location.pathname !== "/audience" && (
+          {/* Dashboard-only now, as a "jump to Missions" shortcut -- it's the
+              one page with no searchable list of its own. Every other page
+              either already has its own dedicated, page-relevant search
+              (Missions, Support, Audience Explorer, Messages, Invitations,
+              Wallet) or has nothing listable to search at all (Analytics,
+              Settings), so showing this same generic "always means Missions"
+              box there too would just be redundant or actively misleading. */}
+          {location.pathname === "/" && (
             <div className="search">
               <Icon name="search" size={16} />
               <input

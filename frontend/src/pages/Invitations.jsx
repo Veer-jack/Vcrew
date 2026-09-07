@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, Btn, Empty } from "../components/ui";
 import Icon from "../components/Icon";
@@ -27,6 +27,8 @@ function statusLabel(status, t) {
     cancelled: t("invitations.statusCancelled", null, "Cancelled"),
   }[status] || status;
 }
+
+const ALL_STATUSES = ["pending", "accepted", "declined", "closed", "cancelled"];
 
 function StatusPill({ status, t }) {
   const style = STATUS_STYLE[status] || STATUS_STYLE.closed;
@@ -66,6 +68,24 @@ export default function Invitations() {
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
   const [expanded, setExpanded] = useState(new Set());
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+  const toggleStatus = (s) => setStatusFilter(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+
+  // A "cover the page, close on click" overlay div doesn't reliably work --
+  // some ancestor CSS (backdrop-filter, transform, etc.) can make it the
+  // containing block for that fixed overlay, so it only ever spans that
+  // ancestor's own box instead of the true page (same class of bug
+  // AppLayout's profile dropdown hit). A document-level listener sidesteps
+  // that entirely.
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onDocClick = (e) => { if (!filterRef.current?.contains(e.target)) setFilterOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [filterOpen]);
 
   const toggleExpand = (validatorId) => setExpanded(prev => {
     const next = new Set(prev);
@@ -93,6 +113,21 @@ export default function Invitations() {
     }
   };
 
+  // Matches on the validator's own name or any mission they were invited
+  // to -- either is a reasonable thing to be looking someone up by. A
+  // mission-name match still shows that validator's whole group (every
+  // mission they're in), not just the one that matched, so an expanded
+  // card never looks like it's silently missing rows. Same "whole group if
+  // anything inside it matches" rule for the status filter -- a validator
+  // with one Pending invite among four Declined ones still needs to show
+  // up (and show all four) when filtering to Pending.
+  const filtered = groupInvitations(invitations).filter(g => {
+    const matchesQ = !q.trim() || g.validator.name.toLowerCase().includes(q.trim().toLowerCase()) ||
+      g.items.some(i => i.mission.name.toLowerCase().includes(q.trim().toLowerCase()));
+    const matchesStatus = statusFilter.length === 0 || g.items.some(i => statusFilter.includes(i.status));
+    return matchesQ && matchesStatus;
+  });
+
   return (
     <div className="page rise">
       <div className="ph">
@@ -109,12 +144,60 @@ export default function Invitations() {
           {t("invitations.emptyBody", null, "Invite validators to a mission from the Audience tab or a mission's participant panel.")}
         </Empty>
       ) : (
-        // Each validator is its own card -- collapsed, it's just the name row;
-        // the Mission/Invited on/Status/Action columns only exist inside a
-        // card once it's actually expanded, not as a permanent header row
-        // sitting over every collapsed group too.
-        <div className="col gap-3">
-          {groupInvitations(invitations).map(g => {
+        <>
+          <div className="row gap-2" style={{ marginBottom: 16 }}>
+            <div style={{ position: "relative" }} ref={filterRef}>
+              <button title={t("invitations.filterTitle", null, "Filter")} onClick={() => setFilterOpen(o => !o)}
+                style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--panel)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+                <Icon name="filter" size={16} />
+                {statusFilter.length > 0 && (
+                  <span style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+                )}
+              </button>
+              {filterOpen && (
+                  <div role="menu" style={{
+                    position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50, width: 220,
+                    background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                    boxShadow: "var(--shadow-md)", padding: "14px",
+                  }}>
+                    <div className="row" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                      <div style={{ fontSize: 14, fontWeight: 800 }}>{t("invitations.filterStatus", null, "Filter by Status")}</div>
+                      {statusFilter.length > 0 && (
+                        <button style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12.5, fontWeight: 700, color: "var(--accent)" }}
+                          onClick={() => setStatusFilter([])}>
+                          {t("actions.clearAll", null, "Clear all")}
+                        </button>
+                      )}
+                    </div>
+                    <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>{t("invitations.filterStatusHint", null, "Select one or more statuses")}</div>
+                    <div className="col gap-1">
+                      {ALL_STATUSES.map(s => {
+                        const on = statusFilter.includes(s);
+                        return (
+                          <label key={s} className="menu-item" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "8px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}>
+                            <input type="checkbox" checked={on} onChange={() => toggleStatus(s)} style={{ cursor: "pointer" }} />
+                            {statusLabel(s, t)}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+              )}
+            </div>
+            <div className="seg-search" style={{ maxWidth: 360 }}>
+              <Icon name="search" size={16} />
+              <input placeholder={t("invitations.searchPlaceholder", null, "Search by validator or mission…")} value={q} onChange={e => setQ(e.target.value)} />
+            </div>
+          </div>
+          {filtered.length === 0 ? (
+            <div className="muted" style={{ padding: 24 }}>{t("invitations.noneMatch", null, "No invitations match")} "{q}".</div>
+          ) : (
+          // Each validator is its own card -- collapsed, it's just the name row;
+          // the Mission/Invited on/Status/Action columns only exist inside a
+          // card once it's actually expanded, not as a permanent header row
+          // sitting over every collapsed group too.
+          <div className="col gap-3">
+          {filtered.map(g => {
             const hasWaitlist = g.items.some(i => i.isWaitlist);
             const isOpen = expanded.has(g.validator.id);
             return (
@@ -174,7 +257,9 @@ export default function Invitations() {
               </div>
             );
           })}
-        </div>
+          </div>
+          )}
+        </>
       )}
     </div>
   );

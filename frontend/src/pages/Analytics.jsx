@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import Icon from "../components/Icon";
 import { Btn, KpiCard, MissionLogo, PBarRow, Trend, UpdatingBadge } from "../components/ui";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
@@ -16,6 +17,7 @@ export default function Analytics() {
   const [data, setData] = useState(null);
   const [missions, setMissions] = useState([]);
   const [refetching, setRefetching] = useState(false);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     setTimeout(() => setRefetching(true), 0);
@@ -99,11 +101,20 @@ export default function Analytics() {
 
       <div className="sec" style={{ marginTop: 22 }}>
         <div className="sec-head"><h2 className="h-lg">{t("analytics.byMission", null, "By mission")}</h2></div>
+        <div className="seg-search" style={{ marginBottom: 16, maxWidth: 360 }}>
+          <Icon name="search" size={16} />
+          <input placeholder={t("analytics.searchPlaceholder", null, "Search missions…")} value={q} onChange={e => setQ(e.target.value)} />
+        </div>
+        {(() => {
+          const filteredMissions = q.trim() ? missions.filter(m => m.name.toLowerCase().includes(q.trim().toLowerCase())) : missions;
+          return filteredMissions.length === 0 ? (
+            <div className="muted" style={{ padding: 24 }}>{t("analytics.noneMatch", null, "No missions match")} "{q}".</div>
+          ) : (
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>{t("analytics.thMission", null, "Mission")}</th><th style={{ textAlign: "right" }}>{t("analytics.thResponses", null, "Responses")}</th><th style={{ textAlign: "right" }}>{t("analytics.thAvgRating", null, "Avg rating")}</th><th style={{ width: 150 }}>{t("analytics.thCompletion", null, "Completion")}</th></tr></thead>
             <tbody>
-              {missions.map(m => (
+              {filteredMissions.map(m => (
                 <tr className="click" key={m.id} onClick={() => navigate(`/missions/${m.id}`)}>
                   <td><div className="t-name"><MissionLogo name={m.name} cat={m.category} size={32} /><div>{m.name}</div></div></td>
                   <td className="num">{m.participants.submitted}</td>
@@ -114,6 +125,8 @@ export default function Analytics() {
             </tbody>
           </table>
         </div>
+          );
+        })()}
       </div>
     </div>
   );

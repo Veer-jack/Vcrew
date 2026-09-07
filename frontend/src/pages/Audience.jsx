@@ -133,6 +133,10 @@ function StatTile({ label, value, accent }) {
 // history, not something the Audience list already carries per row.
 function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
   const [detail, setDetail] = useState(null);
+  // Starts closed, flips open a frame after mount so the transform/opacity
+  // transitions below actually animate instead of snapping straight to
+  // their end state (which is what a same-frame transform would do).
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -140,10 +144,15 @@ function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
     return () => { cancelled = true; };
   }, [validator.id]);
 
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setOpen(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex" }}>
-      <div style={{ flex: 1, background: "rgba(8,10,18,.34)", backdropFilter: "blur(2px)" }} onClick={onClose} />
-      <div style={{ width: 600, maxWidth: "92vw", background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, background: "rgba(8,10,18,.34)", backdropFilter: "blur(2px)", opacity: open ? 1 : 0, transition: "opacity .15s ease" }} onClick={onClose} />
+      <div style={{ width: 600, maxWidth: "92vw", background: "var(--bg)", borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", transform: open ? "translateX(0)" : "translateX(100%)", transition: "transform .18s ease" }}>
         <div style={{ flex: 1, overflowY: "auto" }}>
           <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg)" }}>
             <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
@@ -205,7 +214,9 @@ function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
             {!detail ? (
               <div className="muted" style={{ fontSize: 12.5 }}>{t("actions.loading", null, "Loading…")}</div>
             ) : detail.recentMissions.length === 0 ? (
-              <div className="muted" style={{ fontSize: 12.5 }}>{t("audience.noRecentMissions", null, "No missions yet")}</div>
+              <div className="muted" style={{ fontSize: 12, padding: "10px 12px", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", textAlign: "center" }}>
+                {t("audience.noRecentMissions", null, "No missions yet")}
+              </div>
             ) : (
               detail.recentMissions.map((rm, i) => (
                 <div key={rm.id + i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderTop: i > 0 ? "1px solid var(--border)" : "none" }}>

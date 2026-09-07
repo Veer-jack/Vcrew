@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
-import { Btn, KpiCard, UpdatingBadge, inr, inrK } from "../components/ui";
+import { Btn, KpiCard, UpdatingBadge, inrK } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
@@ -194,26 +194,6 @@ function ProfileCompletionBanner({ builder, nav }) {
   );
 }
 
-function QuickActions({ nav, balance }) {
-  const { t } = useTranslation();
-  const items = [
-    { ic: "plus", t: t("actions.createMission", null, "Create Mission"), s: t("dashboard.qaLaunchNew", null, "Launch a new study"), go: () => nav("/missions/new") },
-    { ic: "compass", t: t("actions.browseAudience", null, "Browse Audience"), s: t("dashboard.qaFindMembers", null, "Find the right members"), go: () => nav("/audience") },
-    { ic: "chart", t: t("actions.viewReports", null, "View Reports"), s: t("dashboard.qaAnalytics", null, "Analytics & exports"), go: () => nav("/analytics") },
-    { ic: "wallet", t: t("actions.manageWallet", null, "Manage Wallet"), s: `${inr(balance)} ${t("dashboard.available", null, "available")}`, go: () => nav("/wallet") },
-  ];
-  return (
-    <div className="qa-grid">
-      {items.map((it, i) => (
-        <button className="qa" key={i} onClick={it.go}>
-          <span className="qa-ic"><Icon name={it.ic} size={20} /></span>
-          <span className="qa-meta"><b>{it.t}</b><span>{it.s}</span></span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function ActivityFeed({ rows }) {
   const { t } = useTranslation();
   if (!rows.length) return <div className="muted" style={{ padding: "12px 0" }}>{t("dashboard.noActivity", null, "No recent activity yet.")}</div>;
@@ -239,7 +219,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
-  const [showAllMissions, setShowAllMissions] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
@@ -395,49 +374,51 @@ export default function Dashboard() {
         <KpiCard label={t("dashboard.walletBalance", null, "Wallet Balance")} value={inrK(builder?.balance)} icon="coins" onClick={() => navigate("/wallet")} />
       </div>
 
-      <div className="sec">
-        <div className="sec-head"><h2 className="h-lg">{t("dashboard.quickActions", null, "Quick actions")}</h2></div>
-        <QuickActions nav={navigate} balance={builder?.balance} />
-      </div>
-
-      <div className="sec" style={{ marginBottom: 40 }}>
-        <div className="card" style={{ padding: "18px 0" }}>
-          <div className="sec-head" style={{ marginBottom: 12, padding: "0 18px" }}>
+      {/* Recent missions (wider) and Activity feed (narrower) side by side,
+          matching the reference layout -- each section's heading now sits
+          above its own card, not nested inside it, per the same reference. */}
+      <div className="sec" style={{ marginBottom: 40, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, alignItems: "start" }}>
+        {/* minWidth:0 matters here -- a grid item defaults to min-width:auto,
+            which stops it shrinking below its content's natural width. The
+            table (.tbl-wrap) already scrolls horizontally on its own when
+            it doesn't fit, but without this the grid item itself refused to
+            shrink below the table's full ~870px, dragging this column wider
+            than its 2fr share and squeezing Activity feed into whatever was
+            left over instead of its fair 1fr. */}
+        <div style={{ minWidth: 0 }}>
+          <div className="sec-head" style={{ marginBottom: 12 }}>
             <h3 className="h-md">{t("dashboard.recentMissions", null, "Recent missions")}</h3>
-            <Btn 
-              variant="quiet" 
-              size="sm" 
-              iconRight={showAllMissions ? "x" : "arrowRight"} 
-              onClick={() => setShowAllMissions(!showAllMissions)}
-            >
-              {showAllMissions ? t("actions.close", null, "Close") : t("actions.viewAllMissions", null, "View all missions")}
+            {/* A real jump to the Missions page, not an in-place expansion --
+                this list is deliberately just the latest active missions, so
+                "see everything" belongs on the actual page that has them. */}
+            <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => navigate("/missions")}>
+              {t("actions.allMissions", null, "All missions")}
             </Btn>
           </div>
-          {/* The card itself has zero horizontal padding (see its own style
-              above) — the header row gets its own inset to compensate, but
-              the table was left to sit flush against the card's edges,
-              making its border and the card's border visually merge into
-              one line. Same inset as the header keeps both aligned. */}
-          <div style={{ padding: "0 18px" }}>
-            <MissionsTable rows={showAllMissions ? recentMissions : recentMissions.slice(0, 3)} nav={navigate} categories={categories} />
-          </div>
+          {/* No wrapping .card here -- .tbl-wrap (MissionsTable's own root)
+              already has its own background/border/radius, so a .card
+              around it was just a second, redundant box. */}
+          <MissionsTable rows={recentMissions} nav={navigate} categories={categories} compact />
         </div>
-      </div>
 
-      <div className="sec">
-        <div className="card" style={{ padding: 18 }}>
-          <div className="sec-head" style={{ marginBottom: 6 }}>
-            <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
-            <Btn 
-              variant="quiet" 
-              size="sm" 
-              iconRight={showAllActivity ? "x" : "arrowRight"} 
-              onClick={() => setShowAllActivity(!showAllActivity)}
-            >
-              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAll", null, "View all")}
+        <div>
+          {/* Heading stays inside this card (unlike Recent Missions') and
+              carries a "Live" badge instead of a header-level toggle --
+              "View all activity" moved to a plain button at the bottom of
+              the card instead, per the reference. */}
+          <div className="card" style={{ padding: 18 }}>
+            <div className="sec-head" style={{ marginBottom: 12 }}>
+              <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
+              <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--success-weak)", color: "var(--success)" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
+                {t("dashboard.live", null, "Live")}
+              </span>
+            </div>
+            <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
+            <Btn variant="ghost" block onClick={() => setShowAllActivity(!showAllActivity)} style={{ marginTop: 12 }}>
+              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAllActivity", null, "View all activity")}
             </Btn>
           </div>
-          <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
         </div>
       </div>
     </div>

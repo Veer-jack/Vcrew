@@ -653,18 +653,15 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
       )}
       <div className="card" style={{ padding: "4px 20px 14px" }}>
         <ReviewRow icon="edit" color="--accent-2" label={t("createMission.missionTitleReviewLabel", null, "Mission title")} onEdit={() => onEditStep(0)}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
-        {/* Right after the title, same order the field appears in on Step 1
-            itself, rather than after Category/Participation type where
-            nothing else on this page needs it. */}
-        <ReviewRow icon="calendar" color="--accent" label={t("createMission.deadlineReviewLabel", null, "Deadline")} onEdit={() => onEditStep(0)}>
-          {d.deadline ? new Date(d.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : <span className="faint">{t("settings.notSet", null, "Not set")}</span>}
-        </ReviewRow>
         {d.desc && (
           <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
             <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
             {descLong && <button className="backlink" style={{ margin: "4px 0 0", fontSize: 12.5 }} onClick={() => setDescExpanded(v => !v)}>{descExpanded ? t("actions.showLess", null, "Show less") : t("actions.readMore", null, "Read more")}</button>}
           </ReviewRow>
         )}
+        <ReviewRow icon="calendar" color="--accent" label={t("createMission.deadlineReviewLabel", null, "Deadline")} onEdit={() => onEditStep(0)}>
+          {d.deadline ? new Date(d.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : <span className="faint">{t("settings.notSet", null, "Not set")}</span>}
+        </ReviewRow>
         <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
         <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
         {d.tasks?.length > 0 && (
@@ -1865,7 +1862,7 @@ export default function CreateMissionWizard() {
     const single = drafts.length === 1;
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon bodyScroll={false}>
+        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon bodyScroll={false} dismissible={false}>
           <div style={{ padding: 20 }}>
             {single ? (
               <p style={{ margin: "0 0 4px", fontSize: 14 }}>

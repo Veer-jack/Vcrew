@@ -126,6 +126,8 @@ router.get("/", async (req, res) => {
     };
   });
 
+  // Any status, most recent 6 -- confirmed against the actual reference
+  // mockup (mixed Active/Draft rows), not the earlier active-only reading.
   const recentRaw = await db.prepare(`
     SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,

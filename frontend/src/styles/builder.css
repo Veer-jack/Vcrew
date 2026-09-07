@@ -554,6 +554,13 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   border-radius: var(--radius-sm); color: var(--text-faint); min-width: 220px; flex: 1; max-width: 320px; }
 .seg-search input { border: none; background: none; outline: none; color: var(--text); font-family: inherit; font-size: 13.5px; width: 100%; }
 .seg-search svg { width: 16px; height: 16px; flex: none; }
+/* Same fix as the topbar .search box: the global :focus-visible rule
+   (accent-colored ring, !important) still wins by default -- this keeps the
+   keyboard-focus visibility that rule exists for (WCAG 2.4.7), just as a
+   plain border on the box itself instead of a bright ring, on every page's
+   local search (Missions, Support, Invitations, Wallet, Analytics, ...). */
+.seg-search input:focus-visible { outline: none !important; }
+.seg-search:focus-within { border-color: var(--border-strong); }
 .split { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .sticky-side { position: sticky; top: 84px; }
 .tc-split { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 32px; align-items: start; }

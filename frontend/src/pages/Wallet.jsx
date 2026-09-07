@@ -53,6 +53,7 @@ export default function Wallet() {
   const [loadError, setLoadError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
   const [refetching, setRefetching] = useState(false);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setVisibleCount(20), 0);
@@ -243,12 +244,28 @@ export default function Wallet() {
         {TABS.map(tab => <button key={tab.k} className={tab === tab.k ? "on" : ""} onClick={() => setTab(tab.k)}><Icon name={tab.ic} size={15} />{tab.l}</button>)}
       </div>
 
-      {tab === "transactions" && (
+      {tab === "transactions" && (() => {
+        // Matches the description or credit/debit type -- either is a
+        // reasonable thing to be hunting a past transaction by.
+        const filteredTxns = q.trim()
+          ? data.transactions.filter(txn =>
+              txn.description?.toLowerCase().includes(q.trim().toLowerCase()) ||
+              (txn.type === "credit" ? t("wallet.credit", null, "Credit") : t("wallet.debit", null, "Debit")).toLowerCase().includes(q.trim().toLowerCase()))
+          : data.transactions;
+        return (
+        <>
+          <div className="seg-search" style={{ marginBottom: 16, maxWidth: 360 }}>
+            <Icon name="search" size={16} />
+            <input placeholder={t("wallet.searchPlaceholder", null, "Search transactions…")} value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          {filteredTxns.length === 0 ? (
+            <div className="muted" style={{ padding: 24 }}>{t("wallet.noneMatch", null, "No transactions match")} "{q}".</div>
+          ) : (
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>{t("wallet.thDate", null, "Date")}</th><th>{t("wallet.thDescription", null, "Description")}</th><th>{t("wallet.thType", null, "Type")}</th><th style={{ textAlign: "right" }}>{t("wallet.thAmount", null, "Amount")}</th></tr></thead>
             <tbody>
-              {data.transactions.slice(0, visibleCount).map((txn) => (
+              {filteredTxns.slice(0, visibleCount).map((txn) => (
                 <tr key={txn.id} className={txn.missionId ? "click" : ""} onClick={() => txn.missionId && navigate(`/missions/${txn.missionId}`)}>
                   <td className="mono" style={{ color: "var(--text-muted)", fontSize: 12.5 }}>{txn.date}</td>
                   <td style={{ fontWeight: 600 }}>{txn.description}</td>
@@ -258,13 +275,16 @@ export default function Wallet() {
               ))}
             </tbody>
           </table>
-          {visibleCount < data.transactions.length && (
+          {visibleCount < filteredTxns.length && (
             <div style={{ textAlign: "center", padding: 16 }}>
               <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreTransactions", null, "Load more transactions")}</Btn>
             </div>
           )}
         </div>
-      )}
+          )}
+        </>
+        );
+      })()}
 
       {tab === "invoices" && (
         <div className="tbl-wrap">

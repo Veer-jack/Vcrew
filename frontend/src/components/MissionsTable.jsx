@@ -50,7 +50,17 @@ const TAB_DATE_COL = {
   draft: { key: "updatedAt", label: "missions.lastEditedCol", fallback: "Last Edited", get: m => m.updatedAt || m.createdAt },
 };
 
-export default function MissionsTable({ rows, nav, categories, onDelete, tab, selectedIds, onToggleSelect, onToggleSelectAll }) {
+// compact is its own mode, not a reuse of an existing tab: none of the
+// tab-driven column combinations below can produce "Status AND
+// Participants/Reward/Completion together, but no Created/Deadline/
+// Completed Date" -- Status only ever shows for the "all" tab, and
+// Participants/Reward/Completion only ever show for a single-status tab,
+// mutually exclusive today. Dashboard's Recent Missions preview (mixed
+// statuses, no need for the Created/Deadline/Completed Date columns that
+// make sense on the full Missions page) is genuinely a third shape, not a
+// variant of either existing one -- kept as a separate branch so neither
+// of those two paths' behavior changes at all.
+export default function MissionsTable({ rows, nav, categories, onDelete, tab, selectedIds, onToggleSelect, onToggleSelectAll, compact }) {
   const { t } = useTranslation();
   if (!rows.length) return <div className="muted" style={{ padding: 24 }}>{t("missions.noMissionsYet", null, "No missions yet — create your first one.")}</div>;
   // Every row is selectable here, regardless of status — selection also
@@ -109,12 +119,12 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                 each column just gets whatever it actually needs. */}
             <th style={thStyle(180, "left")}>{t("missions.missionCol", null, "Mission")}</th>
             <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
-            {isAll && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
-            <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>
+            {(isAll || compact) && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
+            {!compact && <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>}
             {isAll && <th style={thStyle(190, "center")}>{t("missions.deadlineCol", null, "Deadline")}</th>}
             {isAll && <th style={thStyle(210, "center")}>{t("missions.completedDateCol", null, "Completed Date")}</th>}
-            {!isAll && dateCol && <th style={thStyle(160, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
-            {!isAll && (
+            {!isAll && !compact && dateCol && <th style={thStyle(160, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
+            {(!isAll || compact) && (
               <>
                 <th style={thStyle(150, "center")}>{t("metrics.participants", null, "Participants")}</th>
                 <th style={thStyle(100, "center")}>{t("metrics.reward", null, "Reward")}</th>
@@ -150,7 +160,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                 </div>
               </td>
               <td style={cx("center")}><TypeTag cat={m.category} categories={categories} /></td>
-              {isAll && (
+              {(isAll || compact) && (
                 <td style={cx("center")}>
                   <div className="row gap-2" style={{ alignItems: "center", justifyContent: "center" }}>
                     <StatusTag status={m.status} />
@@ -171,7 +181,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   </div>
                 </td>
               )}
-              <td style={cx("center")}>{fmtDate(m.createdAt)}</td>
+              {!compact && <td style={cx("center")}>{fmtDate(m.createdAt)}</td>}
               {isAll && <td style={cx("center")}>{fmtDate(m.deadline)}</td>}
               {/* completedAt is a permanent historical record, set once the moment
                   a mission is actually completed and never cleared afterward --
@@ -179,8 +189,8 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   still show that date, not blank out just because it later moved
                   on to a different status. */}
               {isAll && <td style={cx("center")}>{m.completedAt ? fmtDate(m.completedAt) : emptyDash()}</td>}
-              {!isAll && dateCol && <td style={cx("center")}>{fmtDate(dateCol.get(m))}</td>}
-              {!isAll && (
+              {!isAll && !compact && dateCol && <td style={cx("center")}>{fmtDate(dateCol.get(m))}</td>}
+              {(!isAll || compact) && (
                 <>
                   <td className="num" style={cx("center")}>
                     {m.status === "draft" && (m.audience?._maxReached ?? 0) < 4 ? (
