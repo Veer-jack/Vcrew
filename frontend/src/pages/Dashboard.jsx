@@ -65,23 +65,15 @@ function ProfileCompletionBanner({ builder, nav }) {
       <div className="card" style={{ border: "1px solid var(--accent-weak)", padding: 0, marginBottom: 20, display: "flex", overflow: "hidden" }}>
         {/* Left Side */}
         <div style={{ flex: "1", padding: 32, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-            <Icon name="user" size={26} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+              <Icon name="user" size={26} />
+            </div>
+            <h3 style={{ fontSize: 20, margin: 0, color: "var(--heading)", fontWeight: 600 }}>{t("dashboard.selectRole", null, "Select your role and complete setup")}</h3>
           </div>
-          <h3 style={{ fontSize: 20, marginBottom: 8, color: "var(--heading)", fontWeight: 600 }}>{t("dashboard.selectRole", null, "Select your role and complete setup")}</h3>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
             {t("dashboard.selectRoleDesc", null, "Choose the role that best describes you to personalize your workspace and begin the setup process.")}
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text)" }}>
-              <div style={{ color: "#3b82f6" }}><Icon name="alertCircle" size={16} /></div>
-              {t("dashboard.noRoleSelected", null, "No role selected")}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-muted)" }}>
-              <div style={{ color: "#9ca3af" }}><Icon name="xCircle" size={16} /></div>
-              {t("dashboard.setupNotStarted", null, "Setup not started")}
-            </div>
-          </div>
         </div>
         {/* Right Side */}
         <div style={{ flex: "1.5", padding: 32, background: "#f8fafc", borderLeft: "1px solid var(--border)" }}>
