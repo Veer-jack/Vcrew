@@ -8,6 +8,27 @@ import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
+// A comma-joined string crammed into one .fin box was unreadable and forced
+// its own scrollbar the moment a field had more than a few values (e.g.
+// picking "Worldwide" during onboarding saves every country) -- one chip per
+// value, same .mtag style MissionDetail's own Audience definition already
+// uses, wraps naturally instead.
+function ChipField({ label, values }) {
+  const { t } = useTranslation();
+  return (
+    <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+      <label>{label}</label>
+      {values?.length ? (
+        <div className="row gap-2 wrap" style={{ marginTop: 4 }}>
+          {values.map(v => <span key={v} className="mtag">{v}</span>)}
+        </div>
+      ) : (
+        <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-faint)" }}>{t("settings.notSet", null, "Not set")}</div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { t } = useTranslation();
   const { builder, setBuilder } = useAuth();
@@ -232,22 +253,10 @@ export default function Settings() {
               <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${audienceStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
             </div>
             <div className="row gap-3 wrap" style={{ marginTop: 10 }}>
-              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                <label>{t("onboardingFields.age", null, "Age")}</label>
-                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.ageBands?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.ageBands?.length ? builder.profile.ageBands.join(", ") : t("settings.notSet", null, "Not set")}</div>
-              </div>
-              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                <label>{t("onboardingFields.country", null, "Country")}</label>
-                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.country?.length ? undefined : "var(--text-faint)" }}>{(Array.isArray(builder?.profile?.country) ? builder.profile.country.join(", ") : builder?.profile?.country) || t("settings.notSet", null, "Not set")}</div>
-              </div>
-              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                <label>{t("onboardingFields.gender", null, "Gender")}</label>
-                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.genders?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.genders?.length ? builder.profile.genders.join(", ") : t("settings.notSet", null, "Not set")}</div>
-              </div>
-              <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                <label>{t("onboardingFields.occupation", null, "Occupation")}</label>
-                <div className="fin" style={{ display: "flex", alignItems: "center", color: builder?.profile?.occupations?.length ? undefined : "var(--text-faint)" }}>{builder?.profile?.occupations?.length ? builder.profile.occupations.join(", ") : t("settings.notSet", null, "Not set")}</div>
-              </div>
+              <ChipField label={t("onboardingFields.age", null, "Age")} values={builder?.profile?.ageBands} />
+              <ChipField label={t("onboardingFields.country", null, "Country")} values={Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : [])} />
+              <ChipField label={t("onboardingFields.gender", null, "Gender")} values={builder?.profile?.genders} />
+              <ChipField label={t("onboardingFields.occupation", null, "Occupation")} values={builder?.profile?.occupations} />
             </div>
           </div>
         )}
