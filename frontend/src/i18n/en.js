@@ -1570,6 +1570,7 @@ const en = {
     account: "Account",
     title: "Account Settings",
     leadBuilder: "Manage your workspace, sign-in and security options.",
+    onboardingWarning: "You haven't finished setting up your profile yet. Some details below may be incomplete until you do.",
     yourName: "Your name",
     designation: "Designation",
     designationPlaceholder: "e.g. Founder, Product Manager",

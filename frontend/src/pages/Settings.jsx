@@ -104,6 +104,22 @@ export default function Settings() {
         <div><h1>{t("settings.title", null, "Account Settings")}</h1><p className="lead">{t("settings.leadBuilder", null, "Manage your workspace, sign-in and security options.")}</p></div>
       </div>
 
+      {/* Same signal and resume logic as the Dashboard's own banner and
+          CreateMissionWizard's -- onboardingCompleted is the one dedicated
+          "setup actually finished" flag; a partial profile_json from a
+          Settings edit alone never sets it. The cards below already show
+          real saved values (or "Not set"), so this doesn't block editing —
+          it just flags that setup itself is still open. */}
+      {!builder?.onboardingCompleted && (
+        <div className="card" style={{ marginBottom: 20, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+          <Icon name="user" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+          <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+            {t("settings.onboardingWarning", null, "You haven't finished setting up your profile yet. Some details below may be incomplete until you do.")}
+          </p>
+          <Btn variant="primary" size="sm" onClick={() => navigate(activePersonaKey ? `/signup?role=${activePersonaKey}` : "/get-started/feedback")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
+        </div>
+      )}
+
       <div className="col gap-5" style={{ maxWidth: 640 }}>
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           {!editing ? (

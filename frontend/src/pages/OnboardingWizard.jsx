@@ -210,11 +210,17 @@ export default function OnboardingWizard() {
     // `{}`) is merged on top rather than replacing this wholesale, so an
     // empty/partial draft can't blank out the real account's name/email.
     const base = { fullName: builder?.name || "", email: builder?.email || "" };
+    let merged = base;
     try {
       const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
-      if (saved?.d) return { ...base, ...saved.d };
+      if (saved?.d) merged = { ...base, ...saved.d };
     } catch { /* ignore */ }
-    return base;
+    // Anything already saved server-side (e.g. a field fixed via Settings
+    // while setup was still incomplete) is more authoritative than a stale
+    // local draft that predates that edit -- overlaid last so it wins
+    // per-field, while any field only the draft has (genuine in-progress,
+    // never-submitted work) still comes through untouched.
+    return { ...merged, ...(builder?.profile || {}) };
   });
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));

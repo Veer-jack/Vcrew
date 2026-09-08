@@ -73,17 +73,21 @@ export default function EditAccountStep() {
   const editability = persona ? stepEditability(stepKey) : null;
   const StepComponent = persona && editability === "editable" ? persona.components[stepKey] : null;
 
-  // Seeded from whatever's actually been saved server-side, then the local
-  // in-progress draft (if any) laid on top -- for an incomplete profile nothing
-  // has reached the server yet (the wizard only persists on final submit), so
-  // without this an incomplete builder would see a blank form here despite
-  // having already filled in real answers mid-onboarding.
+  // Seeded from the local in-progress draft (if any), then whatever's
+  // actually been saved server-side laid on top -- for an incomplete
+  // profile nothing has reached the server yet (the wizard only persists on
+  // final submit), so the draft still fills in real mid-onboarding answers
+  // the server has never seen. But once something HAS reached the server
+  // for a given field (e.g. fixed via a separate Settings edit since this
+  // draft was last saved), that's the more authoritative, more recent value
+  // -- laid on top last so it wins instead of a stale draft silently
+  // resurrecting the old one.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately captured once per step, as the "unchanged" baseline to diff against
   const initial = useMemo(() => {
     const base = { ...(builder?.profile || {}) };
     try {
       const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
-      if (draft?.d) return { ...base, ...draft.d };
+      if (draft?.d) return { ...draft.d, ...base };
     } catch { /* ignore */ }
     return base;
   }, [stepKey]);
