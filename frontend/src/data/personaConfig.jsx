@@ -930,15 +930,30 @@ export const VERIFICATION_SUMMARY = {
   ],
 };
 
+// Which of a persona's steps hold the account's real display name -- lets
+// EditAccountStep sync that step's edits back into the builder's own
+// name/org/website columns (see PERSONA_NAME_FIELD below), not just
+// profile_json, so the identity shown everywhere else (topbar, this same
+// Settings page) actually updates instead of silently drifting.
+export const PERSONA_NAME_FIELD = {
+  founder: "companyName",
+  company: "companyName",
+  researcher: "institution",
+  organization: "orgName",
+};
+
 // Which onboarding steps stay reachable for editing after a profile is
 // already complete, once the tester's "show every step, but only some
 // fields change" ask is in play:
-//  - "personal" (name/mobile/job title) is deliberately excluded here, not
-//    just locked -- it's already edited via Settings' own "Edit profile"
-//    and "Mobile number" cards (name/designation live in dedicated builders
-//    columns, mobile goes through real OTP verification), so a third copy
-//    of the same fields here would just be a second place to fall out of
-//    sync with those, not a new capability.
+//  - "personal" (name/mobile/job title) used to be excluded here in favor of
+//    Settings' own separate inline "Edit profile" form -- two differently-
+//    shaped editors for the same fields, which the tester flagged as
+//    confusing (and which itself pointed at "Your details" via an external-
+//    link icon instead of just opening it here). It's a normal editable
+//    step now, same as everything else; Settings' inline form is gone and
+//    its Edit button opens this step directly. Mobile number stays a
+//    separate flow on purpose -- see PhoneSetup in Settings.jsx -- it's a
+//    real OTP-verified column, not a profile_json preference.
 //  - "verify" (website/LinkedIn/registry) and "ethics" (Researcher's ethics
 //    approval) are locked, not excluded -- they're claims that feed a real
 //    admin-review/trust pipeline, not preferences. Letting them be silently
@@ -948,10 +963,8 @@ export const VERIFICATION_SUMMARY = {
 //    they're looking to validate, audience/participants, and the final
 //    frequency/methods preferences) is a plain preference with no
 //    compliance angle, so all of it is editable.
-const PERSONAL_STEP_KEYS = new Set(["personal"]);
 const LOCKED_STEP_KEYS = new Set(["verify", "ethics"]);
 export function stepEditability(key) {
-  if (PERSONAL_STEP_KEYS.has(key)) return "personal";
   if (LOCKED_STEP_KEYS.has(key)) return "locked";
   return "editable";
 }

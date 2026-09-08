@@ -4,20 +4,13 @@ import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft } from "../data/personaConfig";
+import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft, PERSONA_NAME_FIELD } from "../data/personaConfig";
 import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 
 const REGION = "india"; // ValidationCrew's primary market today; no region switcher yet.
-
-const PERSONA_NAME_FIELD = {
-  founder: "companyName",
-  company: "companyName",
-  researcher: "institution",
-  organization: "orgName",
-};
 
 // Start over / Skip / Back live at the rail's bottom, same spot and the
 // same .wz-rail-foot styling CreateMissionWizard's own rail uses for its

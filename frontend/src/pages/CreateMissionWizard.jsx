@@ -92,10 +92,15 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other", otherPlaceholder, required }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded, externalQuery, otherValue = "Other", otherPlaceholder, required }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
-  const [expanded, setExpanded] = React.useState(initialExpanded);
+  // No caller-specified initialExpanded -- default it off the option count
+  // instead of a flat `true`, so any group over 10 options (the country
+  // list being the extreme case at ~195) opens collapsed, behind its own
+  // "N selected" summary and search box, instead of dumping the whole list
+  // open by default. A caller can still force either state explicitly.
+  const [expanded, setExpanded] = React.useState(initialExpanded ?? options.length <= 10);
   // Uncommitted text for a new "Other" entry — separate from the saved
   // otherEntries array below, so typing doesn't add a filter until Save.
   const [draftOther, setDraftOther] = React.useState("");

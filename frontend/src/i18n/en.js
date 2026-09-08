@@ -102,7 +102,7 @@ const en = {
     phoneNumber: "Phone number",
     phoneUsedFor: "Used for sign-in with a code and to verify sensitive actions.",
     addPhoneDesc: "Add a mobile number to enable login via SMS code and extra verification for withdrawals.",
-    verifyPhoneDesc: "We found this number on your profile — verify it to enable login via SMS code and extra verification for withdrawals.",
+    verifyPhoneDesc: "Verify this number to enable SMS login and extra security.",
     enter6DigitCode: "Enter the 6-digit code",
     useInternationalFormat: "Use international format, e.g. +14155551234",
     confirmItsYou: "Confirm it's you",

@@ -8,26 +8,25 @@ import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
-// A comma-joined string crammed into one .fin box was unreadable and forced
-// its own scrollbar the moment a field had more than a few values (e.g.
-// picking "Worldwide" during onboarding saves every country) -- one chip per
-// value, same .mtag style MissionDetail's own Audience definition already
-// uses, wraps naturally instead. Full-width and stacked (not side-by-side
-// flex columns) -- Country alone can wrap to a dozen lines, which pushed the
-// next field's whole column down and sideways when they shared one row.
-// bordered draws a separator above every field but the first, same pattern
-// MissionAudienceTab uses between its own filter groups.
-function ChipField({ label, values, bordered }) {
+// One soft-filled tile per category, full card width -- a comma-joined
+// string crammed into one .fin box was unreadable and forced its own
+// scrollbar the moment a field had more than a few values (e.g. picking
+// "Worldwide" during onboarding saves every country), and an earlier
+// hairline-divider version of this still read as cramped next to the
+// bordered-box fields the Company/Organization/Academic Details card above
+// uses. Stacked one per row (not side-by-side) so a long Country chip list
+// only grows its own tile instead of being squeezed into a half-width column.
+function ChipField({ label, values }) {
   const { t } = useTranslation();
   return (
-    <div style={{ paddingTop: bordered ? 14 : 0, borderTop: bordered ? "1px solid var(--border)" : "none" }}>
+    <div style={{ background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "14px 16px" }}>
       <label>{label}</label>
       {values?.length ? (
-        <div className="row gap-2 wrap" style={{ marginTop: 6 }}>
+        <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
           {values.map(v => <span key={v} className="mtag">{v}</span>)}
         </div>
       ) : (
-        <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-faint)", marginTop: 6, maxWidth: 260 }}>{t("settings.notSet", null, "Not set")}</div>
+        <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
       )}
     </div>
   );
@@ -51,14 +50,6 @@ export default function Settings() {
   const audienceStepKey = resolveCardStep(activePersona, "audience");
   const companySummary = CARD_SUMMARY[companyStepKey];
   const verificationFields = VERIFICATION_SUMMARY[activePersonaKey];
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(builder?.name || "");
-  const [designation, setDesignation] = useState(builder?.designation || "");
-  const [org, setOrg] = useState(builder?.org || "");
-  const [website, setWebsite] = useState(builder?.website || "");
-  const [email, setEmail] = useState(builder?.email || "");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
@@ -102,27 +93,6 @@ export default function Settings() {
     }
   };
 
-  const startEdit = () => {
-    setName(builder?.name || ""); 
-    setDesignation(builder?.designation || "");
-    setOrg(builder?.org || ""); 
-    setWebsite(builder?.website || "");
-    setEmail(builder?.email || "");
-    setError(""); setEditing(true);
-  };
-
-  const save = async (e) => {
-    e.preventDefault();
-    setBusy(true); setError("");
-    try {
-      const res = await api.updateProfile({ name, org, email, website, designation });
-      setBuilder(res.builder);
-      setEditing(false);
-    } catch (err) {
-      setError(err.message || t("settings.errSave", null, "Couldn't save changes"));
-    } finally { setBusy(false); }
-  };
-
   return (
     <div className="page rise">
       <div className="ph">
@@ -145,59 +115,33 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="col gap-5" style={{ maxWidth: 640 }}>
+      {/* 700 (not 640) specifically gives the Audience & Demographics card's
+          header room -- its description is long enough to otherwise wrap
+          right up against the Edit button, see that card's own row gap. */}
+      <div className="col gap-5" style={{ maxWidth: 700 }}>
         <div className="card" style={{ padding: "var(--pad-card)" }}>
-          {!editing ? (
-            <div className="row between" style={{ alignItems: "center" }}>
-              <div className="row gap-4" style={{ alignItems: "center" }}>
-                <Avatar name={builder?.name || ""} size={52} color={builder?.color} />
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 16 }}>{builder?.name}</div>
-                  {builder?.designation && <div className="faint" style={{ fontSize: 12.5 }}>{builder.designation}</div>}
-                  <div className="faint" style={{ fontSize: 13 }}>{builder?.email} · {builder?.org}</div>
-                  {builder?.website && (
-                    <a href={builder.website} target="_blank" rel="noopener noreferrer" className="row gap-1"
-                      style={{ alignItems: "center", fontSize: 12.5, color: "var(--accent)", marginTop: 4, width: "fit-content" }}>
-                      <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
-                    </a>
-                  )}
-                </div>
+          <div className="row between" style={{ alignItems: "center" }}>
+            <div className="row gap-4" style={{ alignItems: "center" }}>
+              <Avatar name={builder?.name || ""} size={52} color={builder?.color} />
+              <div>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>{builder?.name}</div>
+                {builder?.designation && <div className="faint" style={{ fontSize: 12.5 }}>{builder.designation}</div>}
+                <div className="faint" style={{ fontSize: 13 }}>{builder?.email} · {builder?.org}</div>
+                {builder?.website && (
+                  <a href={builder.website} target="_blank" rel="noopener noreferrer" className="row gap-1"
+                    style={{ alignItems: "center", fontSize: 12.5, color: "var(--accent)", marginTop: 4, width: "fit-content" }}>
+                    <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
+                  </a>
+                )}
               </div>
-              <Btn variant="ghost" icon="edit" onClick={startEdit}>{t("actions.editProfile", null, "Edit profile")}</Btn>
             </div>
-          ) : (
-            <form onSubmit={save} className="col gap-4">
-              {error && <div className="err-banner">{error}</div>}
-              <div className="row gap-3 wrap">
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.yourName", null, "Your name")}</label>
-                  <input className="fin" value={name} onChange={e => setName(e.target.value)} required />
-                </div>
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.designation", null, "Designation")}</label>
-                  <input className="fin" placeholder={t("settings.designationPlaceholder", null, "e.g. Founder, Product Manager")} value={designation} onChange={e => setDesignation(e.target.value)} />
-                </div>
-              </div>
-              <div className="row gap-3 wrap">
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.workspaceName", null, "Workspace name")}</label>
-                  <input className="fin" value={org} onChange={e => setOrg(e.target.value)} required />
-                </div>
-                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t("settings.companyWebsite", null, "Company Website")}</label>
-                  <input className="fin" type="url" placeholder="https://..." value={website} onChange={e => setWebsite(e.target.value)} />
-                </div>
-              </div>
-              <div className="fld">
-                <label>{t("settings.email", null, "Email")}</label>
-                <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-              </div>
-              <div className="row gap-2">
-                <Btn variant="primary" type="submit" disabled={busy}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</Btn>
-                <Btn variant="quiet" type="button" onClick={() => { setEditing(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
-              </div>
-            </form>
-          )}
+            {/* Edits "Your details" through the same onboarding step
+                component the wizard itself uses (EditAccountStep.jsx) --
+                previously a second, separately-maintained inline form here,
+                which the tester flagged since it edited the same fields
+                differently from every other step in Settings. */}
+            <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/personal")}>{t("actions.editProfile", null, "Edit profile")}</Btn>
+          </div>
         </div>
 
         <PhoneSetup client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
@@ -249,20 +193,20 @@ export default function Settings() {
 
         {audienceStepKey && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
+            <div className="row between" style={{ alignItems: "flex-start", gap: 24, marginBottom: 8 }}>
               <div>
                 <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.audienceDetails", null, "Audience & Demographics")}</h2>
                 <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.audienceDetailsDesc", null, "Who you want to hear from — collected at onboarding, used as the starting point for the Audience Explorer.")}</p>
               </div>
-              <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${audienceStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
+              <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${audienceStepKey}`)} style={{ flexShrink: 0, marginTop: 1 }}>{t("actions.edit", null, "Edit")}</Btn>
             </div>
-            <div style={{ marginTop: 10 }}>
+            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
               {[
                 { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []) },
                 { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
                 { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations },
-              ].map((f, i) => <ChipField key={f.label} label={f.label} values={f.values} bordered={i > 0} />)}
+              ].map(f => <ChipField key={f.label} label={f.label} values={f.values} />)}
             </div>
           </div>
         )}

@@ -101,8 +101,17 @@ function BuilderRoutes() {
         <Route index element={<Dashboard />} />
       </Route>
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
-      <Route path="/get-started/feedback" element={builder?.profile ? <Navigate to="/" replace /> : <RoleSelect />} />
-      <Route path="/signup" element={builder?.profile ? <Navigate to="/" replace /> : <OnboardingWizard />} />
+      {/* builder.profile (profile_json) isn't "onboarding done" -- any partial
+          PATCH /auth/profile save populates it too (e.g. PhoneSetup's
+          onClearPrefill in Settings.jsx writes `{ profile: { mobile: null } }`),
+          independent of whether onboarding was ever completed. Bouncing on
+          that instead of the real, dedicated onboardingCompleted flag sent a
+          builder who'd merely touched Settings straight back to Dashboard the
+          moment they tried to pick a role or resume the wizard -- the same
+          distinction personaConfig.jsx's resolveActivePersonaKey already
+          documents and relies on. */}
+      <Route path="/get-started/feedback" element={builder?.onboardingCompleted ? <Navigate to="/" replace /> : <RoleSelect />} />
+      <Route path="/signup" element={builder?.onboardingCompleted ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       {/* key={location.pathname} forces a real unmount/remount whenever the
           URL moves between /missions/new and /missions/:id/edit, or between
@@ -122,7 +131,16 @@ function BuilderRoutes() {
           having reset in the first place. */}
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
       <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
-      <Route path="/settings/edit-step/:step" element={<RequireAuth><EditAccountStep key={location.pathname} /></RequireAuth>} />
+      {/* key includes builder?.id, not just the path -- this page edits real
+          identity columns (name/designation/org/website, see
+          EditAccountStep's handleSave), and its own "unchanged baseline"
+          state is deliberately captured once per mount, not resynced on
+          every builder update. Without the id in the key, staying on this
+          exact URL through a log-out/log-in-as-someone-else (no navigation
+          in between) kept the previous account's typed-but-unsaved values
+          in place -- clicking Save then wrote them onto whichever account
+          the session had switched to, not the one they were typed for. */}
+      <Route path="/settings/edit-step/:step" element={<RequireAuth><EditAccountStep key={`${location.pathname}:${builder?.id}`} /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
