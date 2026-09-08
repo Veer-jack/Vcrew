@@ -12,18 +12,22 @@ import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY,
 // its own scrollbar the moment a field had more than a few values (e.g.
 // picking "Worldwide" during onboarding saves every country) -- one chip per
 // value, same .mtag style MissionDetail's own Audience definition already
-// uses, wraps naturally instead.
-function ChipField({ label, values }) {
+// uses, wraps naturally instead. Full-width and stacked (not side-by-side
+// flex columns) -- Country alone can wrap to a dozen lines, which pushed the
+// next field's whole column down and sideways when they shared one row.
+// bordered draws a separator above every field but the first, same pattern
+// MissionAudienceTab uses between its own filter groups.
+function ChipField({ label, values, bordered }) {
   const { t } = useTranslation();
   return (
-    <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+    <div style={{ paddingTop: bordered ? 14 : 0, borderTop: bordered ? "1px solid var(--border)" : "none" }}>
       <label>{label}</label>
       {values?.length ? (
-        <div className="row gap-2 wrap" style={{ marginTop: 4 }}>
+        <div className="row gap-2 wrap" style={{ marginTop: 6 }}>
           {values.map(v => <span key={v} className="mtag">{v}</span>)}
         </div>
       ) : (
-        <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-faint)" }}>{t("settings.notSet", null, "Not set")}</div>
+        <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-faint)", marginTop: 6, maxWidth: 260 }}>{t("settings.notSet", null, "Not set")}</div>
       )}
     </div>
   );
@@ -252,11 +256,13 @@ export default function Settings() {
               </div>
               <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${audienceStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
             </div>
-            <div className="row gap-3 wrap" style={{ marginTop: 10 }}>
-              <ChipField label={t("onboardingFields.age", null, "Age")} values={builder?.profile?.ageBands} />
-              <ChipField label={t("onboardingFields.country", null, "Country")} values={Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : [])} />
-              <ChipField label={t("onboardingFields.gender", null, "Gender")} values={builder?.profile?.genders} />
-              <ChipField label={t("onboardingFields.occupation", null, "Occupation")} values={builder?.profile?.occupations} />
+            <div style={{ marginTop: 10 }}>
+              {[
+                { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands },
+                { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []) },
+                { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
+                { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations },
+              ].map((f, i) => <ChipField key={f.label} label={f.label} values={f.values} bordered={i > 0} />)}
             </div>
           </div>
         )}
