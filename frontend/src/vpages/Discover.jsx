@@ -86,10 +86,15 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
     <div className="card mkt-cardhover" style={{ position: "relative", overflow: "hidden", padding: "38px 18px 18px", display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
       {/* Discover only ever lists open/available missions -- an "Open" badge
           on every single card said nothing a real status (Accepted/
-          Submitted/...) doesn't already say better when there is one. */}
-      {MY_STATUS_META[task.myStatus] && (
+          Submitted/...) doesn't already say better when there is one. A
+          pending invite goes in that same corner slot instead -- a builder
+          specifically asked for this validator, which is worth flagging
+          above a plain "Open" mission. */}
+      {MY_STATUS_META[task.myStatus] ? (
         <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={11} style={{ marginRight: 4 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
-      )}
+      ) : task.inviteId ? (
+        <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="mail" size={11} style={{ marginRight: 4 }} />{t("status.invited", null, "Invited")}</span>
+      ) : null}
       <div className="row between" style={{ alignItems: "flex-start" }}>
         <div className="row gap-2 wrap">
           <VTypeTag type={task.type} vtypes={vtypes} />
@@ -148,9 +153,11 @@ function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
     <div className="card rise-2" onClick={() => onOpen(task)} style={{ padding: 0, overflow: "hidden", cursor: "pointer",
       background: `linear-gradient(120deg, color-mix(in srgb, var(${vt.accentVar}) 13%, var(--panel)), var(--panel) 62%)` }}>
       <div style={{ position: "relative", padding: "42px 24px 22px" }}>
-        {MY_STATUS_META[task.myStatus] && (
+        {MY_STATUS_META[task.myStatus] ? (
           <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={12} style={{ marginRight: 5 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
-        )}
+        ) : task.inviteId ? (
+          <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="mail" size={12} style={{ marginRight: 5 }} />{t("status.invited", null, "Invited")}</span>
+        ) : null}
         <div className="row between wrap gap-3" style={{ alignItems: "flex-start" }}>
           <div className="row gap-2 wrap" style={{ marginBottom: 4 }}>
             <span className="tag" style={{ background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name="bolt" size={12} />{t("status.featured", null, "Featured")}</span>

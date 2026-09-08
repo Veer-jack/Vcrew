@@ -107,9 +107,18 @@ router.get("/", async (req, res) => {
              -- exact same text twice. Left blank here; the frontend just skips
              -- the tagline line when there's nothing to put there.
              ''::text as tagline, COALESCE(m.brand, 'Independent')::text as company,
-             COALESCE(m.reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(m.target, 0) - COALESCE(m.joined, 0))::int as spots_left,
+             COALESCE(m.reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct,
+             -- m.joined is a hand-incremented counter that drifts from the
+             -- real participants rows (confirmed already on the builder side
+             -- -- see recalcMissionStats/getRealJoinedCount in stats.js) --
+             -- a validator staring at "0 of 1 slots" on a mission the builder
+             -- already sees as full is that same drift, just read from here
+             -- instead. Counting participants directly is the fix everywhere
+             -- this table gets read, not just where it's already applied.
+             GREATEST(0, COALESCE(m.target, 0) - (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')))::int as spots_left,
              COALESCE(m.target, 0)::int as spots_total, COALESCE(TO_CHAR(m.deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at))/3600)::int as posted_h,
-             m.description::text as brief, m.tasks_json::text as steps_json, (COALESCE(m.joined,0) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
+             m.description::text as brief, m.tasks_json::text as steps_json,
+             ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
              false::boolean as featured, 'missions' as source, m.status::text as status, COALESCE(m.reward_type, 'fixed')::text as reward_type,
              b.name::text as builder_name, b.designation::text as builder_designation
       FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
@@ -156,7 +165,12 @@ router.get("/", async (req, res) => {
     closing: (a, b) => deadlineHours(a.deadline) - deadlineHours(b.deadline),
     newest: (a, b) => a.postedH - b.postedH,
   }[sort] || ((a, b) => b.match - a.match);
-  tasks.sort(cmp);
+  // A pending invitation always wins, regardless of whatever sort is
+  // selected -- the builder specifically asked for this validator, so it
+  // shouldn't be buried below "best match" or "newest" like any other open
+  // mission. Falls through to the normal comparator among invited-vs-invited
+  // or neither-vs-neither.
+  tasks.sort((a, b) => (b.inviteId ? 1 : 0) - (a.inviteId ? 1 : 0) || cmp(a, b));
 
   const lang = req.validator.preferred_language;
   if (lang && lang !== "en") {
@@ -183,7 +197,15 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   let t = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   let source = "mission";
-  if (!t) {
+  if (t) {
+    // Two things the list route's CTE already corrects for that this raw
+    // row doesn't: `joined` drifts from the real participants rows (same
+    // fix as the list route, see the comment there), and `missions` has no
+    // real `tagline` column, so serializeTask's fallback would otherwise
+    // slice the description into a fake one -- showing the same text twice.
+    t.joined = await getRealJoinedCount(t.id);
+    t.tagline = "";
+  } else {
     t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.id);
     source = "vtask";
   }
