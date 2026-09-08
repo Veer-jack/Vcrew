@@ -43,11 +43,12 @@ function MCQ({ q, ans, setAns, readOnly }) {
   );
 }
 
-function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
+function YNQ({ ans, detail, setAns, setDetail, readOnly, detailOn = "yes" }) {
   const { t } = useTranslation();
+  const showDetail = ans === detailOn;
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: ans === "yes" ? 12 : 0 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: showDetail ? 12 : 0 }}>
         {["yes", "no"].map(v => (
           <button key={v} disabled={readOnly} onClick={() => setAns(ans === v ? null : v)} style={{
             flex: 1, padding: 11, borderRadius: "var(--radius-sm)",
@@ -59,7 +60,12 @@ function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
           }}>{v === "yes" ? t("actions.yes", null, "Yes") : t("actions.no", null, "No")}</button>
         ))}
       </div>
-      {ans === "yes" && <textarea className="field" placeholder={t("missions.tellUsMoreBroken", null, "Tell us more — what was confusing or broken?")} rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
+      {/* Which answer needs the follow-up textbox depends on how the question
+          is phrased -- "did you hit any errors?" wants detail on Yes, "did
+          you find what you were looking for?" wants it on No. Each question
+          says which via its own detailOn (see meta.js); defaults to "yes"
+          to match every question written before this field existed. */}
+      {showDetail && <textarea className="field" placeholder={t("missions.tellUsMoreBroken", null, "Tell us more — what was confusing or broken?")} rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
     </div>
   );
 }
@@ -91,6 +97,12 @@ export default function Workspace() {
   const [revisionReason, setRevisionReason] = useState("");
   const [loadError, setLoadError] = useState(null);
 
+  // Checking off steps used to not count as "progress worth saving" here --
+  // only answering a question or uploading proof did. A validator who
+  // ticked steps but hadn't reached a question yet, then closed the tab,
+  // had nothing saved at all: no autosave had fired, and the only other
+  // save points (Back/Next, the explicit Save & Exit button) never ran
+  // either. stepsDone now triggers the same debounced autosave.
   const isFirstRender = useRef(true);
   useEffect(() => {
     if (loading || isReadOnly) return;
@@ -102,7 +114,27 @@ export default function Workspace() {
       saveDraft(curIdx);
     }, 1200);
     return () => clearTimeout(timerId);
-  }, [answers, proofUploaded]);
+  }, [answers, proofUploaded, stepsDone]);
+
+  // The debounce above only fires 1200ms after the last edit -- closing the
+  // tab, hitting browser back, or navigating elsewhere in the app inside
+  // that window cancelled the pending timer and lost whatever was just
+  // typed, with nothing else ever saving it. This flushes immediately
+  // instead of waiting: on an actual tab close/refresh (beforeunload) with
+  // keepalive so the request survives the page unloading, and on leaving
+  // this page for another route in the app (the effect's own cleanup, which
+  // React runs on unmount). A ref keeps this reading the latest state --
+  // the listener itself is only attached once.
+  const latestSaveRef = useRef();
+  latestSaveRef.current = () => { if (!loading && !isReadOnly) saveDraft(curIdx, true); };
+  useEffect(() => {
+    const flush = () => latestSaveRef.current();
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, []);
 
   // "Time Taken" (shown to the Builder on review) should reflect actual work,
   // not however long this tab happened to sit open — so we count seconds
@@ -195,7 +227,7 @@ export default function Workspace() {
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
   };
-  async function saveDraft(newIdx = curIdx) {
+  async function saveDraft(newIdx = curIdx, keepalive = false) {
     if (isReadOnly) return;
     try {
       const finalAnswers = answers.map((ans, i) => {
@@ -203,7 +235,10 @@ export default function Workspace() {
         if (proofUploaded[i]) c._proof = proofUploaded[i];
         return c;
       });
-      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx, activeSeconds: activeSecondsRef.current });
+      // keepalive: true is what actually makes this survive a tab close or
+      // page navigation -- see the flush-on-exit effect below and the
+      // keepalive comment in vapi/client.js.
+      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx, activeSeconds: activeSecondsRef.current }, { keepalive });
     } catch (e) {
       console.warn("Auto-save failed", e);
     }
@@ -383,7 +418,7 @@ export default function Workspace() {
                 </div>
                 {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
                 {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
-                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} />}
+                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} detailOn={q.detailOn || "yes"} />}
                 {q.type === "text" && <textarea className="field" placeholder={t("missions.typeYourAnswer", null, "Type your answer…")} rows={3} disabled={isReadOnly} value={answers[curIdx]?.[q.id] || ""} onChange={e => setAns(q.id, e.target.value)} />}
               </div>
             ))}

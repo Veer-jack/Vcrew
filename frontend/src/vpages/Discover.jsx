@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
+import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 import { deadlineLabel, deadlineHours } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
@@ -44,6 +45,23 @@ function myStatusButtonLabel(t, myStatus, resumeLabel, openLabel) {
   return openLabel;
 }
 
+// One glance summary of "where do I stand" (invitations waiting, missions in
+// progress, awaiting review, money coming) -- replaces the validation-type
+// cards that just repeated the sidebar's own filter list.
+function VStatCard({ icon, label, value, tone }) {
+  return (
+    <div className="card" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+      <span style={{ width: 36, height: 36, borderRadius: 10, flex: "none", display: "grid", placeItems: "center", background: `color-mix(in srgb, var(${tone || "--accent"}) 14%, transparent)`, color: `var(${tone || "--accent"})` }}>
+        <Icon name={icon} size={17} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="faint" style={{ fontSize: 11.5 }}>{label}</div>
+        <div className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
 function RadioRow({ on, onClick, label }) {
   return (
     <button onClick={onClick} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textAlign: "left", fontSize: 13.5, fontWeight: 600, color: on ? "var(--text)" : "var(--text-muted)" }}>
@@ -55,21 +73,31 @@ function RadioRow({ on, onClick, label }) {
   );
 }
 
-function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
+function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
   const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
   const urgent = deadlineHours(task.deadline) <= 12;
+  // What kind of feedback this actually is (Written Survey, Live 1:1 Video
+  // Call, ...) -- vtasks demo rows have no ptype, so this just doesn't show
+  // for them rather than guessing.
+  const ptypeLabel = task.ptype ? ptypes.find(p => p.id === task.ptype)?.label : null;
   return (
     <div className="card mkt-cardhover" style={{ position: "relative", overflow: "hidden", padding: "38px 18px 18px", display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
-      {MY_STATUS_META[task.myStatus]
-        ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={11} style={{ marginRight: 4 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
-        : <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={11} style={{ marginRight: 4 }} />{t("status.open", null, "Open")}</span>}
+      {/* Discover only ever lists open/available missions -- an "Open" badge
+          on every single card said nothing a real status (Accepted/
+          Submitted/...) doesn't already say better when there is one. */}
+      {MY_STATUS_META[task.myStatus] && (
+        <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={11} style={{ marginRight: 4 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
+      )}
       <div className="row between" style={{ alignItems: "flex-start" }}>
         <div className="row gap-2 wrap">
           <VTypeTag type={task.type} vtypes={vtypes} />
           <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={11} />{task.match}%</span>
-          {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={11} />{t("status.hot", null, "Hot")}</span>}
+          {/* More than half the target spots already filled -- see the "hot"
+              calc in vmarketplace.js. */}
+          {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={11} />{t("status.highDemand", null, "High demand")}</span>}
+          {ptypeLabel && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name="list" size={11} />{ptypeLabel}</span>}
         </div>
         <div className="row gap-1">
           <button className={`mkt-save`} onClick={e => { e.stopPropagation(); onReport?.(task); }} title={t("actions.reportMission", null, "Report Mission")} style={{ width: 32, height: 32 }}>
@@ -86,9 +114,13 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: "-.02em" }}>{task.product}</h3>
           {task.verified && <span className="verif" title={t("badge.verifiedBuilder", null, "Verified builder")}><Icon name="shield" size={12} /></span>}
         </div>
-        <div className="faint" style={{ fontSize: 12.5, marginTop: 3 }}>{task.tagline} · {task.company}</div>
+        {/* Real missions have no separate tagline (see vmarketplace.js) --
+            joining and filtering instead of "{tagline} · {company}" avoids a
+            dangling " · " when there's nothing before it. */}
+        <div className="faint" style={{ fontSize: 12.5, marginTop: 3 }}>{[task.tagline, task.company].filter(Boolean).join(" · ")}</div>
+        {task.builderName && <div className="faint" style={{ fontSize: 11.5, marginTop: 1 }}>{t("discover.postedBy", null, "Posted by")} {task.builderName}{task.builderDesignation ? `, ${task.builderDesignation}` : ""}</div>}
       </div>
-      <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
+      <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
       <div className="row gap-3 wrap faint" style={{ fontSize: 12 }}>
         <span className="row gap-2"><Icon name="clock" size={13} />~{task.minutes}{t("discover.minutesShort", null, "m")}</span>
         <span className="row gap-2"><Icon name="users" size={13} />{task.spotsLeft} {t("discover.spotsLeft", null, "left")}</span>
@@ -108,21 +140,23 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
   );
 }
 
-function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
+function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
+  const ptypeLabel = task.ptype ? ptypes.find(p => p.id === task.ptype)?.label : null;
   return (
     <div className="card rise-2" onClick={() => onOpen(task)} style={{ padding: 0, overflow: "hidden", cursor: "pointer",
       background: `linear-gradient(120deg, color-mix(in srgb, var(${vt.accentVar}) 13%, var(--panel)), var(--panel) 62%)` }}>
       <div style={{ position: "relative", padding: "42px 24px 22px" }}>
-        {MY_STATUS_META[task.myStatus]
-          ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={12} style={{ marginRight: 5 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
-          : <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={12} style={{ marginRight: 5 }} />{t("status.open", null, "Open")}</span>}
+        {MY_STATUS_META[task.myStatus] && (
+          <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={12} style={{ marginRight: 5 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
+        )}
         <div className="row between wrap gap-3" style={{ alignItems: "flex-start" }}>
           <div className="row gap-2 wrap" style={{ marginBottom: 4 }}>
             <span className="tag" style={{ background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name="bolt" size={12} />{t("status.featured", null, "Featured")}</span>
             <VTypeTag type={task.type} vtypes={vtypes} />
             <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("discover.match", null, "match")}</span>
+            {ptypeLabel && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name="list" size={12} />{ptypeLabel}</span>}
             {task.verified && <span className="verif"><Icon name="shield" size={12} />{t("badge.verifiedBuilder", null, "Verified builder")}</span>}
           </div>
           <div className="row gap-1">
@@ -136,9 +170,13 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
         </div>
         <div className="row gap-3" style={{ alignItems: "center", marginTop: 8 }}>
           <span style={{ width: 52, height: 52, borderRadius: 14, flex: "none", display: "grid", placeItems: "center", background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name={vt.icon} size={26} /></span>
-          <div><h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2><div className="muted" style={{ fontSize: 14.5 }}>{task.tagline} · {task.company}</div></div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
+            <div className="muted" style={{ fontSize: 14.5 }}>{[task.tagline, task.company].filter(Boolean).join(" · ")}</div>
+            {task.builderName && <div className="faint" style={{ fontSize: 12.5, marginTop: 2 }}>{t("discover.postedBy", null, "Posted by")} {task.builderName}{task.builderDesignation ? `, ${task.builderDesignation}` : ""}</div>}
+          </div>
         </div>
-        <p className="muted" style={{ margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.55, maxWidth: "70ch" }}>{task.brief}</p>
+        <p className="muted" style={{ margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.55, maxWidth: "70ch", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
         <div className="row between wrap gap-3" style={{ marginTop: 18 }}>
           <div className="row gap-4 wrap faint" style={{ fontSize: 13 }}>
             <span className="row gap-2"><Icon name="clock" size={14} />~{task.minutes} {t("discover.minutes", null, "min")}</span>
@@ -160,7 +198,8 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
 export default function Discover() {
   const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
-  const { vtypes, typeOrder, rewardBands, timeBands, sorts } = useVMeta();
+  const { validator } = useVAuth();
+  const { vtypes, typeOrder, rewardBands, timeBands, sorts, ptypes } = useVMeta();
   const [q, setQ] = useState("");
   const [types, setTypes] = useState(new Set());
   const [reward, setReward] = useState("any");
@@ -169,11 +208,16 @@ export default function Discover() {
   const [minMatch, setMinMatch] = useState(0);
   const [sort, setSort] = useState("match");
   const [statusTab, setStatusTab] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
   const [data, setData] = useState(null);
+  const [stats, setStats] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
+  // Which sidebar filter groups are collapsed -- same shape and default
+  // (Reward/Time start open, the rest closed) as Audience Explorer's own
+  // filter panel, which this now matches.
+  const [closedGroups, setClosedGroups] = useState(new Set());
 
   const toggleType = (k) => setTypes(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  const toggleGroup = (g) => setClosedGroups(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
   const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setTime("any"); setVerifiedOnly(false); setMinMatch(0); };
 
   useEffect(() => {
@@ -190,6 +234,14 @@ export default function Discover() {
       .then(setData)
       .catch(() => {});
   }, [q, types, reward, time, verifiedOnly, minMatch, sort, dataVersion]);
+
+  // Independent of the filtered marketplace fetch above -- these are the
+  // validator's own standing numbers (pending invitations, missions in
+  // progress, money owed/earned), not something filters or search narrow.
+  useEffect(() => {
+    vapi.myMissions().then(d => setStats(s => ({ ...s, counts: d.counts }))).catch(() => {});
+    vapi.earnings().then(d => setStats(s => ({ ...s, pending: d.pending, lifetime: d.lifetime }))).catch(() => {});
+  }, []);
 
   // Status is filtered client-side over the already-fetched list (see
   // visibleTasks below), so switching tabs just resets the "Load more" cursor.
@@ -245,9 +297,21 @@ export default function Discover() {
   return (
     <div className="page">
       <div className="rise" style={{ marginBottom: 18 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>{t("discover.eyebrow", null, "Mission marketplace")}</div>
-        <h2 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("discover.headline", null, "Find your next mission")}</h2>
-        <p className="muted" style={{ margin: "0 0 16px", fontSize: 15 }}>{data.total} {t("discover.sub1", null, "open missions matched to your expertise · ")} {t("discover.sub2", null, "paid on approval.")}</p>
+        <h2 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("discover.welcomeHeadline", { name: validator?.name?.split(" ")[0] || "" }, `Welcome ${validator?.name?.split(" ")[0] || ""}, find your next mission`)}</h2>
+        <p className="muted" style={{ margin: 0, fontSize: 15 }}>{data.total} {t("discover.sub1", null, "open missions matched to your expertise · ")} {t("discover.sub2", null, "paid on approval.")}</p>
+      </div>
+
+      {/* Where you stand right now -- replaces the validation-type cards,
+          which just repeated the sidebar's own filter list. */}
+      <div className="mkt-stats rise-2" style={{ marginBottom: 18 }}>
+        <VStatCard icon="mail" label={t("discover.invitations", null, "Invitations")} value={stats?.counts?.invited ?? "—"} tone="--accent" />
+        <VStatCard icon="bolt" label={t("discover.activeMissions", null, "Active missions")} value={stats ? (stats.counts.active + stats.counts.applied) : "—"} tone="--success" />
+        <VStatCard icon="send" label={t("status.submitted", null, "Submitted")} value={stats?.counts?.submitted ?? "—"} tone="--warning" />
+        <VStatCard icon="clock" label={t("discover.pendingRewards", null, "Pending rewards")} value={stats ? `₹${stats.pending.toLocaleString("en-IN")}` : "—"} tone="--warning" />
+        <VStatCard icon="award" label={t("discover.totalEarned", null, "Total earned")} value={stats ? `₹${stats.lifetime.toLocaleString("en-IN")}` : "—"} tone="--success" />
+      </div>
+
+      <div className="rise-2" style={{ marginBottom: 22 }}>
         <div className="mkt-searchbar">
           <Icon name="search" size={18} style={{ color: "var(--text-faint)", flex: "none" }} />
           <input placeholder={t("discover.searchPlaceholder", null, "Search products, companies, or what you'll validate…")} value={q} onChange={e => setQ(e.target.value)} />
@@ -255,19 +319,7 @@ export default function Discover() {
         </div>
       </div>
 
-      <div className="rise-2" style={{ marginBottom: 22 }}>
-        <div className="mkt-cats">
-          {data.categories.map(c => (
-            <button key={c.key} className={`mkt-cat ${types.has(c.key) ? "on" : ""}`} style={{ "--c": `var(${vtypes[c.key].accentVar})` }} onClick={() => toggleType(c.key)}>
-              <span className="ci"><Icon name={vtypes[c.key].icon} size={18} /></span>
-              <span className="cl">{vtLabel(t, vtypes[c.key])}</span>
-              <span className="cc">{c.count} {t("status.open", null, "open")}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
+      {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} ptypes={ptypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
 
       <div className="tabs rise-2" style={{ margin: showFeatured ? "24px 0 0" : "0" }}>
         {STATUS_TABS.map(st => (
@@ -283,7 +335,6 @@ export default function Discover() {
           <span className="muted mono" style={{ fontSize: 13 }}>{visibleTasks.length}</span>
         </div>
         <div className="row gap-2">
-          <button className="pill" onClick={() => setShowFilters(f => !f)} style={{ cursor: "pointer" }}><Icon name="filter" size={14} />{t("discover.filters", null, "Filters")}{filtersActive ? " ·" : ""}</button>
           <label className="pill" style={{ gap: 8, cursor: "pointer" }}>
             <span className="faint" style={{ fontSize: 12 }}>{t("discover.sort", null, "Sort")}</span>
             <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
@@ -293,48 +344,75 @@ export default function Discover() {
         </div>
       </div>
 
-      <div className={`mkt-layout ${showFilters ? "show-filters" : ""}`}>
+      <div className="mkt-layout">
         <aside className="mkt-side rise-2">
-          <div className="card" style={{ padding: 18 }}>
-            <div className="row between" style={{ marginBottom: 14 }}>
-              <b style={{ fontSize: 14, fontWeight: 800 }}>{t("discover.filters", null, "Filters")}</b>
+          {/* Same .filter-panel/.fgroup shell Audience Explorer's own filter
+              sidebar uses (builder.css) -- collapsible groups with a live
+              selected-count badge, instead of a flat always-open list. */}
+          <div className="filter-panel">
+            <div className="row between" style={{ marginBottom: 16, alignItems: "center" }}>
+              <b style={{ fontSize: 15, fontWeight: 800 }}>{t("discover.filters", null, "Filters")}</b>
               {filtersActive && <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={clearAll}>{t("actions.clearAll", null, "Clear all")}</button>}
             </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.validationType", null, "Validation type")}</span>
-              {typeOrder.map(k => {
-                const count = data.categories.find(c => c.key === k)?.count ?? 0;
-                return (
-                  <button
-                    key={k} className={`mkt-check ${types.has(k) ? "on" : ""}`}
-                    style={{ "--c": `var(${vtypes[k].accentVar})`, width: "100%", opacity: count === 0 ? 0.45 : 1, cursor: count === 0 ? "not-allowed" : "pointer" }}
-                    disabled={count === 0}
-                    onClick={() => toggleType(k)}
-                  >
-                    <span className="bx">{types.has(k) && <Icon name="check" size={12} />}</span>
-                    <Icon name={vtypes[k].icon} size={14} style={{ color: "var(--c)", flex: "none" }} />
-                    {vtLabel(t, vtypes[k])}<span className="cnt">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.reward", null, "Reward")}</span>
-              <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={rewardBandLabel(t, b.k, b.l)} />)}</div>
-            </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.timeRequired", null, "Time required")}</span>
-              <div className="col gap-2">{timeBands.map(b => <RadioRow key={b.k} on={time === b.k} onClick={() => setTime(b.k)} label={timeBandLabel(t, b.k, b.l)} />)}</div>
-            </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.minMatch", null, "Minimum match")} · {minMatch}%</span>
-              <input type="range" min="0" max="95" step="5" value={minMatch} onChange={e => setMinMatch(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)" }} />
-            </div>
-            <div className="mkt-fgroup">
-              <button className={`mkt-check ${verifiedOnly ? "on" : ""}`} style={{ width: "100%" }} onClick={() => setVerifiedOnly(v => !v)}>
-                <span className="bx">{verifiedOnly && <Icon name="check" size={12} />}</span>
-                {t("discover.verifiedOnly", null, "Verified builders only")}
+
+            <div className={`fgroup ${closedGroups.has("type") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("type")}>
+                <span>{t("discover.validationType", null, "Validation type")}</span>
+                <span className="row gap-2" style={{ alignItems: "center", flexShrink: 0 }}>
+                  {types.size > 0 && <span className="mono" style={{ color: "var(--accent)", fontWeight: 700, textTransform: "none" }}>({types.size})</span>}
+                  <Icon name="chevronDown" size={15} />
+                </span>
               </button>
+              <div className="fgroup-body">
+                {typeOrder.map(k => {
+                  const count = data.categories.find(c => c.key === k)?.count ?? 0;
+                  const on = types.has(k);
+                  return (
+                    <button key={k} className={`fcheck ${on ? "on" : ""}`} style={{ opacity: count === 0 ? 0.45 : 1, cursor: count === 0 ? "not-allowed" : "pointer" }} disabled={count === 0} onClick={() => toggleType(k)}>
+                      <span className="box">{on && <Icon name="check" size={11} />}</span>
+                      <Icon name={vtypes[k].icon} size={14} style={{ color: `var(${vtypes[k].accentVar})`, flex: "none", marginRight: -2 }} />
+                      {vtLabel(t, vtypes[k])}<span className="fcount">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={`fgroup ${closedGroups.has("reward") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("reward")}>
+                <span>{t("discover.reward", null, "Reward")}</span>
+                <Icon name="chevronDown" size={15} />
+              </button>
+              <div className="fgroup-body">
+                <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={rewardBandLabel(t, b.k, b.l)} />)}</div>
+              </div>
+            </div>
+
+            <div className={`fgroup ${closedGroups.has("time") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("time")}>
+                <span>{t("discover.timeRequired", null, "Time required")}</span>
+                <Icon name="chevronDown" size={15} />
+              </button>
+              <div className="fgroup-body">
+                <div className="col gap-2">{timeBands.map(b => <RadioRow key={b.k} on={time === b.k} onClick={() => setTime(b.k)} label={timeBandLabel(t, b.k, b.l)} />)}</div>
+              </div>
+            </div>
+
+            <div className={`fgroup ${closedGroups.has("more") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("more")}>
+                <span>{t("discover.moreFilters", null, "More filters")}</span>
+                <Icon name="chevronDown" size={15} />
+              </button>
+              <div className="fgroup-body">
+                <div style={{ padding: "4px 0 10px" }}>
+                  <span className="faint" style={{ fontSize: 12 }}>{t("discover.minMatch", null, "Minimum match")} · {minMatch}%</span>
+                  <input type="range" min="0" max="95" step="5" value={minMatch} onChange={e => setMinMatch(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)", marginTop: 6 }} />
+                </div>
+                <button className={`fcheck ${verifiedOnly ? "on" : ""}`} style={{ width: "100%" }} onClick={() => setVerifiedOnly(v => !v)}>
+                  <span className="box">{verifiedOnly && <Icon name="check" size={11} />}</span>
+                  {t("discover.verifiedOnly", null, "Verified builders only")}
+                </button>
+              </div>
             </div>
           </div>
         </aside>
@@ -343,7 +421,7 @@ export default function Discover() {
             ? <div className="card"><VEmpty icon="search" title={t("discover.noMatchTitle", null, "No missions match")} body={t("discover.noMatchBody", null, "Try widening your filters or clearing your search — new missions are posted throughout the day.")} cta={<button className="btn btn-primary" onClick={() => { clearAll(); setStatusTab("all"); }}>{t("actions.clearFilters", null, "Clear filters")}</button>} /></div>
             : (
               <div>
-                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
+                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} ptypes={ptypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
                 {visibleCount < visibleTasks.length && (
                   <div style={{ textAlign: "center", marginTop: 24, paddingBottom: 24 }}>
                     <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</button>

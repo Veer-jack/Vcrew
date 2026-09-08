@@ -74,6 +74,7 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
     reward, rewardType, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
     deadline, postedH, brief, steps,
     hot, verified, featured,
+    builderName: t.builder_name || null, builderDesignation: t.builder_designation || null,
     saved: savedIds.has(t.id), 
     status: t.status || "active",
     myStatus: myContext[t.id]?.status || null,
@@ -100,15 +101,23 @@ router.get("/", async (req, res) => {
   // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
   const baseCTE = `
     WITH base_tasks AS (
-      SELECT id::text, COALESCE(ptype, 'mvp')::text as raw_type, name::text as product, description::text as tagline, COALESCE(brand, 'Independent')::text as company,
-             COALESCE(reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(target, 0) - COALESCE(joined, 0))::int as spots_left,
-             COALESCE(target, 0)::int as spots_total, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - created_at))/3600)::int as posted_h,
-             description::text as brief, tasks_json::text as steps_json, (COALESCE(joined,0) > COALESCE(target,1)/2)::boolean as hot, true::boolean as verified,
-             false::boolean as featured, 'missions' as source, status::text as status, COALESCE(reward_type, 'fixed')::text as reward_type
-      FROM missions WHERE status IN ('active','live','published')
+      SELECT m.id::text, COALESCE(m.ptype, 'mvp')::text as raw_type, m.name::text as product,
+             -- Real missions have no separate short tagline -- feeding the same
+             -- description into both tagline and brief made the card show the
+             -- exact same text twice. Left blank here; the frontend just skips
+             -- the tagline line when there's nothing to put there.
+             ''::text as tagline, COALESCE(m.brand, 'Independent')::text as company,
+             COALESCE(m.reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(m.target, 0) - COALESCE(m.joined, 0))::int as spots_left,
+             COALESCE(m.target, 0)::int as spots_total, COALESCE(TO_CHAR(m.deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at))/3600)::int as posted_h,
+             m.description::text as brief, m.tasks_json::text as steps_json, (COALESCE(m.joined,0) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
+             false::boolean as featured, 'missions' as source, m.status::text as status, COALESCE(m.reward_type, 'fixed')::text as reward_type,
+             b.name::text as builder_name, b.designation::text as builder_designation
+      FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
+      WHERE m.status IN ('active','live','published')
       UNION ALL
       SELECT id::text, type::text as raw_type, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, spots_left::int,
-             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status, 'fixed'::text as reward_type
+             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status, 'fixed'::text as reward_type,
+             NULL::text as builder_name, NULL::text as builder_designation
       FROM vtasks
     )
   `;

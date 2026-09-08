@@ -74,7 +74,7 @@ export const TASK_GUIDANCE = {
         id: 2, title: "Edge case & error handling", severity: "imp",
         steps: ["Try an invalid input somewhere in the flow (blank field, wrong format)", "Try navigating away mid-flow and returning", "Note what happens"],
         questions: [
-          { id: "q4", text: "Did the product handle your invalid input gracefully?", type: "yes_no_detail" },
+          { id: "q4", text: "Did the product handle your invalid input gracefully?", type: "yes_no_detail", detailOn: "no" },
           { id: "q5", text: "How clear were any error messages?", type: "rating", scale: 5 },
         ],
         proof: "screenshot", min_time_seconds: 200,
@@ -192,7 +192,7 @@ export const TASK_GUIDANCE = {
         steps: ["Land on the homepage without prior context", "Try to find a key piece of information or page using only navigation, no search", "Note every click you make"],
         questions: [
           { id: "q1", text: "How easy was navigation?", type: "rating", scale: 5 },
-          { id: "q2", text: "Did you find what you were looking for?", type: "yes_no_detail" },
+          { id: "q2", text: "Did you find what you were looking for?", type: "yes_no_detail", detailOn: "no" },
           { id: "q3", text: "What confused you most about the layout?", type: "text" },
         ],
         proof: "screenshot", min_time_seconds: 200,
@@ -226,7 +226,7 @@ export const TASK_GUIDANCE = {
         id: 2, title: "Core task flow + interruption test", severity: "imp",
         steps: ["Complete the app's main task flow", "Midway through, background the app (press home) and reopen it", "Check whether your progress was preserved"],
         questions: [
-          { id: "q3", text: "Was your progress preserved after backgrounding the app?", type: "yes_no_detail" },
+          { id: "q3", text: "Was your progress preserved after backgrounding the app?", type: "yes_no_detail", detailOn: "no" },
           { id: "q4", text: "How reliable did the app feel overall?", type: "rating", scale: 5 },
         ],
         proof: "screenshot", min_time_seconds: 220,
@@ -285,7 +285,7 @@ Return ONLY valid JSON. No markdown, no backticks, no explanation. Use this exac
       "questions": [
         { "id": "q1", "text": "Question text", "type": "rating", "scale": 5 },
         { "id": "q2", "text": "Question text", "type": "multiple_choice", "options": ["Option A", "Option B"] },
-        { "id": "q3", "text": "Question text", "type": "yes_no_detail" }
+        { "id": "q3", "text": "Question text", "type": "yes_no_detail", "detailOn": "no" }
       ],
       "proof": "screenshot",
       "min_time_seconds": 180
@@ -296,6 +296,11 @@ Return ONLY valid JSON. No markdown, no backticks, no explanation. Use this exac
 severity must be one of: crit, imp, nice
 question types: rating (needs scale), multiple_choice (needs options), yes_no_detail, text
 proof: "screenshot" or null — follow the mission type guidance's proof default above if given
+For yes_no_detail questions, set "detailOn" to whichever answer actually needs an explanation —
+"no" for a question phrased as "did X work / succeed / go smoothly" (the problem is worth
+describing when it DIDN'T), "yes" for one phrased as "did you encounter/hit X problem" (the
+problem is worth describing when they DID). Get this backwards and the follow-up text box pops
+open on the answer that has nothing to explain.
 Include 3-5 questions per task mixing types. Make tasks specific to the product described.`;
 }
 
