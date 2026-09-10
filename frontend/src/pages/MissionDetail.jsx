@@ -1093,20 +1093,24 @@ function MissionPaymentsTab({ payments, navigate, missionId }) {
 function MissionShipmentsTab({ missionId }) {
   const { t } = useTranslation();
   const [shipments, setShipments] = useState(null);
+  // loadError replaces the tab; error is an inline banner for a failed
+  // "mark as shipped" so it doesn't wipe the shipment rows.
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [trackingInputs, setTrackingInputs] = useState({});
 
   useEffect(() => {
-    api.missionShipments(missionId).then(d => setShipments(d.shipments)).catch(err => setError(err.message));
+    api.missionShipments(missionId).then(d => setShipments(d.shipments)).catch(err => setLoadError(err.message));
   }, [missionId]);
 
-  if (error) return <div className="muted">{error}</div>;
+  if (loadError) return <div className="muted">{loadError}</div>;
   if (!shipments) return <div className="muted">{t("missionDetail.loadingShipments", null, "Loading shipments…")}</div>;
   if (shipments.length === 0) return <div className="muted">{t("missionDetail.noValidatorsAccepted", null, "No validators have accepted this mission yet.")}</div>;
 
   const markShipped = async (validatorId) => {
     setBusyId(validatorId);
+    setError("");
     try {
       const input = trackingInputs[validatorId] || {};
       await api.markShipmentShipped(missionId, validatorId, { trackingNumber: input.trackingNumber || "", carrier: input.carrier || "" });
@@ -1120,6 +1124,7 @@ function MissionShipmentsTab({ missionId }) {
 
   return (
     <div className="col gap-3 sec">
+      {error && <div className="err-banner">{error}</div>}
       {shipments.map(s => (
         <div key={s.validatorId} className="card" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
@@ -1152,6 +1157,12 @@ function MissionShipmentsTab({ missionId }) {
 function MissionInterviewsTab({ missionId }) {
   const { t } = useTranslation();
   const [schedules, setSchedules] = useState(null);
+  // loadError = the schedule fetch itself failed, nothing to show → replace
+  // the tab. error = a propose/complete action was rejected (missing link,
+  // past time, ...) → an inline banner; it must NOT wipe the row the way a
+  // shared `error` + early-return did (that's the "the whole row vanished
+  // and only came back on a tab switch" bug).
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [proposeInputs, setProposeInputs] = useState({});
@@ -1161,10 +1172,10 @@ function MissionInterviewsTab({ missionId }) {
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-    api.missionSchedules(missionId).then(d => setSchedules(d.schedules)).catch(err => setError(err.message));
+    api.missionSchedules(missionId).then(d => setSchedules(d.schedules)).catch(err => setLoadError(err.message));
   }, [missionId]);
 
-  if (error) return <div className="muted">{error}</div>;
+  if (loadError) return <div className="muted">{loadError}</div>;
   if (!schedules) return <div className="muted">{t("missionDetail.loadingSchedules", null, "Loading schedules…")}</div>;
   if (schedules.length === 0) return <div className="muted">{t("missionDetail.noValidatorsAccepted", null, "No validators have accepted this mission yet.")}</div>;
 
@@ -1179,6 +1190,7 @@ function MissionInterviewsTab({ missionId }) {
 
   const propose = async (validatorId) => {
     setBusyId(validatorId);
+    setError("");
     try {
       const input = proposeInputs[validatorId] || {};
       if (!input.scheduledAt) throw new Error(t("missionDetail.pickDateTimeFirst", null, "Pick a date and time first"));
@@ -1196,6 +1208,7 @@ function MissionInterviewsTab({ missionId }) {
 
   const complete = async (validatorId) => {
     setBusyId(validatorId);
+    setError("");
     try {
       await api.markInterviewCompleted(missionId, validatorId);
       setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "completed" } : sc));
@@ -1208,6 +1221,7 @@ function MissionInterviewsTab({ missionId }) {
 
   return (
     <div className="col gap-3 sec">
+      {error && <div className="err-banner">{error}</div>}
       {schedules.map(s => (
         <div key={s.validatorId} className="card" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
