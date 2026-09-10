@@ -65,7 +65,7 @@
     cookies: "ملفات تعريف الارتباط",
     goToDashboard: "انتقل إلى لوحة المعلومات",
     profile: "حساب تعريفي",
-    settings: "Settings",
+    settings: "الإعدادات",
     signOut: "تسجيل الخروج",
     signedInAs: "لقد قمت بتسجيل الدخول حاليًا باعتبارك",
     signOutFirst: "الرجاء تسجيل الخروج أولا للمتابعة ك",
