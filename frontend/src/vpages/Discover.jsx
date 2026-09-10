@@ -312,10 +312,10 @@ export default function Discover() {
           which just repeated the sidebar's own filter list. */}
       <div className="mkt-stats rise-2" style={{ marginBottom: 18 }}>
         <VStatCard icon="mail" label={t("discover.invitations", null, "Invitations")} value={stats?.counts?.invited ?? "—"} tone="--accent" />
-        <VStatCard icon="bolt" label={t("discover.activeMissions", null, "Active missions")} value={stats ? (stats.counts.active + stats.counts.applied) : "—"} tone="--success" />
+        <VStatCard icon="bolt" label={t("discover.activeMissions", null, "Active missions")} value={stats?.counts ? (stats.counts.active + stats.counts.applied) : "—"} tone="--success" />
         <VStatCard icon="send" label={t("status.submitted", null, "Submitted")} value={stats?.counts?.submitted ?? "—"} tone="--warning" />
-        <VStatCard icon="clock" label={t("discover.pendingRewards", null, "Pending rewards")} value={stats ? `₹${stats.pending.toLocaleString("en-IN")}` : "—"} tone="--warning" />
-        <VStatCard icon="award" label={t("discover.totalEarned", null, "Total earned")} value={stats ? `₹${stats.lifetime.toLocaleString("en-IN")}` : "—"} tone="--success" />
+        <VStatCard icon="clock" label={t("discover.pendingRewards", null, "Pending rewards")} value={stats?.pending != null ? `₹${stats.pending.toLocaleString("en-IN")}` : "—"} tone="--warning" />
+        <VStatCard icon="award" label={t("discover.totalEarned", null, "Total earned")} value={stats?.lifetime != null ? `₹${stats.lifetime.toLocaleString("en-IN")}` : "—"} tone="--success" />
       </div>
 
       <div className="rise-2" style={{ marginBottom: 22 }}>
