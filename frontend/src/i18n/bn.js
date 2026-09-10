@@ -499,6 +499,7 @@ const bn = {
   missions: {
     rewardSample: "পণ্যের নমুনা",
     rewardFree: "কমিউনিটি",
+    rewardGift: "গিফট কার্ড",
     draftSaved: "মিশন খসড়া হিসেবে সংরক্ষিত হয়েছে",
     lastEditedCol: "সর্বশেষ সম্পাদিত",
     filterTypeHint: "এক বা একাধিক ধরন নির্বাচন করুন",
@@ -687,6 +688,7 @@ const bn = {
     missionRequirements: "মিশনের প্রয়োজনীয়তা",
     feedbackFormat: "প্রতিক্রিয়া বিন্যাস:",
     estimatedTime: "আনুমানিক সময়:",
+    questionCount: "{{count}}টি প্রশ্ন",
     gradedOn: "আপনি কি গ্রেড করা হবে",
     requirements: "প্রয়োজনীয়তা",
     verifiedProfile: "যাচাইকৃত প্রোফাইল",

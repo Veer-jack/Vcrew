@@ -7,3 +7,9 @@ export function deadlineHours(deadline) {
 export function deadlineLabel(deadline) {
   return (deadline || "").replace("Closes ", "");
 }
+
+// "on approval" (the reward lands once your submission is approved) only
+// makes sense when there's actually a payout. A "free"/community mission
+// pays nothing and a "sample" ships regardless — appending "on approval"
+// there just reads as noise ("Community on approval").
+export const rewardPaysOnApproval = (type) => type !== "free" && type !== "sample";

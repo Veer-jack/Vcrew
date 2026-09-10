@@ -499,6 +499,7 @@ const ar = {
   missions: {
     rewardSample: "عينة منتج",
     rewardFree: "المجتمع",
+    rewardGift: "بطاقة هدية",
     draftSaved: "تم حفظ المهمة كمسودة",
     lastEditedCol: "آخر تعديل",
     filterTypeHint: "اختر نوعًا واحدًا أو أكثر",
@@ -687,6 +688,7 @@ const ar = {
     missionRequirements: "متطلبات المهمة",
     feedbackFormat: "تنسيق التعليقات:",
     estimatedTime: "الوقت المقدر:",
+    questionCount: "{{count}} سؤال",
     gradedOn: "ما سيتم تصنيفك عليه",
     requirements: "المتطلبات",
     verifiedProfile: "الملف الشخصي الذي تم التحقق منه",

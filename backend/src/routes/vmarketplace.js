@@ -43,7 +43,6 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
   // a product after approval", since both show as a bare 0. vtasks never had
   // a reward_type column at all (always cash), hence the "fixed" fallback.
   const rewardType = t.reward_type || "fixed";
-  const minutes = t.minutes ?? 10;
   const spotsTotal = t.spots_total ?? t.spotsTotal ?? t.target ?? 0;
   const spotsLeft = t.spots_left ?? t.spotsLeft ?? Math.max(0, spotsTotal - (t.joined || 0));
   // deadline_label is precomputed (TO_CHAR ... 'Mon DD') by the list queries
@@ -63,7 +62,12 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
   const brief = t.brief || t.description || "";
   const stepsRaw = t.steps_json || t.tasks_json || "[]";
   let steps = [];
-  try { steps = JSON.parse(stepsRaw).map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')); } catch {}
+  let questionCount = 0;
+  try {
+    const parsed = JSON.parse(stepsRaw);
+    steps = parsed.map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task'));
+    questionCount = parsed.reduce((n, s) => n + (Array.isArray(s && s.questions) ? s.questions.length : 0), 0);
+  } catch {}
   
   const hot = t.hot !== undefined ? !!t.hot : ((t.joined || 0) > ((t.target || 1) / 2));
   const verified = t.verified !== undefined ? !!t.verified : true;
@@ -71,7 +75,7 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
 
   return {
     id: t.id, type: normType, ptype: t.ptype || null, category: t.category || null, product, tagline, company,
-    reward, rewardType, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
+    reward, rewardType, questionCount, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
     deadline, postedH, brief, steps,
     hot, verified, featured,
     builderName: t.builder_name || null, builderDesignation: t.builder_designation || null,
@@ -95,19 +99,19 @@ async function loadContext(validatorId) {
 }
 
 router.get("/", async (req, res) => {
-  const { q, types, reward, time, verified, minMatch, sort } = req.query;
+  const { q, types, reward, verified, minMatch, sort } = req.query;
   const { savedIds, myContext, inviteContext } = await loadContext(req.validator.id);
 
   // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
   const baseCTE = `
     WITH base_tasks AS (
-      SELECT m.id::text, COALESCE(m.ptype, 'mvp')::text as raw_type, m.name::text as product,
+      SELECT m.id::text, COALESCE(m.ptype, 'mvp')::text as raw_type, m.ptype::text as ptype, m.name::text as product,
              -- Real missions have no separate short tagline -- feeding the same
              -- description into both tagline and brief made the card show the
              -- exact same text twice. Left blank here; the frontend just skips
              -- the tagline line when there's nothing to put there.
              ''::text as tagline, COALESCE(m.brand, 'Independent')::text as company,
-             COALESCE(m.reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct,
+             COALESCE(m.reward_amount, 0)::int as reward, 90::int as match_pct,
              -- m.joined is a hand-incremented counter that drifts from the
              -- real participants rows (confirmed already on the builder side
              -- -- see recalcMissionStats/getRealJoinedCount in stats.js) --
@@ -115,16 +119,16 @@ router.get("/", async (req, res) => {
              -- already sees as full is that same drift, just read from here
              -- instead. Counting participants directly is the fix everywhere
              -- this table gets read, not just where it's already applied.
-             GREATEST(0, COALESCE(m.target, 0) - (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')))::int as spots_left,
+             GREATEST(0, COALESCE(m.target, 0) - (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'declined', 'rejected', 'failed')))::int as spots_left,
              COALESCE(m.target, 0)::int as spots_total, COALESCE(TO_CHAR(m.deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at))/3600)::int as posted_h,
              m.description::text as brief, m.tasks_json::text as steps_json,
-             ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
+             ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'declined', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
              false::boolean as featured, 'missions' as source, m.status::text as status, COALESCE(m.reward_type, 'fixed')::text as reward_type,
              b.name::text as builder_name, b.designation::text as builder_designation
       FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
       WHERE m.status IN ('active','live','published')
       UNION ALL
-      SELECT id::text, type::text as raw_type, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, spots_left::int,
+      SELECT id::text, type::text as raw_type, NULL::text as ptype, product::text, tagline::text, company::text, reward::int, match_pct::int, spots_left::int,
              spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status, 'fixed'::text as reward_type,
              NULL::text as builder_name, NULL::text as builder_designation
       FROM vtasks
@@ -154,8 +158,6 @@ router.get("/", async (req, res) => {
   }
   const REWARD_TESTS = { lt100: r => r < 100, mid: r => r >= 100 && r <= 200, gt200: r => r > 200 };
   if (reward && REWARD_TESTS[reward]) tasks = tasks.filter(t => REWARD_TESTS[reward](t.reward));
-  const TIME_TESTS = { lt10: m => m < 10, mid: m => m >= 10 && m <= 20, gt20: m => m > 20 };
-  if (time && TIME_TESTS[time]) tasks = tasks.filter(t => TIME_TESTS[time](t.minutes));
   if (verified === "true") tasks = tasks.filter(t => t.verified);
   if (minMatch) tasks = tasks.filter(t => t.match >= Number(minMatch));
 
@@ -426,7 +428,17 @@ router.post("/:id/undecline", async (req, res) => {
   if (!t) return res.status(404).json({ error: "Mission not found" });
 
   if (isRealMission) {
-    await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
+    await db.transaction(async (tx) => {
+      await tx.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
+      // Decline mirrors this the other way (invited -> declined). If the
+      // decline came from a pending invitation, undo restores it so the
+      // validator can accept it again -- and, critically, so a stale
+      // 'declined' participants row isn't left behind for a later apply to
+      // insert a duplicate next to. A plain browse-then-decline has no such
+      // rows and these just match nothing.
+      await tx.prepare(`UPDATE mission_invitations SET status = 'pending' WHERE mission_id = ? AND validator_id = ? AND status = 'declined'`).run(t.id, req.validator.id);
+      await tx.prepare(`UPDATE participants SET stage = 'invited' WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+    });
   } else {
     await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND task_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
   }

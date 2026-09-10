@@ -5,9 +5,9 @@ import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
-import { deadlineLabel, deadlineHours } from "../vutil";
+import { deadlineLabel, deadlineHours, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
-import { vtLabel, rewardBandLabel, timeBandLabel, sortLabel } from "../vi18n";
+import { vtLabel, rewardBandLabel, sortLabel } from "../vi18n";
 
 // Same grouping the card badges already use (see MktCard/FeaturedMission
 // above) — the status tabs are just a filter over that same vocabulary,
@@ -76,7 +76,7 @@ function RadioRow({ on, onClick, label }) {
 function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
-  const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
+  const spotPct = task.spotsTotal > 0 ? (task.spotsLeft / task.spotsTotal) * 100 : 100;
   const urgent = deadlineHours(task.deadline) <= 12;
   // What kind of feedback this actually is (Written Survey, Live 1:1 Video
   // Call, ...) -- vtasks demo rows have no ptype, so this just doesn't show
@@ -127,7 +127,6 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
       <div className="row gap-3 wrap faint" style={{ fontSize: 12 }}>
-        <span className="row gap-2"><Icon name="clock" size={13} />~{task.minutes}{t("discover.minutesShort", null, "m")}</span>
         <span className="row gap-2"><Icon name="users" size={13} />{task.spotsLeft} {t("discover.spotsLeft", null, "left")}</span>
         <span className="row gap-2" style={{ color: urgent ? "var(--danger)" : "inherit", fontWeight: urgent ? 700 : 400 }}><Icon name="clock" size={13} />{deadlineLabel(task.deadline)}</span>
       </div>
@@ -135,7 +134,7 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
         <i style={{ display: "block", height: "100%", width: (100 - spotPct) + "%", borderRadius: 20, background: spotPct < 25 ? "var(--danger)" : `var(${vt.accentVar})` }} />
       </div>
       <div className="row between" style={{ marginTop: 2, paddingTop: 11, borderTop: "1px solid var(--border)" }}>
-        <div><VReward amount={task.reward} type={task.rewardType} /><span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span></div>
+        <div><VReward amount={task.reward} type={task.rewardType} />{rewardPaysOnApproval(task.rewardType) && <span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span>}</div>
         <button className="btn btn-primary" style={{ padding: "8px 14px", ...myStatusButtonStyle(task.myStatus) }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
           {myStatusButtonLabel(t, task.myStatus, t("actions.resume", null, "Resume"), t("actions.view", null, "View"))}
           <Icon name="arrowRight" size={15} />
@@ -186,12 +185,11 @@ function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
         <p className="muted" style={{ margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.55, maxWidth: "70ch", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
         <div className="row between wrap gap-3" style={{ marginTop: 18 }}>
           <div className="row gap-4 wrap faint" style={{ fontSize: 13 }}>
-            <span className="row gap-2"><Icon name="clock" size={14} />~{task.minutes} {t("discover.minutes", null, "min")}</span>
             <span className="row gap-2"><Icon name="users" size={14} />{task.spotsLeft} {t("discover.of", null, "of")} {task.spotsTotal} {t("discover.spotsLeftFull", null, "spots left")}</span>
             <span className="row gap-2" style={{ color: "var(--danger)", fontWeight: 700 }}><Icon name="bolt" size={14} />{deadlineLabel(task.deadline)}</span>
           </div>
           <div className="row gap-3" style={{ alignItems: "center" }}>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big /><div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div></div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div>}</div>
             <button className="btn btn-primary btn-lg" style={myStatusButtonStyle(task.myStatus)} onClick={e => { e.stopPropagation(); onOpen(task); }}>
               {myStatusButtonLabel(t, task.myStatus, t("actions.resumeMission", null, "Resume mission"), t("actions.startValidating", null, "Start validating"))} <Icon name="arrowRight" />
             </button>
@@ -206,11 +204,10 @@ export default function Discover() {
   const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
   const { validator } = useVAuth();
-  const { vtypes, typeOrder, rewardBands, timeBands, sorts, ptypes } = useVMeta();
+  const { vtypes, typeOrder, rewardBands, sorts, ptypes } = useVMeta();
   const [q, setQ] = useState("");
   const [types, setTypes] = useState(new Set());
   const [reward, setReward] = useState("any");
-  const [time, setTime] = useState("any");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minMatch, setMinMatch] = useState(0);
   const [sort, setSort] = useState("match");
@@ -219,13 +216,13 @@ export default function Discover() {
   const [stats, setStats] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
   // Which sidebar filter groups are collapsed -- same shape and default
-  // (Reward/Time start open, the rest closed) as Audience Explorer's own
-  // filter panel, which this now matches.
+  // (all start open) as Audience Explorer's own filter panel, which this
+  // now matches.
   const [closedGroups, setClosedGroups] = useState(new Set());
 
   const toggleType = (k) => setTypes(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
   const toggleGroup = (g) => setClosedGroups(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
-  const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setTime("any"); setVerifiedOnly(false); setMinMatch(0); };
+  const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setVerifiedOnly(false); setMinMatch(0); };
 
   useEffect(() => {
     // Prevent back-button going to login
@@ -237,10 +234,10 @@ export default function Discover() {
 
   useEffect(() => {
     setTimeout(() => setVisibleCount(20), 0);
-    vapi.marketplace({ q, types: [...types].join(","), reward, time, verified: verifiedOnly, minMatch, sort })
+    vapi.marketplace({ q, types: [...types].join(","), reward, verified: verifiedOnly, minMatch, sort })
       .then(setData)
       .catch(() => {});
-  }, [q, types, reward, time, verifiedOnly, minMatch, sort, dataVersion]);
+  }, [q, types, reward, verifiedOnly, minMatch, sort, dataVersion]);
 
   // Independent of the filtered marketplace fetch above -- these are the
   // validator's own standing numbers (pending invitations, missions in
@@ -279,7 +276,7 @@ export default function Discover() {
 
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
-  const filtersActive = q || types.size || reward !== "any" || time !== "any" || verifiedOnly || minMatch > 0;
+  const filtersActive = q || types.size || reward !== "any" || verifiedOnly || minMatch > 0;
   const showFeatured = !filtersActive && statusTab === "all" && sort === "match" && data.featured;
   // Status is about your own relationship to each mission (haven't applied /
   // applied / approved), not ordering — kept as its own tabs row instead of
@@ -392,16 +389,6 @@ export default function Discover() {
               </button>
               <div className="fgroup-body">
                 <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={rewardBandLabel(t, b.k, b.l)} />)}</div>
-              </div>
-            </div>
-
-            <div className={`fgroup ${closedGroups.has("time") ? "closed" : ""}`}>
-              <button className="fgroup-h" onClick={() => toggleGroup("time")}>
-                <span>{t("discover.timeRequired", null, "Time required")}</span>
-                <Icon name="chevronDown" size={15} />
-              </button>
-              <div className="fgroup-body">
-                <div className="col gap-2">{timeBands.map(b => <RadioRow key={b.k} on={time === b.k} onClick={() => setTime(b.k)} label={timeBandLabel(t, b.k, b.l)} />)}</div>
               </div>
             </div>
 

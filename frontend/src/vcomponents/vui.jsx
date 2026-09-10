@@ -67,6 +67,9 @@ export function VReward({ amount, big, type }) {
   // the amount exactly as before.
   if (type === "sample") return <span className="mono" style={style}>{t("missions.rewardSample", null, "Product sample")}</span>;
   if (type === "free") return <span className="mono" style={style}>{t("missions.rewardFree", null, "Community")}</span>;
+  // A "gift" reward pays a voucher, not cash — keep the value (validators
+  // want to know it) but label it so ₹500 doesn't read as ₹500 in hand.
+  if (type === "gift") return <span className="mono" style={style}>₹{amount} {t("missions.rewardGift", null, "gift card")}</span>;
   return <span className="mono" style={style}>₹{amount}</span>;
 }
 

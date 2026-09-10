@@ -499,6 +499,7 @@ const pt = {
   missions: {
     rewardSample: "Amostra do produto",
     rewardFree: "Comunidade",
+    rewardGift: "cartão-presente",
     draftSaved: "Missão salva como rascunho",
     lastEditedCol: "Última edição",
     filterTypeHint: "Selecione um ou mais tipos",
@@ -687,6 +688,7 @@ const pt = {
     missionRequirements: "Requisitos da missão",
     feedbackFormat: "Formato de feedback:",
     estimatedTime: "Tempo estimado:",
+    questionCount: "{{count}} perguntas",
     gradedOn: "Em que você será avaliado",
     requirements: "Requisitos",
     verifiedProfile: "Perfil verificado",

@@ -499,6 +499,7 @@ const es = {
   missions: {
     rewardSample: "Muestra de producto",
     rewardFree: "Comunidad",
+    rewardGift: "tarjeta de regalo",
     draftSaved: "Misión guardada como borrador",
     lastEditedCol: "Última edición",
     filterTypeHint: "Selecciona uno o más tipos",
@@ -687,6 +688,7 @@ const es = {
     missionRequirements: "Requisitos de la misión",
     feedbackFormat: "Formato de comentarios:",
     estimatedTime: "Tiempo estimado:",
+    questionCount: "{{count}} preguntas",
     gradedOn: "En qué te calificarán",
     requirements: "Requisitos",
     verifiedProfile: "Perfil verificado",

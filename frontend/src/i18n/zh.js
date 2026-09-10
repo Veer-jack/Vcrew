@@ -499,6 +499,7 @@ const zh = {
   missions: {
     rewardSample: "产品样品",
     rewardFree: "社区",
+    rewardGift: "礼品卡",
     draftSaved: "任务已保存为草稿",
     lastEditedCol: "最后编辑",
     filterTypeHint: "选择一个或多个类型",
@@ -687,6 +688,7 @@ const zh = {
     missionRequirements: "任务要求",
     feedbackFormat: "反馈格式：",
     estimatedTime: "预计时间：",
+    questionCount: "{{count}} 个问题",
     gradedOn: "您的评分标准",
     requirements: "要求",
     verifiedProfile: "已验证的个人资料",

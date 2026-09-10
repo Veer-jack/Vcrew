@@ -969,6 +969,15 @@ router.post("/invitations/:id/decline", async (req, res) => {
     // instead of the invitee just silently vanishing with no trace beyond
     // the one-off notification.
     await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
+    // Mirror the marketplace decline path: record it on the validator side
+    // too, so this lands in their "Declined" tab (with an Undo) exactly like
+    // a browse-decline does, instead of the invite just disappearing.
+    const existingMy = await tx.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, invite.mission_id);
+    if (existingMy) {
+      await tx.prepare(`UPDATE v_my_missions SET status = 'declined', status_label = 'Declined' WHERE id = ?`).run(existingMy.id);
+    } else {
+      await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, invite.mission_id);
+    }
     if (m) {
       await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
         .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`, m.id);

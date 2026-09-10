@@ -499,6 +499,7 @@ const ur = {
   missions: {
     rewardSample: "پروڈکٹ کا نمونہ",
     rewardFree: "کمیونٹی",
+    rewardGift: "گفٹ کارڈ",
     draftSaved: "مشن ڈرافٹ میں محفوظ ہو گیا",
     lastEditedCol: "آخری ترمیم",
     filterTypeHint: "ایک یا زیادہ اقسام منتخب کریں",
@@ -687,6 +688,7 @@ const ur = {
     missionRequirements: "مشن کی ضروریات",
     feedbackFormat: "تاثرات کی شکل:",
     estimatedTime: "تخمینی وقت:",
+    questionCount: "{{count}} سوالات",
     gradedOn: "جس پر آپ کو درجہ دیا جائے گا۔",
     requirements: "تقاضے",
     verifiedProfile: "تصدیق شدہ پروفائل",

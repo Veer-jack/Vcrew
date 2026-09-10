@@ -1,18 +1,20 @@
 import { db } from "./db.js";
 
 // The `participants.stage` values that represent someone currently occupying
-// a slot toward a mission's target. `invited` never filled one; `rejected`
-// and `failed` explicitly free the one they held (see the reject-submission
-// and checkin-lockout routes) — everything else (accepted/started/submitted/
-// rewarded) still counts. Single definition reused by every place that needs
-// the *real* joined count instead of `missions.joined`, a hand-incremented
-// counter that drifts from this whenever a write path forgets to update it
-// (confirmed: the participants backfill script, and the checkin-lockout path
-// above, both leave it stale).
+// a slot toward a mission's target. `invited` never filled one; `declined`
+// (an invitee who said no), `rejected` and `failed` explicitly free the one
+// they held (see the decline, reject-submission and checkin-lockout routes)
+// — everything else (accepted/started/submitted/rewarded) still counts.
+// Single definition reused by every place that needs the *real* joined count
+// instead of `missions.joined`, a hand-incremented counter that drifts from
+// this whenever a write path forgets to update it (confirmed: the
+// participants backfill script, and the checkin-lockout path above, both
+// leave it stale). The four excluded stages must stay in sync with the
+// builder-side dashboard/mission queries, which already exclude the same set.
 export async function getRealJoinedCount(missionId, optionalTx) {
   const tx = optionalTx || db;
   const row = await tx.prepare(
-    `SELECT COUNT(*) as c FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'rejected', 'failed')`
+    `SELECT COUNT(*) as c FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'declined', 'rejected', 'failed')`
   ).get(missionId);
   return parseInt(row?.c || 0, 10);
 }

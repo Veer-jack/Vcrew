@@ -19,7 +19,6 @@ function NextCard({ task, vtypes, onOpen }) {
         </div>
         <div className="row gap-2" style={{ alignItems: "baseline" }}><h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: "-.02em" }}>{task.product}</h3><span className="muted" style={{ fontSize: 14 }}>· {task.tagline}</span></div>
         <div className="row gap-4 wrap faint" style={{ fontSize: 12.5, marginTop: 8 }}>
-          <span className="row gap-2"><Icon name="clock" size={14} />~{task.minutes} min</span>
           <span className="row gap-2"><Icon name="clock" size={14} />{deadlineLabel(task.deadline)}</span>
         </div>
       </div>

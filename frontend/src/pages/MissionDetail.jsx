@@ -210,7 +210,7 @@ function MissionOverview({ mission, participants, setTab, navigate, ptypes }) {
           <div className="row gap-2" style={{ marginTop: 10, alignItems: "center" }}>
             <Icon name={pt.icon} size={18} style={{ color: "var(--accent)" }} />
             <b style={{ fontSize: 15 }}>{ptypeLabel(t, pt)}</b>
-            {pt.est && <span className="faint" style={{ fontSize: 13 }}>· ~{pt.est}</span>}
+            {pt.id === "trial" && mission.durationDays && <span className="faint" style={{ fontSize: 13 }}>· {t("createMission.durationDaysSuffix", { days: mission.durationDays }, `${mission.durationDays} days`)}</span>}
           </div>
         </div>
         <div className="card" style={{ padding: 20 }}>

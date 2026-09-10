@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import { VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
-import { deadlineLabel } from "../vutil";
+import { deadlineLabel, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
 
 export default function MissionDetails() {
@@ -43,7 +43,7 @@ export default function MissionDetails() {
 
   const { task, rubric } = data;
   const vType = vtypes[task.type];
-  const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
+  const spotPct = task.spotsTotal > 0 ? (task.spotsLeft / task.spotsTotal) * 100 : 100;
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
 
   // Shared by apply() and acceptInvite() — both actions are now gated
@@ -148,13 +148,12 @@ export default function MissionDetails() {
                 <p className="muted" style={{ margin: "4px 0 0", fontSize: 15 }}>{task.tagline} · {task.company}</p>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big /><div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div></div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div>}</div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
           {[
-            { ic: "clock", l: t("missions.time", null, "Time"), v: `~${task.minutes} min` },
             { ic: "users", l: t("missions.spotsLeft", null, "Slots left"), v: `${task.spotsLeft} / ${task.spotsTotal}` },
             { ic: "calendar", l: t("missions.deadline", null, "Deadline"), v: deadlineLabel(task.deadline) },
             { ic: "target", l: t("missions.yourMatch", null, "Your match"), v: `${task.match}%` },
@@ -187,9 +186,9 @@ export default function MissionDetails() {
                     <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>{t("missions.missionRequirements", null, "Mission requirements")}</h3>
                     <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14.5, color: "var(--text)", lineHeight: 1.6 }}>
                       <li>{t("missions.feedbackFormat", null, "Feedback Format:")} {pt.label}</li>
-                      <li>{t("missions.estimatedTime", null, "Estimated time:")} {pt.est}</li>
+                      {task.questionCount > 0 && <li>{t("missions.questionCount", { count: task.questionCount }, `${task.questionCount} questions`)}</li>}
                     </ul>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23, marginTop: 10 }}>{pt.desc}</div>
+                    {!(task.questionCount > 0) && <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23, marginTop: 10 }}>{pt.desc}</div>}
                   </div>
                 );
               })()}
@@ -249,7 +248,11 @@ export default function MissionDetails() {
           : <span className="faint" style={{ fontSize: 12.5 }}><Icon name="checkCircle" size={13} /> {t("actions.reported", null, "Reported — admin will review")}</span>
         }
         <span className="grow" />
-        <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>{t("missions.earn", null, "Earn")} <b style={{ color: "var(--success)" }}>₹{task.reward}</b> {t("missions.onApproval", null, "on approval")}</span>
+        <span className="muted row gap-1" style={{ fontSize: 13, alignSelf: "center" }}>
+          {rewardPaysOnApproval(task.rewardType) && <>{t("missions.earn", null, "Earn")} </>}
+          <VReward amount={task.reward} type={task.rewardType} />
+          {rewardPaysOnApproval(task.rewardType) && <> {t("missions.onApproval", null, "on approval")}</>}
+        </span>
 
         {task.inviteId ? (
           <div className="row gap-2">

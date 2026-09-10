@@ -41,7 +41,6 @@ export default function MissionBrief() {
     </div>
   );
 
-  const totalMins = Math.ceil(tasks.reduce((a, t) => a + (t.min_time_seconds || 120), 0) / 60);
   const SEV = { crit: { l: "Critical", bg: "var(--danger-weak)", color: "var(--danger)" }, imp: { l: "Important", bg: "var(--warning-weak)", color: "var(--warning)" }, nice: { l: "Nice to have", bg: "var(--success-weak)", color: "var(--success)" } };
 
   return (
@@ -168,16 +167,9 @@ export default function MissionBrief() {
                     <span style={{ width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center", fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, background: "var(--panel-inset)", color: "var(--text-faint)", flexShrink: 0 }}>{i + 1}</span>
                     <span style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{t.title}</span>
                     <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 20, background: sev.bg, color: sev.color }}>{sev.l}</span>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: "var(--text-faint)" }}>{Math.ceil(t.min_time_seconds / 60)}m</span>
                   </div>
                 );
               })}
-            </div>
-
-            {/* Time estimate */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", background: "var(--panel-2)", border: "1px solid var(--border)", borderRadius: "var(--radius)", marginBottom: 24 }}>
-              <Icon name="clock" size={16} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
-              <span style={{ fontSize: 13.5, color: "var(--text-muted)" }}>{t("missions.estimatedTimeFull", { min: totalMins, count: tasks.length }, `Estimated time: ~${totalMins} minutes across ${tasks.length} tasks`)}</span>
             </div>
 
             <Btn variant="primary" block onClick={() => navigate(`/validator/missions/${id}/workspace`)} style={{ justifyContent: "center" }}>

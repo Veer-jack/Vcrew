@@ -474,7 +474,7 @@ function StepParticipation({ d, set, ptypes, locked }) {
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
             <b>{ptypeLabel(t, p)}</b><p>{ptypeDesc(t, p)}</p>
-            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`) : p.est}</span>
+            {p.id === "trial" && <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`)}</span>}
           </button>
         ))}
       </div>
@@ -669,7 +669,7 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
           {d.deadline ? new Date(d.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : <span className="faint">{t("settings.notSet", null, "Not set")}</span>}
         </ReviewRow>
         <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
-        <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
+        <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)}{pt?.id === "trial" ? ` · ${t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`)}` : ""}</ReviewRow>
         {d.tasks?.length > 0 && (
           <ReviewRow icon="checkCircle" color="--success" label={t("createMission.testCasesEyebrow", { count: d.tasks.length }, `Test cases (${d.tasks.length})`)} onEdit={() => onEditStep(2)}>
             <div className="col gap-1" style={{ marginTop: 2 }}>

@@ -499,6 +499,7 @@ const ru = {
   missions: {
     rewardSample: "Образец продукта",
     rewardFree: "Сообщество",
+    rewardGift: "подарочная карта",
     draftSaved: "Миссия сохранена как черновик",
     lastEditedCol: "Последнее изменение",
     filterTypeHint: "Выберите один или несколько типов",
@@ -687,6 +688,7 @@ const ru = {
     missionRequirements: "Требования миссии",
     feedbackFormat: "Формат обратной связи:",
     estimatedTime: "Расчетное время:",
+    questionCount: "Вопросов: {{count}}",
     gradedOn: "По чему вас будут оценивать",
     requirements: "Требования",
     verifiedProfile: "Подтвержденный профиль",

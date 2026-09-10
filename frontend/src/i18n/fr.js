@@ -499,6 +499,7 @@ const fr = {
   missions: {
     rewardSample: "Échantillon de produit",
     rewardFree: "Communauté",
+    rewardGift: "carte cadeau",
     draftSaved: "Mission enregistrée en brouillon",
     lastEditedCol: "Dernière modification",
     filterTypeHint: "Sélectionnez un ou plusieurs types",
@@ -687,6 +688,7 @@ const fr = {
     missionRequirements: "Exigences de la mission",
     feedbackFormat: "Format des commentaires :",
     estimatedTime: "Temps estimé :",
+    questionCount: "{{count}} questions",
     gradedOn: "Sur quoi vous serez noté",
     requirements: "Exigences",
     verifiedProfile: "Profil vérifié",

@@ -499,6 +499,7 @@ const hi = {
   missions: {
     rewardSample: "उत्पाद नमूना",
     rewardFree: "समुदाय",
+    rewardGift: "गिफ्ट कार्ड",
     draftSaved: "मिशन ड्राफ़्ट में सहेजा गया",
     lastEditedCol: "अंतिम संपादित",
     filterTypeHint: "एक या अधिक प्रकार चुनें",
@@ -687,6 +688,7 @@ const hi = {
     missionRequirements: "मिशन की आवश्यकताएँ",
     feedbackFormat: "फीडबैक प्रारूप:",
     estimatedTime: "अनुमानित समय:",
+    questionCount: "{{count}} प्रश्न",
     gradedOn: "आपको किस आधार पर ग्रेड दिया जाएगा",
     requirements: "आवश्यकताएँ",
     verifiedProfile: "सत्यापित प्रोफ़ाइल",

@@ -124,12 +124,6 @@ export const REWARD_BANDS = [
   { k: "mid", l: "₹100 – ₹200", test: r => r >= 100 && r <= 200 },
   { k: "gt200", l: "₹200+", test: r => r > 200 },
 ];
-export const TIME_BANDS = [
-  { k: "any", l: "Any length" },
-  { k: "lt10", l: "Under 10 min", test: m => m < 10 },
-  { k: "mid", l: "10 – 20 min", test: m => m >= 10 && m <= 20 },
-  { k: "gt20", l: "20 min+", test: m => m > 20 },
-];
 export const SORTS = [
   { k: "match", l: "Best match" },
   { k: "reward", l: "Highest reward" },
