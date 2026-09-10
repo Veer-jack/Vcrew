@@ -1122,10 +1122,13 @@ router.post("/:id/schedules/:validatorId/propose", authMiddleware, async (req, r
   if (!meetingLink || !String(meetingLink).trim()) return res.status(400).json({ error: "A meeting link is required" });
 
   // Editing an already-proposed (still awaiting response) time reuses this
-  // same route — track whether that's what's happening so the notification
-  // below can say "updated" instead of implying a brand new proposal.
-  const existing = await db.prepare(`SELECT status FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
+  // same route — track whether that's what's happening, and what actually
+  // changed, so the notification can be specific ("rescheduled to X" /
+  // "meeting link updated") rather than a vague "something changed".
+  const existing = await db.prepare(`SELECT status, scheduled_at, meeting_link FROM interview_schedules WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
   const isEdit = existing?.status === "proposed";
+  const dateChanged = isEdit && new Date(existing.scheduled_at).getTime() !== new Date(scheduledAt).getTime();
+  const linkChanged = isEdit && (existing.meeting_link || "").trim() !== meetingLink.trim();
 
   const result = await db.prepare(`
     INSERT INTO interview_schedules (mission_id, validator_id, status, scheduled_at, meeting_link)
@@ -1138,17 +1141,33 @@ router.post("/:id/schedules/:validatorId/propose", authMiddleware, async (req, r
 
   const m = await db.prepare(`SELECT name, builder_id FROM missions WHERE id = ?`).get(req.params.id);
   const b = await db.prepare(`SELECT org FROM builders WHERE id = ?`).get(m.builder_id);
-  await db.prepare(`
-    INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
-    VALUES (?, 'invite', 'schedule_proposed', 'calendar', 'primary', ?, ?, 'Just now', 1, ?)
-  `).run(
-    req.params.validatorId,
-    isEdit ? "Interview Time Updated" : "Interview Scheduled",
-    isEdit
-      ? `${b?.org || 'The builder'} updated the interview time for "${m?.name || 'Unknown'}". Please check your workspace.`
-      : `${b?.org || 'The builder'} has proposed a time for an interview for "${m?.name || 'Unknown'}". Please check your workspace.`,
-    req.params.id
-  );
+  const who = b?.org || "The builder";
+  const mn = m?.name || "Unknown";
+  const whenStr = new Date(scheduledAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }) + " IST";
+
+  // A no-op "save" (builder opened Edit, changed nothing) shouldn't ping the
+  // validator at all.
+  if (!(isEdit && !dateChanged && !linkChanged)) {
+    let title, body;
+    if (!isEdit) {
+      title = "Interview Scheduled";
+      body = `${who} proposed a time for your interview for "${mn}" — ${whenStr}. Check your workspace to accept or decline.`;
+    } else if (dateChanged && linkChanged) {
+      title = "Interview Rescheduled";
+      body = `${who} moved your interview for "${mn}" to ${whenStr} and updated the meeting link. Check your workspace.`;
+    } else if (dateChanged) {
+      title = "Interview Rescheduled";
+      body = `${who} moved your interview for "${mn}" to ${whenStr}. Check your workspace.`;
+    } else {
+      title = "Meeting Link Updated";
+      body = `${who} updated the meeting link for your interview for "${mn}" (${whenStr}). Check your workspace.`;
+    }
+
+    await db.prepare(`
+      INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'invite', 'schedule_proposed', 'calendar', 'primary', ?, ?, 'Just now', 1, ?)
+    `).run(req.params.validatorId, title, body, req.params.id);
+  }
 
   res.json({ ok: true });
 });
