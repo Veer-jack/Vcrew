@@ -104,7 +104,7 @@
     // right, so clicking it still navigates to builders.html; the menu is
     // just an extra way to jump straight to one of its intent pages.
     return `<div class="nav-drop-hover">
-      <a href="${x.h}"${active}>${x.l}</a>
+      <a href="${x.h}"${active}>${x.l} ${ic.caret}</a>
       <div class="builder-menu">${x.sub.map(s => `<a href="${s.h}">${s.l}</a>`).join("")}</div>
     </div>`;
   }).join("");
