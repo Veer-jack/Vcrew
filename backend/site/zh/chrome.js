@@ -46,7 +46,7 @@
     builderLogin: "建造者登录",
     becomeValidator: "成为验证者",
     validatorLogin: "验证者登录",
-    blurb: "ValidationCrew 是一个人工验证网络，它将组织与匹配的用户、测试人员和专家连接起来，通过结构化的人工反馈来验证产品、想法和决策。",
+    blurb: "世界上的人工验证网络——将构建者与合适的人员联系起来，在产品、想法和决策发货前对其进行验证。",
     platform: "平台",
     company: "公司",
     resources: "资源",

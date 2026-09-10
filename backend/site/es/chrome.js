@@ -46,7 +46,7 @@
     builderLogin: "Inicio de sesión del constructor",
     becomeValidator: "Conviértete en un validador",
     validatorLogin: "Inicio de sesión del validador",
-    blurb: "ValidationCrew es una red de validación humana que conecta a las organizaciones con usuarios, evaluadores y expertos coincidentes para validar productos, ideas y decisiones a través de comentarios humanos estructurados.",
+    blurb: "La red mundial de validación humana: conecta a los constructores con las personas adecuadas para validar productos, ideas y decisiones antes de enviarlos.",
     platform: "Plataforma",
     company: "Compañía",
     resources: "Recursos",

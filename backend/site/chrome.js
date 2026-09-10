@@ -46,7 +46,7 @@
     builderLogin: "Builder login",
     becomeValidator: "Become a Validator",
     validatorLogin: "Validator login",
-    blurb: "ValidationCrew is a human validation network that connects organizations with matched users, testers and experts to validate products, ideas and decisions through structured human feedback.",
+    blurb: "The world's human validation network — connecting builders with the right humans to validate products, ideas and decisions before they ship.",
     platform: "Platform",
     company: "Company",
     resources: "Resources",
