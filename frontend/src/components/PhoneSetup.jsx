@@ -10,7 +10,11 @@ import { friendlyAuthError } from "./auth/AuthSplitScreen";
 // come from the current user. `onClearPrefill` (optional) persists "forget this
 // onboarding-collected number" server-side — without it, prefillPhone comes
 // right back on the next reload/tab-switch since nothing local survives that.
-export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill }) {
+// `bare` skips the outer .card wrapper so a caller can fold this into an
+// existing card (Settings merges it under the profile-identity block below,
+// since both come from the same "Your details" onboarding step and the
+// tester flagged them as needlessly split into two separate cards).
+export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill, bare }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   // Once the user says "use a different number" we must stop re-offering the
@@ -124,7 +128,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
   const showAdd = !phoneVerified && !editing && (prefillDismissed || !prefillPhone);
 
   return (
-    <div className="card" style={{ padding: "var(--pad-card)" }}>
+    <div className={bare ? undefined : "card"} style={bare ? undefined : { padding: "var(--pad-card)" }}>
       <div style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
         {/* showPending crams a longer description alongside a pill and two
             buttons on one line -- looked cluttered at normal card widths.

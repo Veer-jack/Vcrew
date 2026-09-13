@@ -8,18 +8,18 @@ import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
-// One soft-filled tile per field, chips styled like Audience Explorer's own
-// applied-filter chips (.mtag.accent, blue) instead of a plain text box --
-// the tester wants every step's entered values (single or multi) to read
-// the same way here as they do on that chip view. A comma-joined string
-// crammed into one .fin box was also unreadable and forced its own
-// scrollbar the moment a field had more than a few values (e.g. picking
-// "Worldwide" during onboarding saves every country).
+// Bare label + chips, no box of its own -- an earlier version wrapped each
+// field in its own bordered/shaded tile, which read as a card nested inside
+// the card it already sits in. Reference the tester sent (a plain field
+// list, values as chips, straight on the card's own background) has no
+// nesting at all, so this doesn't either; the caller lays fields out in a
+// 2-column grid instead. Chips are blue (.mtag.accent) to match the
+// Audience Explorer's own applied-filter chip look.
 function ChipField({ label, values, required }) {
   const { t } = useTranslation();
   return (
-    <div style={{ background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "14px 16px" }}>
-      <label>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
+    <div>
+      <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
       {values?.length ? (
         <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
           {values.map(v => <span key={v} className="mtag accent">{v}</span>)}
@@ -119,6 +119,9 @@ export default function Settings() {
           of chips -- identity (profile/phone) stays a single full-width
           row above since it's one wide horizontal card, not a chip list. */}
       <div className="col gap-5" style={{ maxWidth: 980 }}>
+        {/* Profile identity + mobile number merged into one card -- both
+            come from the same "Your details" onboarding step, and showing
+            them as two separate cards read as an arbitrary split. */}
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center" }}>
             <div className="row gap-4" style={{ alignItems: "center" }}>
@@ -142,31 +145,36 @@ export default function Settings() {
                 differently from every other step in Settings. */}
             <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/personal")}>{t("actions.editProfile", null, "Edit profile")}</Btn>
           </div>
-        </div>
 
-        <PhoneSetup client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
-          prefillPhone={builder?.profile?.mobile}
-          onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
-          onClearPrefill={async () => {
-            // Actually clears it server-side — without this, prefillPhone
-            // (still sitting in profile.mobile in the DB) just comes right
-            // back on the next reload or tab switch, no matter what local
-            // state says.
-            const res = await api.updateProfile({ profile: { mobile: null } });
-            setBuilder(res.builder);
-          }} />
+          <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
+
+          <PhoneSetup bare client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
+            prefillPhone={builder?.profile?.mobile}
+            onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
+            onClearPrefill={async () => {
+              // Actually clears it server-side — without this, prefillPhone
+              // (still sitting in profile.mobile in the DB) just comes right
+              // back on the next reload or tab switch, no matter what local
+              // state says.
+              const res = await api.updateProfile({ profile: { mobile: null } });
+              setBuilder(res.builder);
+            }} />
+        </div>
 
         {/* Detail cards side by side instead of each stacking full-width for
             a handful of chips -- auto-fit/minmax lets 2 (sometimes 3) share
-            a row on wide screens and drop to one column on narrow ones. */}
+            a row on wide screens and drop to one column on narrow ones.
+            Fields inside each card sit in their own 2-column grid (no boxed
+            tile per field -- see ChipField) so short fields like Age/Gender
+            share a row instead of each claiming a full line. */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
         {companySummary && (
         <div className="card" style={{ padding: "var(--pad-card)" }}>
-          <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
+          <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ fontSize: 18, margin: 0 }}>{t(companySummary.titleKey, null, companySummary.titleFallback)}</h2>
             <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${companyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {companySummary.fields.filter(f => !f.personas || f.personas.includes(activePersonaKey)).map(f => {
               const val = builder?.profile?.[f.key];
               return <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={val ? [val] : []} required={f.required} />;
@@ -178,8 +186,8 @@ export default function Settings() {
         {verificationFields && verificationFields.some(f => builder?.profile?.[f.key]) && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>{t("settings.verificationDetails", null, "Verification")}</h2>
-            <p className="faint" style={{ margin: "0 0 12px", fontSize: 13 }}>{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p className="faint" style={{ margin: "0 0 16px", fontSize: 13 }}>{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {verificationFields.filter(f => builder?.profile?.[f.key]).map(f => (
                 <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={[builder.profile[f.key]]} required={f.required} />
               ))}
@@ -189,23 +197,40 @@ export default function Settings() {
 
         {audienceStepKey && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <div className="row between" style={{ alignItems: "flex-start", gap: 24, marginBottom: 8 }}>
+            <div className="row between" style={{ alignItems: "flex-start", gap: 24, marginBottom: 16 }}>
               <div>
                 <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.audienceDetails", null, "Audience & Demographics")}</h2>
                 <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.audienceDetailsDesc", null, "Who you want to hear from — collected at onboarding, used as the starting point for the Audience Explorer.")}</p>
               </div>
               <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${audienceStepKey}`)} style={{ flexShrink: 0, marginTop: 1 }}>{t("actions.edit", null, "Edit")}</Btn>
             </div>
-            <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {[
                 // Age is the one field foValid/coValid actually require for this
                 // step (ageBands.length >= 1) -- Country/Gender/Occupation are
                 // free to skip, hence only Age gets the required marker.
                 { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands, required: true },
-                { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []) },
                 { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
                 { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations },
+                { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []) },
               ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} />)}
+            </div>
+          </div>
+        )}
+
+        {/* "Preferences" is the last onboarding step for every persona
+            (StepFinal: feedback frequency + preferred methods) -- Settings
+            never had a card for it at all, so it always read as saved data
+            that had simply vanished. */}
+        {activePersona?.components?.final && (
+          <div className="card" style={{ padding: "var(--pad-card)" }}>
+            <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.preferences", null, "Preferences")}</h2>
+              <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/final")}>{t("actions.edit", null, "Edit")}</Btn>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <ChipField label={t("onboarding.final.frequencyLabel", null, "How often will you need feedback?")} values={builder?.profile?.frequency ? [builder.profile.frequency] : []} />
+              <ChipField label={t("onboarding.final.methodsLabel", null, "Preferred methods")} values={builder?.profile?.methods} />
             </div>
           </div>
         )}
