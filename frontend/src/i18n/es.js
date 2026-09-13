@@ -2396,6 +2396,8 @@ const es = {
     reopenBelowJoined: "No puedo ir por debajo de {{count}}: muchos ya se han unido a lo largo de la historia de esta misión.",
     reopenTargetHint: "{{count}} ya se ha unido a lo largo de la historia de esta misión; este es el nuevo total de por vida, no espacios adicionales.",
     reopenNewSlotsCost: "Depósito de garantía para nuevas ranuras {{n}}",
+    reopenAudienceCount: "{{count}} validadores coinciden con la audiencia de esta misión.",
+    reopenExceedsAudience: "Solo {{count}} validadores coinciden con la audiencia de esta misión — reduce el objetivo o amplía la audiencia desde Editar.",
     reopenFailed: "No se pudo reabrir esta misión. Inténtalo de nuevo.",
     loading: "Cargando…",
     tabs: {

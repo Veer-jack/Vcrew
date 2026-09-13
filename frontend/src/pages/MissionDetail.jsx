@@ -323,17 +323,38 @@ function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [liveCount, setLiveCount] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.audienceMatchCount(mission.audience || {}).then(res => { if (!cancelled) setLiveCount(res.count); }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mission.id]);
+
   const rw = rewards.find(r => r.id === rewardType);
   const needsAmt = rw?.needsAmt;
   const alreadyJoined = mission.participants.joined;
-  const perSlot = needsAmt ? Math.round((Number(amount) || 0) * (1 + (platformFeePct || 0))) : 0;
+  const perSlotAmount = needsAmt ? (Number(amount) || 0) : 0;
+  const perSlotFee = Math.round(perSlotAmount * (platformFeePct || 0));
+  const perSlotCost = perSlotAmount + perSlotFee;
   const newSlots = Math.max(0, (Number(target) || 0) - alreadyJoined);
-  const costDelta = perSlot * newSlots;
+  const subtotal = perSlotAmount * newSlots;
+  const feeTotal = perSlotFee * newSlots;
+  const costDelta = perSlotCost * newSlots;
+  // Same rule as the create wizard's overAudienceCount block — a target the
+  // audience can't fill is a mission that can never complete, not just a
+  // rough estimate, so it blocks the same way there instead of only warning.
+  const overAudienceCount = liveCount !== null && (Number(target) || 0) > liveCount;
 
   const submit = async () => {
     if (!deadline) { setError(t("missionDetail.reopenPickDeadline", null, "Pick a deadline.")); return; }
     if (Number(target) < alreadyJoined) {
       setError(t("missionDetail.reopenBelowJoined", { count: alreadyJoined }, `Can't go below ${alreadyJoined} — that many have already joined across this mission's history.`));
+      return;
+    }
+    if (overAudienceCount) {
+      setError(t("missionDetail.reopenExceedsAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this mission's audience — lower the target or widen the audience from Edit.`));
       return;
     }
     setBusy(true);
@@ -359,7 +380,7 @@ function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
 
         <div className="fld">
           <label>{t("createMission.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
-          <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={deadline} onChange={e => setDeadline(e.target.value)} />
+          <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={e => e.currentTarget.showPicker?.()} />
         </div>
 
         <div className="fld" style={{ marginTop: 16 }}>
@@ -388,11 +409,21 @@ function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")}</label>
           <input className="fin" type="number" min={alreadyJoined || 1} value={target} onChange={e => setTarget(e.target.value === "" ? "" : +e.target.value)} />
           <p className="fhint">{t("missionDetail.reopenTargetHint", { count: alreadyJoined }, `${alreadyJoined} have already joined across this mission's history — this is the new lifetime total, not additional slots.`)}</p>
+          {liveCount !== null && (
+            <p className="fhint" style={overAudienceCount ? { color: "var(--danger)" } : undefined}>
+              {overAudienceCount && <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />}
+              {overAudienceCount
+                ? t("missionDetail.reopenExceedsAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this mission's audience — lower the target or widen the audience from Edit.`)
+                : t("missionDetail.reopenAudienceCount", { count: liveCount }, `${liveCount.toLocaleString("en-IN")} validators match this mission's audience.`)}
+            </p>
+          )}
         </div>
 
         {costDelta > 0 && (
           <div className="card" style={{ marginTop: 16, padding: 14, background: "var(--panel-inset)" }}>
-            <div className="row between"><span className="muted" style={{ fontSize: 13 }}>{t("missionDetail.reopenNewSlotsCost", { n: newSlots }, `Escrow for ${newSlots} new slot(s)`)}</span><b>{inr(costDelta)}</b></div>
+            <div className="row between"><span className="muted" style={{ fontSize: 13 }}>{t("createMission.perParticipantsBreakdown", { per: inr(perSlotAmount), n: newSlots }, `${inr(perSlotAmount)} × ${newSlots} participants`)}</span><span>{inr(subtotal)}</span></div>
+            <div className="row between" style={{ marginTop: 6 }}><span className="muted" style={{ fontSize: 13 }}>{t("createMission.platformFeeBreakdown", { pct: Math.round((platformFeePct || 0) * 100) }, `Platform fee (${Math.round((platformFeePct || 0) * 100)}%)`)}</span><span>{inr(feeTotal)}</span></div>
+            <div className="row between" style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed var(--border)" }}><b style={{ fontSize: 13 }}>{t("missionDetail.reopenNewSlotsCost", { n: newSlots }, `Escrow for ${newSlots} new slot(s)`)}</b><b>{inr(costDelta)}</b></div>
           </div>
         )}
 
@@ -400,7 +431,7 @@ function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
 
         <div className="row gap-2" style={{ marginTop: 20, justifyContent: "flex-end" }}>
           <button className="btn" onClick={() => onClose(false)}>{t("actions.cancel", null, "Cancel")}</button>
-          <button className="btn btn-primary" disabled={busy} onClick={submit}>{busy ? t("actions.working", null, "Working…") : t("actions.reopenMission", null, "Reopen mission")}</button>
+          <button className="btn btn-primary" disabled={busy || overAudienceCount} onClick={submit}>{busy ? t("actions.working", null, "Working…") : t("actions.reopenMission", null, "Reopen mission")}</button>
         </div>
       </div>
     </Modal>

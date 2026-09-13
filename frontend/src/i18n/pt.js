@@ -2396,6 +2396,8 @@ const pt = {
     reopenBelowJoined: "Não é possível ir abaixo de {{count}} – muitos já aderiram ao longo da história desta missão.",
     reopenTargetHint: "{{count}} já se juntou à história desta missão – este é o novo total de vida útil, não slots adicionais.",
     reopenNewSlotsCost: "Garantia para novos slots {{n}}",
+    reopenAudienceCount: "{{count}} validadores correspondem ao público desta missão.",
+    reopenExceedsAudience: "Apenas {{count}} validadores correspondem ao público desta missão — reduza a meta ou amplie o público em Editar.",
     reopenFailed: "Não foi possível reabrir esta missão. Tente novamente.",
     loading: "Carregando…",
     tabs: {

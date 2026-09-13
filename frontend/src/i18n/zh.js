@@ -2396,6 +2396,8 @@ const zh = {
     reopenBelowJoined: "不能低于 {{count}}——在这个任务的历史上，许多人已经加入了。",
     reopenTargetHint: "{{count}} 已经加入了该任务的历史 - 这是新的终身总数，而不是额外的插槽。",
     reopenNewSlotsCost: "{{n}} 新插槽的托管",
+    reopenAudienceCount: "{{count}} 位验证员符合此任务的受众条件。",
+    reopenExceedsAudience: "只有 {{count}} 位验证员符合此任务的受众条件——请降低目标人数或从编辑中扩大受众范围。",
     reopenFailed: "无法重新启动此任务 - 请重试。",
     loading: "加载中...",
     tabs: {

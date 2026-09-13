@@ -2386,6 +2386,8 @@ const en = {
     reopenBelowJoined: "Can't go below {{count}} — that many have already joined across this mission's history.",
     reopenTargetHint: "{{count}} have already joined across this mission's history — this is the new lifetime total, not additional slots.",
     reopenNewSlotsCost: "Escrow for {{n}} new slot(s)",
+    reopenAudienceCount: "{{count}} validators match this mission's audience.",
+    reopenExceedsAudience: "Only {{count}} validators match this mission's audience — lower the target or widen the audience from Edit.",
     reopenFailed: "Couldn't reopen this mission — try again.",
     confirmCompleteTitle: "Mark this mission as complete?",
     confirmCompleteBody: "This marks \"{{name}}\" as complete. Anyone still mid-task will be notified the mission has wrapped. This can't be undone.",

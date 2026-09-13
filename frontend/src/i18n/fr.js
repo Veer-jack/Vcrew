@@ -2396,6 +2396,8 @@ const fr = {
     reopenBelowJoined: "Je ne peux pas descendre en dessous de {{count}} – que beaucoup ont déjà rejoint au cours de l'histoire de cette mission.",
     reopenTargetHint: "{{count}} s'est déjà joint à nous tout au long de l'histoire de cette mission : il s'agit du nouveau total à vie, pas d'emplacements supplémentaires.",
     reopenNewSlotsCost: "Escrow pour les nouveaux emplacements {{n}}",
+    reopenAudienceCount: "{{count}} validateurs correspondent à l'audience de cette mission.",
+    reopenExceedsAudience: "Seuls {{count}} validateurs correspondent à l'audience de cette mission — réduisez la cible ou élargissez l'audience depuis Modifier.",
     reopenFailed: "Impossible de rouvrir cette mission : réessayez.",
     loading: "Chargement…",
     tabs: {
