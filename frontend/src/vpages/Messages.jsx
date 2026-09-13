@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VAvatar } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
@@ -8,6 +8,7 @@ import { trFilterLabel } from "../data/audienceFilterLabels";
 
 export default function Messages() {
   const { t, dataVersion } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedThreadId = searchParams.get("thread");
   const [threads, setThreads] = useState([]);
@@ -97,7 +98,30 @@ export default function Messages() {
     }
   };
 
-  if (!threads.length) return <div className="page rise"><div className="muted">{t("messages.noConversations", null, "No conversations yet.")}</div></div>;
+  // Mirrors the builder side's Messages.jsx empty state -- same illustration
+  // built from the existing inbox/send icons, same copy. The button routes
+  // to a validator's own missions instead of opening a composer: threads
+  // require a builder/mission pairing (see backend messages.js POST
+  // /threads), so there's no anyone-to-anyone DM to open here either --
+  // messaging only starts once you're actually on a mission with a builder.
+  if (!threads.length) return (
+    <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6, maxWidth: 380 }}>
+        <div style={{ position: "relative", width: 84, height: 84, marginBottom: 8 }}>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "var(--accent-weak)", display: "grid", placeItems: "center" }}>
+            <Icon name="inbox" size={34} style={{ color: "var(--accent)" }} />
+          </div>
+          <div style={{ position: "absolute", top: -6, right: -6, width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="send" size={15} style={{ color: "#fff" }} />
+          </div>
+        </div>
+        <b style={{ fontSize: 17 }}>{t("messages.noConversations", null, "No conversations yet")}</b>
+        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.noConversationsDesc", null, "Once you start working with participants or researchers, your conversations will appear here.")}</p>
+        <button className="btn btn-primary" onClick={() => navigate("/validator/missions")} style={{ marginTop: 10 }}><Icon name="send" size={14} />{t("actions.startConversation", null, "Start a conversation")}</button>
+        <p className="faint" style={{ margin: "10px 0 0", fontSize: 12 }}>{t("vMessages.startConversationTip", null, "Tip — you'll be able to message a builder once you're on a mission with them.")}</p>
+      </div>
+    </div>
+  );
 
   const visibleThreads = q.trim()
     ? threads.filter(t => (t.name + " " + (t.mission || "")).toLowerCase().includes(q.trim().toLowerCase()))
