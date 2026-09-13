@@ -1725,6 +1725,20 @@ export default function MissionDetail() {
   if (!data) return <div className="page rise"><div className="muted">{t("missionDetail.loading", null, "Loading…")}</div></div>;
 
   const { mission } = data;
+  // Header geography summary: mission.region is a flat string baked once
+  // at save time (CreateMissionWizard joins the Geography audience filter
+  // into one comma string), so there's no array left to truncate here.
+  // data.audience.defn still carries the real per-group values (same data
+  // the Audience tab renders), so pull the live "Geography" list from
+  // there instead and truncate that -- falling back to the old flat
+  // string for missions saved before audience_json existed.
+  const GEO_PRIORITY = ["Worldwide", "Remote / Online only"];
+  const GEO_VISIBLE = 2;
+  const geoValues = ((data.audience?.defn || []).find(d => d.group === "Geography")?.values || [])
+    .filter(v => v.toLowerCase() !== "other");
+  const geoOrdered = [...geoValues].sort((a, b) => GEO_PRIORITY.includes(b) - GEO_PRIORITY.includes(a));
+  const geoShown = geoOrdered.slice(0, GEO_VISIBLE).map(v => trFilterLabel(t, v));
+  const geoRest = geoOrdered.slice(GEO_VISIBLE).map(v => trFilterLabel(t, v));
   // Matches the KPI card's own "real joined" definition (backend's
   // real_joined query) -- someone who's only been invited and hasn't
   // accepted yet isn't a participant in any meaningful sense (hasn't
@@ -1761,12 +1775,27 @@ export default function MissionDetail() {
           <MissionLogo name={mission.name} cat={mission.category} size={54} />
           <div>
             <div className="row gap-2 wrap" style={{ marginBottom: 7 }}><h1 style={{ fontSize: 23, margin: 0 }}>{mission.name}</h1><StatusTag status={mission.status} /></div>
-            <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} />{mission.region && <span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span>}<span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {mission.status === "completed" && mission.completedAt
-              ? `${t("missionDetail.completedOn", null, "Completed on")} ${fmtShortDate(mission.completedAt)}`
-              : mission.status === "archived" && mission.archivedAt
-              ? `${t("missionDetail.archivedOn", null, "Archived on")} ${fmtShortDate(mission.archivedAt)}`
-              : `${t("missionDetail.closes", null, "Closes")} ${mission.deadline ? fmtShortDate(mission.deadline) : t("missionDetail.closesSoon", null, "Soon")}`
-            }</span></div>
+            <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+              <TypeTag cat={mission.category} categories={categories} />
+              <span className="faint">|</span>
+              <span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {mission.status === "completed" && mission.completedAt
+                ? `${t("missionDetail.completedOn", null, "Completed on")} ${fmtShortDate(mission.completedAt)}`
+                : mission.status === "archived" && mission.archivedAt
+                ? `${t("missionDetail.archivedOn", null, "Archived on")} ${fmtShortDate(mission.archivedAt)}`
+                : `${t("missionDetail.closes", null, "Closes")} ${mission.deadline ? fmtShortDate(mission.deadline) : t("missionDetail.closesSoon", null, "Soon")}`
+              }</span>
+              {mission.region && (
+                <>
+                  <span className="faint">|</span>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    <Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} />{" "}
+                    {geoShown.length
+                      ? <>{geoShown.join(", ")}{geoRest.length > 0 && <>, <span title={geoRest.join(", ")} style={{ textDecoration: "underline dotted", textUnderlineOffset: 2, cursor: "default" }}>+{geoRest.length}</span></>}</>
+                      : mission.region}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
