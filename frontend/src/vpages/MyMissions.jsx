@@ -13,6 +13,11 @@ const MM_STATUS = {
   submitted: { label: "In review", labelKey: "status.inReview", tone: "var(--warning)", bg: "var(--warning-weak)" },
   completed: { label: "Paid", labelKey: "status.paid", tone: "var(--success)", bg: "var(--success-weak)" },
   rejected:  { label: "Not selected", labelKey: "status.notSelected", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
+  // Distinct from `rejected` above -- that's a submission the builder
+  // reviewed after the work was done; this is an open application the
+  // builder didn't accept before any work started. "Not Accepted" (not
+  // "Not selected" again) so the two tabs don't read as duplicates.
+  not_selected: { label: "Not Accepted", labelKey: "status.notAccepted", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   closed:    { label: "Closed", labelKey: "status.closed", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   declined:  { label: "Declined", labelKey: "status.declined", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   saved:     { label: "Saved", labelKey: "status.saved", tone: "var(--accent)", bg: "var(--accent-weak)" },
@@ -24,6 +29,7 @@ const TABS = [
   { k: "submitted", l: "Submitted", lKey: "status.submitted" },
   { k: "completed", l: "Completed", lKey: "status.completed" },
   { k: "rejected", l: "Rejected", lKey: "status.rejected" },
+  { k: "not_selected", l: "Not Accepted", lKey: "status.notAccepted" },
   { k: "closed", l: "Closed", lKey: "status.closed" },
   { k: "declined", l: "Declined", lKey: "status.declined" },
   { k: "invited", l: "Invited", lKey: "status.invited" },
@@ -229,8 +235,8 @@ export default function MyMissions() {
       {loading ? <div className="muted">{t("actions.loading", null, "Loading…")}</div> : (!data || data.missions.length === 0)
         ? <div className="card" style={{ padding: 0 }}>
             <VEmpty icon="inbox" title={t("missions.nothingYet", { tab }, `Nothing ${tab} yet`)}
-              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : tab === "declined" ? t("missions.emptyDeclined", null, "Missions you decline will collect here.") : tab === "invited" ? t("missions.emptyInvited", null, "Missions a Builder invites you to will wait here until you accept or decline.") : tab === "saved" ? t("missions.emptySaved", null, "Bookmark a mission from Discover to come back to it here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
-              cta={tab !== "completed" && tab !== "rejected" && tab !== "closed" && tab !== "declined" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
+              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : tab === "declined" ? t("missions.emptyDeclined", null, "Missions you decline will collect here.") : tab === "not_selected" ? t("missions.emptyNotSelected", null, "Applications a builder didn't accept will collect here.") : tab === "invited" ? t("missions.emptyInvited", null, "Missions a Builder invites you to will wait here until you accept or decline.") : tab === "saved" ? t("missions.emptySaved", null, "Bookmark a mission from Discover to come back to it here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
+              cta={tab !== "completed" && tab !== "rejected" && tab !== "not_selected" && tab !== "closed" && tab !== "declined" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
           </div>
         : (
             <div className="rise-3" style={{ display: "grid", gap: 12 }}>

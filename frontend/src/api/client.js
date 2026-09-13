@@ -77,11 +77,14 @@ export const api = {
   mission: (id) => request(`/missions/${id}`),
   createMission: (payload) => request("/missions", { method: "POST", body: payload }),
   updateMission: (id, payload) => request(`/missions/${id}`, { method: "PATCH", body: payload }),
+  reopenMission: (id, payload) => request(`/missions/${id}/reopen`, { method: "POST", body: payload }),
   deleteMission: (id) => request(`/missions/${id}`, { method: "DELETE" }),
   bulkDeleteMissions: (ids) => request("/missions/bulk-delete", { method: "POST", body: { ids } }),
   inviteValidator: (missionId, validatorId) => request(`/missions/${missionId}/invite/${validatorId}`, { method: "POST" }),
   moveParticipant: (missionId, participantId, stage) =>
     request(`/missions/${missionId}/participants/${participantId}`, { method: "PATCH", body: { stage } }),
+  reviewApplication: (missionId, participantId, decision) =>
+    request(`/missions/${missionId}/participants/${participantId}/review`, { method: "POST", body: { decision } }),
   missionShipments: (missionId) => request(`/missions/${missionId}/shipments`),
   markShipmentShipped: (missionId, validatorId, payload) => request(`/missions/${missionId}/shipments/${validatorId}/ship`, { method: "POST", body: payload }),
   missionSchedules: (missionId) => request(`/missions/${missionId}/schedules`),

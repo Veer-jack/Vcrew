@@ -15,8 +15,11 @@ import { vtLabel, rewardBandLabel, sortLabel } from "../vi18n";
 function myStatusGroup(myStatus) {
   if (myStatus === "completed") return "approved";
   if (myStatus === "submitted") return "submitted";
-  if (myStatus === "active" || myStatus === "applied") return "accepted";
-  if (myStatus === "rejected") return "rejected";
+  if (myStatus === "active") return "accepted";
+  // A "require approval" mission's open application — distinct from
+  // "accepted": nothing to resume yet, just waiting on the builder.
+  if (myStatus === "applied") return "pending";
+  if (myStatus === "rejected" || myStatus === "not_selected") return "rejected";
   if (myStatus === "declined") return "declined";
   return "open";
 }
@@ -28,19 +31,22 @@ const MY_STATUS_META = {
   completed: { icon: "award", labelKey: "status.approved", labelDefault: "Approved", color: "var(--warning)" },
   submitted: { icon: "send", labelKey: "status.submitted", labelDefault: "Submitted", color: "var(--accent)" },
   active: { icon: "checkCircle", labelKey: "status.accepted", labelDefault: "Accepted", color: "var(--success)" },
-  applied: { icon: "checkCircle", labelKey: "status.accepted", labelDefault: "Accepted", color: "var(--success)" },
+  applied: { icon: "clock", labelKey: "status.awaiting", labelDefault: "Awaiting", color: "var(--warning)" },
   rejected: { icon: "xCircle", labelKey: "status.rejected", labelDefault: "Rejected", color: "var(--danger)" },
+  not_selected: { icon: "xCircle", labelKey: "status.notSelected", labelDefault: "Not selected", color: "var(--text-muted)" },
   declined: { icon: "x", labelKey: "status.declined", labelDefault: "Declined", color: "var(--text-muted)" },
 };
 function myStatusButtonStyle(myStatus) {
   const meta = MY_STATUS_META[myStatus];
-  return meta ? { background: meta.color, borderColor: meta.color, opacity: (myStatus === "rejected" || myStatus === "declined") ? 0.8 : 1 } : undefined;
+  return meta ? { background: meta.color, borderColor: meta.color, opacity: (myStatus === "rejected" || myStatus === "declined" || myStatus === "not_selected") ? 0.8 : 1 } : undefined;
 }
 function myStatusButtonLabel(t, myStatus, resumeLabel, openLabel) {
   if (myStatus === "completed") return t("actions.viewResults", null, "View results");
   if (myStatus === "submitted") return t("actions.viewSubmission", null, "View submission");
-  if (myStatus === "active" || myStatus === "applied") return resumeLabel;
+  if (myStatus === "active") return resumeLabel;
+  if (myStatus === "applied") return t("status.awaiting", null, "Awaiting");
   if (myStatus === "rejected") return t("actions.viewReason", null, "View reason");
+  if (myStatus === "not_selected") return t("status.notSelected", null, "Not selected");
   if (myStatus === "declined") return t("actions.viewDeclined", null, "Declined");
   return openLabel;
 }
@@ -285,6 +291,7 @@ export default function Discover() {
   const STATUS_TABS = [
     { k: "all", l: t("discover.statusAll", null, "All") },
     { k: "open", l: t("status.open", null, "Open") },
+    { k: "pending", l: t("status.awaiting", null, "Awaiting") },
     { k: "accepted", l: t("status.accepted", null, "Accepted") },
     { k: "submitted", l: t("status.submitted", null, "Submitted") },
     { k: "approved", l: t("status.approved", null, "Approved") },

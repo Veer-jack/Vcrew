@@ -148,6 +148,11 @@ export async function initDb() {
     // Missions Draft tab's Last Edited column, distinct from created_at
     // (when the draft was first started, not when it was last worked on).
     if (!mCols.includes('updated_at')) await client.query('ALTER TABLE missions ADD COLUMN updated_at TIMESTAMPTZ');
+    // Builder-facing switch: when set, a validator's open apply doesn't
+    // auto-join them — it lands as participants.stage='pending' for the
+    // builder to accept/reject first. See POST /marketplace/:id/apply and
+    // POST /:id/participants/:pid/review.
+    if (!mCols.includes('require_approval')) await client.query('ALTER TABLE missions ADD COLUMN require_approval INTEGER DEFAULT 0');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');

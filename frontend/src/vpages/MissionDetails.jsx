@@ -236,10 +236,12 @@ export default function MissionDetails() {
         background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
         border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
         <button className="btn btn-ghost" onClick={toggleSave}>
-          {task.spotsLeft <= 0 && !accepted && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save")}</>}
+          {task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save")}</>}
         </button>
-        {!task.inviteId && !accepted && (
-          <button className="btn btn-quiet" disabled={busy} onClick={declineMission}>{t("actions.decline", null, "Decline")}</button>
+        {!task.inviteId && !accepted && task.myStatus !== "not_selected" && (
+          <button className="btn btn-quiet" disabled={busy} onClick={declineMission}>
+            {task.myStatus === "applied" ? t("actions.withdrawApplication", null, "Withdraw application") : t("actions.decline", null, "Decline")}
+          </button>
         )}
         {!reportDone
           ? <button className="btn btn-quiet" style={{ color: "var(--text-faint)", fontSize: 12.5 }} onClick={() => setReportOpen(o => !o)}>
@@ -262,9 +264,19 @@ export default function MissionDetails() {
               {busy ? t("actions.accepting", null, "Accepting…") : task.spotsLeft <= 0 ? t("missions.slotsFilled", null, "Slots Filled") : t("actions.acceptInvitation", null, "Accept Invitation")}
             </button>
           </div>
-        ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied" ? (
+        ) : task.myStatus === "applied" ? (
+          // A "require approval" mission's open application — genuinely
+          // nothing to do or see yet (no submission, no reason), so unlike
+          // every other myStatus branch below this isn't a button into the
+          // workspace. It used to be lumped in with "active" here, which
+          // would've let a not-yet-accepted applicant straight into the
+          // workspace the moment that status became reachable.
+          <span className="pill" style={{ fontSize: 13, padding: "10px 16px", color: "var(--warning)" }}><Icon name="clock" size={14} />{t("missions.awaitingBuilderReview", null, "Awaiting builder review")}</span>
+        ) : task.myStatus === "not_selected" ? (
+          <span className="pill" style={{ fontSize: 13, padding: "10px 16px", color: "var(--text-faint)" }}><Icon name="x" size={14} />{t("missions.notSelectedThisTime", null, "Not selected this time")}</span>
+        ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" ? (
           <button className="btn btn-primary btn-lg" onClick={() => {
-              const inProgress = task.myStatus === "active" || task.myStatus === "applied";
+              const inProgress = task.myStatus === "active";
               const dest = task.myStatus === "completed" ? "results"
                 : (task.ptype === "trial" && inProgress) ? "checkin"
                 : (task.category === "sample" && inProgress) ? "shipment"
@@ -276,10 +288,10 @@ export default function MissionDetails() {
                 : "workspace";
               navigate(`/validator/missions/${task.id}/${dest}`);
             }} style={{
-              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
-              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : task.myStatus === "active" ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : task.myStatus === "active" ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               opacity: task.myStatus === "rejected" ? 0.8 : 1
-            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} /> {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : (task.myStatus === "active" || task.myStatus === "applied") ? t("actions.acceptedStartNow", null, "Accepted · Start now") : t("actions.viewReason", null, "View reason")}</button>
+            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} /> {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : task.myStatus === "active" ? t("actions.acceptedStartNow", null, "Accepted · Start now") : t("actions.viewReason", null, "View reason")}</button>
         ) : (
           <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
             {busy ? t("actions.applying", null, "Applying…") : (task.status !== "active" && task.status !== "live" && task.status !== "published") ? t("missions.missionClosed", null, "Mission Closed") : task.spotsLeft <= 0 ? t("missions.outOfSlots", null, "Out of slots") : t("actions.applyToMission", null, "Apply to this mission")} {task.spotsLeft > 0 && (task.status === "active" || task.status === "live" || task.status === "published") && <Icon name="arrowRight" />}

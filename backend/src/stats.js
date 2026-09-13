@@ -1,20 +1,25 @@
 import { db } from "./db.js";
 
 // The `participants.stage` values that represent someone currently occupying
-// a slot toward a mission's target. `invited` never filled one; `declined`
-// (an invitee who said no), `rejected` and `failed` explicitly free the one
-// they held (see the decline, reject-submission and checkin-lockout routes)
-// — everything else (accepted/started/submitted/rewarded) still counts.
-// Single definition reused by every place that needs the *real* joined count
-// instead of `missions.joined`, a hand-incremented counter that drifts from
-// this whenever a write path forgets to update it (confirmed: the
-// participants backfill script, and the checkin-lockout path above, both
-// leave it stale). The four excluded stages must stay in sync with the
+// a slot toward a mission's target. `invited` never filled one; `pending`
+// (an open application still awaiting the builder's decision — see the
+// require-approval apply path) doesn't either, on purpose: it lets more
+// people apply than there are slots so the builder has candidates to choose
+// from, and only actually reserves a slot once accepted. `declined` (an
+// invitee who said no), `not_selected` (an application the builder passed
+// on), `rejected` and `failed` explicitly free the one they held (see the
+// decline, review-application, reject-submission and checkin-lockout
+// routes) — everything else (accepted/started/submitted/rewarded) still
+// counts. Single definition reused by every place that needs the *real*
+// joined count instead of `missions.joined`, a hand-incremented counter that
+// drifts from this whenever a write path forgets to update it (confirmed:
+// the participants backfill script, and the checkin-lockout path above,
+// both leave it stale). The excluded stages must stay in sync with the
 // builder-side dashboard/mission queries, which already exclude the same set.
 export async function getRealJoinedCount(missionId, optionalTx) {
   const tx = optionalTx || db;
   const row = await tx.prepare(
-    `SELECT COUNT(*) as c FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'declined', 'rejected', 'failed')`
+    `SELECT COUNT(*) as c FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')`
   ).get(missionId);
   return parseInt(row?.c || 0, 10);
 }

@@ -10,7 +10,7 @@ import { useNavigate, useParams, useLocation, useSearchParams } from "react-rout
 import Icon from "../components/Icon";
 import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
 import { useMeta, ptypeOf } from "../context/MetaContext";
-import { ptypeLabel } from "../bi18n";
+import { ptypeLabel, rewardLabel, rewardDesc } from "../bi18n";
 import { api } from "../api/client";
 import { InviteValidatorModal } from "../components/InviteValidatorModal";
 import { Modal } from "../components/Modal";
@@ -307,6 +307,106 @@ function Toast({ message, type, onClose }) {
   );
 }
 
+// Reopening is its own small, focused action (deadline + optionally reward/
+// target) rather than routing back through the full wizard — matches how
+// "Mark as complete" is already its own confirm-dialog, not a generic
+// status-field edit. `target` here means the mission's lifetime total,
+// not "how many more this round" — participants.joined already counts
+// everyone ever rewarded on this mission, so that's the floor and the
+// number this field starts from.
+function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
+  const { t } = useTranslation();
+  const [deadline, setDeadline] = useState("");
+  const [rewardType, setRewardType] = useState(mission.reward.type);
+  const [amount, setAmount] = useState(mission.reward.amount || "");
+  const [target, setTarget] = useState(mission.participants.target);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const rw = rewards.find(r => r.id === rewardType);
+  const needsAmt = rw?.needsAmt;
+  const alreadyJoined = mission.participants.joined;
+  const perSlot = needsAmt ? Math.round((Number(amount) || 0) * (1 + (platformFeePct || 0))) : 0;
+  const newSlots = Math.max(0, (Number(target) || 0) - alreadyJoined);
+  const costDelta = perSlot * newSlots;
+
+  const submit = async () => {
+    if (!deadline) { setError(t("missionDetail.reopenPickDeadline", null, "Pick a deadline.")); return; }
+    if (Number(target) < alreadyJoined) {
+      setError(t("missionDetail.reopenBelowJoined", { count: alreadyJoined }, `Can't go below ${alreadyJoined} — that many have already joined across this mission's history.`));
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const { mission: updated } = await api.reopenMission(mission.id, {
+        deadline, reward: { type: rewardType, amount: Number(amount) || 0 }, target: Number(target),
+      });
+      onClose(!!updated);
+    } catch (err) {
+      setError(err.message || t("missionDetail.reopenFailed", null, "Couldn't reopen this mission — try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={t("missionDetail.reopenMissionTitle", null, "Reopen mission")} onClose={() => onClose(false)} width={520}>
+      <div style={{ padding: "0 20px 20px" }}>
+        <p className="muted" style={{ fontSize: 13.5, marginTop: 0 }}>
+          {t("missionDetail.reopenMissionDesc", null, "Pick a new deadline to start another round. You can also adjust the reward and how many participants this mission targets in total.")}
+        </p>
+
+        <div className="fld">
+          <label>{t("createMission.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
+          <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={deadline} onChange={e => setDeadline(e.target.value)} />
+        </div>
+
+        <div className="fld" style={{ marginTop: 16 }}>
+          <label>{t("createMission.rewardTypeLabel", null, "Reward Type")}</label>
+          <div className="optcards c2" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
+            {rewards.map(r => (
+              <button key={r.id} type="button" className={`optcard ${rewardType === r.id ? "on" : ""}`} onClick={() => setRewardType(r.id)}>
+                <span className="oc-tick"><Icon name="check" size={12} /></span>
+                <b>{rewardLabel(t, r)}</b><p>{rewardDesc(t, r)}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {needsAmt && (
+          <div className="fld" style={{ marginTop: 16 }}>
+            <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
+            <div className="inw has-pre">
+              <span className="pre">₹</span>
+              <input className="fin" type="number" min="1" value={amount} onChange={e => setAmount(e.target.value === "" ? "" : +e.target.value)} />
+            </div>
+          </div>
+        )}
+
+        <div className="fld" style={{ marginTop: 16 }}>
+          <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")}</label>
+          <input className="fin" type="number" min={alreadyJoined || 1} value={target} onChange={e => setTarget(e.target.value === "" ? "" : +e.target.value)} />
+          <p className="fhint">{t("missionDetail.reopenTargetHint", { count: alreadyJoined }, `${alreadyJoined} have already joined across this mission's history — this is the new lifetime total, not additional slots.`)}</p>
+        </div>
+
+        {costDelta > 0 && (
+          <div className="card" style={{ marginTop: 16, padding: 14, background: "var(--panel-inset)" }}>
+            <div className="row between"><span className="muted" style={{ fontSize: 13 }}>{t("missionDetail.reopenNewSlotsCost", { n: newSlots }, `Escrow for ${newSlots} new slot(s)`)}</span><b>{inr(costDelta)}</b></div>
+          </div>
+        )}
+
+        {error && <div className="err-banner" style={{ marginTop: 16 }}>{error}</div>}
+
+        <div className="row gap-2" style={{ marginTop: 20, justifyContent: "flex-end" }}>
+          <button className="btn" onClick={() => onClose(false)}>{t("actions.cancel", null, "Cancel")}</button>
+          <button className="btn btn-primary" disabled={busy} onClick={submit}>{busy ? t("actions.working", null, "Working…") : t("actions.reopenMission", null, "Reopen mission")}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 function ParticipantKanban({ mission, participants, setParticipants, onInvite, navigate, showToast }) {
   const { t } = useTranslation();
   const [drag, setDrag] = useState(null);
@@ -319,6 +419,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   // parent just to avoid it.
   const [openSub, setOpenSub] = useState(null);
   const [loadingSubId, setLoadingSubId] = useState(null);
+  const [reviewingId, setReviewingId] = useState(null);
 
   const openSubmission = async (p) => {
     if (loadingSubId) return;
@@ -362,6 +463,29 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
     setOpenSub(null);
   };
 
+  // Applications ("require approval" missions) don't move by drag — Accept/
+  // Reject are the only two valid outcomes from 'pending', so a dedicated
+  // action (mirroring the Accept Invitation flow) reads clearer here than
+  // treating it as just another Kanban drag target.
+  const reviewApplication = async (p, decision) => {
+    setReviewingId(p.id);
+    const newStage = decision === "accept" ? "accepted" : "not_selected";
+    try {
+      await api.reviewApplication(mission.id, p.id, decision);
+      setParticipants(ps => ps.map(pp => pp.id === p.id ? { ...pp, stage: newStage } : pp));
+      hotToast.success(
+        decision === "accept"
+          ? t("missionDetail.applicationAccepted", { name: p.name }, `${p.name} accepted — they can start now.`)
+          : t("missionDetail.applicationNotSelected", { name: p.name }, `${p.name} was not selected.`),
+        { position: "top-center" }
+      );
+    } catch (err) {
+      showToast(err.message || t("missionDetail.reviewApplicationFailed", null, "Couldn't update this application — try again."), "error");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
   const move = async (id, stage) => {
     let prevStage;
     const target = participants.find(p => p.id === id);
@@ -400,10 +524,15 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
           // rather than silently vanishing. Folds into Rejected, the other
           // locked/terminal-and-unsuccessful column, with its own distinct tag
           // on the card so it doesn't read as the builder having rejected them.
+          // An application the builder didn't accept ('not_selected') folds
+          // into Declined the same way — same "didn't make it in" outcome as
+          // an invite someone turned down, just the other party's call.
           const col = st.id === "rejected"
             ? participants.filter(p => p.stage === "rejected" || p.stage === "failed")
+            : st.id === "declined"
+            ? participants.filter(p => p.stage === "declined" || p.stage === "not_selected")
             : participants.filter(p => p.stage === st.id);
-          const droppable = st.id !== "rewarded" && st.id !== "rejected" && st.id !== "declined";
+          const droppable = st.id !== "rewarded" && st.id !== "rejected" && st.id !== "declined" && st.id !== "pending";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
               onDragOver={e => { e.preventDefault(); if (droppable) setOver(st.id); }}
@@ -429,9 +558,9 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
               </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed" && p.stage !== "declined"}
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed" && p.stage !== "declined" && p.stage !== "not_selected" && p.stage !== "pending"}
                     onDragStart={(e) => {
-                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined") {
+                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected" || p.stage === "pending") {
                         e.preventDefault();
                         return;
                       }
@@ -441,7 +570,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                     onClick={() => { if (p.stage === "submitted") openSubmission(p); }}
                     title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : undefined}
                     style={{
-                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" ? { cursor: "default", opacity: 0.85 } : {}),
+                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected" ? { cursor: "default", opacity: 0.85 } : {}),
                       ...(p.stage === "submitted" ? { cursor: "pointer", opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
                     }}>
                     <div className="kcard-top">
@@ -455,6 +584,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                           {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>{t("status.rewarded", null, "Rewarded")}</span>}
                           {p.stage === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
                           {p.stage === "failed" && <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")} style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>{t("status.failed", null, "Failed — missed check-ins")}</span>}
+                          {p.stage === "not_selected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--text-faint, #8b94a6)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.notSelected", null, "Not selected")}</span>}
                           {/* Still sits in the Submitted column (they haven't
                               resubmitted yet) — this is the only thing that
                               tells this apart from a normal, never-reviewed
@@ -470,15 +600,27 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                       </div>
                       <span className="kreward" style={{ fontSize: 13, color: "var(--text)" }}>{inr(p.reward || mission.reward.amount)}</span>
                     </div>
+                    {p.stage === "pending" && (
+                      <div className="row gap-2" style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                        <button className="btn" style={{ flex: 1, justifyContent: "center", padding: "6px 0", fontSize: 12.5, color: "var(--danger)" }}
+                          disabled={reviewingId === p.id} onClick={() => reviewApplication(p, "reject")}>
+                          {t("actions.reject", null, "Reject")}
+                        </button>
+                        <button className="btn btn-primary" style={{ flex: 1, justifyContent: "center", padding: "6px 0", fontSize: 12.5 }}
+                          disabled={reviewingId === p.id} onClick={() => reviewApplication(p, "accept")}>
+                          {reviewingId === p.id ? t("actions.working", null, "Working…") : t("actions.accept", null, "Accept")}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {col.length === 0 && (
                   <div className="empty-kcol">
                     <div className="ec-ic" style={{ color: st.color, background: `color-mix(in srgb, ${st.color} 10%, transparent)` }}>
-                      <Icon name={st.id === "invited" ? "mail" : st.id === "declined" ? "xCircle" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
+                      <Icon name={st.id === "invited" ? "mail" : st.id === "pending" ? "clock" : st.id === "declined" ? "xCircle" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
                     </div>
-                    <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : st.id === "declined" ? t("missionDetail.noDeclinedParticipants", null, "No declined invites") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
-                    <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "declined" ? t("missionDetail.emptyDeclined", null, "Invites that get declined will appear here.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
+                    <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : st.id === "pending" ? t("missionDetail.noPendingApplications", null, "No applications waiting") : st.id === "declined" ? t("missionDetail.noDeclinedParticipants", null, "No declined invites") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
+                    <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "pending" ? t("missionDetail.emptyPending", null, "Open applications waiting on your decision will appear here.") : st.id === "declined" ? t("missionDetail.emptyDeclined", null, "Invites that get declined and applications you don't accept will appear here.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
                   </div>
                 )}
               </div>
@@ -1581,7 +1723,7 @@ export default function MissionDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { categories, ptypes } = useMeta();
+  const { categories, ptypes, rewards, platformFeePct } = useMeta();
   const [tab, setTab] = useState(() => searchParams.get("tab") || "overview");
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
@@ -1592,6 +1734,7 @@ export default function MissionDetail() {
   const [checkinsData, setCheckinsData] = useState([]);
   const [error, setError] = useState("");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
   const [waitlist, setWaitlist] = useState([]);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [toast, setToast] = useState(null);
@@ -1745,7 +1888,7 @@ export default function MissionDetail() {
   // joined, can't be reached in the Kanban stages that matter). Without
   // this, the tab badge and the KPI card show two different numbers for
   // the same word "Participants" on the same page.
-  const realParticipantsCount = participants.filter(p => !["invited", "declined", "rejected", "failed"].includes(p.stage)).length;
+  const realParticipantsCount = participants.filter(p => !["invited", "pending", "declined", "not_selected", "rejected", "failed"].includes(p.stage)).length;
   const baseTabs = TABS.map(tb => ({ ...tb, l: t(tb.lk, null, tb.l), c: tb.k === "participants" ? realParticipantsCount : tb.k === "responses" ? responses.length : null }));
 
   let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: t("missionDetail.tabs.shipments", null, "Shipments"), ic: "box", c: participants.length }, ...baseTabs.slice(3)] : baseTabs;
@@ -1842,6 +1985,11 @@ export default function MissionDetail() {
                       <Icon name="xCircle" size={15} /> {t("actions.close", null, "Close")}
                     </button>
                   )}
+                  {mission.status === "completed" && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setShowReopenModal(true); }} style={menuItemStyle}>
+                      <Icon name="rocket" size={15} /> {t("actions.reopen", null, "Reopen")}
+                    </button>
+                  )}
                   {(mission.status === "closed" || mission.status === "completed") && (
                     <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("archived"); }} style={menuItemStyle}>
                       <Icon name="archive" size={15} /> {t("actions.archive", null, "Archive")}
@@ -1903,6 +2051,18 @@ export default function MissionDetail() {
         <InviteValidatorModal mission={mission} onClose={(invited) => {
           setShowInviteModal(false);
           if (invited) {
+            api.mission(id).then(d => {
+              setData(d);
+              setParticipants(d?.participants?.map(p => ({ ...p })) || []);
+            });
+          }
+        }} />
+      )}
+      {showReopenModal && mission && (
+        <ReopenMissionModal mission={mission} rewards={rewards} platformFeePct={platformFeePct} onClose={(reopened) => {
+          setShowReopenModal(false);
+          if (reopened) {
+            hotToast.success(t("missionDetail.missionReopened", null, "Mission reopened"), { position: "top-center" });
             api.mission(id).then(d => {
               setData(d);
               setParticipants(d?.participants?.map(p => ({ ...p })) || []);

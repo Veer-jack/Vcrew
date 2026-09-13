@@ -494,6 +494,14 @@ function StepParticipation({ d, set, ptypes, locked }) {
           <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end. Choose between 3 and 30 days.")}</p>
         </div>
       )}
+      <label className="row gap-2" style={{ marginTop: 24, alignItems: "flex-start", cursor: locked ? "default" : "pointer", maxWidth: 480 }}>
+        <input type="checkbox" checked={!!d.requireApproval} disabled={locked} style={{ marginTop: 3, cursor: locked ? "default" : "pointer" }}
+          onChange={e => set({ requireApproval: e.target.checked })} />
+        <span>
+          <b style={{ display: "block", fontSize: 14 }}>{t("createMission.requireApprovalLabel", null, "Require my approval before validators can start")}</b>
+          <span className="fhint" style={{ display: "block", marginTop: 2 }}>{t("createMission.requireApprovalHint", null, "Validators apply and wait for you to review their profile and accept them. Off by default — anyone who applies starts immediately.")}</span>
+        </span>
+      </label>
     </div>
   );
 }
@@ -670,6 +678,9 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
         </ReviewRow>
         <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
         <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)}{pt?.id === "trial" ? ` · ${t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`)}` : ""}</ReviewRow>
+        {d.requireApproval && (
+          <ReviewRow icon="userCheck" color="--accent" label={t("createMission.approvalReviewLabel", null, "Applicants")} onEdit={() => onEditStep(1)}>{t("createMission.requireApprovalOn", null, "You'll review and accept each applicant")}</ReviewRow>
+        )}
         {d.tasks?.length > 0 && (
           <ReviewRow icon="checkCircle" color="--success" label={t("createMission.testCasesEyebrow", { count: d.tasks.length }, `Test cases (${d.tasks.length})`)} onEdit={() => onEditStep(2)}>
             <div className="col gap-1" style={{ marginTop: 2 }}>
@@ -782,6 +793,7 @@ function missionToDraft(mission, filters, categories, ptypes) {
     testCaseForm: mission.testCaseForm?.form || null,
     genFor: mission.testCaseForm?.genFor || null,
     durationDays: mission.durationDays || 7,
+    requireApproval: !!mission.requireApproval,
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
   };
@@ -1066,6 +1078,7 @@ export default function CreateMissionWizard() {
     reward: { type: "", amount: "", participants: "" },
     genFor: null,
     durationDays: 7,
+    requireApproval: false,
     deadline: "",
   });
 
@@ -1536,6 +1549,7 @@ export default function CreateMissionWizard() {
       tasks: dArg.tasks,
       testCaseForm: (dArg.testCaseForm || dArg.genFor) ? { form: dArg.testCaseForm || null, genFor: dArg.genFor || null } : null,
       durationDays: dArg.durationDays,
+      requireApproval: !!dArg.requireApproval,
       deadline: dArg.deadline || null,
     };
   };

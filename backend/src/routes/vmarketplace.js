@@ -119,10 +119,10 @@ router.get("/", async (req, res) => {
              -- already sees as full is that same drift, just read from here
              -- instead. Counting participants directly is the fix everywhere
              -- this table gets read, not just where it's already applied.
-             GREATEST(0, COALESCE(m.target, 0) - (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'declined', 'rejected', 'failed')))::int as spots_left,
+             GREATEST(0, COALESCE(m.target, 0) - (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')))::int as spots_left,
              COALESCE(m.target, 0)::int as spots_total, COALESCE(TO_CHAR(m.deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at))/3600)::int as posted_h,
              m.description::text as brief, m.tasks_json::text as steps_json,
-             ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'declined', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
+             ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
              false::boolean as featured, 'missions' as source, m.status::text as status, COALESCE(m.reward_type, 'fixed')::text as reward_type,
              b.name::text as builder_name, b.designation::text as builder_designation
       FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
@@ -266,7 +266,7 @@ router.post("/:id/apply", async (req, res) => {
   if (!req.validator.occupation) {
     return res.status(403).json({ error: "Complete your profile before joining a mission.", code: "ONBOARDING_REQUIRED" });
   }
-  let t = await db.prepare(`SELECT id, builder_id, status FROM missions WHERE id = ?`).get(req.params.id);
+  let t = await db.prepare(`SELECT id, builder_id, status, require_approval FROM missions WHERE id = ?`).get(req.params.id);
   let isRealMission = !!t;
   if (!t) {
     t = await db.prepare(`SELECT id, 'active' as status FROM vtasks WHERE id = ?`).get(req.params.id);
@@ -314,28 +314,45 @@ router.post("/:id/apply", async (req, res) => {
           if (realJoined >= mission.target) throw new Error("MISSION_FULL");
         }
 
-        await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(t.id);
-
-        await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
-          .run(req.validator.id, t.id);
-
         // trust used to be a flat 95 for every joiner regardless of track
         // record — now derived from their real rating (unrated validators
         // treated as the same 5.0 baseline used elsewhere when averaging in
         // their first review), same formula the invite-accept path uses.
         const trust = Math.round((val?.rating || 5) * 20);
-        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, ?)`)
-          .run(t.id, req.validator.id, val ? val.name : "New Validator", trust);
+        const missionName = missionCategory?.name || "Unknown";
 
-        if (missionCategory?.category === "sample") {
-          await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
-            .run(t.id, req.validator.id);
+        if (t.require_approval) {
+          // Doesn't touch missions.joined or spawn a shipment yet — this
+          // candidate isn't in until the builder actually accepts them (see
+          // POST /:id/participants/:pid/review), which is also where those
+          // two happen. Left at 'pending'/'applied', not occupying a slot
+          // (getRealJoinedCount excludes it), so other candidates can still
+          // apply up to target while this one waits on a decision.
+          await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'applied', 0, 'Awaiting builder review')`)
+            .run(req.validator.id, t.id);
+          await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'pending', 0, ?)`)
+            .run(t.id, req.validator.id, val ? val.name : "New Validator", trust);
+          await tx.prepare(`
+            INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+            VALUES (?, 'application', 'application_received', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
+          `).run(t.builder_id, "New Application to Review", `${val ? val.name : "A validator"} applied to "${missionName}" — review their profile to accept or reject.`, t.id);
+        } else {
+          await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(t.id);
+          await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
+            .run(req.validator.id, t.id);
+          await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, ?)`)
+            .run(t.id, req.validator.id, val ? val.name : "New Validator", trust);
+
+          if (missionCategory?.category === "sample") {
+            await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
+              .run(t.id, req.validator.id);
+          }
+
+          await tx.prepare(`
+            INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+            VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
+          `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionName}".`, t.id);
         }
-
-        await tx.prepare(`
-          INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
-          VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
-        `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionCategory?.name || 'Unknown'}".`, t.id);
       });
 
     } catch (err) {
@@ -387,7 +404,13 @@ router.post("/:id/decline", async (req, res) => {
     ? await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id)
     : await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
 
-  if (existing && existing.status !== "declined") {
+  // 'applied' is an open application still awaiting the builder's decision
+  // (see the require-approval apply path) — the validator hasn't actually
+  // joined anything yet, so "Decline" here means withdrawing that
+  // application, not leaving a mission. Everything else already
+  // in-progress (active/submitted/etc.) is still blocked, same as before.
+  const isWithdrawingApplication = existing?.status === "applied";
+  if (existing && existing.status !== "declined" && !isWithdrawingApplication) {
     return res.status(400).json({ error: "You're already participating in this mission." });
   }
 
@@ -397,6 +420,13 @@ router.post("/:id/decline", async (req, res) => {
         await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, t.id);
       } else {
         await tx.prepare(`INSERT INTO v_my_missions (validator_id, task_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, t.id);
+      }
+    } else if (isWithdrawingApplication) {
+      await tx.prepare(`UPDATE v_my_missions SET status = 'declined', status_label = 'Declined' WHERE id = ?`).run(existing.id);
+      if (isRealMission) {
+        await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'pending'`).run(t.id, req.validator.id);
+        await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'application_withdrawn', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+          .run(t.builder_id, "Application Withdrawn", `${req.validator.name} withdrew their application for "${t.name}" before you reviewed it.`, t.id);
       }
     }
 
@@ -430,14 +460,20 @@ router.post("/:id/undecline", async (req, res) => {
   if (isRealMission) {
     await db.transaction(async (tx) => {
       await tx.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
-      // Decline mirrors this the other way (invited -> declined). If the
-      // decline came from a pending invitation, undo restores it so the
-      // validator can accept it again -- and, critically, so a stale
-      // 'declined' participants row isn't left behind for a later apply to
-      // insert a duplicate next to. A plain browse-then-decline has no such
-      // rows and these just match nothing.
-      await tx.prepare(`UPDATE mission_invitations SET status = 'pending' WHERE mission_id = ? AND validator_id = ? AND status = 'declined'`).run(t.id, req.validator.id);
-      await tx.prepare(`UPDATE participants SET stage = 'invited' WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+      // Decline mirrors this the other way (invited -> declined, or pending
+      // application -> declined). Which one it was determines what "undo"
+      // restores: an invitation goes back to 'invited'/pending so it can be
+      // accepted again; a withdrawn application goes back to 'pending' so
+      // the builder's review queue picks it up again. A plain
+      // browse-then-decline has neither row and both branches just match
+      // nothing.
+      const declinedInvite = await tx.prepare(`SELECT id FROM mission_invitations WHERE mission_id = ? AND validator_id = ? AND status = 'declined'`).get(t.id, req.validator.id);
+      if (declinedInvite) {
+        await tx.prepare(`UPDATE mission_invitations SET status = 'pending' WHERE id = ?`).run(declinedInvite.id);
+        await tx.prepare(`UPDATE participants SET stage = 'invited' WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+      } else {
+        await tx.prepare(`UPDATE participants SET stage = 'pending' WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+      }
     });
   } else {
     await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND task_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
