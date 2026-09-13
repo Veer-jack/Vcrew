@@ -877,10 +877,13 @@ export const CARD_SUMMARY = {
     // filter below, a Founder always saw "Not set" for Year founded/
     // Headquarters even though their wizard has no field to ever set them.
     // Settings.jsx filters each entry against the builder's actual persona.
+    // `required` mirrors each field's own onboarding-step validation (foValid
+    // /coValid) so Settings' "*" marker never drifts from what the wizard
+    // itself actually enforces.
     fields: [
-      { key: "industry", labelKey: "onboarding.founder.company.industryLabel", labelFallback: "Industry" },
-      { key: "size", labelKey: "settings.companySize", labelFallback: "Company size" },
-      { key: "stage", labelKey: "onboarding.founder.company.stageSection", labelFallback: "Stage", personas: ["founder"] },
+      { key: "industry", labelKey: "onboarding.founder.company.industryLabel", labelFallback: "Industry", required: true },
+      { key: "size", labelKey: "settings.companySize", labelFallback: "Company size", required: true },
+      { key: "stage", labelKey: "onboarding.founder.company.stageSection", labelFallback: "Stage", personas: ["founder"], required: true },
       { key: "yearFounded", labelKey: "onboarding.company.company.yearFoundedLabel", labelFallback: "Year founded", personas: ["company"] },
       { key: "hq", labelKey: "onboarding.company.company.hqLabel", labelFallback: "Headquarters", personas: ["company"] },
     ],
@@ -888,7 +891,7 @@ export const CARD_SUMMARY = {
   organization: {
     titleKey: "settings.organizationDetails", titleFallback: "Organization Details",
     fields: [
-      { key: "orgType", labelKey: "onboarding.org.info.typeSection", labelFallback: "Organization type" },
+      { key: "orgType", labelKey: "onboarding.org.info.typeSection", labelFallback: "Organization type", required: true },
       { key: "yearFounded", labelKey: "onboarding.org.info.yearLabel", labelFallback: "Year established" },
       { key: "hq", labelKey: "onboarding.company.company.hqLabel", labelFallback: "Headquarters" },
     ],
@@ -896,8 +899,8 @@ export const CARD_SUMMARY = {
   academic: {
     titleKey: "settings.academicDetails", titleFallback: "Academic Details",
     fields: [
-      { key: "institution", labelKey: "onboarding.researcher.academic.institutionLabel", labelFallback: "University / institution" },
-      { key: "qualification", labelKey: "onboarding.researcher.academic.qualificationLabel", labelFallback: "Highest qualification" },
+      { key: "institution", labelKey: "onboarding.researcher.academic.institutionLabel", labelFallback: "University / institution", required: true },
+      { key: "qualification", labelKey: "onboarding.researcher.academic.qualificationLabel", labelFallback: "Highest qualification", required: true },
       { key: "department", labelKey: "onboarding.researcher.academic.departmentLabel", labelFallback: "Department" },
     ],
   },
@@ -911,23 +914,23 @@ export const CARD_SUMMARY = {
 // rather than forced into CARD_SUMMARY's step-key shape.
 export const VERIFICATION_SUMMARY = {
   founder: [
-    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website" },
+    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
     { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
-    { key: "gst", labelKey: "onboarding.verify.gstTitle", labelFallback: "GST registration" },
+    { key: "gst", labelKey: "onboarding.verify.gstTitle", labelFallback: "GST registration", required: true },
   ],
   company: [
-    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website" },
+    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
     { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
-    { key: "gst", labelKey: "onboarding.verify.gstNumberTitle", labelFallback: "GST number" },
+    { key: "gst", labelKey: "onboarding.verify.gstNumberTitle", labelFallback: "GST number", required: true },
   ],
   organization: [
-    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website" },
+    { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
     { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
-    { key: "regNo", labelKey: "onboarding.org.verify.regNoTitle", labelFallback: "Registration number" },
+    { key: "regNo", labelKey: "onboarding.org.verify.regNoTitle", labelFallback: "Registration number", required: true },
     { key: "govAffiliation", labelKey: "onboarding.org.verify.govTitle", labelFallback: "Government affiliation" },
   ],
   researcher: [
-    { key: "vWebsiteInput", labelKey: "onboarding.researcher.ethics.uniEmailTitle", labelFallback: "University email" },
+    { key: "vWebsiteInput", labelKey: "onboarding.researcher.ethics.uniEmailTitle", labelFallback: "University email", required: true },
     { key: "researchProfile", labelKey: "onboarding.researcher.ethics.scholarlyTitle", labelFallback: "Scholarly profile" },
   ],
 };

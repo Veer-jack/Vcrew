@@ -8,22 +8,21 @@ import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
-// One soft-filled tile per category, full card width -- a comma-joined
-// string crammed into one .fin box was unreadable and forced its own
+// One soft-filled tile per field, chips styled like Audience Explorer's own
+// applied-filter chips (.mtag.accent, blue) instead of a plain text box --
+// the tester wants every step's entered values (single or multi) to read
+// the same way here as they do on that chip view. A comma-joined string
+// crammed into one .fin box was also unreadable and forced its own
 // scrollbar the moment a field had more than a few values (e.g. picking
-// "Worldwide" during onboarding saves every country), and an earlier
-// hairline-divider version of this still read as cramped next to the
-// bordered-box fields the Company/Organization/Academic Details card above
-// uses. Stacked one per row (not side-by-side) so a long Country chip list
-// only grows its own tile instead of being squeezed into a half-width column.
-function ChipField({ label, values }) {
+// "Worldwide" during onboarding saves every country).
+function ChipField({ label, values, required }) {
   const { t } = useTranslation();
   return (
     <div style={{ background: "var(--panel-inset)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "14px 16px" }}>
-      <label>{label}</label>
+      <label>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
       {values?.length ? (
         <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
-          {values.map(v => <span key={v} className="mtag">{v}</span>)}
+          {values.map(v => <span key={v} className="mtag accent">{v}</span>)}
         </div>
       ) : (
         <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
@@ -115,10 +114,11 @@ export default function Settings() {
         </div>
       )}
 
-      {/* 700 (not 640) specifically gives the Audience & Demographics card's
-          header room -- its description is long enough to otherwise wrap
-          right up against the Edit button, see that card's own row gap. */}
-      <div className="col gap-5" style={{ maxWidth: 700 }}>
+      {/* 980 gives the detail cards below room to sit two-up (grid,
+          minmax 340px) instead of each wasting the full row on a handful
+          of chips -- identity (profile/phone) stays a single full-width
+          row above since it's one wide horizontal card, not a chip list. */}
+      <div className="col gap-5" style={{ maxWidth: 980 }}>
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center" }}>
             <div className="row gap-4" style={{ alignItems: "center" }}>
@@ -156,21 +156,20 @@ export default function Settings() {
             setBuilder(res.builder);
           }} />
 
+        {/* Detail cards side by side instead of each stacking full-width for
+            a handful of chips -- auto-fit/minmax lets 2 (sometimes 3) share
+            a row on wide screens and drop to one column on narrow ones. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
         {companySummary && (
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
             <h2 style={{ fontSize: 18, margin: 0 }}>{t(companySummary.titleKey, null, companySummary.titleFallback)}</h2>
             <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${companyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
           </div>
-          <div className="row gap-3 wrap">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {companySummary.fields.filter(f => !f.personas || f.personas.includes(activePersonaKey)).map(f => {
               const val = builder?.profile?.[f.key];
-              return (
-                <div key={f.key} className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t(f.labelKey, null, f.labelFallback)}</label>
-                  <div className="fin" style={{ display: "flex", alignItems: "center", color: val ? undefined : "var(--text-faint)" }}>{val || t("settings.notSet", null, "Not set")}</div>
-                </div>
-              );
+              return <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={val ? [val] : []} required={f.required} />;
             })}
           </div>
         </div>
@@ -180,12 +179,9 @@ export default function Settings() {
           <div className="card" style={{ padding: "var(--pad-card)" }}>
             <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>{t("settings.verificationDetails", null, "Verification")}</h2>
             <p className="faint" style={{ margin: "0 0 12px", fontSize: 13 }}>{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
-            <div className="row gap-3 wrap">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {verificationFields.filter(f => builder?.profile?.[f.key]).map(f => (
-                <div key={f.key} className="fld" style={{ flex: 1, minWidth: 180 }}>
-                  <label>{t(f.labelKey, null, f.labelFallback)}</label>
-                  <div className="fin" style={{ display: "flex", alignItems: "center", color: "var(--text-muted)" }}>{builder.profile[f.key]}</div>
-                </div>
+                <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={[builder.profile[f.key]]} required={f.required} />
               ))}
             </div>
           </div>
@@ -202,11 +198,14 @@ export default function Settings() {
             </div>
             <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
               {[
-                { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands },
+                // Age is the one field foValid/coValid actually require for this
+                // step (ageBands.length >= 1) -- Country/Gender/Occupation are
+                // free to skip, hence only Age gets the required marker.
+                { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands, required: true },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []) },
                 { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
                 { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations },
-              ].map(f => <ChipField key={f.label} label={f.label} values={f.values} />)}
+              ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} />)}
             </div>
           </div>
         )}
@@ -252,6 +251,7 @@ export default function Settings() {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
