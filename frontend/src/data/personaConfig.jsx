@@ -871,16 +871,18 @@ export const CARD_SUMMARY = {
     titleKey: "settings.companyDetails", titleFallback: "Company Details",
     // Founder and Company personas both resolve to this same "company" step
     // key (they share the step-key-scoped card, not a persona-scoped one --
-    // see resolveCardStep above), but each fills in a different subset of
-    // these fields (stage is Founder-only, yearFounded/hq are Company-only).
-    // Whichever half doesn't apply to a given builder just reads "Not set",
-    // same as any other field they skipped -- honest, not wrong.
+    // see resolveCardStep above), but their actual onboarding forms (FoCompany
+    // vs CoCompany) ask for entirely different fields -- stage exists only in
+    // FoCompany, yearFounded/hq only in CoCompany. Without the `personas`
+    // filter below, a Founder always saw "Not set" for Year founded/
+    // Headquarters even though their wizard has no field to ever set them.
+    // Settings.jsx filters each entry against the builder's actual persona.
     fields: [
       { key: "industry", labelKey: "onboarding.founder.company.industryLabel", labelFallback: "Industry" },
       { key: "size", labelKey: "settings.companySize", labelFallback: "Company size" },
-      { key: "stage", labelKey: "onboarding.founder.company.stageSection", labelFallback: "Stage" },
-      { key: "yearFounded", labelKey: "onboarding.company.company.yearFoundedLabel", labelFallback: "Year founded" },
-      { key: "hq", labelKey: "onboarding.company.company.hqLabel", labelFallback: "Headquarters" },
+      { key: "stage", labelKey: "onboarding.founder.company.stageSection", labelFallback: "Stage", personas: ["founder"] },
+      { key: "yearFounded", labelKey: "onboarding.company.company.yearFoundedLabel", labelFallback: "Year founded", personas: ["company"] },
+      { key: "hq", labelKey: "onboarding.company.company.hqLabel", labelFallback: "Headquarters", personas: ["company"] },
     ],
   },
   organization: {

@@ -163,7 +163,7 @@ export default function Settings() {
             <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${companyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
           </div>
           <div className="row gap-3 wrap">
-            {companySummary.fields.map(f => {
+            {companySummary.fields.filter(f => !f.personas || f.personas.includes(activePersonaKey)).map(f => {
               const val = builder?.profile?.[f.key];
               return (
                 <div key={f.key} className="fld" style={{ flex: 1, minWidth: 180 }}>
