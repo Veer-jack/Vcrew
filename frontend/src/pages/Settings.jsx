@@ -215,8 +215,33 @@ export default function Settings() {
           </div>
         )}
 
-        {audienceStepKey && (
+        {/* "Preferences" is the last onboarding step for every persona
+            (StepFinal: feedback frequency + preferred methods) -- Settings
+            never had a card for it at all, so it always read as saved data
+            that had simply vanished. Placed right after Company/Verification
+            (both short, single-value cards) so it pairs into the same row
+            as one of them instead of sharing a row with Audience &
+            Demographics below, which needs the full row to itself. */}
+        {activePersona?.components?.final && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
+            <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.preferences", null, "Preferences")}</h2>
+              <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/final")}>{t("actions.edit", null, "Edit")}</Btn>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <ChipField label={t("onboarding.final.frequencyLabel", null, "How often will you need feedback?")} values={builder?.profile?.frequency ? [builder.profile.frequency] : []} />
+              <ChipField label={t("onboarding.final.methodsLabel", null, "Preferred methods")} values={builder?.profile?.methods} />
+            </div>
+          </div>
+        )}
+
+        {/* Full row to itself (gridColumn 1/-1) -- Occupation and especially
+            Country can run to dozens of chips (picking "Worldwide" at
+            onboarding saves every country), and squeezed into half the row
+            next to another card they wrapped/collapsed far sooner than the
+            space actually available on the page. */}
+        {audienceStepKey && (
+          <div className="card" style={{ padding: "var(--pad-card)", gridColumn: "1 / -1" }}>
             <div className="row between" style={{ alignItems: "flex-start", gap: 24, marginBottom: 16 }}>
               <div>
                 <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.audienceDetails", null, "Audience & Demographics")}</h2>
@@ -231,36 +256,19 @@ export default function Settings() {
                 // free to skip, hence only Age gets the required marker.
                 { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands, required: true },
                 { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
-                // Occupation/Country can both run long (Country especially --
-                // picking "Worldwide" at onboarding saves every country), so
-                // both collapse behind a "Show all" dropdown past 6 chips
-                // instead of pushing the card's height around.
                 { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations, dropdown: true },
+                // Country's own full row (not sharing a column) is what
+                // actually uses the extra width the card just gained --
+                // splitting it into another 1fr column would've kept it just
+                // as cramped as before, only now next to more empty space.
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
               ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} span={f.span} dropdown={f.dropdown} />)}
             </div>
           </div>
         )}
 
-        {/* "Preferences" is the last onboarding step for every persona
-            (StepFinal: feedback frequency + preferred methods) -- Settings
-            never had a card for it at all, so it always read as saved data
-            that had simply vanished. */}
-        {activePersona?.components?.final && (
-          <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
-              <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.preferences", null, "Preferences")}</h2>
-              <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/final")}>{t("actions.edit", null, "Edit")}</Btn>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <ChipField label={t("onboarding.final.frequencyLabel", null, "How often will you need feedback?")} values={builder?.profile?.frequency ? [builder.profile.frequency] : []} />
-              <ChipField label={t("onboarding.final.methodsLabel", null, "Preferred methods")} values={builder?.profile?.methods} />
-            </div>
-          </div>
-        )}
-
         {!builder?.oauthProvider && (
-          <div className="card" style={{ padding: "var(--pad-card)" }}>
+          <div className="card" style={{ padding: "var(--pad-card)", gridColumn: "1 / -1" }}>
             <div className="row between" style={{ alignItems: "center", marginBottom: changingPassword ? 8 : 0 }}>
               <div>
                 <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.security", null, "Security")}</h2>
