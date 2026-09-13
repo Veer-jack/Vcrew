@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, UpdatingBadge } from "../components/ui";
 import { api } from "../api/client";
@@ -8,6 +8,7 @@ import { trFilterLabel } from "../data/audienceFilterLabels";
 
 export default function Messages() {
   const { t, dataVersion } = useTranslation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedThreadId = searchParams.get("thread");
   const [threads, setThreads] = useState([]);
@@ -112,7 +113,30 @@ export default function Messages() {
     }
   };
 
-  if (!threads.length) return <div className="page rise"><div className="muted">{t("messages.noConversations", null, "No conversations yet.")}</div></div>;
+  // Every thread requires a validatorId + missionId (see backend messages.js
+  // POST /threads) -- there's no anyone-to-anyone DM in this app, so
+  // "Start a conversation" can't open a composer of its own. It routes to
+  // Missions instead, which is genuinely where every conversation begins
+  // today (a participant row, an application, a submission reply) -- same
+  // flow the tip line below already points to in words.
+  if (!threads.length) return (
+    <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6, maxWidth: 380 }}>
+        <div style={{ position: "relative", width: 84, height: 84, marginBottom: 8 }}>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "var(--accent-weak)", display: "grid", placeItems: "center" }}>
+            <Icon name="inbox" size={34} style={{ color: "var(--accent)" }} />
+          </div>
+          <div style={{ position: "absolute", top: -6, right: -6, width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="send" size={15} style={{ color: "#fff" }} />
+          </div>
+        </div>
+        <b style={{ fontSize: 17 }}>{t("messages.noConversations", null, "No conversations yet")}</b>
+        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.noConversationsDesc", null, "Once you start working with participants or researchers, your conversations will appear here.")}</p>
+        <Btn variant="primary" icon="send" onClick={() => navigate("/missions")} style={{ marginTop: 10 }}>{t("actions.startConversation", null, "Start a conversation")}</Btn>
+        <p className="faint" style={{ margin: "10px 0 0", fontSize: 12 }}>{t("messages.startConversationTip", null, "Tip — invite participants from a Mission to message them directly.")}</p>
+      </div>
+    </div>
+  );
 
   const visibleThreads = q.trim()
     ? threads.filter(t => (t.name + " " + (t.mission || "")).toLowerCase().includes(q.trim().toLowerCase()))
