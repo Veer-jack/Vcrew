@@ -614,7 +614,19 @@ router.patch("/:id", async (req, res) => {
   // actually goes live can carry a past deadline either way.
   if (newStatus === "active" && req.body.deadline) {
     const todayStr = new Date().toISOString().slice(0, 10);
-    if (String(req.body.deadline).slice(0, 10) < todayStr) {
+    const newDeadlineStr = String(req.body.deadline).slice(0, 10);
+    // Only reject a deadline actually changing to something in the past —
+    // the wizard's autosave resends the mission's current deadline on
+    // every payload whether or not the builder touched that field, so once
+    // a live mission's original deadline passed, this would otherwise 400
+    // *every* edit to it (reward, target, anything), forever, with the
+    // failure swallowed silently by the autosave's own .catch(() => {}) —
+    // the "Changes are saved" toast still fires (it only checks whether the
+    // local draft differs from what was loaded, not whether the save
+    // actually succeeded), so nothing ever told the builder their edit was
+    // rejected.
+    const currentDeadlineStr = m.deadline ? new Date(m.deadline).toISOString().slice(0, 10) : null;
+    if (newDeadlineStr !== currentDeadlineStr && newDeadlineStr < todayStr) {
       return res.status(400).json({ error: "Deadline can't be in the past" });
     }
   }
