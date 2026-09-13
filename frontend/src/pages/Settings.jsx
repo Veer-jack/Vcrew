@@ -120,7 +120,7 @@ export default function Settings() {
           real saved values (or "Not set"), so this doesn't block editing —
           it just flags that setup itself is still open. */}
       {!builder?.onboardingCompleted && (
-        <div className="card" style={{ marginBottom: 20, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+        <div className="card" style={{ maxWidth: 980, marginBottom: 20, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
           <Icon name="user" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
           <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
             {t("settings.onboardingWarning", null, "You haven't finished setting up your profile yet. Some details below may be incomplete until you do.")}
