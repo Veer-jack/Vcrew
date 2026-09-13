@@ -180,7 +180,13 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
                   <select className="cc-select fin" value={ccIdx} onChange={(e) => setCcIdx(Number(e.target.value))} style={{ width: "120px", flexShrink: 0 }}>
                     {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}
                   </select>
-                  <input className="fin" type="tel" placeholder="98765 43210" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} required style={{ flex: 1 }} />
+                  {/* Country code is its own dropdown to the left, so this
+                      only ever needs the local digits -- letters/symbols
+                      typed here (or pasted) get stripped immediately rather
+                      than accepted and only caught by sendCode's \D strip
+                      on submit. A space stays allowed for grouping, matching
+                      the placeholder's "98765 43210" format. */}
+                  <input className="fin" type="tel" placeholder="98765 43210" value={phoneInput} onChange={e => setPhoneInput(e.target.value.replace(/[^\d\s]/g, ""))} required style={{ flex: 1 }} />
                 </div>
               </div>
               <button className="btn btn-primary" disabled={busy} type="submit">{busy ? t("actions.sending", null, "Sending…") : t("actions.sendCode", null, "Send code")}</button>

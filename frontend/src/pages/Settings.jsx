@@ -8,6 +8,8 @@ import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
+const CHIP_COLLAPSE_AT = 6;
+
 // Bare label + chips, no box of its own -- an earlier version wrapped each
 // field in its own bordered/shaded tile, which read as a card nested inside
 // the card it already sits in. Reference the tester sent (a plain field
@@ -15,14 +17,27 @@ import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY,
 // nesting at all, so this doesn't either; the caller lays fields out in a
 // 2-column grid instead. Chips are blue (.mtag.accent) to match the
 // Audience Explorer's own applied-filter chip look.
-function ChipField({ label, values, required }) {
+//
+// `dropdown` collapses a long list (Occupation, Country -- picking
+// "Worldwide" at onboarding saves every country) behind a "Show all"
+// toggle instead of dumping dozens of chips straight into the card.
+function ChipField({ label, values, required, span, dropdown }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const collapsible = dropdown && (values?.length || 0) > CHIP_COLLAPSE_AT;
+  const shown = collapsible && !open ? values.slice(0, CHIP_COLLAPSE_AT) : values;
   return (
-    <div>
+    <div style={span ? { gridColumn: "1 / -1" } : undefined}>
       <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
       {values?.length ? (
-        <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
-          {values.map(v => <span key={v} className="mtag accent">{v}</span>)}
+        <div className="row gap-2 wrap" style={{ marginTop: 7, alignItems: "center" }}>
+          {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
+          {collapsible && (
+            <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
+              {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: values.length }, `Show all (${values.length})`)}
+              <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
+            </button>
+          )}
         </div>
       ) : (
         <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
@@ -166,8 +181,13 @@ export default function Settings() {
             a row on wide screens and drop to one column on narrow ones.
             Fields inside each card sit in their own 2-column grid (no boxed
             tile per field -- see ChipField) so short fields like Age/Gender
-            share a row instead of each claiming a full line. */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
+            share a row instead of each claiming a full line. alignItems:
+            start stops a grid row's height from being dictated by its
+            tallest sibling (Audience & Demographics' long Country list
+            otherwise stretched Preferences into a tall card full of empty
+            space, since CSS grid items stretch to the row height by
+            default) -- each card now stays only as tall as its own content. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20, alignItems: "start" }}>
         {companySummary && (
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
@@ -211,9 +231,13 @@ export default function Settings() {
                 // free to skip, hence only Age gets the required marker.
                 { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands, required: true },
                 { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
-                { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations },
-                { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []) },
-              ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} />)}
+                // Occupation/Country can both run long (Country especially --
+                // picking "Worldwide" at onboarding saves every country), so
+                // both collapse behind a "Show all" dropdown past 6 chips
+                // instead of pushing the card's height around.
+                { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations, dropdown: true },
+                { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
+              ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} span={f.span} dropdown={f.dropdown} />)}
             </div>
           </div>
         )}
