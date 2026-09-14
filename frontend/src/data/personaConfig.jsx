@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Field, TextInput, Textarea, SelectInput, FSection, Chips, SelCards,
-  ReachMeter, LocationFields, DemographicsRow, ProfileChips, VerifyRow, PersonalFields,
+  ReachMeter, LocationFields, DemographicsRow, ProfileChips, VerifyRow, PersonalFields, SelectAllToggle,
 } from "../components/OnboardingFields";
 import {
   COMPANY_SIZES, COMPANY_STAGES, INDUSTRIES, VALIDATION_TYPES,
@@ -196,7 +196,8 @@ function GenericAudience({ d, set, region, title, sub, showErrors }) {
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
       <div style={GROUP_CARD}>
-        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")}
+          action={<SelectAllToggle options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} />} />
         <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
       </div>
       <div style={GROUP_CARD}>
@@ -471,7 +472,8 @@ function ResParticipants({ d, set, region, showErrors }) {
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
       <div style={GROUP_CARD}>
-        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")}
+          action={<SelectAllToggle options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} />} />
         <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
       </div>
       <div style={GROUP_CARD}>
@@ -604,7 +606,8 @@ function OrgAudience(props) {
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
       <div style={GROUP_CARD}>
-        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")} />
+        <FSection label={t("onboarding.validatorTypeSection", null, "Validator Type")}
+          action={<SelectAllToggle options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} />} />
         <Chips options={filters["ValidationCrew Role"] || []} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} multi />
       </div>
       <div style={GROUP_CARD}>

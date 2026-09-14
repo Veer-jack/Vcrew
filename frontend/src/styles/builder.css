@@ -189,8 +189,11 @@ html[data-direction="mono"] .utabs button.on::after { background: var(--text); }
 
 /* ============ FORM PRIMITIVES (wizard) ============ */
 .fld { margin-bottom: 0; }
-.fld > label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-.fld > label .opt { font-weight: 600; color: var(--text-faint); font-size: 12px; }
+/* Descendant, not direct-child -- Field's optional `action` slot (a
+   "Select all" toggle) wraps the label in its own row div, so the label is
+   no longer .fld's direct child everywhere this component is used. */
+.fld label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.fld label .opt { font-weight: 600; color: var(--text-faint); font-size: 12px; }
 .fin { width: 100%; padding: 11px 14px; font-family: inherit; font-size: 14.5px; color: var(--text);
   background-color: var(--panel-inset); border: var(--hairline) solid var(--border); border-radius: var(--radius-sm);
   outline: none; transition: border-color .14s, box-shadow .14s, background-color .14s; }

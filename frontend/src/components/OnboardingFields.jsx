@@ -8,13 +8,34 @@ import { isValidMobile } from "../data/onboarding";
 
 const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
 
-export function Field({ label, optional, span, hint, invalid, children }) {
+export function Field({ label, optional, span, hint, invalid, action, children }) {
   return (
     <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`}>
-      <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
+      <div className="row between" style={{ alignItems: "center" }}>
+        <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
+        {action}
+      </div>
       {children}
       {hint && <p className="fhint">{hint}</p>}
     </div>
+  );
+}
+
+// "Select all"/"Clear all" for a plain Chips multi-select -- Country
+// already had this via FilterGroup (which also brings search/collapse/
+// custom-entry machinery a short options list doesn't need), so this gives
+// every other chip category (Validator Type, Age, Gender, Occupation,
+// Education, Income band, Languages, Interests) the same affordance without
+// pulling in FilterGroup itself.
+export function SelectAllToggle({ options, value, onChange }) {
+  const { t } = useTranslation();
+  const sel = value || [];
+  const allSelected = options.length > 0 && options.every(o => sel.includes(o));
+  return (
+    <button type="button" className="backlink" style={{ margin: 0, fontSize: 12, flexShrink: 0 }}
+      onClick={() => onChange(allSelected ? [] : [...options])}>
+      {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+    </button>
   );
 }
 
@@ -39,11 +60,14 @@ export function SelectInput({ value, onChange, options, placeholder }) {
   );
 }
 
-export function FSection({ label, count, required }) {
+export function FSection({ label, count, required, action }) {
   return (
-    <div className="row between" style={{ margin: "18px 0 10px" }}>
+    <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }}>
       <div className="eyebrow" style={{ fontSize: 12 }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
-      {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+      <div className="row gap-3" style={{ alignItems: "center" }}>
+        {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+        {action}
+      </div>
     </div>
   );
 }
@@ -150,13 +174,15 @@ export function LocationFields({ d, set, withCity, showErrors }) {
 
 export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
   const { t } = useTranslation();
+  const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
+  const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")];
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.age", null, "Age")}>
-        <Chips options={ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"]} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
+      <Field label={t("onboardingFields.age", null, "Age")} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
+        <Chips options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
-      <Field label={t("onboardingFields.gender", null, "Gender")}>
-        <Chips options={genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")]} value={d.genders} onChange={(v) => set("genders", v)} />
+      <Field label={t("onboardingFields.gender", null, "Gender")} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
+        <Chips options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
   );
@@ -174,6 +200,12 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
   const occupationOptions = defaultOccOptions;
   
   const isOtherOccupation = !!occOptions && (d.occupations || []).includes("Other");
+
+  const educationOptions = [t("onboardingFields.eduHighSchool", null, "High school"), t("onboardingFields.eduDiploma", null, "Diploma"), t("onboardingFields.eduUndergraduate", null, "Undergraduate"), t("onboardingFields.eduPostgraduate", null, "Postgraduate"), t("onboardingFields.eduPhd", null, "PhD / Doctorate")];
+  const incomeBandOptions = incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"]);
+  const languageOptions = region === "india"
+    ? [t("onboardingFields.langHindi", null, "Hindi"), t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langTamil", null, "Tamil"), t("onboardingFields.langTelugu", null, "Telugu"), t("onboardingFields.langKannada", null, "Kannada"), t("onboardingFields.langBengali", null, "Bengali"), t("onboardingFields.langMarathi", null, "Marathi"), t("onboardingFields.langGujarati", null, "Gujarati"), t("onboardingFields.langMalayalam", null, "Malayalam"), t("onboardingFields.langPunjabi", null, "Punjabi")]
+    : [t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langSpanish", null, "Spanish"), t("onboardingFields.langFrench", null, "French"), t("onboardingFields.langGerman", null, "German"), t("onboardingFields.langMandarin", null, "Mandarin"), t("onboardingFields.langArabic", null, "Arabic"), t("onboardingFields.langPortuguese", null, "Portuguese"), t("onboardingFields.langJapanese", null, "Japanese")];
 
   const saveOcc = () => {
     const val = occInput.trim();
@@ -209,7 +241,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
   return (
     <div className="col gap-3">
       {show.occupation && (
-        <Field label={t("onboardingFields.occupation", null, "Occupation")}>
+        <Field label={t("onboardingFields.occupation", null, "Occupation")} action={<SelectAllToggle options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />}>
           <Chips options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />
           {customOccs.length > 0 && (
             <div style={{ marginTop: 12 }}>
@@ -238,22 +270,26 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
         </Field>
       )}
       {show.education && (
-        <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}>
-          <Chips options={[t("onboardingFields.eduHighSchool", null, "High school"), t("onboardingFields.eduDiploma", null, "Diploma"), t("onboardingFields.eduUndergraduate", null, "Undergraduate"), t("onboardingFields.eduPostgraduate", null, "Postgraduate"), t("onboardingFields.eduPhd", null, "PhD / Doctorate")]} value={d.educations} onChange={(v) => set("educations", v)} />
+        <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}
+          action={<SelectAllToggle options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />}>
+          <Chips options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />
         </Field>
       )}
       {show.income && (
-        <Field label={t("onboardingFields.incomeBand", null, "Income band")} optional>
-          <Chips options={incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"])} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
+        <Field label={t("onboardingFields.incomeBand", null, "Income band")} optional
+          action={<SelectAllToggle options={incomeBandOptions} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />}>
+          <Chips options={incomeBandOptions} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
         </Field>
       )}
       {show.languages && (
-        <Field label={t("onboardingFields.languages", null, "Languages")} optional hint={notYetTrackedHint}>
-          <Chips options={region === "india" ? [t("onboardingFields.langHindi", null, "Hindi"), t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langTamil", null, "Tamil"), t("onboardingFields.langTelugu", null, "Telugu"), t("onboardingFields.langKannada", null, "Kannada"), t("onboardingFields.langBengali", null, "Bengali"), t("onboardingFields.langMarathi", null, "Marathi"), t("onboardingFields.langGujarati", null, "Gujarati"), t("onboardingFields.langMalayalam", null, "Malayalam"), t("onboardingFields.langPunjabi", null, "Punjabi")] : [t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langSpanish", null, "Spanish"), t("onboardingFields.langFrench", null, "French"), t("onboardingFields.langGerman", null, "German"), t("onboardingFields.langMandarin", null, "Mandarin"), t("onboardingFields.langArabic", null, "Arabic"), t("onboardingFields.langPortuguese", null, "Portuguese"), t("onboardingFields.langJapanese", null, "Japanese")]} value={d.languages} onChange={(v) => set("languages", v)} />
+        <Field label={t("onboardingFields.languages", null, "Languages")} optional hint={notYetTrackedHint}
+          action={<SelectAllToggle options={languageOptions} value={d.languages} onChange={(v) => set("languages", v)} />}>
+          <Chips options={languageOptions} value={d.languages} onChange={(v) => set("languages", v)} />
         </Field>
       )}
       {show.interests && (
-        <Field label={t("onboardingFields.interests", null, "Interests")} optional>
+        <Field label={t("onboardingFields.interests", null, "Interests")} optional
+          action={<SelectAllToggle options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} />}>
           <Chips options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} />
           {customInts.length > 0 && (
             <div style={{ marginTop: 12 }}>
