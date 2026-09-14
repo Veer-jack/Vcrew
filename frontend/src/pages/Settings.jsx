@@ -30,15 +30,22 @@ function ChipField({ label, values, required, span, dropdown }) {
     <div style={span ? { gridColumn: "1 / -1" } : undefined}>
       <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
       {values?.length ? (
-        <div className="row gap-2 wrap" style={{ marginTop: 7, alignItems: "center" }}>
-          {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
+        <>
+          {/* "Show all" sits on its own line below the chips, not appended
+              inside their flex-wrap row -- inline, it grabbed whatever
+              leftover space sat at the end of the last chip row (often
+              mid-row, well short of the card's full width) instead of
+              letting the chips themselves wrap out to fill it. */}
+          <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
+            {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
+          </div>
           {collapsible && (
-            <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
+            <button type="button" className="backlink row gap-1" style={{ marginTop: 8, fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
               {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: values.length }, `Show all (${values.length})`)}
               <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
             </button>
           )}
-        </div>
+        </>
       ) : (
         <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
       )}
