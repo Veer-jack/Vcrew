@@ -854,7 +854,7 @@ export const PERSONA_CONFIG = {
 // persona: Researcher's audience-equivalent is "participants" not
 // "audience", and its closest equivalent to "tell us who you are" is
 // "academic" (institution/qualification), not "company" or "organization".
-const CARD_STEP_KEYS = { company: ["company", "organization", "academic"], audience: ["audience", "participants"] };
+const CARD_STEP_KEYS = { company: ["company", "organization", "academic"], audience: ["audience", "participants"], validate: ["validate", "needs", "goals", "research"] };
 export function resolveCardStep(persona, card) {
   if (!persona) return null;
   for (const key of CARD_STEP_KEYS[card] || []) {
@@ -907,6 +907,22 @@ export const CARD_SUMMARY = {
       { key: "department", labelKey: "onboarding.researcher.academic.departmentLabel", labelFallback: "Department" },
     ],
   },
+};
+
+// Step 3 ("Validate"/"Your needs"/"Goals"/"Research") had no Settings card
+// at all, the same gap Preferences had before it got one -- these are all
+// the same shape (a required multi-select "what do you want out of this"
+// list) even though each persona's step/field/options differ, so this
+// follows CARD_SUMMARY's per-step-key pattern rather than forcing all four
+// into one persona-blind field list. `optionsFn` is the {v,t,d} SelCards
+// list saved values are looked up against for a display title; Researcher's
+// "areas" are already plain translated strings (RESEARCH_AREAS), so there's
+// nothing to look up and optionsFn stays null.
+export const VALIDATE_SUMMARY = {
+  validate: { titleKey: "settings.validateDetails", titleFallback: "What You're Validating", fieldKey: "vTypes", optionsFn: VALIDATION_TYPES },
+  needs: { titleKey: "settings.needsDetails", titleFallback: "What You're Looking For", fieldKey: "looking", optionsFn: COMPANY_LOOKING },
+  goals: { titleKey: "settings.goalsDetails", titleFallback: "What You'd Like to Learn", fieldKey: "learn", optionsFn: ORG_LEARN },
+  research: { titleKey: "settings.researchAreasDetails", titleFallback: "Research Areas", fieldKey: "areas", optionsFn: null },
 };
 
 // The Verify/Ethics step's claims -- read-only here (see stepEditability's

@@ -6,12 +6,14 @@ import { Avatar, Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
-import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
+import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY, VALIDATE_SUMMARY } from "../data/personaConfig";
 
 // Tuned for a field spanning the card's full width (Occupation/Country both
 // do) -- 6 was sized for the old half-width column these used to sit in and
-// left most of the row empty once they moved to a full-width span.
-const CHIP_COLLAPSE_AT = 12;
+// left most of the row empty once they moved to a full-width span. 10 (not
+// 12) leaves enough room in the wrapped second row for the inline "Show
+// all" button itself to still fit without spilling to a third row.
+const CHIP_COLLAPSE_AT = 10;
 
 // Bare label + chips, no box of its own -- an earlier version wrapped each
 // field in its own bordered/shaded tile, which read as a card nested inside
@@ -24,31 +26,31 @@ const CHIP_COLLAPSE_AT = 12;
 // `dropdown` collapses a long list (Occupation, Country -- picking
 // "Worldwide" at onboarding saves every country) behind a "Show all"
 // toggle instead of dumping dozens of chips straight into the card.
-function ChipField({ label, values, required, span, dropdown }) {
+function ChipField({ label, values, required, span, dropdown, hideLabel }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const collapsible = dropdown && (values?.length || 0) > CHIP_COLLAPSE_AT;
   const shown = collapsible && !open ? values.slice(0, CHIP_COLLAPSE_AT) : values;
   return (
     <div style={span ? { gridColumn: "1 / -1" } : undefined}>
-      <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>
+      {/* hideLabel: a card whose own <h2> already says exactly this (a
+          single-field card like "Validate") skips the redundant repeat. */}
+      {!hideLabel && <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>}
       {values?.length ? (
-        <>
-          {/* "Show all" sits on its own line below the chips, not appended
-              inside their flex-wrap row -- inline, it grabbed whatever
-              leftover space sat at the end of the last chip row (often
-              mid-row, well short of the card's full width) instead of
-              letting the chips themselves wrap out to fill it. */}
-          <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
-            {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
-          </div>
+        // "Show all" flows inline at the end of the chip list (not its own
+        // separate line) -- CHIP_COLLAPSE_AT is tuned so that count of chips
+        // plus the button both land within ~2 wrapped rows at the card's
+        // full width, so it reads as "the last thing in row 2" rather than
+        // a stray line of its own below a mostly-empty row.
+        <div className="row gap-2 wrap" style={{ marginTop: 7, alignItems: "center" }}>
+          {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
           {collapsible && (
-            <button type="button" className="backlink row gap-1" style={{ marginTop: 8, fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
+            <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
               {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: values.length }, `Show all (${values.length})`)}
               <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
             </button>
           )}
-        </>
+        </div>
       ) : (
         <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
       )}
@@ -72,8 +74,10 @@ export default function Settings() {
   const activePersona = PERSONA_CONFIG[activePersonaKey];
   const companyStepKey = resolveCardStep(activePersona, "company");
   const audienceStepKey = resolveCardStep(activePersona, "audience");
+  const validateStepKey = resolveCardStep(activePersona, "validate");
   const companySummary = CARD_SUMMARY[companyStepKey];
   const verificationFields = VERIFICATION_SUMMARY[activePersonaKey];
+  const validateSummary = VALIDATE_SUMMARY[validateStepKey];
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
@@ -242,6 +246,27 @@ export default function Settings() {
               <ChipField label={t("onboarding.final.frequencyLabel", null, "How often will you need feedback?")} values={builder?.profile?.frequency ? [builder.profile.frequency] : []} />
               <ChipField label={t("onboarding.final.methodsLabel", null, "Preferred methods")} values={builder?.profile?.methods} />
             </div>
+          </div>
+        )}
+
+        {/* Step 3 ("Validate"/"Your needs"/"Goals"/"Research") had the same
+            gap Preferences did -- no Settings card at all. Right after
+            Preferences fills the empty half of its row instead of opening a
+            new one, since both are short single-list cards. Saved values
+            are the SelCards `v` codes (e.g. "app", "pricing"), not display
+            titles, so they're looked up against that persona's own options
+            list for a readable label -- Researcher's `areas` are already
+            plain translated strings with no v/t split, hence no lookup. */}
+        {validateSummary && (
+          <div className="card" style={{ padding: "var(--pad-card)" }}>
+            <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, margin: 0 }}>{t(validateSummary.titleKey, null, validateSummary.titleFallback)}</h2>
+              <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${validateStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
+            </div>
+            <ChipField hideLabel label={t(validateSummary.titleKey, null, validateSummary.titleFallback)}
+              values={(builder?.profile?.[validateSummary.fieldKey] || []).map(v =>
+                validateSummary.optionsFn ? (validateSummary.optionsFn(t).find(o => o.v === v)?.t || v) : v
+              )} />
           </div>
         )}
 
