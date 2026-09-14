@@ -240,15 +240,23 @@ export default function Invitations() {
                         sizes its own columns from only its own row content,
                         so "Pasta" and "Testing 111" produced different
                         column widths and nothing lined up between cards.
-                        Fixed layout + explicit % widths on every column
+                        Fixed layout + explicit px widths on every column
                         makes every instance of this table render identically
-                        regardless of content length. */}
-                    <table className="tbl" style={{ tableLayout: "fixed" }}>
+                        regardless of content length. width:"auto" (not the
+                        shared .tbl's default 100%) keeps the table sized to
+                        its own columns instead of stretching out to the
+                        card's full width -- same override the Missions
+                        table already uses for the same reason (see
+                        .missions-tbl-wrap .tbl in builder.css). Mission is
+                        left-aligned so it starts at the same edge as the
+                        validator's name/avatar above it, instead of
+                        centering inside its column. */}
+                    <table className="tbl" style={{ tableLayout: "fixed", width: "auto" }}>
                       <thead>
                         <tr>
-                          <th style={{ width: "36%", textAlign: "center" }}>{t("invitations.missionCol", null, "Mission")}</th>
-                          <th style={{ width: "24%", textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
-                          <th style={{ width: "24%", textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
+                          <th style={{ width: 260, textAlign: "left" }}>{t("invitations.missionCol", null, "Mission")}</th>
+                          <th style={{ width: 140, textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
+                          <th style={{ width: 120, textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.actionCol", null, "Action")}</th>
                         </tr>
                       </thead>
@@ -262,7 +270,7 @@ export default function Invitations() {
                             doesn't also trigger the row's navigate. */}
                         {g.items.map(inv => (
                           <tr key={inv.id} className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>
-                            <td style={{ textAlign: "center" }}>{inv.mission.name}</td>
+                            <td style={{ textAlign: "left" }}>{inv.mission.name}</td>
                             <td className="muted" style={{ fontSize: 13, textAlign: "center" }}>{fmtDate(inv.createdAt)}</td>
                             <td style={{ textAlign: "center" }}><StatusPill status={inv.status} t={t} /></td>
                             <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
