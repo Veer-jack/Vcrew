@@ -73,20 +73,34 @@ export function FSection({ label, count, required, action }) {
 }
 
 // Single or multi-select pill chips, used for plain string option lists.
+// Lists over 10 options collapse behind a "Show more/less" toggle (same
+// threshold FilterGroup already uses for its own default expanded/collapsed
+// state) -- a currently-selected option never hides, even past the cutoff,
+// so a collapsed view can never look like a selection silently vanished.
 export function Chips({ options, value, onChange, multi = true }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const sel = value || (multi ? [] : "");
   const isOn = (o) => (multi ? sel.includes(o) : sel === o);
   const toggle = (o) => {
     if (!multi) { onChange(sel === o ? "" : o); return; }
     onChange(sel.includes(o) ? sel.filter((x) => x !== o) : [...sel, o]);
   };
+  const collapsible = options.length > 10;
+  const visible = collapsible && !open ? options.filter((o, i) => i < 10 || isOn(o)) : options;
   return (
-    <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-      {options.map((o) => (
+    <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>
+      {visible.map((o) => (
         <button key={o} type="button" className={`chip${isOn(o) ? " on" : ""}`} onClick={() => toggle(o)}>
           {o}
         </button>
       ))}
+      {collapsible && (
+        <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
+          {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: options.length }, `Show all (${options.length})`)}
+          <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -158,6 +172,11 @@ export function LocationFields({ d, set, withCity, showErrors }) {
           toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
           onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
           trFilterLabel={(t, v) => v}
+          // FilterGroup's own default (options.length <= 10) would leave
+          // this collapsed given ~195 countries -- Country is exactly the
+          // one group people expect to actually browse/pick many from on
+          // open, unlike a shorter list where collapsed-by-default declutters.
+          initialExpanded
         />
       </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
