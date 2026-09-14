@@ -16,7 +16,7 @@ const STATUS_STYLE = {
 };
 
 function fmtDate(d) {
-  return d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
+  return d ? new Date(d).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—";
 }
 
 function statusLabel(status, t) {
@@ -264,7 +264,7 @@ export default function Invitations() {
                         <tr>
                           <th style={{ width: 220, textAlign: "left" }}>{t("invitations.missionCol", null, "Mission")}</th>
                           <th style={{ width: 140, textAlign: "center" }}>{t("invitations.typeCol", null, "Type")}</th>
-                          <th style={{ width: 130, textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
+                          <th style={{ width: 170, textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.actionCol", null, "Action")}</th>
                         </tr>
