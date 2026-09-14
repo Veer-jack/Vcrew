@@ -246,23 +246,45 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
 
   return (
     <div className="col gap-3">
-      {show.occupation && (
-        // FilterGroup instead of Chips -- same "+ Add other" / saved-custom-
-        // chip / Select all pattern CreateMissionWizard's own audience step
-        // already uses, replacing the old bespoke "Please specify occupation"
-        // input that lived in a separate Field below the grid.
-        <FilterGroup
-          title={t("onboardingFields.occupation", null, "Occupation")}
-          required
-          options={occupationOptions}
-          sel={occSel}
-          toggle={toggleOcc}
-          otherEntries={customOccs}
-          onOtherEntriesChange={() => {}}
-          onSelectAll={selectAllOcc}
-          otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
-        />
-      )}
+      {show.occupation && (() => {
+        // Matches CreateMissionWizard's own audience filters exactly: a
+        // literal "Other" option gets split into its own trailing
+        // FilterGroup section (its own header, count, Select all, collapse)
+        // instead of living as a trigger chip inside the main grid -- that
+        // inline-trigger version is what shipped first here and wasn't what
+        // was actually asked for.
+        const hasOther = occupationOptions.includes("Other");
+        const mainOpts = hasOther ? occupationOptions.filter(o => o !== "Other") : occupationOptions;
+        return (
+          <>
+            <FilterGroup
+              title={t("onboardingFields.occupation", null, "Occupation")}
+              required
+              options={mainOpts}
+              sel={occSel}
+              toggle={toggleOcc}
+              // Read-only here -- this group doesn't grow its own "add
+              // other" input; it just needs to know about the sibling
+              // Other section's saved entries so this header's own
+              // selected-count/Select all account for them too.
+              otherEntries={hasOther ? customOccs : undefined}
+              onSelectAll={selectAllOcc}
+            />
+            {hasOther && (
+              <FilterGroup
+                title={t("onboardingFields.other", null, "Other")}
+                options={["Other"]}
+                sel={occSel}
+                toggle={toggleOcc}
+                otherEntries={customOccs}
+                onOtherEntriesChange={() => {}}
+                onSelectAll={selectAllOcc}
+                otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
+              />
+            )}
+          </>
+        );
+      })()}
       {show.education && (
         <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}
           action={<SelectAllToggle options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />}>
@@ -281,18 +303,34 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
           <Chips options={languageOptions} value={d.languages} onChange={(v) => set("languages", v)} />
         </Field>
       )}
-      {show.interests && (
-        <FilterGroup
-          title={t("onboardingFields.interests", null, "Interests")}
-          options={finalIntOptions}
-          sel={intSel}
-          toggle={toggleInt}
-          otherEntries={customInts}
-          onOtherEntriesChange={() => {}}
-          onSelectAll={selectAllInt}
-          otherPlaceholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")}
-        />
-      )}
+      {show.interests && (() => {
+        const hasOther = finalIntOptions.includes("Other");
+        const mainOpts = hasOther ? finalIntOptions.filter(o => o !== "Other") : finalIntOptions;
+        return (
+          <>
+            <FilterGroup
+              title={t("onboardingFields.interests", null, "Interests")}
+              options={mainOpts}
+              sel={intSel}
+              toggle={toggleInt}
+              otherEntries={hasOther ? customInts : undefined}
+              onSelectAll={selectAllInt}
+            />
+            {hasOther && (
+              <FilterGroup
+                title={t("onboardingFields.other", null, "Other")}
+                options={["Other"]}
+                sel={intSel}
+                toggle={toggleInt}
+                otherEntries={customInts}
+                onOtherEntriesChange={() => {}}
+                onSelectAll={selectAllInt}
+                otherPlaceholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")}
+              />
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
