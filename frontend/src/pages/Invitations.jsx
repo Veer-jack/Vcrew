@@ -190,7 +190,15 @@ export default function Invitations() {
             </div>
           </div>
           {filtered.length === 0 ? (
-            <div className="muted" style={{ padding: 24 }}>{t("invitations.noneMatch", null, "No invitations match")} "{q}".</div>
+            // q.trim() can be empty here (a status filter alone with zero
+            // matches, no search text typed) -- the old copy always
+            // appended "{q}" regardless, rendering as the literal, confusing
+            // `No invitations match "".` for a plain status-filter miss.
+            <div className="muted" style={{ padding: 24 }}>
+              {q.trim()
+                ? `${t("invitations.noneMatch", null, "No invitations match")} "${q}".`
+                : t("invitations.noneMatchFilter", null, "No invitations match the selected filters.")}
+            </div>
           ) : (
           // Each validator is its own card -- collapsed, it's just the name row;
           // the Mission/Invited on/Status/Action columns only exist inside a
@@ -226,22 +234,38 @@ export default function Invitations() {
                 </div>
                 {isOpen && (
                   <div className="tbl-wrap" style={{ borderTop: "var(--hairline) solid var(--border)", padding: "0 20px" }}>
-                    <table className="tbl">
+                    {/* .tbl has no table-layout:fixed (despite an old comment
+                        elsewhere claiming otherwise) -- with the browser's
+                        default "auto" layout, each validator's <table> here
+                        sizes its own columns from only its own row content,
+                        so "Pasta" and "Testing 111" produced different
+                        column widths and nothing lined up between cards.
+                        Fixed layout + explicit % widths on every column
+                        makes every instance of this table render identically
+                        regardless of content length. */}
+                    <table className="tbl" style={{ tableLayout: "fixed" }}>
                       <thead>
                         <tr>
-                          <th style={{ textAlign: "center" }}>{t("invitations.missionCol", null, "Mission")}</th>
-                          <th style={{ textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
-                          <th style={{ textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
+                          <th style={{ width: "36%", textAlign: "center" }}>{t("invitations.missionCol", null, "Mission")}</th>
+                          <th style={{ width: "24%", textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
+                          <th style={{ width: "24%", textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.actionCol", null, "Action")}</th>
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Row-level click (matching Analytics.jsx/MissionsTable.jsx's
+                            own tables) instead of just the Mission cell -- .tbl's
+                            cursor:pointer rule is scoped to `tr.click` and never
+                            matched the old `td.click`, so the row gave no pointer
+                            feedback anywhere despite the whole thing being clickable
+                            in spirit. The Action cell stops propagation so Withdraw
+                            doesn't also trigger the row's navigate. */}
                         {g.items.map(inv => (
-                          <tr key={inv.id}>
-                            <td className="click" style={{ textAlign: "center" }} onClick={() => navigate(`/missions/${inv.mission.id}`)}>{inv.mission.name}</td>
+                          <tr key={inv.id} className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>
+                            <td style={{ textAlign: "center" }}>{inv.mission.name}</td>
                             <td className="muted" style={{ fontSize: 13, textAlign: "center" }}>{fmtDate(inv.createdAt)}</td>
                             <td style={{ textAlign: "center" }}><StatusPill status={inv.status} t={t} /></td>
-                            <td style={{ textAlign: "center" }}>
+                            <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>
                               {inv.status === "pending" ? (
                                 <Btn size="sm" disabled={cancellingId === inv.id} onClick={() => handleCancel(inv)} style={{ background: "var(--accent)", color: "#fff" }}>
                                   {cancellingId === inv.id ? t("actions.cancelling", null, "Withdrawing…") : t("invitations.uninvite", null, "Withdraw")}
