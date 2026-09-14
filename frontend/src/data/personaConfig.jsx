@@ -94,7 +94,8 @@ function StepFinal({ d, set }) {
         sub={t("onboarding.final.sub", null, "A couple of quick preferences so we can shape your workspace.")} />
       <FSection label={t("onboarding.final.frequencyLabel", null, "How often will you need feedback?")} />
       <SelCards options={FREQUENCY(t)} value={d.frequency} onChange={(v) => set("frequency", v)} cols={2} />
-      <FSection label={t("onboarding.final.methodsLabel", null, "Preferred methods")} count={(d.methods || []).length ? t("onboarding.selectedCount", { count: d.methods.length }, `${d.methods.length} selected`) : null} />
+      <FSection label={t("onboarding.final.methodsLabel", null, "Preferred methods")} count={(d.methods || []).length ? t("onboarding.selectedCount", { count: d.methods.length }, `${d.methods.length} selected`) : null}
+        action={<SelectAllToggle options={PREFERRED_METHODS(t).map(o => o.v)} value={d.methods} onChange={(v) => set("methods", v)} />} />
       <SelCards options={PREFERRED_METHODS(t)} value={d.methods || []} onChange={(v) => set("methods", v)} multi cols={2} />
     </div>
   );
@@ -143,7 +144,8 @@ function FoValidate({ d, set }) {
     <div className="rise">
       <StepHead step={t("onboarding.founder.validate.step", null, "Step 3 · What to validate")} title={t("onboarding.founder.validate.title", null, "What do you want to put in front of people?")}
         sub={t("onboarding.founder.validate.sub", null, "Pick everything you expect to validate — this tailors the reviewer pools we line up for you.")} />
-      <FSection label={t("onboarding.founder.validate.surfacesSection", null, "Validation surfaces")} count={sel.length ? t("onboarding.selectedCount", { count: sel.length }, `${sel.length} selected`) : null} />
+      <FSection label={t("onboarding.founder.validate.surfacesSection", null, "Validation surfaces")} count={sel.length ? t("onboarding.selectedCount", { count: sel.length }, `${sel.length} selected`) : null}
+        action={<SelectAllToggle options={VALIDATION_TYPES(t).map(o => o.v)} value={sel} onChange={(v) => set("vTypes", v)} />} />
       <SelCards options={VALIDATION_TYPES(t)} value={sel} onChange={(v) => set("vTypes", v)} multi cols={2} />
     </div>
   );
@@ -324,7 +326,8 @@ function CoNeeds({ d, set, showErrors }) {
   return (
     <div className="rise">
       <StepHead step={t("onboarding.company.needs.step", null, "Step 3 · Your needs")} title={t("onboarding.company.needs.title", null, "What are you looking for?")} sub={t("onboarding.company.needs.sub", null, "Pick everything you might want feedback on.")} />
-      <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} required />
+      <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} required
+        action={<SelectAllToggle options={COMPANY_LOOKING(t).map(o => o.v)} value={look} onChange={(v) => set("looking", v)} />} />
       <SelCards options={COMPANY_LOOKING(t)} value={look} onChange={(v) => set("looking", v)} multi cols={2} />
       {isOtherLooking && (
         <div style={{ marginTop: 14, maxWidth: 360 }}>
@@ -452,7 +455,8 @@ function ResResearch({ d, set, showErrors }) {
           </Field>
         </div>
       )}
-      <FSection label={t("onboarding.researcher.research.supportSection", null, "What kind of support do you need?")} count={support.length ? t("onboarding.selectedCount", { count: support.length }, `${support.length} selected`) : null} required />
+      <FSection label={t("onboarding.researcher.research.supportSection", null, "What kind of support do you need?")} count={support.length ? t("onboarding.selectedCount", { count: support.length }, `${support.length} selected`) : null} required
+        action={<SelectAllToggle options={SUPPORT_TYPES(t).map(o => o.v)} value={support} onChange={(v) => set("support", v)} />} />
       <SelCards options={SUPPORT_TYPES(t)} value={support} onChange={(v) => set("support", v)} multi cols={2} />
     </div>
   );
@@ -578,7 +582,8 @@ function OrgGoals({ d, set }) {
   return (
     <div className="rise">
       <StepHead step={t("onboarding.org.goals.step", null, "Step 3 · Goals")} title={t("onboarding.org.goals.title", null, "What would you like to learn?")} sub={t("onboarding.org.goals.sub", null, "Pick everything you'd like to understand.")} />
-      <FSection label={t("onboarding.org.goals.title", null, "What would you like to learn?")} count={learn.length ? t("onboarding.selectedCount", { count: learn.length }, `${learn.length} selected`) : null} required />
+      <FSection label={t("onboarding.org.goals.title", null, "What would you like to learn?")} count={learn.length ? t("onboarding.selectedCount", { count: learn.length }, `${learn.length} selected`) : null} required
+        action={<SelectAllToggle options={ORG_LEARN(t).map(o => o.v)} value={learn} onChange={(v) => set("learn", v)} />} />
       <SelCards options={ORG_LEARN(t)} value={learn} onChange={(v) => set("learn", v)} multi cols={2} />
       <FSection label={t("onboarding.org.goals.initiativeSection", null, "Initiative details")} />
       <div className="fgrid">
