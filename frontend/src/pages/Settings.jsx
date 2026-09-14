@@ -296,7 +296,12 @@ export default function Settings() {
                 // the other half sitting empty, and Country did too once it
                 // only had CHIP_COLLAPSE_AT worth of chips to show (see the
                 // bumped collapse count below for the other half of this).
-                { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations, span: true, dropdown: true },
+                // "Other" is a derived flag kept alongside a custom entry
+                // (see ProfileChips/FilterGroup), not a real value of its
+                // own -- stripped here the same way MissionDetail.jsx
+                // already strips it from the geography line, so a custom
+                // occupation doesn't show up next to a phantom "Other" chip.
+                { label: t("onboardingFields.occupation", null, "Occupation"), values: (builder?.profile?.occupations || []).filter(v => v.toLowerCase() !== "other"), span: true, dropdown: true },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
                 // State/City were saved (LocationFields' own State/Region and
                 // City text inputs) but never showed up here at all.
