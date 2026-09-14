@@ -12,6 +12,7 @@ import autoTable from "jspdf-autotable";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import { levelName, badgeLabel, badgeDesc } from "../vi18n";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 
 const EMPTY_SEL = (filters) => Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 
@@ -142,6 +143,7 @@ function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
   // transitions below actually animate instead of snapping straight to
   // their end state (which is what a same-frame transform would do).
   const [open, setOpen] = useState(false);
+  useBodyScrollLock();
 
   useEffect(() => {
     let cancelled = false;
@@ -235,8 +237,11 @@ function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
             )}
           </div>
         </div>
-        <div style={{ padding: "16px 22px", borderTop: "1px solid var(--border)", background: "var(--panel)" }}>
-          <Btn variant="primary" style={{ width: "100%" }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>
+        <div style={{ padding: "16px 22px", borderTop: "1px solid var(--border)", background: "var(--panel)", display: "flex", gap: 10 }}>
+          <button className="btn" style={{ flex: 1, color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent" }} onClick={onClose}>
+            {t("actions.close", null, "Close")}
+          </button>
+          <Btn variant="primary" style={{ flex: 2 }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>
         </div>
       </div>
     </div>,

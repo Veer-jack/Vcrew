@@ -18,6 +18,7 @@ import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 
 // Shared by every row in the mission header's "More" menu.
 const menuItemStyle = {
@@ -689,6 +690,7 @@ function SlideOver({ sub, onClose, onAction }) {
   const [view, setView] = useState("review"); // review | reject | revise | approve
   const [expandedTasks, setExpandedTasks] = useState(new Set([0]));
   const [isProcessing, setIsProcessing] = useState(false);
+  useBodyScrollLock();
 
   const toggleTask = (i) => setExpandedTasks(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
 
