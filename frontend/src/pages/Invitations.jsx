@@ -142,8 +142,14 @@ export default function Invitations() {
       {loading ? (
         <div className="muted" style={{ padding: 24 }}>{t("actions.loading", null, "Loading…")}</div>
       ) : invitations.length === 0 ? (
-        <Empty icon="send" title={t("invitations.emptyTitle", null, "No invitations sent yet")}>
-          {t("invitations.emptyBody", null, "Invite validators to a mission from the Audience tab or a mission's participant panel.")}
+        // Tester's reference used a star icon on the button -- dropped in
+        // favor of "compass", the same icon Dashboard's own "Browse
+        // audience" action already uses for a "go look around" button, so
+        // this doesn't introduce a second convention for the same idea.
+        <Empty icon="send" title={t("invitations.emptyTitle", null, "No invitations sent yet")}
+          action={<Btn variant="primary" icon="compass" onClick={() => navigate("/missions")}>{t("invitations.browseMissions", null, "Browse Missions")}</Btn>}
+          tip={t("invitations.browseMissionsTip", null, "Tip — open a Mission, find a matching participant, and hit Invite.")}>
+          {t("invitations.emptyBody", null, "You haven't invited anyone yet. Browse open missions and send invitations to participants who match your criteria.")}
         </Empty>
       ) : (
         <>
