@@ -349,7 +349,11 @@ export default function OnboardingWizard() {
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
         <RoleSwitcher currentKey={role} currentName={t(`onboarding.persona.${role}.name`, null, persona.name)} builder={builder} />
         <div style={{ flex: 1 }} />
-        <LanguageSwitcher style={{ marginRight: 16 }} />
+        {/* Same fix as EditAccountStep's switcher -- every other usage
+            (AppLayout topbar, RoleSelect, IntentFork) persists the choice
+            via onSave; this one didn't, so it only changed the session's
+            UI language and reverted on the next real reload. */}
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 16 }} />
       </header>
 
       <div className="wiz-body-grid">

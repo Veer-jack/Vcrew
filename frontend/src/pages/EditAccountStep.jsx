@@ -205,7 +205,11 @@ export default function EditAccountStep() {
         <BrandMark size={28} />
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
         <div style={{ flex: 1 }} />
-        <LanguageSwitcher style={{ marginRight: 16 }} />
+        {/* Every other LanguageSwitcher usage (AppLayout topbar, RoleSelect,
+            IntentFork) passes onSave to persist the choice server-side --
+            this one didn't, so switching here only changed the UI for the
+            current session and silently reverted on the next real reload. */}
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 16 }} />
         <button
           onClick={() => guardedNavigate("/settings")}
           className="faint" style={{ fontSize: 13, background: "none", border: "none", cursor: "pointer" }}
