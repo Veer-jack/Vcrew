@@ -298,6 +298,10 @@ export default function Settings() {
                 // bumped collapse count below for the other half of this).
                 { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations, span: true, dropdown: true },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
+                // State/City were saved (LocationFields' own State/Region and
+                // City text inputs) but never showed up here at all.
+                { label: t("onboardingFields.stateRegion", null, "State / Region"), values: builder?.profile?.state ? [builder.profile.state] : [] },
+                { label: t("onboardingFields.city", null, "City"), values: builder?.profile?.district ? [builder.profile.district] : [] },
               ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} span={f.span} dropdown={f.dropdown} />)}
             </div>
           </div>
