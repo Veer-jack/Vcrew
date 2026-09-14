@@ -210,15 +210,21 @@ export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
 export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
-  
-  const [occInput, setOccInput] = useState("");
-  const [intInput, setIntInput] = useState("");
 
   const defaultOccOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
   const customOccs = (d.occupations || []).filter(o => !defaultOccOptions.includes(o) && o !== "Other");
   const occupationOptions = defaultOccOptions;
-  
-  const isOtherOccupation = !!occOptions && (d.occupations || []).includes("Other");
+  const occSel = new Set(d.occupations || []);
+  // Same {toggle, onSelectAll} shape LocationFields' Country uses -- title
+  // arg is ignored (one group per call here, unlike CreateMissionWizard's
+  // shared multi-group filters object).
+  const toggleOcc = (_, o) => set("occupations", occSel.has(o) ? (d.occupations || []).filter(x => x !== o) : [...(d.occupations || []), o]);
+  const selectAllOcc = (opts) => {
+    const s = new Set(d.occupations || []);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) { opts.forEach(o => s.delete(o)); s.delete("Other"); } else { opts.forEach(o => s.add(o)); }
+    set("occupations", [...s]);
+  };
 
   const educationOptions = [t("onboardingFields.eduHighSchool", null, "High school"), t("onboardingFields.eduDiploma", null, "Diploma"), t("onboardingFields.eduUndergraduate", null, "Undergraduate"), t("onboardingFields.eduPostgraduate", null, "Postgraduate"), t("onboardingFields.eduPhd", null, "PhD / Doctorate")];
   const incomeBandOptions = incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"]);
@@ -226,67 +232,36 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
     ? [t("onboardingFields.langHindi", null, "Hindi"), t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langTamil", null, "Tamil"), t("onboardingFields.langTelugu", null, "Telugu"), t("onboardingFields.langKannada", null, "Kannada"), t("onboardingFields.langBengali", null, "Bengali"), t("onboardingFields.langMarathi", null, "Marathi"), t("onboardingFields.langGujarati", null, "Gujarati"), t("onboardingFields.langMalayalam", null, "Malayalam"), t("onboardingFields.langPunjabi", null, "Punjabi")]
     : [t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langSpanish", null, "Spanish"), t("onboardingFields.langFrench", null, "French"), t("onboardingFields.langGerman", null, "German"), t("onboardingFields.langMandarin", null, "Mandarin"), t("onboardingFields.langArabic", null, "Arabic"), t("onboardingFields.langPortuguese", null, "Portuguese"), t("onboardingFields.langJapanese", null, "Japanese")];
 
-  const saveOcc = () => {
-    const val = occInput.trim();
-    if (!val) return;
-    set("occupations", [...(d.occupations || []).filter(o => o !== "Other"), val]);
-    setOccInput("");
-  };
-  const cancelOcc = () => {
-    set("occupations", (d.occupations || []).filter(o => o !== "Other"));
-    setOccInput("");
-  };
-  const removeCustomOcc = (val) => set("occupations", (d.occupations || []).filter(o => o !== val));
-
   const defaultIntOptions = interestOptions || [t("onboardingFields.intAI", null, "AI"), t("onboardingFields.intStartups", null, "Startups"), t("onboardingFields.intFitness", null, "Fitness"), t("onboardingFields.intHealthcare", null, "Healthcare"), t("onboardingFields.intEducation", null, "Education"), t("onboardingFields.intFinance", null, "Finance"), t("onboardingFields.intGaming", null, "Gaming"), t("onboardingFields.intParenting", null, "Parenting"), t("onboardingFields.intTravel", null, "Travel"), t("onboardingFields.intFashion", null, "Fashion"), t("onboardingFields.intFood", null, "Food"), t("onboardingFields.intSustainability", null, "Sustainability")];
   const customInts = (d.interests || []).filter(o => !defaultIntOptions.includes(o) && o !== "Other");
-  const intHasOther = defaultIntOptions.includes("Other");
   const finalIntOptions = defaultIntOptions;
-  
-  const isOtherInterest = intHasOther && (d.interests || []).includes("Other");
-
-  const saveInt = () => {
-    const val = intInput.trim();
-    if (!val) return;
-    set("interests", [...(d.interests || []).filter(o => o !== "Other"), val]);
-    setIntInput("");
+  const intSel = new Set(d.interests || []);
+  const toggleInt = (_, o) => set("interests", intSel.has(o) ? (d.interests || []).filter(x => x !== o) : [...(d.interests || []), o]);
+  const selectAllInt = (opts) => {
+    const s = new Set(d.interests || []);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) { opts.forEach(o => s.delete(o)); s.delete("Other"); } else { opts.forEach(o => s.add(o)); }
+    set("interests", [...s]);
   };
-  const cancelInt = () => {
-    set("interests", (d.interests || []).filter(o => o !== "Other"));
-    setIntInput("");
-  };
-  const removeCustomInt = (val) => set("interests", (d.interests || []).filter(o => o !== val));
 
   return (
     <div className="col gap-3">
       {show.occupation && (
-        <Field label={t("onboardingFields.occupation", null, "Occupation")} action={<SelectAllToggle options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />}>
-          <Chips options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />
-          {customOccs.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-                {customOccs.map(o => (
-                  <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {o}
-                    <button type="button" onClick={() => removeCustomOcc(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
-                      <Icon name="x" size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Field>
-      )}
-      {show.occupation && isOtherOccupation && (
-        <Field label={t("onboardingFields.occupationOtherLabel", null, "Please specify occupation")}>
-          <div className="row gap-2">
-            <TextInput value={occInput} onChange={setOccInput} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} />
-            <button type="button" className="btn" disabled={!occInput.trim()} onClick={saveOcc}>{t("actions.save", null, "Save")}</button>
-            <button type="button" className="btn btn-ghost" onClick={cancelOcc}>{t("actions.cancel", null, "Cancel")}</button>
-          </div>
-        </Field>
+        // FilterGroup instead of Chips -- same "+ Add other" / saved-custom-
+        // chip / Select all pattern CreateMissionWizard's own audience step
+        // already uses, replacing the old bespoke "Please specify occupation"
+        // input that lived in a separate Field below the grid.
+        <FilterGroup
+          title={t("onboardingFields.occupation", null, "Occupation")}
+          required
+          options={occupationOptions}
+          sel={occSel}
+          toggle={toggleOcc}
+          otherEntries={customOccs}
+          onOtherEntriesChange={() => {}}
+          onSelectAll={selectAllOcc}
+          otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
+        />
       )}
       {show.education && (
         <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}
@@ -307,34 +282,16 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
         </Field>
       )}
       {show.interests && (
-        <Field label={t("onboardingFields.interests", null, "Interests")} optional
-          action={<SelectAllToggle options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} />}>
-          <Chips options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} />
-          {customInts.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-                {customInts.map(o => (
-                  <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {o}
-                    <button type="button" onClick={() => removeCustomInt(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
-                      <Icon name="x" size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Field>
-      )}
-      {show.interests && isOtherInterest && (
-        <Field label={t("onboardingFields.interestOtherLabel", null, "Please specify interest")}>
-          <div className="row gap-2">
-            <TextInput value={intInput} onChange={setIntInput} placeholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")} />
-            <button type="button" className="btn" disabled={!intInput.trim()} onClick={saveInt}>{t("actions.save", null, "Save")}</button>
-            <button type="button" className="btn btn-ghost" onClick={cancelInt}>{t("actions.cancel", null, "Cancel")}</button>
-          </div>
-        </Field>
+        <FilterGroup
+          title={t("onboardingFields.interests", null, "Interests")}
+          options={finalIntOptions}
+          sel={intSel}
+          toggle={toggleInt}
+          otherEntries={customInts}
+          onOtherEntriesChange={() => {}}
+          onSelectAll={selectAllInt}
+          otherPlaceholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")}
+        />
       )}
     </div>
   );
