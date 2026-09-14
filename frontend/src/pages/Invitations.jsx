@@ -253,16 +253,21 @@ export default function Invitations() {
                         regardless of content length. width:"auto" (not the
                         shared .tbl's default 100%) keeps the table sized to
                         its own columns instead of stretching out to the
-                        card's full width -- same override the Missions
-                        table already uses for the same reason (see
-                        .missions-tbl-wrap .tbl in builder.css). Mission is
-                        left-aligned so it starts at the same edge as the
-                        validator's name/avatar above it, instead of
-                        centering inside its column. */}
-                    <table className="tbl" style={{ tableLayout: "fixed", width: "auto" }}>
+                        card's full width. Mission is left-aligned so it
+                        starts at the same edge as the validator's
+                        name/avatar above it, instead of centering inside
+                        its column. width:100% (not "auto") stretches the
+                        table to match the header row above it (which spans
+                        the full card via justify-content:space-between) --
+                        a narrower auto-width table left a visible gap on
+                        the right that row didn't have. The extra width
+                        goes entirely to Mission, the one column that
+                        benefits from more room, rather than stretching
+                        Status/Action into oddly wide cells that don't. */}
+                    <table className="tbl" style={{ tableLayout: "fixed" }}>
                       <thead>
                         <tr>
-                          <th style={{ width: 220, textAlign: "left" }}>{t("invitations.missionCol", null, "Mission")}</th>
+                          <th style={{ textAlign: "left" }}>{t("invitations.missionCol", null, "Mission")}</th>
                           <th style={{ width: 140, textAlign: "center" }}>{t("invitations.typeCol", null, "Type")}</th>
                           <th style={{ width: 170, textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
