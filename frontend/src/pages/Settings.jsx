@@ -8,7 +8,10 @@ import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY } from "../data/personaConfig";
 
-const CHIP_COLLAPSE_AT = 6;
+// Tuned for a field spanning the card's full width (Occupation/Country both
+// do) -- 6 was sized for the old half-width column these used to sit in and
+// left most of the row empty once they moved to a full-width span.
+const CHIP_COLLAPSE_AT = 12;
 
 // Bare label + chips, no box of its own -- an earlier version wrapped each
 // field in its own bordered/shaded tile, which read as a card nested inside
@@ -263,11 +266,12 @@ export default function Settings() {
                 // free to skip, hence only Age gets the required marker.
                 { label: t("onboardingFields.age", null, "Age"), values: builder?.profile?.ageBands, required: true },
                 { label: t("onboardingFields.gender", null, "Gender"), values: builder?.profile?.genders },
-                { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations, dropdown: true },
-                // Country's own full row (not sharing a column) is what
-                // actually uses the extra width the card just gained --
-                // splitting it into another 1fr column would've kept it just
-                // as cramped as before, only now next to more empty space.
+                // Both get the full row (not a 1fr column) -- otherwise
+                // Occupation's chips stopped at half the card's width with
+                // the other half sitting empty, and Country did too once it
+                // only had CHIP_COLLAPSE_AT worth of chips to show (see the
+                // bumped collapse count below for the other half of this).
+                { label: t("onboardingFields.occupation", null, "Occupation"), values: builder?.profile?.occupations, span: true, dropdown: true },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
               ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} span={f.span} dropdown={f.dropdown} />)}
             </div>
