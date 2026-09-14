@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Avatar, Btn, Empty } from "../components/ui";
+import { Avatar, Btn, Empty, TypeTag } from "../components/ui";
 import Icon from "../components/Icon";
 import { api } from "../api/client";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "../i18n/index.jsx";
+import { useMeta } from "../context/MetaContext";
 
 const STATUS_STYLE = {
   pending: { bg: "var(--accent-weak)", fg: "var(--accent)" },
@@ -64,6 +65,7 @@ function groupInvitations(invitations) {
 export default function Invitations() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { categories } = useMeta();
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState(null);
@@ -254,8 +256,9 @@ export default function Invitations() {
                     <table className="tbl" style={{ tableLayout: "fixed", width: "auto" }}>
                       <thead>
                         <tr>
-                          <th style={{ width: 260, textAlign: "left" }}>{t("invitations.missionCol", null, "Mission")}</th>
-                          <th style={{ width: 140, textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
+                          <th style={{ width: 220, textAlign: "left" }}>{t("invitations.missionCol", null, "Mission")}</th>
+                          <th style={{ width: 140, textAlign: "center" }}>{t("invitations.typeCol", null, "Type")}</th>
+                          <th style={{ width: 130, textAlign: "center" }}>{t("invitations.invitedOnCol", null, "Invited on")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.statusCol", null, "Status")}</th>
                           <th style={{ width: 120, textAlign: "center" }}>{t("invitations.actionCol", null, "Action")}</th>
                         </tr>
@@ -271,6 +274,7 @@ export default function Invitations() {
                         {g.items.map(inv => (
                           <tr key={inv.id} className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>
                             <td style={{ textAlign: "left" }}>{inv.mission.name}</td>
+                            <td style={{ textAlign: "center" }}><TypeTag cat={inv.mission.category} categories={categories} /></td>
                             <td className="muted" style={{ fontSize: 13, textAlign: "center" }}>{fmtDate(inv.createdAt)}</td>
                             <td style={{ textAlign: "center" }}><StatusPill status={inv.status} t={t} /></td>
                             <td style={{ textAlign: "center" }} onClick={e => e.stopPropagation()}>

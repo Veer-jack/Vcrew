@@ -208,7 +208,7 @@ router.get("/invitations", async (req, res) => {
   const { status } = req.query;
   let sql = `
     SELECT mi.id, mi.status, mi.created_at,
-      mi.mission_id, m.name AS mission_name, m.status AS mission_status,
+      mi.mission_id, m.name AS mission_name, m.status AS mission_status, m.category AS mission_category,
       mi.validator_id, v.name AS validator_name, v.city AS validator_city,
       (vs.validator_id IS NOT NULL) AS is_waitlist
     FROM mission_invitations mi
@@ -227,7 +227,7 @@ router.get("/invitations", async (req, res) => {
     status: r.status,
     createdAt: r.created_at,
     isWaitlist: r.is_waitlist,
-    mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status },
+    mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status, category: r.mission_category },
     validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city },
   }));
 
