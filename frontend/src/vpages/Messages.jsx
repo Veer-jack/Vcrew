@@ -105,7 +105,9 @@ export default function Messages() {
   // /threads), so there's no anyone-to-anyone DM to open here either --
   // messaging only starts once you're actually on a mission with a builder.
   if (!threads.length) return (
-    <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+    <div className="page rise">
+      <div className="ph"><h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1></div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6, maxWidth: 380 }}>
         <div style={{ position: "relative", width: 84, height: 84, marginBottom: 8 }}>
           <div style={{ width: 84, height: 84, borderRadius: "50%", background: "var(--accent-weak)", display: "grid", placeItems: "center" }}>
@@ -120,6 +122,7 @@ export default function Messages() {
         <button className="btn btn-primary" onClick={() => navigate("/validator/missions")} style={{ marginTop: 10 }}><Icon name="send" size={14} />{t("actions.startConversation", null, "Start a conversation")}</button>
         <p className="faint" style={{ margin: "10px 0 0", fontSize: 12 }}>{t("vMessages.startConversationTip", null, "Tip — you'll be able to message a builder once you're on a mission with them.")}</p>
       </div>
+      </div>
     </div>
   );
 
@@ -128,7 +131,11 @@ export default function Messages() {
     : threads;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", height: "calc(100vh - 64px)" }} className="msg-wrap">
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
+      <div className="ph" style={{ padding: "20px var(--pad-card) 0", marginBottom: 0, flex: "none" }}>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", flex: 1, minHeight: 0 }} className="msg-wrap">
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px var(--pad-card) 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           <div className="search"><Icon name="search" size={16} /><input placeholder={t("messages.searchMessages", null, "Search messages…")} value={q} onChange={e => setQ(e.target.value)} /></div>
@@ -201,6 +208,7 @@ export default function Messages() {
           <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.selectConversationHint", null, "Choose someone from the list on the left to view your messages.")}</p>
         </div>
       )}
+      </div>
     </div>
   );
 }

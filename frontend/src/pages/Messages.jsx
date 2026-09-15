@@ -120,7 +120,11 @@ export default function Messages() {
   // today (a participant row, an application, a submission reply) -- same
   // flow the tip line below already points to in words.
   if (!threads.length) return (
-    <div className="page rise" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+    <div className="page rise">
+      <div className="ph">
+        <div><h1>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("messages.lead", null, "Conversations with the validators and researchers on your missions.")}</p></div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6, maxWidth: 380 }}>
         <div style={{ position: "relative", width: 84, height: 84, marginBottom: 8 }}>
           <div style={{ width: 84, height: 84, borderRadius: "50%", background: "var(--accent-weak)", display: "grid", placeItems: "center" }}>
@@ -135,6 +139,7 @@ export default function Messages() {
         <Btn variant="primary" icon="send" onClick={() => navigate("/missions")} style={{ marginTop: 10 }}>{t("actions.startConversation", null, "Start a conversation")}</Btn>
         <p className="faint" style={{ margin: "10px 0 0", fontSize: 12 }}>{t("messages.startConversationTip", null, "Tip — invite participants from a Mission to message them directly.")}</p>
       </div>
+      </div>
     </div>
   );
 
@@ -143,7 +148,17 @@ export default function Messages() {
     : threads;
 
   return (
-    <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", height: "calc(100vh - 64px)" }}>
+    // Flex column so the standard .ph header (every other page has one --
+    // this was the one page missing a module name entirely) sits above the
+    // conversation grid without breaking its own full-viewport-height,
+    // no-page-scroll layout -- flex:1/minHeight:0 on the grid below just
+    // fills whatever height the header doesn't use, instead of a hardcoded
+    // "100vh minus header px" guess that drifts if the header ever wraps.
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
+      <div className="ph" style={{ padding: "20px 28px 0", marginBottom: 0, flex: "none" }}>
+        <div><h1>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("messages.lead", null, "Conversations with the validators and researchers on your missions.")}</p></div>
+      </div>
+      <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", flex: 1, minHeight: 0 }}>
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           {refetching && <div style={{ marginBottom: 8 }}><UpdatingBadge show /></div>}
@@ -216,6 +231,7 @@ export default function Messages() {
           <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.selectConversationHint", null, "Choose someone from the list on the left to view your messages.")}</p>
         </div>
       )}
+      </div>
     </div>
   );
 }
