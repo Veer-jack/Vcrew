@@ -87,10 +87,13 @@ export function InviteValidatorModal({ mission, onClose }) {
   // New States for UI
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
-  // Recommended is on by default — a first-open view narrowed to the
-  // stronger profiles within the mission's real audience match, rather than
-  // dumping the full matched list unfiltered. Trust 90+ stays opt-in.
-  const [activeFilters, setActiveFilters] = useState(() => new Set([t("invite.recommended", null, "Recommended")]));
+  // Recommended used to be on by default, which *hid* everyone below the
+  // match threshold on first open — a tester flagged this as a bad first
+  // impression (a builder shouldn't see a shorter list than actually
+  // exists). Nothing is filtered out by default now; Recommended stays
+  // available as an opt-in narrowing, same as Trust 90+, while the default
+  // view still surfaces the stronger matches first (see displayList below).
+  const [activeFilters, setActiveFilters] = useState(() => new Set());
   const [viewOnlySelected, setViewOnlySelected] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
 
@@ -192,24 +195,28 @@ export function InviteValidatorModal({ mission, onClose }) {
     });
   }, []);
 
-  // Filtered validators based on search, pills, and view toggle
-  const displayList = useMemo(() => {
+  // Filtered validators based on search, pills, and view toggle. Returns
+  // recommendedCount alongside the list — when Recommended isn't explicitly
+  // filtered down to, the list still leads with strong matches (>= 80%) but
+  // keeps everyone else below them rather than hiding them, and the render
+  // side uses recommendedCount to draw one divider at that boundary.
+  const { displayList, recommendedCount } = useMemo(() => {
     let list = validators;
-    
+
     if (viewOnlySelected) {
       list = list.filter(v => selectedIds.has(v.id));
     }
-    
+
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(v => 
-        v.name.toLowerCase().includes(q) || 
+      list = list.filter(v =>
+        v.name.toLowerCase().includes(q) ||
         v.role.toLowerCase().includes(q) ||
         v.city.toLowerCase().includes(q) ||
         (v.expertise || []).some(e => e.toLowerCase().includes(q))
       );
     }
-    
+
     // These two are both "quality signal" chips rather than different
     // criteria — a strong match and a high trust score aren't things a
     // person needs both of, so with both active this is an OR (either signal
@@ -218,9 +225,9 @@ export function InviteValidatorModal({ mission, onClose }) {
     const recommendedOn = activeFilters.has(t("invite.recommended", null, "Recommended"));
     const trust90On = activeFilters.has(t("invite.trust90", null, "Trust 90+"));
     if (recommendedOn && trust90On) {
-      list = list.filter(v => v.match >= 80 || v.trust >= 90).sort((a, b) => b.match - a.match);
+      list = list.filter(v => v.match >= 80 || v.trust >= 90);
     } else if (recommendedOn) {
-      list = list.filter(v => v.match >= 80).sort((a, b) => b.match - a.match);
+      list = list.filter(v => v.match >= 80);
     } else if (trust90On) {
       list = list.filter(v => v.trust >= 90);
     }
@@ -239,7 +246,13 @@ export function InviteValidatorModal({ mission, onClose }) {
       list = list.filter(v => vals.some(val => matchesAudienceValue(v, val)));
     }
 
-    return list;
+    if (recommendedOn) {
+      // Already narrowed to just strong matches — nothing left to section.
+      return { displayList: [...list].sort((a, b) => b.match - a.match), recommendedCount: list.length };
+    }
+    const recommended = list.filter(v => v.match >= 80).sort((a, b) => b.match - a.match);
+    const rest = list.filter(v => v.match < 80);
+    return { displayList: [...recommended, ...rest], recommendedCount: recommended.length };
   }, [validators, search, activeFilters, viewOnlySelected, selectedIds, audienceFilterChips, filterIndex, matchesAudienceValue, t]);
 
   const handleBulkInvite = async () => {
@@ -410,16 +423,26 @@ export function InviteValidatorModal({ mission, onClose }) {
             <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noMatchesFound", null, "No matches found for these filters.")}</div>
           ) : (
             <div className="col gap-0">
-              {displayList.slice(0, visibleCount).map(v => (
-                <ValidatorListItem
-                  key={v.id}
-                  v={v}
-                  isSelected={selectedIds.has(v.id)}
-                  toggleSelection={toggleSelection}
-                  t={t}
-                />
+              {displayList.slice(0, visibleCount).map((v, i) => (
+                <div key={v.id}>
+                  {i === recommendedCount && recommendedCount > 0 && recommendedCount < displayList.length && (
+                    <div className="row ac" style={{ gap: 10, margin: "14px 0 10px" }}>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                        {t("invite.otherMembers", null, "Other members")}
+                      </span>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                    </div>
+                  )}
+                  <ValidatorListItem
+                    v={v}
+                    isSelected={selectedIds.has(v.id)}
+                    toggleSelection={toggleSelection}
+                    t={t}
+                  />
+                </div>
               ))}
-              
+
               {visibleCount < displayList.length && (
                 <div style={{ textAlign: "center", marginTop: 24, marginBottom: 12 }}>
                   <Btn variant="outline" onClick={() => setVisibleCount(c => c + 50)}>

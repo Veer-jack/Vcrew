@@ -2647,6 +2647,7 @@ const fr = {
     noMatchesFound: "Aucune correspondance trouvée pour ces filtres.",
     noAudienceMatch: "Personne dans le vivier de validateurs ne correspond actuellement à l'audience de cette mission. Élargissez votre ciblage depuis l'onglet Audience pour toucher plus de personnes — les correspondances se mettent à jour en direct à mesure que de nouveaux membres rejoignent.",
     membersSelected: "Membres {{count}} sélectionnés",
+    otherMembers: "Autres membres",
   },
   locations: {
     remote: "À distance",

@@ -2646,6 +2646,7 @@ const en = {
     noMatchesFound: "No matches found for these filters.",
     noAudienceMatch: "No one in the validator pool currently matches this mission's audience. Widen your targeting from the Audience tab to reach more people — matches update live as new members join.",
     membersSelected: "{{count}} members selected",
+    otherMembers: "Other members",
   },
   locations: {
     remote: "Remote",

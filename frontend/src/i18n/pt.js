@@ -2647,6 +2647,7 @@ const pt = {
     noMatchesFound: "Nenhuma correspondência encontrada para estes filtros.",
     noAudienceMatch: "Ninguém no grupo de validadores corresponde atualmente ao público desta missão. Amplie sua segmentação na aba Público para alcançar mais pessoas — as correspondências são atualizadas em tempo real conforme novos membros entram.",
     membersSelected: "Membros {{count}} selecionados",
+    otherMembers: "Outros membros",
   },
   locations: {
     remote: "Remoto",

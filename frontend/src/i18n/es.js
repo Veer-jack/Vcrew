@@ -2647,6 +2647,7 @@ const es = {
     noMatchesFound: "No se encontraron coincidencias para estos filtros.",
     noAudienceMatch: "Nadie en el grupo de validadores coincide actualmente con la audiencia de esta misión. Amplía tu segmentación desde la pestaña Audiencia para llegar a más personas — las coincidencias se actualizan en vivo a medida que se unen nuevos miembros.",
     membersSelected: "{{count}} miembros seleccionados",
+    otherMembers: "Otros miembros",
   },
   locations: {
     remote: "Remoto",

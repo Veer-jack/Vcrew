@@ -2647,6 +2647,7 @@ const zh = {
     noMatchesFound: "没有找到这些过滤器的匹配项。",
     noAudienceMatch: "目前验证员池中没有人符合此任务的受众。请从「受众」标签页扩大您的定向范围以覆盖更多人群——匹配会随着新成员加入实时更新。",
     membersSelected: "{{count}} 成员已选定",
+    otherMembers: "其他成员",
   },
   locations: {
     remote: "远程",
