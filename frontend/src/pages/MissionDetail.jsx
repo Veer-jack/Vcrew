@@ -2003,12 +2003,19 @@ export default function MissionDetail() {
                   {/* Close and Complete are two separate, independent endings
                       for an active mission -- not sequential steps -- so both
                       are offered directly from "active" rather than gating
-                      Complete behind Close first. Archive is a housekeeping
-                      action for a mission that's already terminal one way or
-                      the other (closed or completed), not something offered
-                      mid-flight or for a draft that already has its own
-                      Delete action in the Missions table. */}
-                  {mission.status === "active" && (
+                      Complete behind Close first. A closed mission can still
+                      be marked complete afterwards (tester request) -- e.g.
+                      it was closed early with only some submissions in, and
+                      the builder later decides that's good enough to call
+                      done rather than just abandoned; the backend's own
+                      terminal-state handling already treats this safely (no
+                      double refund, blocked if a submission is still awaiting
+                      review). Archive is a housekeeping action for a mission
+                      that's already terminal one way or the other (closed or
+                      completed), not something offered mid-flight or for a
+                      draft that already has its own Delete action in the
+                      Missions table. */}
+                  {(mission.status === "active" || mission.status === "closed") && (
                     <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("completed"); }} style={menuItemStyle}>
                       <Icon name="checkCircle" size={15} /> {t("actions.complete", null, "Mark as complete")}
                     </button>
