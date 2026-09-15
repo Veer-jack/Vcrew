@@ -143,10 +143,10 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, stageCapt
           </div>
         </div>
         <div style={{ padding: "16px 22px", borderTop: "1px solid var(--border)", background: "var(--panel)", display: "flex", gap: 10 }}>
-          <button className="btn" style={{ flex: 1, color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent" }} onClick={onClose}>
+          <button className="btn" style={{ flex: 1, color: "var(--text)", border: "1px solid var(--border)", background: "transparent" }} onClick={onClose}>
             {t("actions.close", null, "Close")}
           </button>
-          {onInvite && <Btn variant="primary" style={{ flex: 2 }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>}
+          {onInvite && <Btn variant="primary" style={{ flex: 1 }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>}
         </div>
       </div>
     </div>,
