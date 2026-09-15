@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { toast } from "react-hot-toast";
 import { useTranslation } from "../i18n/index.jsx";
 import { useMeta } from "../context/MetaContext";
+import { trFilterLabel } from "../data/audienceFilterLabels";
 
 const STATUS_STYLE = {
   pending: { bg: "var(--accent-weak)", fg: "var(--accent)" },
@@ -232,10 +233,17 @@ export default function Invitations() {
                           below too, bolding text that was never meant to be. */}
                       <div className="row" style={{ gap: 6, alignItems: "center", fontWeight: 700 }}>
                         {g.validator.name}
-                        <span className="tag" title={g.items.map(i => i.mission.name).join("\n")} style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{g.items.length}</span>
+                        <span className="tag" title={g.items.map(i => i.mission.name).join("\n")} style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>
+                          {g.items.length === 1 ? t("invitations.oneMission", null, "1 mission") : t("invitations.missionCount", { count: g.items.length }, `${g.items.length} missions`)}
+                        </span>
                         {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
                       </div>
-                      <div className="t-sub">{g.validator.city}</div>
+                      {/* Same "Occupation | City | Role" format the
+                          Audience Explorer's own ValidatorProfileDrawer
+                          uses -- this only ever showed the city. */}
+                      <div className="t-sub">
+                        {[g.validator.occ, g.validator.city, g.validator.role].filter(Boolean).map(v => trFilterLabel(t, v)).join(" | ")}
+                      </div>
                     </div>
                   </div>
                   <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />

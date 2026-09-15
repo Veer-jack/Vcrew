@@ -210,6 +210,7 @@ router.get("/invitations", async (req, res) => {
     SELECT mi.id, mi.status, mi.created_at,
       mi.mission_id, m.name AS mission_name, m.status AS mission_status, m.category AS mission_category,
       mi.validator_id, v.name AS validator_name, v.city AS validator_city,
+      v.occupation AS validator_occupation, v.role AS validator_role, v.validator_type,
       (vs.validator_id IS NOT NULL) AS is_waitlist
     FROM mission_invitations mi
     JOIN missions m ON m.id = mi.mission_id
@@ -222,14 +223,21 @@ router.get("/invitations", async (req, res) => {
   sql += ` ORDER BY mi.created_at DESC`;
 
   const rows = await db.prepare(sql).all(...params);
-  const invitations = rows.map(r => ({
-    id: r.id,
-    status: r.status,
-    createdAt: r.created_at,
-    isWaitlist: r.is_waitlist,
-    mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status, category: r.mission_category },
-    validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city },
-  }));
+  const invitations = rows.map(r => {
+    // Same fallback-to-validator_type + "User" default the Audience
+    // Explorer already uses (audience.js) -- keeps the role shown here
+    // consistent with what it says everywhere else for the same validator.
+    const rawType = r.validator_type ? r.validator_type.charAt(0).toUpperCase() + r.validator_type.slice(1) : "User";
+    const role = r.validator_role === "User" || !r.validator_role ? rawType : r.validator_role;
+    return {
+      id: r.id,
+      status: r.status,
+      createdAt: r.created_at,
+      isWaitlist: r.is_waitlist,
+      mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status, category: r.mission_category },
+      validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city, occ: r.validator_occupation, role },
+    };
+  });
 
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en" && invitations.length) {
