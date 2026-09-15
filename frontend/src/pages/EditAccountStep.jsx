@@ -4,7 +4,7 @@ import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, resolveActivePersonaKey, resolveCardStep, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
+import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
 import { PersonalFields } from "../components/OnboardingFields";
 import { isValidMobile } from "../data/onboarding";
 import { api } from "../api/client";
@@ -27,11 +27,14 @@ function genericPersonalValid(d) {
   return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
 }
 
-// The full step list for context ("show every step"), navigational only --
-// each editable step is its own independent page/save (see below), not one
-// shared multi-step form, so jumping here never risks losing a DIFFERENT
-// step's unsaved edits. Locked steps render but aren't links into this page.
-function StepRail({ persona, currentKey, dirty, onNavigate }) {
+// The full step list for context ("show every step") -- d (the draft) now
+// lives for the whole edit session, not reset per step (see the `initial`
+// useMemo below), so jumping between steps here carries edits along instead
+// of discarding them; Cancel is the only action that actually drops
+// anything. Locked steps render but aren't links into this page. Cancel
+// lives in this rail's own footer (wz-rail-foot), not the top header --
+// same spot the real onboarding wizard's own Start over/Skip/Back live in.
+function StepRail({ persona, currentKey, dirty, onNavigate, onCancel }) {
   const { t } = useTranslation();
   // No persona yet (role never picked) -- there's nothing to rail-navigate
   // between, just the one identity step this page is already showing.
@@ -44,6 +47,9 @@ function StepRail({ persona, currentKey, dirty, onNavigate }) {
             <span className="wiz-step-dot">1</span>
             <span>{stepLabel(t, "personal", "Your details")}</span>
           </div>
+        </div>
+        <div className="wz-rail-foot">
+          <button className="backlink" onClick={onCancel} style={{ marginLeft: 8 }}>{t("actions.cancel", null, "Cancel")}</button>
         </div>
       </aside>
     );
@@ -76,7 +82,10 @@ function StepRail({ persona, currentKey, dirty, onNavigate }) {
           );
         })}
       </div>
-      {dirty && <p className="faint" style={{ fontSize: 11.5, marginTop: 12, padding: "0 10px" }}>{t("settings.unsavedHint", null, "You have unsaved changes on this step.")}</p>}
+      {dirty && <p className="faint" style={{ fontSize: 11.5, marginTop: 12, padding: "0 10px" }}>{t("settings.unsavedHint", null, "You have unsaved changes.")}</p>}
+      <div className="wz-rail-foot">
+        <button className="backlink" onClick={onCancel} style={{ marginLeft: 8 }}>{t("actions.cancel", null, "Cancel")}</button>
+      </div>
     </aside>
   );
 }
@@ -110,24 +119,24 @@ export default function EditAccountStep() {
   // draft was last saved), that's the more authoritative, more recent value
   // -- laid on top last so it wins instead of a stale draft silently
   // resurrecting the old one.
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately captured once per mount, as the "unchanged" baseline to diff against. A stale mount here previously meant a still-open edit could save one account's typed values onto whichever account is actually logged in if the session changed underneath it without navigating away -- App.jsx now remounts this whole page on that too (its route key includes the builder id, not just the path), so "once per mount" now also means "once per account".
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately captured once per mount (this whole edit session, not just the step first opened -- d now persists across in-session step navigation, see below), as the "unchanged" baseline to diff against. A stale mount here previously meant a still-open edit could save one account's typed values onto whichever account is actually logged in if the session changed underneath it without navigating away -- App.jsx now remounts this whole page on that too (its route key includes the builder id, not just the path), so "once per mount" now also means "once per account".
   const initial = useMemo(() => {
     const base = { ...(builder?.profile || {}) };
     // "Your details" edits the account's real identity columns (see
     // handleSave below), which can drift ahead of the onboarding-time
     // profile_json snapshot (e.g. a name changed some other way since) --
     // start from the canonical builder columns here, not the stale copy.
-    if (isPersonal) {
-      base.fullName = builder?.name || base.fullName || "";
-      base.designation = builder?.designation ?? base.designation ?? "";
-      base.email = builder?.email || base.email || "";
-    }
+    // Always applied, not just when "personal" happens to be whichever step
+    // this session was first opened on -- d covers every step now.
+    base.fullName = builder?.name || base.fullName || "";
+    base.designation = builder?.designation ?? base.designation ?? "";
+    base.email = builder?.email || base.email || "";
     try {
       const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
       if (draft?.d) return { ...draft.d, ...base };
     } catch { /* ignore */ }
     return base;
-  }, [stepKey]);
+  }, []);
   const [d, setD] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -137,13 +146,14 @@ export default function EditAccountStep() {
   const dirty = useMemo(() => JSON.stringify(d) !== JSON.stringify(initial), [d, initial]);
   useUnsavedChangesWarning(dirty, t("settings.unsavedChangesWarning", null, "You have unsaved changes. Are you sure you want to leave?"));
 
-  // Rail links (and Cancel) are in-app navigation, which the hook above
-  // doesn't cover -- confirm here too so jumping to another step can't
-  // silently drop this one's unsaved edits.
-  const guardedNavigate = (path) => {
+  // d now persists for the whole edit session (see the `initial` useMemo
+  // above), so moving between steps here never loses anything -- only
+  // Cancel actually discards the accumulated draft, hence the confirm stays
+  // there but not on step-to-step navigation.
+  const cancelToSettings = () => {
     if (dirty && !window.confirm(t("settings.unsavedChangesWarning", null, "You have unsaved changes. Are you sure you want to leave?"))) return;
     window.__bypassUnload = true;
-    navigate(path);
+    navigate("/settings");
   };
 
   if (!StepComponent) {
@@ -176,18 +186,17 @@ export default function EditAccountStep() {
       // otherwise "Your details"/"Company details" would visibly save
       // (no error, spinner completes) while the topbar, this same Settings
       // page, and everywhere else showing that name silently kept the old
-      // one. `stepKey === "personal"` is name/designation; the persona's
-      // company/organization/academic step is org (+ website, where that
-      // step has one).
+      // one. Applied unconditionally now (not gated on stepKey matching
+      // "personal"/company) -- d carries every step's fields for the whole
+      // session, so Save can fire from any step after editing several, and
+      // gating on "is this the step currently on screen" would silently
+      // skip the sync for a field that was actually changed two steps ago.
       const patch = { profile: d };
-      if (stepKey === "personal") {
-        patch.name = d.fullName;
-        patch.designation = (d.designation === "Other" ? d.designationOther : d.designation) || null;
-      } else if (stepKey === resolveCardStep(persona, "company")) {
-        const nameField = PERSONA_NAME_FIELD[activePersonaKey];
-        if (nameField && d[nameField]) patch.org = d[nameField];
-        if (d.website !== undefined) patch.website = d.website || null;
-      }
+      patch.name = d.fullName;
+      patch.designation = (d.designation === "Other" ? d.designationOther : d.designation) || null;
+      const nameField = PERSONA_NAME_FIELD[activePersonaKey];
+      if (nameField && d[nameField]) patch.org = d[nameField];
+      if (d.website !== undefined) patch.website = d.website || null;
       const res = await api.updateProfile(patch);
       setBuilder(res.builder);
       window.__bypassUnload = true;
@@ -210,15 +219,12 @@ export default function EditAccountStep() {
             this one didn't, so switching here only changed the UI for the
             current session and silently reverted on the next real reload. */}
         <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 16 }} />
-        <button
-          onClick={() => guardedNavigate("/settings")}
-          className="faint" style={{ fontSize: 13, background: "none", border: "none", cursor: "pointer" }}
-        >
-          {t("actions.cancel", null, "Cancel")}
-        </button>
       </header>
       <div className="wiz-body-grid">
-        <StepRail persona={persona} currentKey={stepKey} dirty={dirty} onNavigate={guardedNavigate} />
+        {/* Direct navigate, not guarded -- d persists across steps now, so
+            jumping between them never risks losing anything (only Cancel,
+            wired to cancelToSettings, actually discards the draft). */}
+        <StepRail persona={persona} currentKey={stepKey} dirty={dirty} onNavigate={navigate} onCancel={cancelToSettings} />
         <div className="wiz-content">
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
