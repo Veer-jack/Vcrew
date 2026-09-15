@@ -54,7 +54,8 @@ export default function Missions() {
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [toast, setToast] = useState(null);
-  const [visibleCount, setVisibleCount] = useState(20);
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
   // Selection is scoped to whatever's currently loaded for this tab/search —
   // switching either one starts fresh rather than carrying over ids that
   // might not even be in the new list.
@@ -67,7 +68,7 @@ export default function Missions() {
   const toggleCategory = (id) => setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
   useEffect(() => {
-    const t = setTimeout(() => { setVisibleCount(20); setSelectedIds(new Set()); }, 0);
+    const t = setTimeout(() => { setPage(1); setSelectedIds(new Set()); }, 0);
     return () => clearTimeout(t);
   }, [tab, q, selectedCategories]);
 
@@ -132,7 +133,13 @@ export default function Missions() {
   // Every visible row is selectable — selection also drives Export, which
   // has no reason to exclude Active/Completed rows. Only Delete, below,
   // narrows down to the deletable subset of whatever's selected.
-  const visibleRows = missions.slice(0, visibleCount);
+  const pageCount = Math.max(1, Math.ceil(missions.length / PAGE_SIZE));
+  // Clamped, not just read directly -- a bulk/single delete can shrink
+  // missions.length out from under whatever page was already open, and
+  // this keeps that page showing its real (now-shorter) last page of rows
+  // instead of a blank slice past the end.
+  const safePage = Math.min(page, pageCount);
+  const visibleRows = missions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const allVisibleSelected = visibleRows.length > 0 && visibleRows.every(m => selectedIds.has(m.id));
 
   const toggleSelect = (id) => setSelectedIds(prev => {
@@ -287,9 +294,15 @@ export default function Missions() {
             <div style={{ paddingBottom: 32 }}>
               <MissionsTable rows={visibleRows} nav={navigate} categories={categories} onDelete={handleDelete} tab={tab}
                 selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} />
-              {visibleCount < missions.length && (
-                <div style={{ textAlign: "center", marginTop: 16 }}>
-                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</Btn>
+              {pageCount > 1 && (
+                <div className="row" style={{ alignItems: "center", justifyContent: "center", gap: 16, marginTop: 16 }}>
+                  <button className="btn btn-ghost" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}>
+                    <Icon name="chevronLeft" size={15} /> {t("actions.previous", null, "Previous")}
+                  </button>
+                  <span className="muted" style={{ fontSize: 13 }}>{t("missions.pageOf", { page: safePage, pageCount }, `Page ${safePage} of ${pageCount}`)}</span>
+                  <button className="btn btn-ghost" disabled={safePage >= pageCount} onClick={() => setPage(p => p + 1)}>
+                    {t("actions.next", null, "Next")} <Icon name="chevronRight" size={15} />
+                  </button>
                 </div>
               )}
             </div>
