@@ -241,7 +241,11 @@ export default function Invitations() {
                   <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                 </div>
                 {isOpen && (
-                  <div className="tbl-wrap" style={{ borderTop: "var(--hairline) solid var(--border)", padding: "0 20px" }}>
+                  // Equal padding on all 4 sides -- top/bottom were 0, so
+                  // the header row sat flush against the divider above it
+                  // and the last row's bottom edge touched the card's own
+                  // bottom corner directly, while left/right had a full 20px.
+                  <div className="tbl-wrap" style={{ borderTop: "var(--hairline) solid var(--border)", padding: "16px 20px" }}>
                     {/* .tbl has no table-layout:fixed (despite an old comment
                         elsewhere claiming otherwise) -- with the browser's
                         default "auto" layout, each validator's <table> here
