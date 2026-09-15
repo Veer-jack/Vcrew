@@ -77,7 +77,7 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, stageCapt
                     // has no per-mission stage to show here at all.
                     stageCaption && <span key="stage">{stageCaption}</span>,
                   ].filter(Boolean).map((part, i) => (
-                    <span key={i}>{i > 0 && <span style={{ margin: "0 6px", color: "var(--border)" }}>|</span>}{part}</span>
+                    <span key={i}>{i > 0 && <span style={{ margin: "0 6px", color: "var(--text-faint)" }}>|</span>}{part}</span>
                   ))}
                 </div>
               </div>
