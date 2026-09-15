@@ -91,8 +91,12 @@ export function Chips({ options, value, onChange, multi = true }) {
   return (
     <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>
       {visible.map((o) => (
+        // Same .ck checkmark box FilterGroup's own chips already render --
+        // these plain Chips groups (Age, Gender, Education, ...) were
+        // missing it, so a selection only read as "selected" via the border
+        // color, not the checkmark every other filter chip in the app has.
         <button key={o} type="button" className={`chip${isOn(o) ? " on" : ""}`} onClick={() => toggle(o)}>
-          {o}
+          <span className="ck"><Icon name="check" size={10} /></span>{o}
         </button>
       ))}
       {collapsible && (
@@ -212,7 +216,14 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
 
   const defaultOccOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
-  const customOccs = (d.occupations || []).filter(o => !defaultOccOptions.includes(o) && o !== "Other");
+  // A saved custom entry needs to stay listed (so it can be re-checked)
+  // even while unchecked -- deriving this list from d.occupations itself
+  // (the old approach) meant unchecking it via Clear all also deleted it
+  // outright, since the same array tracked both "known" and "currently
+  // selected". occupationsOther is its own independent field, exactly
+  // like CreateMissionWizard's own d.otherEntries[key], so Clear all only
+  // ever touches selection.
+  const customOccs = d.occupationsOther || [];
   const occupationOptions = defaultOccOptions;
   const occSel = new Set(d.occupations || []);
   // Same {toggle, onSelectAll} shape LocationFields' Country uses -- title
@@ -233,7 +244,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
     : [t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langSpanish", null, "Spanish"), t("onboardingFields.langFrench", null, "French"), t("onboardingFields.langGerman", null, "German"), t("onboardingFields.langMandarin", null, "Mandarin"), t("onboardingFields.langArabic", null, "Arabic"), t("onboardingFields.langPortuguese", null, "Portuguese"), t("onboardingFields.langJapanese", null, "Japanese")];
 
   const defaultIntOptions = interestOptions || [t("onboardingFields.intAI", null, "AI"), t("onboardingFields.intStartups", null, "Startups"), t("onboardingFields.intFitness", null, "Fitness"), t("onboardingFields.intHealthcare", null, "Healthcare"), t("onboardingFields.intEducation", null, "Education"), t("onboardingFields.intFinance", null, "Finance"), t("onboardingFields.intGaming", null, "Gaming"), t("onboardingFields.intParenting", null, "Parenting"), t("onboardingFields.intTravel", null, "Travel"), t("onboardingFields.intFashion", null, "Fashion"), t("onboardingFields.intFood", null, "Food"), t("onboardingFields.intSustainability", null, "Sustainability")];
-  const customInts = (d.interests || []).filter(o => !defaultIntOptions.includes(o) && o !== "Other");
+  const customInts = d.interestsOther || [];
   const finalIntOptions = defaultIntOptions;
   const intSel = new Set(d.interests || []);
   const toggleInt = (_, o) => set("interests", intSel.has(o) ? (d.interests || []).filter(x => x !== o) : [...(d.interests || []), o]);
@@ -281,7 +292,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
                 sel={occSel}
                 toggle={toggleOcc}
                 otherEntries={customOccs}
-                onOtherEntriesChange={() => {}}
+                onOtherEntriesChange={(entries) => set("occupationsOther", entries)}
                 onSelectAll={selectAllOcc}
                 otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
               />
@@ -328,7 +339,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
                 sel={intSel}
                 toggle={toggleInt}
                 otherEntries={customInts}
-                onOtherEntriesChange={() => {}}
+                onOtherEntriesChange={(entries) => set("interestsOther", entries)}
                 onSelectAll={selectAllInt}
                 otherPlaceholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")}
               />
