@@ -241,7 +241,12 @@ export default function Wallet() {
       </div>
 
       <div className="utabs sec">
-        {TABS.map(tab => <button key={tab.k} className={tab === tab.k ? "on" : ""} onClick={() => setTab(tab.k)}><Icon name={tab.ic} size={15} />{tab.l}</button>)}
+        {/* Named `tb`, not `tab` -- shadowing the outer `tab` state here used
+            to make `tab === tab.k` compare the mapped object to its own key,
+            which is never true, so the selected pill highlight (.utabs
+            button.on, otherwise identical to the Missions page's tabs) never
+            actually applied. */}
+        {TABS.map(tb => <button key={tb.k} className={tab === tb.k ? "on" : ""} onClick={() => setTab(tb.k)}><Icon name={tb.ic} size={15} />{tb.l}</button>)}
       </div>
 
       {tab === "transactions" && (() => {
