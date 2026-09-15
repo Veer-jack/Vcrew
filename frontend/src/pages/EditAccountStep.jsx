@@ -215,7 +215,21 @@ export default function EditAccountStep() {
             jumping between them never risks losing anything (only Cancel,
             wired to cancelToSettings, actually discards the draft). */}
         <StepRail persona={persona} currentKey={stepKey} dirty={dirty} onNavigate={navigate} onCancel={cancelToSettings} />
-        <div className="wiz-content">
+        {/* Enter-to-save on plain text fields (State/Region, City, GST, ...)
+            instead of requiring a mouse click on "Save changes". Delegated
+            here rather than a <form onSubmit> wrapper -- FilterGroup's own
+            chip buttons (Country/Occupation/etc.) don't all declare
+            type="button" explicitly, so a real <form> would turn every chip
+            click into an accidental submit. e.defaultPrevented skips the
+            "Add other" input, which already handles its own Enter (adds the
+            entry) via preventDefault -- without this check that same
+            keydown would also bubble up and trigger a save. */}
+        <div className="wiz-content" onKeyDown={(e) => {
+          if (e.key !== "Enter" || e.defaultPrevented || busy || !dirty) return;
+          if (e.target.tagName !== "INPUT" || e.target.type === "checkbox") return;
+          e.preventDefault();
+          handleSave();
+        }}>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
         </div>
