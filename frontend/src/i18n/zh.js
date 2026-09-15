@@ -2240,6 +2240,7 @@ const zh = {
     completedOn: "完成于",
     archivedOn: "归档于",
     deadlinePassedWarning: "任务截止日期已过。请更新截止日期以继续，或将任务标记为已完成或已关闭。",
+    deadlineTodayWarning: "今天是此任务的最后一天——截止日期将于今晚结束。",
     participantMoved: "已将{{name}}移动到{{stage}} — 对方也会看到此更新。",
     recently: "最近",
     timeUnit: {

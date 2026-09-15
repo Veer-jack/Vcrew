@@ -2240,6 +2240,7 @@ const ar = {
     completedOn: "اكتملت في",
     archivedOn: "تمت الأرشفة في",
     deadlinePassedWarning: "انتهى الموعد النهائي للمهمة. حدّث الموعد النهائي للمتابعة، أو ضع علامة على المهمة كمكتملة أو مغلقة.",
+    deadlineTodayWarning: "اليوم هو آخر يوم لهذه المهمة — ينتهي الموعد النهائي الليلة.",
     participantMoved: "تم نقل {{name}} إلى {{stage}} — سيرى هذا التحديث أيضًا.",
     recently: "مؤخرا",
     timeUnit: {

@@ -2240,6 +2240,7 @@ const fr = {
     completedOn: "Terminée le",
     archivedOn: "Archivée le",
     deadlinePassedWarning: "La date limite de la mission est dépassée. Mettez à jour la date limite pour continuer, ou marquez la mission comme terminée ou fermée.",
+    deadlineTodayWarning: "Aujourd'hui est le dernier jour de cette mission — la date limite se termine ce soir.",
     participantMoved: "{{name}} déplacé(e) vers {{stage}} — cette mise à jour lui sera aussi visible.",
     recently: "récemment",
     timeUnit: {

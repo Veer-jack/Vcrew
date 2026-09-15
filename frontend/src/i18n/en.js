@@ -2414,6 +2414,7 @@ const en = {
     completedOn: "Completed on",
     archivedOn: "Archived on",
     deadlinePassedWarning: "Mission deadline has passed. Update the deadline to continue, or mark the mission as completed or closed.",
+    deadlineTodayWarning: "Today is the last day for this mission — the deadline ends tonight.",
     thStage: "Stage",
     thReward: "Reward",
     noCheckinsYet: "No validators have submitted check-ins yet.",

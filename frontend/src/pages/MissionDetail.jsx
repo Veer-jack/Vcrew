@@ -2047,18 +2047,41 @@ export default function MissionDetail() {
         </div>
       </div>
 
-      {mission.status === "active" && mission.deadline && new Date(mission.deadline) < new Date() && (
-        <div className="card" style={{ marginBottom: 18, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)", flexWrap: "wrap" }}>
-          <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
-          <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)", minWidth: 240 }}>
-            {t("missionDetail.deadlinePassedWarning", null, "Mission deadline has passed. Update the deadline to continue, or mark the mission as completed or closed.")}
-          </p>
-          <div className="row gap-2" style={{ flexShrink: 0 }}>
-            <button className="btn" style={{ border: "1.5px solid var(--danger)", color: "var(--danger)", background: "transparent" }} onClick={() => setPendingStatus("closed")}>{t("actions.close", null, "Close")}</button>
-            <Btn variant="primary" size="sm" onClick={() => setPendingStatus("completed")}>{t("actions.complete", null, "Mark as complete")}</Btn>
-          </div>
-        </div>
-      )}
+      {mission.status === "active" && mission.deadline && (() => {
+        // Compare calendar days, not raw timestamps — deadline is stored as
+        // UTC midnight of the deadline day, so comparing Date objects
+        // directly flagged it "passed" hours into the deadline day itself
+        // (e.g. from 5:30am IST onward) instead of once that whole day had
+        // elapsed. The deadline day stays valid through 23:59; "passed"
+        // starts only once the next day begins.
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const deadlineStr = new Date(mission.deadline).toISOString().slice(0, 10);
+        if (todayStr > deadlineStr) {
+          return (
+            <div className="card" style={{ marginBottom: 18, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)", flexWrap: "wrap" }}>
+              <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)", minWidth: 240 }}>
+                {t("missionDetail.deadlinePassedWarning", null, "Mission deadline has passed. Update the deadline to continue, or mark the mission as completed or closed.")}
+              </p>
+              <div className="row gap-2" style={{ flexShrink: 0 }}>
+                <button className="btn" style={{ border: "1.5px solid var(--danger)", color: "var(--danger)", background: "transparent" }} onClick={() => setPendingStatus("closed")}>{t("actions.close", null, "Close")}</button>
+                <Btn variant="primary" size="sm" onClick={() => setPendingStatus("completed")}>{t("actions.complete", null, "Mark as complete")}</Btn>
+              </div>
+            </div>
+          );
+        }
+        if (todayStr === deadlineStr) {
+          return (
+            <div className="card" style={{ marginBottom: 18, borderRadius: "var(--radius)", border: "1px solid var(--warning)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "var(--warning-weak)", boxShadow: "var(--shadow-sm)", flexWrap: "wrap" }}>
+              <Icon name="alertTriangle" size={16} style={{ color: "var(--warning)", flexShrink: 0 }} />
+              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)", minWidth: 240 }}>
+                {t("missionDetail.deadlineTodayWarning", null, "Today is the last day for this mission — the deadline ends tonight.")}
+              </p>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <div className="kpis sec">
         <KpiCard label={t("metrics.participants", null, "Participants")} value={mission.participants.joined} unit={` / ${mission.participants.target}`} icon="users" />

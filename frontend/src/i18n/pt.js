@@ -2240,6 +2240,7 @@ const pt = {
     completedOn: "Concluída em",
     archivedOn: "Arquivada em",
     deadlinePassedWarning: "O prazo da missão passou. Atualize o prazo para continuar ou marque a missão como concluída ou fechada.",
+    deadlineTodayWarning: "Hoje é o último dia desta missão — o prazo termina esta noite.",
     participantMoved: "{{name}} foi movido(a) para {{stage}} — essa atualização também aparecerá para ele(a).",
     recently: "recentemente",
     timeUnit: {
