@@ -47,7 +47,7 @@ function RaiseTicket({ onClose, onCreated }) {
             <div style={{ padding: 22, display: "grid", gap: 16 }}>
               {error && <div className="err-banner">{error}</div>}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 8 }}>{t("support.category", null, "Category")}</label>
+                <label style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 8 }}>{t("support.category", null, "Category")} <span className="req-star" aria-hidden="true">*</span></label>
                 <div className="row gap-2 wrap">
                   {[
                     { k: "Payments", l: t("support.catPayments", null, "Payments") },
@@ -62,7 +62,7 @@ function RaiseTicket({ onClose, onCreated }) {
                 </div>
               </div>
               <div className="fld">
-                <label>{t("support.subject", null, "Subject")}</label>
+                <label>{t("support.subject", null, "Subject")} <span className="req-star" aria-hidden="true">*</span></label>
                 <input className="fin" placeholder={t("support.subjectPlaceholder", null, "Briefly, what's going on?")} value={subject} onChange={e => setSubject(e.target.value)} />
               </div>
               <div className="fld">
