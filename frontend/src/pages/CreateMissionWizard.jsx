@@ -828,7 +828,17 @@ function missionToDraft(mission, filters, categories, ptypes) {
         otherEntries[bucketKey] = entries;
       }
     } else {
-      draft.filters[g] = new Set(vals);
+      // No "Other" catch-all here (ValidationCrew Role, Demographics), so
+      // there's no free-text bucket to route unrecognized values into like
+      // the branch above — but a saved value that no longer matches any of
+      // the group's current options (e.g. one that existed under an older
+      // taxonomy) still needs to be dropped rather than kept. Silently
+      // trusting it as-is used to leave it sitting in the Set with no
+      // checkbox anywhere to render it checked, invisibly filtering the real
+      // audience down to whoever coincidentally still matches that stale
+      // string — sometimes zero.
+      const known = new Set(flatOpts);
+      draft.filters[g] = new Set(vals.filter(v => known.has(v)));
     }
   }
   draft.otherEntries = otherEntries;
