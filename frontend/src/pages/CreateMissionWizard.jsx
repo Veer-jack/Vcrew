@@ -2074,7 +2074,7 @@ export default function CreateMissionWizard() {
               >
                 <Btn
                   variant="primary"
-                  iconRight="bolt"
+                  iconRight="arrowRight"
                   disabled={insufficientFunds || busy || !readyToPublish}
                   onClick={goNext}
                   style={!readyToPublish ? { opacity: 0.5, pointerEvents: "none" } : undefined}
