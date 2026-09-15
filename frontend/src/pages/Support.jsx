@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Empty, UpdatingBadge } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { helpCatLabel, builderHelpArticleField } from "../bi18n";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 
 function RaiseTicket({ onClose, onCreated }) {
   const { t } = useTranslation();
@@ -14,6 +16,7 @@ function RaiseTicket({ onClose, onCreated }) {
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useBodyScrollLock();
 
   const submit = async () => {
     setBusy(true); setError("");
@@ -26,7 +29,11 @@ function RaiseTicket({ onClose, onCreated }) {
     } finally { setBusy(false); }
   };
 
-  return (
+  // Portaled straight onto <body> -- mounted in place, this sat deep inside
+  // the page's own layout container, so its fixed-position overlay/box
+  // never actually covered the sidebar or the true viewport height (see the
+  // same fix already applied to SlideOver/ValidatorProfileDrawer elsewhere).
+  return createPortal(
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
       <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 61 }}>
@@ -78,7 +85,8 @@ function RaiseTicket({ onClose, onCreated }) {
         )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -86,6 +94,7 @@ function ViewTicket({ ticket, onClose }) {
   const { t } = useTranslation();
   const [convos, setConvos] = useState(null);
   const [error, setError] = useState("");
+  useBodyScrollLock();
 
   useEffect(() => {
     api.getTicket(ticket.id)
@@ -93,7 +102,7 @@ function ViewTicket({ ticket, onClose }) {
       .catch(err => setError(err.message || t("support.errLoadTicket", null, "Failed to load ticket")));
   }, [ticket.id, t]);
 
-  return (
+  return createPortal(
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
       <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 61 }}>
@@ -124,7 +133,8 @@ function ViewTicket({ ticket, onClose }) {
         </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
