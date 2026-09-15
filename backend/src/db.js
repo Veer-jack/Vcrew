@@ -157,6 +157,21 @@ export async function initDb() {
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
     if (!rColNames.includes('revision_count')) await client.query('ALTER TABLE responses ADD COLUMN revision_count INTEGER DEFAULT 0');
+    // Every route that changes participants.stage also stamps this (see
+    // schema.sql) -- joined_at only ever reflects when the row was first
+    // created (i.e. when they were invited/applied), so a card that has
+    // since moved to Declined/Accepted/Started/etc. showed that original
+    // invite time under whichever label, which was wrong the moment they
+    // actually moved. Backfilled to joined_at for existing rows (the best
+    // available guess for their current stage, since the real transition
+    // time was never recorded before this column existed) rather than NOW(),
+    // which would make every pre-existing row look like it just changed.
+    const pCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='participants'");
+    const pColNames = pCols.rows.map(r => r.column_name);
+    if (!pColNames.includes('stage_changed_at')) {
+      await client.query('ALTER TABLE participants ADD COLUMN stage_changed_at TIMESTAMPTZ');
+      await client.query('UPDATE participants SET stage_changed_at = joined_at WHERE stage_changed_at IS NULL');
+    }
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);

@@ -25,7 +25,7 @@ fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 // (started/submitted/rewarded/etc.), and calling it again on repeat actions
 // (e.g. day 2's check-in) is a harmless no-op.
 async function markParticipantStarted(missionId, validatorId) {
-  const result = await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
+  const result = await db.prepare(`UPDATE participants SET stage = 'started', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
     .run(missionId, validatorId);
   // Lets a caller notify the builder only on the real accepted->started
   // transition, not on every repeat call (e.g. every subsequent autosave).
@@ -577,7 +577,7 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   await db.prepare(`UPDATE v_my_missions SET status = 'submitted', progress = 100, status_label = 'Submitted for review', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(req.params.id, req.validator.id);
     
-  await db.prepare(`UPDATE participants SET stage = 'submitted' WHERE mission_id = ? AND validator_id = ?`)
+  await db.prepare(`UPDATE participants SET stage = 'submitted', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(req.params.id, req.validator.id);
 
   res.json({ ok: true });
@@ -821,7 +821,7 @@ router.post("/:id/checkin", async (req, res) => {
 
   if (lockedOut) {
     await db.prepare(`UPDATE v_my_missions SET status = 'failed', status_label = 'Failed (Missed Check-ins)', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
-    await db.prepare(`UPDATE participants SET stage = 'failed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await db.prepare(`UPDATE participants SET stage = 'failed', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
     
     await db.prepare(`
       INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
@@ -889,7 +889,7 @@ router.post("/invitations/:id/accept", async (req, res) => {
       // (no prior invite) still fall through to the INSERT.
       const invitedRow = await tx.prepare(`SELECT id FROM participants WHERE mission_id = ? AND validator_id = ?`).get(m.id, req.validator.id);
       if (invitedRow) {
-        await tx.prepare(`UPDATE participants SET stage = 'accepted', status = 'active' WHERE id = ?`).run(invitedRow.id);
+        await tx.prepare(`UPDATE participants SET stage = 'accepted', status = 'active', stage_changed_at = NOW() WHERE id = ?`).run(invitedRow.id);
       } else {
         // Same trust formula as the invited-row path above and marketplace
         // apply — req.validator is a full row (see auth.js), so its rating
@@ -968,7 +968,7 @@ router.post("/invitations/:id/decline", async (req, res) => {
     // Declined column for exactly this, so a decline is visible there
     // instead of the invitee just silently vanishing with no trace beyond
     // the one-off notification.
-    await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
+    await tx.prepare(`UPDATE participants SET stage = 'declined', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
     // Mirror the marketplace decline path: record it on the validator side
     // too, so this lands in their "Declined" tab (with an Undo) exactly like
     // a browse-decline does, instead of the invite just disappearing.

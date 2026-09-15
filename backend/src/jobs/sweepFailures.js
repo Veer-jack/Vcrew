@@ -30,7 +30,7 @@ export async function runSweepFailures() {
         await tx.prepare(`UPDATE v_my_missions SET status = 'failed', status_label = 'Failed (Inactivity)', updated_at = NOW() WHERE id = ?`).run(trial.mm_id);
 
         // 2. Update participant stage
-        await tx.prepare(`UPDATE participants SET stage = 'failed' WHERE mission_id = ? AND validator_id = ?`).run(trial.mission_id, trial.validator_id);
+        await tx.prepare(`UPDATE participants SET stage = 'failed', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(trial.mission_id, trial.validator_id);
 
         // 3. Decrement joined count on the mission to free up the spot
         await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ?`).run(trial.mission_id);
@@ -105,13 +105,13 @@ export async function sweepStalePendingApplications() {
     const isFull = app.target > 0 && (await getRealJoinedCount(app.mission_id)) >= app.target;
     await db.transaction(async (tx) => {
       if (isFull) {
-        await tx.prepare(`UPDATE participants SET stage = 'not_selected' WHERE id = ?`).run(app.participant_id);
+        await tx.prepare(`UPDATE participants SET stage = 'not_selected', stage_changed_at = NOW() WHERE id = ?`).run(app.participant_id);
         await tx.prepare(`UPDATE v_my_missions SET status = 'not_selected', status_label = 'Not accepted' WHERE mission_id = ? AND validator_id = ?`).run(app.mission_id, app.validator_id);
         await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'application_rejected', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
           .run(app.validator_id, "Not Selected This Time", `Your application for "${app.mission_name}" wasn't accepted — the mission filled up before the builder got to it. Keep an eye out for other missions that match your profile.`, app.mission_id);
         rejected++;
       } else {
-        await tx.prepare(`UPDATE participants SET stage = 'accepted' WHERE id = ?`).run(app.participant_id);
+        await tx.prepare(`UPDATE participants SET stage = 'accepted', stage_changed_at = NOW() WHERE id = ?`).run(app.participant_id);
         await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(app.mission_id);
         await tx.prepare(`UPDATE v_my_missions SET status = 'active', status_label = 'Accepted just now' WHERE mission_id = ? AND validator_id = ?`).run(app.mission_id, app.validator_id);
         if (app.category === "sample") {

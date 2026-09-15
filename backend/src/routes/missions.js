@@ -1038,7 +1038,7 @@ router.patch("/:id/participants/:pid", async (req, res) => {
   const p = await db.prepare(`SELECT * FROM participants WHERE id = ? AND mission_id = ?`).get(req.params.pid, m.id);
   if (!p) return res.status(404).json({ error: "Participant not found" });
 
-  await db.prepare(`UPDATE participants SET stage = ? WHERE id = ?`).run(stage, p.id);
+  await db.prepare(`UPDATE participants SET stage = ?, stage_changed_at = NOW() WHERE id = ?`).run(stage, p.id);
 
   // Keep the Validator's own status view in sync with the Builder's manual
   // drag. "invited"/"started" have no distinct v_my_missions status (the
@@ -1076,7 +1076,7 @@ router.post("/:id/participants/:pid/review", async (req, res) => {
 
   if (decision === "reject") {
     await db.transaction(async (tx) => {
-      await tx.prepare(`UPDATE participants SET stage = 'not_selected' WHERE id = ?`).run(p.id);
+      await tx.prepare(`UPDATE participants SET stage = 'not_selected', stage_changed_at = NOW() WHERE id = ?`).run(p.id);
       await tx.prepare(`UPDATE v_my_missions SET status = 'not_selected', status_label = 'Not accepted' WHERE mission_id = ? AND validator_id = ?`).run(m.id, p.validator_id);
       await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'application_rejected', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
         .run(p.validator_id, "Not Selected This Time", `Your application for "${m.name}" wasn't accepted this time. Keep an eye out for other missions that match your profile.`, m.id);
@@ -1092,7 +1092,7 @@ router.post("/:id/participants/:pid/review", async (req, res) => {
       if (mission.target > 0 && (await getRealJoinedCount(m.id, tx)) >= mission.target) {
         throw new Error("MISSION_FULL");
       }
-      await tx.prepare(`UPDATE participants SET stage = 'accepted' WHERE id = ?`).run(p.id);
+      await tx.prepare(`UPDATE participants SET stage = 'accepted', stage_changed_at = NOW() WHERE id = ?`).run(p.id);
       await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(m.id);
       await tx.prepare(`UPDATE v_my_missions SET status = 'active', status_label = 'Accepted just now' WHERE mission_id = ? AND validator_id = ?`).run(m.id, p.validator_id);
       // Apply's own direct-join path creates this immediately; the
@@ -1763,7 +1763,7 @@ router.post("/:id/submissions/:responseId/approved", authMiddleware, async (req,
     const feedbackNote = req.body.note || "";
     const scoreVal = rating * 20; // convert 1-5 to 20-100
     await tx.prepare(`UPDATE v_my_missions SET status = 'completed', score = ?, reason = ? WHERE mission_id = ? AND validator_id = ?`).run(scoreVal, feedbackNote, req.params.id, response.validator_id);
-    await tx.prepare(`UPDATE participants SET stage = 'rewarded', reward = ? WHERE mission_id = ? AND validator_id = ?`).run(reward, req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rewarded', reward = ?, stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(reward, req.params.id, response.validator_id);
 
     // Reputation Engine Update (O(1) Rolling Average)
     const v = await tx.prepare(`SELECT rating, reviews_count, missions_done FROM validators WHERE id = ?`).get(response.validator_id);
@@ -1825,7 +1825,7 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
     await tx.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
 
     await tx.prepare(`UPDATE v_my_missions SET status = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
-    await tx.prepare(`UPDATE participants SET stage = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    await tx.prepare(`UPDATE participants SET stage = 'rejected', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
 
     // Free up the slot since they are rejected
     const updatedMission = await tx.prepare(`UPDATE missions SET joined = GREATEST(0, joined - 1) WHERE id = ? RETURNING joined, target, name`).get(req.params.id);
@@ -1990,7 +1990,7 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
       // for the same validator -- there's no DB constraint stopping a
       // duplicate here (unlike mission_invitations above), so this has to
       // be enforced in code.
-      await tx.prepare(`UPDATE participants SET stage = 'invited', status = 'invited', trust = ? WHERE mission_id = ? AND validator_id = ?`)
+      await tx.prepare(`UPDATE participants SET stage = 'invited', status = 'invited', trust = ?, stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
         .run(trust, req.params.id, req.params.validatorId);
     } else {
       await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city, stage, status, trust) VALUES (?, ?, ?, ?, 'User', ?, 'invited', 'invited', ?)`)

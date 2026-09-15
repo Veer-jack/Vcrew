@@ -19,6 +19,15 @@ import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import useBodyScrollLock from "../hooks/useBodyScrollLock";
+import { ValidatorProfileDrawer } from "../components/ValidatorProfileDrawer";
+
+// Kanban cards in these stages open the validator's profile on click (same
+// drawer as the Audience Explorer's "View Profile") -- Submitted/Rewarded
+// stay on openSubmission instead, since those already have a real
+// submission to review, not just a profile to look at. Pending/Rejected/
+// Failed keep their existing dedicated affordances (inline Accept/Reject,
+// or nothing) rather than gaining a second, competing click behavior.
+const PROFILE_VIEW_STAGES = new Set(["invited", "declined", "not_selected", "accepted", "started"]);
 
 // Shared by every row in the mission header's "More" menu.
 const menuItemStyle = {
@@ -92,13 +101,39 @@ function timeAgo(t, dateString) {
   return Math.floor(seconds) + ' ' + t("missionDetail.timeUnit.seconds", null, "seconds");
 }
 
-// "Joined X ago" / "Joined just now" / "Joined <time_label>" composed from timeAgo() above
+// The word this Kanban card's date caption should lead with — "Joined X ago"
+// read the same on every card regardless of which column it sat in, even
+// though joined_at only ever reflects when the row was first created (i.e.
+// invited/applied), not whatever stage it's since moved to.
+function stageVerb(t, stage) {
+  const byStage = {
+    invited: () => t("status.invited", null, "Invited"),
+    pending: () => t("status.applied", null, "Applied"),
+    declined: () => t("status.declined", null, "Declined"),
+    not_selected: () => t("status.notSelected", null, "Not selected"),
+    accepted: () => t("status.accepted", null, "Accepted"),
+    started: () => t("status.started", null, "Started"),
+    submitted: () => t("status.submitted", null, "Submitted"),
+    rewarded: () => t("status.rewarded", null, "Rewarded"),
+    rejected: () => t("status.rejected", null, "Rejected"),
+    failed: () => t("status.failedShort", null, "Failed"),
+  };
+  return (byStage[stage] || byStage.invited)();
+}
+
+// "<Verb> X ago" / "<Verb> just now" / "<Verb> <time_label>" — <Verb> matches
+// whichever column the card is actually in (Invited/Declined/Accepted/
+// Started/Submitted/etc.), paired with stage_changed_at (stamped every time
+// participants.stage changes — see backend/src/db.js) rather than joined_at,
+// which only ever reflects the original invite/apply time.
 function joinedLabel(t, p) {
-  if (!p.joined_at) return t("missionDetail.joinedTime", { time: p.time_label || t("missionDetail.recently", null, "recently") }, "Joined {{time}}");
-  const ago = timeAgo(t, p.joined_at);
+  const verb = stageVerb(t, p.stage);
+  const timestamp = p.stage_changed_at || p.joined_at;
+  if (!timestamp) return t("missionDetail.stageTime", { verb, time: p.time_label || t("missionDetail.recently", null, "recently") }, "{{verb}} {{time}}");
+  const ago = timeAgo(t, timestamp);
   return ago === t("missionDetail.justNow", null, "just now")
-    ? t("missionDetail.joinedTime", { time: ago }, "Joined {{time}}")
-    : t("missionDetail.joinedTimeAgo", { time: ago }, "Joined {{time}} ago");
+    ? t("missionDetail.stageTime", { verb, time: ago }, "{{verb}} {{time}}")
+    : t("missionDetail.stageTimeAgo", { verb, time: ago }, "{{verb}} {{time}} ago");
 }
 
 const TABS = [
@@ -452,6 +487,11 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   const [openSub, setOpenSub] = useState(null);
   const [loadingSubId, setLoadingSubId] = useState(null);
   const [reviewingId, setReviewingId] = useState(null);
+  // Invited/Declined/Accepted/Started cards open the same profile drawer the
+  // Audience Explorer's "View Profile" uses — Submitted/Rewarded stay on
+  // openSubmission above instead, since those already have a real submission
+  // to review, not just a profile to look at.
+  const [viewingProfile, setViewingProfile] = useState(null);
 
   const openSubmission = async (p) => {
     if (loadingSubId) return;
@@ -599,11 +639,15 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                       setDrag(p.id);
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    onClick={() => { if (p.stage === "submitted") openSubmission(p); }}
-                    title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : undefined}
+                    onClick={() => {
+                      if (p.stage === "submitted") openSubmission(p);
+                      else if (PROFILE_VIEW_STAGES.has(p.stage)) setViewingProfile(p);
+                    }}
+                    title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : PROFILE_VIEW_STAGES.has(p.stage) ? t("missionDetail.viewProfileHint", null, "Click to view their profile") : undefined}
                     style={{
-                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected" ? { cursor: "default", opacity: 0.85 } : {}),
-                      ...(p.stage === "submitted" ? { cursor: "pointer", opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
+                      ...((p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected") ? { opacity: 0.85 } : {}),
+                      ...((p.stage === "submitted" || PROFILE_VIEW_STAGES.has(p.stage)) ? { cursor: "pointer" } : { cursor: "default" }),
+                      ...(p.stage === "submitted" ? { opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
                     }}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
@@ -661,6 +705,13 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
         })}
       </div>
       {openSub && <SlideOver sub={openSub} onClose={() => setOpenSub(null)} onAction={handleSubAction} />}
+      {viewingProfile && (
+        <ValidatorProfileDrawer
+          validator={{ id: viewingProfile.validator_id, name: viewingProfile.name, city: viewingProfile.city, role: viewingProfile.role, trust: viewingProfile.trust }}
+          t={t}
+          onClose={() => setViewingProfile(null)}
+        />
+      )}
     </div>
   );
 }

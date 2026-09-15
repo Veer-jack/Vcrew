@@ -188,7 +188,10 @@ CREATE TABLE IF NOT EXISTS participants (
   reward INTEGER DEFAULT 0,
   trust INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active',
-  joined_at TIMESTAMPTZ DEFAULT NOW()
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Stamped on every stage change (see backend/src/db.js's migration note) --
+  -- joined_at only ever reflects when this row was first created.
+  stage_changed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS mission_invitations (

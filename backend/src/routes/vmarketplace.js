@@ -424,7 +424,7 @@ router.post("/:id/decline", async (req, res) => {
     } else if (isWithdrawingApplication) {
       await tx.prepare(`UPDATE v_my_missions SET status = 'declined', status_label = 'Declined' WHERE id = ?`).run(existing.id);
       if (isRealMission) {
-        await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'pending'`).run(t.id, req.validator.id);
+        await tx.prepare(`UPDATE participants SET stage = 'declined', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'pending'`).run(t.id, req.validator.id);
         await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'application_withdrawn', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
           .run(t.builder_id, "Application Withdrawn", `${req.validator.name} withdrew their application for "${t.name}" before you reviewed it.`, t.id);
       }
@@ -439,7 +439,7 @@ router.post("/:id/decline", async (req, res) => {
         await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
         // A real stage, not a delete -- see the same change in
         // vmissions.js's invitations/:id/decline for why.
-        await tx.prepare(`UPDATE participants SET stage = 'declined' WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
+        await tx.prepare(`UPDATE participants SET stage = 'declined', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
         await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
           .run(t.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${t.name}.`, t.id);
       }
@@ -470,9 +470,9 @@ router.post("/:id/undecline", async (req, res) => {
       const declinedInvite = await tx.prepare(`SELECT id FROM mission_invitations WHERE mission_id = ? AND validator_id = ? AND status = 'declined'`).get(t.id, req.validator.id);
       if (declinedInvite) {
         await tx.prepare(`UPDATE mission_invitations SET status = 'pending' WHERE id = ?`).run(declinedInvite.id);
-        await tx.prepare(`UPDATE participants SET stage = 'invited' WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+        await tx.prepare(`UPDATE participants SET stage = 'invited', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
       } else {
-        await tx.prepare(`UPDATE participants SET stage = 'pending' WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+        await tx.prepare(`UPDATE participants SET stage = 'pending', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
       }
     });
   } else {
