@@ -1995,7 +1995,11 @@ export default function MissionDetail() {
               <>
                 <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setMoreOpen(false)} />
                 <div role="menu" style={{
-                  position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 50,
+                  // Anchored to the button's right edge, not its left -- when
+                  // there's no Invite button to its right (closed/completed
+                  // missions), More sits at the far right of the header and a
+                  // left-anchored menu ran straight off the viewport edge.
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50,
                   background: "var(--bg)", border: "1px solid var(--border)",
                   borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
                   minWidth: 190, padding: "6px 0",
