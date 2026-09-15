@@ -26,7 +26,7 @@ function StatTile({ label, value, accent }) {
 // Match/Trust/Profile completion come from the row already on hand; level,
 // badges and mission history need a real fetch since they're computed
 // server-side from the validator's full history.
-export function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
+export function ValidatorProfileDrawer({ validator, onClose, onInvite, stageCaption, t }) {
   const [detail, setDetail] = useState(null);
   // Starts closed, flips open a frame after mount so the transform/opacity
   // transitions below actually animate instead of snapping straight to
@@ -72,6 +72,10 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, t }) {
                     validator.occ && <span key="occ">{trFilterLabel(t, validator.occ)}</span>,
                     validator.city && <span key="city">{trFilterLabel(t, validator.city)}</span>,
                     validator.role && <span key="role" className="mono">{trFilterLabel(t, validator.role)}</span>,
+                    // Only set when opened from a mission's Participants
+                    // Kanban -- the Audience Explorer's own "View Profile"
+                    // has no per-mission stage to show here at all.
+                    stageCaption && <span key="stage">{stageCaption}</span>,
                   ].filter(Boolean).map((part, i) => (
                     <span key={i}>{i > 0 && <span style={{ margin: "0 6px", color: "var(--border)" }}>|</span>}{part}</span>
                   ))}

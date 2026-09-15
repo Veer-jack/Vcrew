@@ -708,6 +708,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
       {viewingProfile && (
         <ValidatorProfileDrawer
           validator={{ id: viewingProfile.validator_id, name: viewingProfile.name, city: viewingProfile.city, role: viewingProfile.role, trust: viewingProfile.trust }}
+          stageCaption={joinedLabel(t, viewingProfile)}
           t={t}
           onClose={() => setViewingProfile(null)}
         />
