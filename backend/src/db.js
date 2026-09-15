@@ -172,6 +172,14 @@ export async function initDb() {
       await client.query('ALTER TABLE participants ADD COLUMN stage_changed_at TIMESTAMPTZ');
       await client.query('UPDATE participants SET stage_changed_at = joined_at WHERE stage_changed_at IS NULL');
     }
+    // The category picked on the raise-a-ticket form was captured by the
+    // frontend but never actually stored anywhere -- every ticket showed a
+    // hardcoded "Support" placeholder regardless of what was picked (see
+    // freshdesk.js). Existing rows have no real category to backfill from,
+    // so they keep the same "Other" default new rows get.
+    const stCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='support_tickets'");
+    const stColNames = stCols.rows.map(r => r.column_name);
+    if (!stColNames.includes('category')) await client.query("ALTER TABLE support_tickets ADD COLUMN category TEXT DEFAULT 'Other'");
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);

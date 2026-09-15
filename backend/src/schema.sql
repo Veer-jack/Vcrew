@@ -440,6 +440,11 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   name TEXT,
   subject TEXT NOT NULL,
   description TEXT,
+  -- The category picked on the raise-a-ticket form (Payments/Missions/
+  -- Account/Validators/Quality/Other) -- Freshdesk has no field for this,
+  -- so it's the local row that's the source of truth for it everywhere,
+  -- synced ticket or not.
+  category TEXT DEFAULT 'Other',
   status TEXT DEFAULT 'open',
   freshdesk_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),

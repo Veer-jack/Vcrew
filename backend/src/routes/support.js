@@ -44,7 +44,7 @@ export function buildSupportRouter({ authMiddleware, userKey, helpArticles, isVa
 
   // POST /tickets { category, subject, details }
   router.post("/tickets", async (req, res) => {
-    const { subject, details } = req.body || {};
+    const { category, subject, details } = req.body || {};
     if (!subject || !subject.trim()) return res.status(400).json({ error: "subject is required" });
 
     const user = req[userKey];
@@ -54,6 +54,7 @@ export function buildSupportRouter({ authMiddleware, userKey, helpArticles, isVa
         name: user.name,
         subject: subject.trim(),
         description: details || "",
+        category: category || "Other",
         isValidator,
       });
       res.status(201).json({ ticket });
