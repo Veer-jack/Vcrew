@@ -132,7 +132,7 @@ export default function Messages() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
-      <div className="ph" style={{ padding: "20px var(--pad-card) 0", marginBottom: 0, flex: "none" }}>
+      <div className="ph" style={{ padding: "16px var(--pad-card) 12px", marginBottom: 0, flex: "none" }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", flex: 1, minHeight: 0 }} className="msg-wrap">
