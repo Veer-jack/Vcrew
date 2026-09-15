@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useLayoutEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
@@ -7,13 +7,6 @@ import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import { PERSONA_CONFIG, resolveCardStep, resolveActivePersonaKey, CARD_SUMMARY, VERIFICATION_SUMMARY, VALIDATE_SUMMARY } from "../data/personaConfig";
-
-// Tuned for a field spanning the card's full width (Occupation/Country both
-// do) -- 6 was sized for the old half-width column these used to sit in and
-// left most of the row empty once they moved to a full-width span. 10 (not
-// 12) leaves enough room in the wrapped second row for the inline "Show
-// all" button itself to still fit without spilling to a third row.
-const CHIP_COLLAPSE_AT = 10;
 
 // Bare label + chips, no box of its own -- an earlier version wrapped each
 // field in its own bordered/shaded tile, which read as a card nested inside
@@ -25,24 +18,44 @@ const CHIP_COLLAPSE_AT = 10;
 //
 // `dropdown` collapses a long list (Occupation, Country -- picking
 // "Worldwide" at onboarding saves every country) behind a "Show all"
-// toggle instead of dumping dozens of chips straight into the card.
+// toggle instead of dumping dozens of chips straight into the card. A
+// fixed item-count cutoff doesn't work consistently across categories --
+// Country's short names fit 10 per row (landing "Show all" on row 1),
+// Occupation's longer ones fit fewer (landing it on row 2) -- so this
+// measures actual rendered layout instead: however many chips fit within
+// the first 2 wrapped rows, minus one slot reserved for the button itself.
 function ChipField({ label, values, required, span, dropdown, hideLabel }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const collapsible = dropdown && (values?.length || 0) > CHIP_COLLAPSE_AT;
-  const shown = collapsible && !open ? values.slice(0, CHIP_COLLAPSE_AT) : values;
+  const rowRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(null);
+  // A primitive fingerprint, not the array itself -- several callers pass a
+  // freshly-mapped/filtered array literal every render, so depending on
+  // `values` by reference would re-run this effect (and its setState) every
+  // single render, looping forever.
+  const valuesKey = (values || []).join("|");
+
+  useLayoutEffect(() => {
+    if (!dropdown || open || !rowRef.current) { setVisibleCount(null); return; }
+    const chips = Array.from(rowRef.current.children);
+    if (chips.length < 2) return;
+    const tops = [...new Set(chips.map(c => c.offsetTop))];
+    if (tops.length <= 2) { setVisibleCount(null); return; } // already fits within 2 rows as-is
+    const thirdRowTop = tops[2];
+    const fitCount = chips.filter(c => c.offsetTop < thirdRowTop).length;
+    setVisibleCount(Math.max(1, fitCount - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valuesKey, dropdown, open]);
+
+  const collapsible = dropdown && visibleCount != null;
+  const shown = collapsible && !open ? values.slice(0, visibleCount) : values;
   return (
     <div style={span ? { gridColumn: "1 / -1" } : undefined}>
       {/* hideLabel: a card whose own <h2> already says exactly this (a
           single-field card like "Validate") skips the redundant repeat. */}
       {!hideLabel && <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>}
       {values?.length ? (
-        // "Show all" flows inline at the end of the chip list (not its own
-        // separate line) -- CHIP_COLLAPSE_AT is tuned so that count of chips
-        // plus the button both land within ~2 wrapped rows at the card's
-        // full width, so it reads as "the last thing in row 2" rather than
-        // a stray line of its own below a mostly-empty row.
-        <div className="row gap-2 wrap" style={{ marginTop: 7, alignItems: "center" }}>
+        <div ref={rowRef} className="row gap-2 wrap" style={{ marginTop: 7, alignItems: "center" }}>
           {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
           {collapsible && (
             <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
