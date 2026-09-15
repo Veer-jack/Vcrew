@@ -930,12 +930,11 @@ export const VALIDATE_SUMMARY = {
   research: { titleKey: "settings.researchAreasDetails", titleFallback: "Research Areas", fieldKey: "areas", optionsFn: null },
 };
 
-// The Verify/Ethics step's claims -- read-only here (see stepEditability's
-// "locked" case: these feed a real admin-review pipeline, so Settings shows
-// what was submitted but never lets it be silently re-edited). Field sets
-// genuinely differ per persona (GST vs. registration number vs. a scholarly
-// profile link), not just per step key, so this is keyed by persona directly
-// rather than forced into CARD_SUMMARY's step-key shape.
+// The Verify/Ethics step's claims -- also used for Settings' own summary
+// card (with an Edit button into the real step, like every other card).
+// Field sets genuinely differ per persona (GST vs. registration number vs.
+// a scholarly profile link), not just per step key, so this is keyed by
+// persona directly rather than forced into CARD_SUMMARY's step-key shape.
 export const VERIFICATION_SUMMARY = {
   founder: [
     { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
@@ -971,9 +970,8 @@ export const PERSONA_NAME_FIELD = {
   organization: "orgName",
 };
 
-// Which onboarding steps stay reachable for editing after a profile is
-// already complete, once the tester's "show every step, but only some
-// fields change" ask is in play:
+// Every onboarding step stays reachable for editing after a profile is
+// already complete (per the tester's "show every step" ask):
 //  - "personal" (name/mobile/job title) used to be excluded here in favor of
 //    Settings' own separate inline "Edit profile" form -- two differently-
 //    shaped editors for the same fields, which the tester flagged as
@@ -984,16 +982,11 @@ export const PERSONA_NAME_FIELD = {
 //    separate flow on purpose -- see PhoneSetup in Settings.jsx -- it's a
 //    real OTP-verified column, not a profile_json preference.
 //  - "verify" (website/LinkedIn/registry) and "ethics" (Researcher's ethics
-//    approval) are locked, not excluded -- they're claims that feed a real
-//    admin-review/trust pipeline, not preferences. Letting them be silently
-//    re-edited here would bypass that review, so the step still shows in
-//    the rail (per "show every step") but can't be entered.
-//  - Everything else (company/organization/academic/research info, what
-//    they're looking to validate, audience/participants, and the final
-//    frequency/methods preferences) is a plain preference with no
-//    compliance angle, so all of it is editable.
-const LOCKED_STEP_KEYS = new Set(["verify", "ethics"]);
-export function stepEditability(key) {
-  if (LOCKED_STEP_KEYS.has(key)) return "locked";
+//    approval) were locked at first -- these are claims that feed a real
+//    admin-review/trust pipeline, and re-editing them here doesn't trigger
+//    another review. The tester explicitly asked for builders to be able to
+//    edit them anyway, so they're a normal editable step now too, same as
+//    everything else.
+export function stepEditability() {
   return "editable";
 }

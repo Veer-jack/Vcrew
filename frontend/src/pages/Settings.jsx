@@ -90,6 +90,11 @@ export default function Settings() {
   const validateStepKey = resolveCardStep(activePersona, "validate");
   const companySummary = CARD_SUMMARY[companyStepKey];
   const verificationFields = VERIFICATION_SUMMARY[activePersonaKey];
+  // "verify" for every persona except Researcher, who calls this step
+  // "ethics" -- Verification is a normal editable step now (tester asked
+  // builders be able to re-edit it, not just view it), so this card gets
+  // the same Edit-button-into-the-real-step pattern every other card uses.
+  const verifyStepKey = activePersona?.components?.verify ? "verify" : (activePersona?.components?.ethics ? "ethics" : null);
   const validateSummary = VALIDATE_SUMMARY[validateStepKey];
 
   const [changingPassword, setChangingPassword] = useState(false);
@@ -232,8 +237,11 @@ export default function Settings() {
 
         {verificationFields && verificationFields.some(f => builder?.profile?.[f.key]) && (
           <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <h2 style={{ fontSize: 18, margin: "0 0 4px" }}>{t("settings.verificationDetails", null, "Verification")}</h2>
-            <p className="faint" style={{ margin: "0 0 16px", fontSize: 13 }}>{t("settings.verificationLockedHint", null, "Submitted during onboarding — shown here for reference only, not editable from Settings.")}</p>
+            <div className="row between" style={{ alignItems: "center", marginBottom: 4 }}>
+              <h2 style={{ fontSize: 18, margin: 0 }}>{t("settings.verificationDetails", null, "Verification")}</h2>
+              {verifyStepKey && <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${verifyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>}
+            </div>
+            <p className="faint" style={{ margin: "0 0 16px", fontSize: 13 }}>{t("settings.verificationHint", null, "Submitted during onboarding — used for trust review.")}</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {verificationFields.filter(f => builder?.profile?.[f.key]).map(f => (
                 <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={[builder.profile[f.key]]} required={f.required} />

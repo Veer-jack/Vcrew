@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
-import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
 import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
 import { PersonalFields } from "../components/OnboardingFields";
@@ -59,17 +58,8 @@ function StepRail({ persona, currentKey, dirty, onNavigate, onCancel }) {
       <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
       <div className="col gap-1">
         {persona.steps.map((s, i) => {
-          const editability = stepEditability(s.key);
           const isCurrent = s.key === currentKey;
           const label = stepLabel(t, s.key, s.label);
-          if (editability === "locked") {
-            return (
-              <div key={s.key} className="wiz-step" style={{ cursor: "default", opacity: 0.55 }} title={t("settings.stepLockedHint", null, "Submitted during onboarding — not editable here.")}>
-                <span className="wiz-step-dot"><Icon name="lock" size={11} /></span>
-                <span>{label}</span>
-              </div>
-            );
-          }
           return (
             <button
               key={s.key} type="button"
