@@ -91,12 +91,15 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
   const cx = (align, extra) => ({ textAlign: align, ...extra });
   return (
     <div className="tbl-wrap missions-tbl-wrap">
-      {/* table-layout: fixed + an explicit width on every column but Mission
-          (which just takes whatever's left) is what keeps Mission/Type/
-          Created pinned to the same pixel position across tabs — switching
-          tabs changes which columns follow, but never shifts the ones that
-          come before them, since every column's own width stays constant
-          regardless of what row content or sibling columns are present. */}
+      {/* table-layout: fixed + an explicit width on every real column keeps
+          Checkbox/Mission/Type/Created/etc. pinned to the same pixel
+          position regardless of which trailing columns a given tab shows.
+          The one column with no declared width — the trailing filler right
+          before </tr> — is the only one table-layout:fixed lets stretch, so
+          it silently soaks up whatever's left of the container's width
+          (a tab with fewer/narrower trailing columns just gets a wider gap
+          after them) without shifting anything that comes before it, and
+          the table still spans the container edge-to-edge on every tab. */}
       <table className="tbl" style={{ tableLayout: "fixed" }}>
         <thead>
           <tr>
@@ -106,17 +109,6 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   ref={el => { if (el) el.indeterminate = !allSelected && rows.some(m => selectedIds?.has(m.id)); }} />
               </th>
             )}
-            {/* Checkbox/Mission/Type/Created/Delete all get the same fixed
-                width regardless of tab, so they land at the exact same
-                rendered position everywhere — this only works because the
-                table itself doesn't stretch to fill its container (see
-                .missions-tbl-wrap .tbl in builder.css); table-layout: fixed
-                otherwise distributes any leftover container width
-                proportionally across every column, including these, which
-                used to make them visibly wider on tabs with fewer/narrower
-                trailing columns (Draft) than on ones with more (Active).
-                No need to chase a matching total width per tab anymore —
-                each column just gets whatever it actually needs. */}
             <th style={thStyle(180, "left")}>{t("missions.missionCol", null, "Mission")}</th>
             <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
             {(isAll || compact) && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
@@ -132,6 +124,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
               </>
             )}
             {onDelete && <th style={thStyle(32, "center", { padding: "13px 8px" })}></th>}
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -235,6 +228,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   )}
                 </td>
               )}
+              <td />
             </tr>
           ))}
         </tbody>
