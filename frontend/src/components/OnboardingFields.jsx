@@ -269,6 +269,10 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
               // selected-count/Select all account for them too.
               otherEntries={hasOther ? customOccs : undefined}
               onSelectAll={selectAllOcc}
+              // FilterGroup's own default (collapsed past 10 options) hid
+              // this by default even when someone already has 20+ real
+              // selections -- same override Country already gets.
+              initialExpanded
             />
             {hasOther && (
               <FilterGroup
@@ -315,6 +319,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
               toggle={toggleInt}
               otherEntries={hasOther ? customInts : undefined}
               onSelectAll={selectAllInt}
+              initialExpanded
             />
             {hasOther && (
               <FilterGroup
