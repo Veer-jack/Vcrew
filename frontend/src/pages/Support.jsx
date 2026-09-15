@@ -29,7 +29,7 @@ function RaiseTicket({ onClose, onCreated }) {
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 61 }}>
         <div style={{ width: 520, maxWidth: "94vw", maxHeight: "90vh", overflow: "auto", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         {sent ? (
           <div style={{ padding: 40, textAlign: "center" }}>
@@ -96,7 +96,7 @@ function ViewTicket({ ticket, onClose }) {
   return (
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 61 }}>
         <div style={{ width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         <div className="row between" style={{ padding: "18px 22px", borderBottom: "var(--hairline) solid var(--border)", flex: "none" }}>
           <div>
