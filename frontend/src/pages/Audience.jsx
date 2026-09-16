@@ -486,7 +486,7 @@ export default function AudienceExplorer() {
                       <div className="aud-sub" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {[trFilterLabel(t, m.occ), trFilterLabel(t, m.city), trFilterLabel(t, m.role)].filter(Boolean).join(" | ")}
                       </div>
-                      <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 6 }}>
+                      <div className="row" style={{ alignItems: "center", gap: 18, marginTop: 6 }}>
                         {m.trust > 0 ? (
                           <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
                             <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
@@ -500,7 +500,7 @@ export default function AudienceExplorer() {
                           {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
                         </span>
                       </div>
-                      <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 6 }}>
+                      <div className="row" style={{ alignItems: "center", gap: 18, marginTop: 6 }}>
                         {/* .mtag has 9px of left padding inside its pill
                             shape (see builder.css), so "Building Trust"'s
                             own text sits 9px in from the row's left edge --
