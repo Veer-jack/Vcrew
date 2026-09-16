@@ -83,13 +83,10 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, onAccept,
               </div>
               <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
             </div>
-            {/* Two rows instead of one -- "Completion rate" dropped (it was
-                a hardcoded 100 from the backend, not a real stat) in favor
-                of the profile completion% already computed for the card. */}
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <StatTile label={t("audience.trustScore", null, "Trust score")} value={validator.trust > 0 ? validator.trust : "—"} />
-              <StatTile label={t("audience.profileComplete2", null, "Profile completion")} value={typeof validator.profileCompletion === "number" ? `${validator.profileCompletion}%` : "—"} />
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" }}>
               {typeof validator.match === "number" && <StatTile label={t("audience.matchScore", null, "Match")} value={`${validator.match}%`} accent="var(--accent)" />}
+              <StatTile label={t("audience.trustScore", null, "Trust score")} value={validator.trust > 0 ? validator.trust : "—"} />
+              <StatTile label={t("audience.completionRate", null, "Completion rate")} value={detail ? `${detail.completionRate}%` : "—"} />
               <StatTile label={t("audience.missionsDone", null, "Missions done")} value={detail ? detail.completed : "—"} />
             </div>
           </div>
