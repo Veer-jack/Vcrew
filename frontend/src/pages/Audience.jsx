@@ -501,7 +501,14 @@ export default function AudienceExplorer() {
                         </span>
                       </div>
                       <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 6 }}>
-                        <span className="muted" style={{ fontSize: 11.5, flexShrink: 0 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
+                        {/* .mtag has 9px of left padding inside its pill
+                            shape (see builder.css), so "Building Trust"'s
+                            own text sits 9px in from the row's left edge --
+                            matching that here lines this line's first
+                            letter up with the row above instead of both
+                            looking offset even though their containers
+                            start at the same x. */}
+                        <span className="muted" style={{ fontSize: 11.5, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
                         <span style={{ flexShrink: 0 }}>
                           <span style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)" }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</span>
                           <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em", marginLeft: 5 }}>{t("audience.matchScore", null, "Match")}</span>
