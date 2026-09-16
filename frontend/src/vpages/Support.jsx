@@ -118,6 +118,18 @@ function ViewTicket({ ticket, onClose }) {
         </div>
         <div style={{ padding: 22, overflow: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
           {error && <div className="err-banner">{error}</div>}
+          {/* The details typed when this ticket was raised -- the very
+              first message in the thread, not a "reply" -- shown the same
+              way "You" messages below are, so it reads as part of one
+              continuous conversation instead of vanishing after submit. */}
+          {ticket.description && (
+            <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "var(--accent-weak)", padding: "12px 16px", borderRadius: 12 }}>
+              <div className="row between gap-3" style={{ marginBottom: 6, fontSize: 12 }}>
+                <b style={{ color: "var(--accent)" }}>{t("support.you", null, "You")}</b>
+              </div>
+              <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.5, color: "var(--accent-strong)" }}>{ticket.description}</div>
+            </div>
+          )}
           {!convos && !error && <div className="muted" style={{ textAlign: "center", padding: 40 }}>{t("support.loadingConversation", null, "Loading conversation...")}</div>}
           {convos && convos.length === 0 && <div className="muted" style={{ textAlign: "center", padding: 40 }}>{t("support.noReplies", null, "No replies yet.")}</div>}
           {convos && convos.map(c => (
