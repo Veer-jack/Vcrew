@@ -2636,6 +2636,8 @@ const bn = {
     target: "লক্ষ্য",
     rewardText: "পুরস্কার",
     willReceiveInvite: "এই মিশনে যোগদানের আমন্ত্রণ পাবেন।",
+    previouslyDeclined: "{{name}} আগে এই মিশনের আমন্ত্রণ প্রত্যাখ্যান করেছিলেন।",
+    previouslyNotSelected: "{{name}}-এর আগের আবেদনটি এই মিশনের জন্য গৃহীত হয়নি।",
     matchLabel: "প্রোফাইল স্কোর",
     alreadyJoined: "ইতিমধ্যে যোগ দিয়েছেন",
     alreadyInvited: "ইতিমধ্যেই আমন্ত্রিত",

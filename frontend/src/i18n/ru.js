@@ -2636,6 +2636,8 @@ const ru = {
     target: "цель",
     rewardText: "награда",
     willReceiveInvite: "получит приглашение присоединиться к этой миссии.",
+    previouslyDeclined: "{{name}} ранее отклонил(а) приглашение на эту миссию.",
+    previouslyNotSelected: "Более ранняя заявка {{name}} на эту миссию не была принята.",
     matchLabel: "Оценка профиля",
     alreadyJoined: "Уже присоединился",
     alreadyInvited: "Уже приглашен",

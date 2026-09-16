@@ -2636,6 +2636,8 @@ const es = {
     target: "objetivo",
     rewardText: "recompensa",
     willReceiveInvite: "recibirá una invitación para unirse a esta misión.",
+    previouslyDeclined: "{{name}} rechazó anteriormente una invitación a esta misión.",
+    previouslyNotSelected: "La solicitud anterior de {{name}} para esta misión no fue aceptada.",
     matchLabel: "Puntuación del perfil",
     alreadyJoined: "Ya me uní",
     alreadyInvited: "Ya invitado",

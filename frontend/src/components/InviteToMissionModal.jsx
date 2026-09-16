@@ -63,6 +63,25 @@ export function InviteToMissionModal({ validator, onClose }) {
               </div>
             )}
 
+            {/* This mission only ever stays selectable here despite the
+                validator's history with it because that history is a
+                declined invite or a rejected application, neither of which
+                actually blocks re-inviting -- called out explicitly so the
+                builder isn't picking it back to back with no memory of why
+                it might look unusual. */}
+            {selected?.validatorPriorStage === "declined" && (
+              <div className="row gap-2" style={{ padding: "10px 12px", background: "var(--danger-weak)", borderRadius: "var(--radius-sm)", alignItems: "flex-start" }}>
+                <Icon name="alertTriangle" size={15} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontSize: 13, color: "var(--danger)" }}>{t("invite.previouslyDeclined", { name: validator.name }, `${validator.name} previously declined an invitation to this mission.`)}</span>
+              </div>
+            )}
+            {selected?.validatorPriorStage === "not_selected" && (
+              <div className="row gap-2" style={{ padding: "10px 12px", background: "var(--danger-weak)", borderRadius: "var(--radius-sm)", alignItems: "flex-start" }}>
+                <Icon name="alertTriangle" size={15} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontSize: 13, color: "var(--danger)" }}>{t("invite.previouslyNotSelected", { name: validator.name }, `${validator.name}'s earlier application to this mission wasn't accepted.`)}</span>
+              </div>
+            )}
+
             <div className="row gap-2" style={{ padding: "10px 12px", background: "var(--accent-weak)", borderRadius: "var(--radius-sm)", alignItems: "flex-start" }}>
               <Icon name="alertCircle" size={15} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 1 }} />
               <span style={{ fontSize: 13, color: "var(--accent)" }}>{validator.name} {t("invite.willReceiveInvite", null, "will receive an invitation to join this mission.")}</span>

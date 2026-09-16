@@ -2636,6 +2636,8 @@ const pt = {
     target: "alvo",
     rewardText: "recompensa",
     willReceiveInvite: "receberá um convite para participar desta missão.",
+    previouslyDeclined: "{{name}} recusou anteriormente um convite para esta missão.",
+    previouslyNotSelected: "A candidatura anterior de {{name}} para esta missão não foi aceita.",
     matchLabel: "Pontuação do perfil",
     alreadyJoined: "Já aderiu",
     alreadyInvited: "Já convidado",

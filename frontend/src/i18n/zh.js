@@ -2636,6 +2636,8 @@ const zh = {
     target: "目标",
     rewardText: "奖励",
     willReceiveInvite: "将收到加入此任务的邀请。",
+    previouslyDeclined: "{{name}} 之前拒绝了此任务的邀请。",
+    previouslyNotSelected: "{{name}} 之前对此任务的申请未被接受。",
     matchLabel: "资料评分",
     alreadyJoined: "已经加入",
     alreadyInvited: "已邀请",

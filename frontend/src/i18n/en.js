@@ -2635,6 +2635,8 @@ const en = {
     target: "target",
     rewardText: "reward",
     willReceiveInvite: "will receive an invitation to join this mission.",
+    previouslyDeclined: "{{name}} previously declined an invitation to this mission.",
+    previouslyNotSelected: "{{name}}'s earlier application to this mission wasn't accepted.",
     matchLabel: "Profile Score",
     alreadyJoined: "Already joined",
     alreadyInvited: "Already invited",

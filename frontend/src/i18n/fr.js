@@ -2636,6 +2636,8 @@ const fr = {
     target: "cible",
     rewardText: "récompense",
     willReceiveInvite: "recevra une invitation à rejoindre cette mission.",
+    previouslyDeclined: "{{name}} a déjà refusé une invitation à cette mission.",
+    previouslyNotSelected: "La candidature précédente de {{name}} pour cette mission n'a pas été acceptée.",
     matchLabel: "Score de profil",
     alreadyJoined: "Déjà rejoint",
     alreadyInvited: "Déjà invité",

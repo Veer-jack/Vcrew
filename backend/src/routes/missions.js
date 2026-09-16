@@ -159,16 +159,27 @@ function serializeMission(m, canFullyEdit) {
 // GET /api/missions?status=&category=&q=
 router.get("/", async (req, res) => {
   const { status, category, q, excludeValidatorId } = req.query;
+  const params = [];
   let sql = `
     SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
       (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) as real_joined,
       (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected'))) as no_committed_participants
+  `;
+  // Surfaced to the Invite-to-Mission modal so it can explain *why* a
+  // mission still shows up for a validator who has some history with it
+  // (declined an earlier invite, or had an application rejected) instead of
+  // just silently letting them be picked again.
+  if (excludeValidatorId) {
+    sql += `, (SELECT stage FROM participants WHERE mission_id = m.id AND validator_id = ? ORDER BY id DESC LIMIT 1) as validator_prior_stage`;
+    params.push(excludeValidatorId);
+  }
+  sql += `
     FROM missions m
     WHERE m.builder_id = ?
   `;
-  const params = [req.builder.id];
+  params.push(req.builder.id);
   if (status) { sql += ` AND status = ?`; params.push(status); }
   // Comma-separated so the Missions list's Type filter can pick more than
   // one category at once (e.g. "Product Feedback, Product Testing")
@@ -179,13 +190,18 @@ router.get("/", async (req, res) => {
     else if (cats.length > 1) { sql += ` AND category = ANY(?)`; params.push(cats); }
   }
   if (q) { sql += ` AND name ILIKE ?`; params.push(`%${q}%`); }
-  if (excludeValidatorId) { 
-    sql += ` AND m.id NOT IN (SELECT mission_id FROM participants WHERE validator_id = ?)`; 
-    params.push(excludeValidatorId); 
+  if (excludeValidatorId) {
+    // Only an active involvement should block re-selecting this mission —
+    // a declined invite or a rejected application isn't one; the validator
+    // never actually joined, so there's nothing stopping the builder from
+    // trying again. This used to exclude the mission outright for either
+    // case, with no way to re-invite someone who'd merely said no once.
+    sql += ` AND m.id NOT IN (SELECT mission_id FROM participants WHERE validator_id = ? AND stage NOT IN ('declined', 'not_selected'))`;
+    params.push(excludeValidatorId);
   }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
-  const missions = rows.map(m => serializeMission(m, m.status === "draft" || m.no_committed_participants));
+  const missions = rows.map(m => ({ ...serializeMission(m, m.status === "draft" || m.no_committed_participants), validatorPriorStage: m.validator_prior_stage || null }));
 
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {

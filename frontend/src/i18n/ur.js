@@ -2636,6 +2636,8 @@ const ur = {
     target: "ہدف",
     rewardText: "انعام",
     willReceiveInvite: "اس مشن میں شامل ہونے کا دعوت نامہ موصول ہوگا۔",
+    previouslyDeclined: "{{name}} نے پہلے اس مشن کی دعوت مسترد کر دی تھی۔",
+    previouslyNotSelected: "{{name}} کی پہلے کی درخواست اس مشن کے لیے قبول نہیں کی گئی تھی۔",
     matchLabel: "پروفائل اسکور",
     alreadyJoined: "پہلے ہی شامل ہو چکے ہیں۔",
     alreadyInvited: "پہلے ہی مدعو کیا گیا ہے۔",

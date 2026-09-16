@@ -2636,6 +2636,8 @@ const hi = {
     target: "लक्ष्य",
     rewardText: "इनाम",
     willReceiveInvite: "इस मिशन में शामिल होने का निमंत्रण मिलेगा.",
+    previouslyDeclined: "{{name}} ने पहले इस मिशन के आमंत्रण को अस्वीकार कर दिया था।",
+    previouslyNotSelected: "{{name}} का इस मिशन के लिए पहले का आवेदन स्वीकार नहीं किया गया था।",
     matchLabel: "प्रोफ़ाइल स्कोर",
     alreadyJoined: "पहले ही शामिल हो चुके हैं",
     alreadyInvited: "पहले से ही आमंत्रित",

@@ -2636,6 +2636,8 @@ const ar = {
     target: "الهدف",
     rewardText: "مكافأة",
     willReceiveInvite: "سوف تتلقى دعوة للانضمام إلى هذه المهمة.",
+    previouslyDeclined: "رفض {{name}} سابقًا دعوة للانضمام إلى هذه المهمة.",
+    previouslyNotSelected: "لم يتم قبول طلب {{name}} السابق لهذه المهمة.",
     matchLabel: "درجة الملف الشخصي",
     alreadyJoined: "انضم بالفعل",
     alreadyInvited: "تمت دعوته بالفعل",
