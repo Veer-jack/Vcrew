@@ -1691,6 +1691,7 @@ const en = {
     levelPill: "Lvl {{n}} · {{name}}",
     verificationBadges: "Verification badges",
     noBadgesYet: "No badges earned yet",
+    noExpertiseYet: "No expertise listed yet",
     recentMissions: "Recent missions",
     noRecentMissions: "No missions yet",
     activeThisWeek: "Active this week",

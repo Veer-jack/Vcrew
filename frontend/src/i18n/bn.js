@@ -1664,6 +1664,7 @@ const bn = {
     levelPill: "লেভেল {{n}} · {{name}}",
     verificationBadges: "যাচাইকরণ ব্যাজ",
     noBadgesYet: "এখনো কোনো ব্যাজ অর্জিত হয়নি",
+    noExpertiseYet: "এখনো কোনো দক্ষতা তালিকাভুক্ত করা হয়নি",
     recentMissions: "সাম্প্রতিক মিশন",
     noRecentMissions: "এখনো কোনো মিশন নেই",
     exportTitle: "ValidationCrew — দর্শক রপ্তানি",

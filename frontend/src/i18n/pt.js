@@ -1664,6 +1664,7 @@ const pt = {
     levelPill: "Nível {{n}} · {{name}}",
     verificationBadges: "Selos de verificação",
     noBadgesYet: "Nenhum selo conquistado ainda",
+    noExpertiseYet: "Ainda não há especialização listada",
     recentMissions: "Missões recentes",
     noRecentMissions: "Ainda não há missões",
     exportTitle: "ValidationCrew — Exportação de público",

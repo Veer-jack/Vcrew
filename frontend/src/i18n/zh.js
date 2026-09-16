@@ -1664,6 +1664,7 @@ const zh = {
     levelPill: "等级 {{n}} · {{name}}",
     verificationBadges: "验证徽章",
     noBadgesYet: "尚未获得任何徽章",
+    noExpertiseYet: "尚未列出专长",
     recentMissions: "近期任务",
     noRecentMissions: "暂无任务",
     exportTitle: "ValidationCrew — 受众导出",

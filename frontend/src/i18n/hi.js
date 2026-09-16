@@ -1664,6 +1664,7 @@ const hi = {
     levelPill: "स्तर {{n}} · {{name}}",
     verificationBadges: "सत्यापन बैज",
     noBadgesYet: "अभी तक कोई बैज अर्जित नहीं हुआ",
+    noExpertiseYet: "अभी तक कोई विशेषज्ञता सूचीबद्ध नहीं है",
     recentMissions: "हाल के मिशन",
     noRecentMissions: "अभी तक कोई मिशन नहीं",
     exportTitle: "वैलिडेशन क्रू - ऑडियंस एक्सपोर्ट",

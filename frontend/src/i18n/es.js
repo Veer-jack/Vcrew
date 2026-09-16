@@ -1664,6 +1664,7 @@ const es = {
     levelPill: "Nivel {{n}} · {{name}}",
     verificationBadges: "Insignias de verificación",
     noBadgesYet: "Aún no se han obtenido insignias",
+    noExpertiseYet: "Aún no hay experiencia indicada",
     recentMissions: "Misiones recientes",
     noRecentMissions: "Aún no hay misiones",
     exportTitle: "ValidationCrew - Exportación de audiencia",

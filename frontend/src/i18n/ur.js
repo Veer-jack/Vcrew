@@ -1664,6 +1664,7 @@ const ur = {
     levelPill: "سطح {{n}} · {{name}}",
     verificationBadges: "تصدیقی بیجز",
     noBadgesYet: "ابھی تک کوئی بیج حاصل نہیں ہوا",
+    noExpertiseYet: "ابھی تک کوئی مہارت درج نہیں کی گئی",
     recentMissions: "حالیہ مشن",
     noRecentMissions: "ابھی تک کوئی مشن نہیں",
     exportTitle: "ValidationCrew — سامعین کی برآمد",

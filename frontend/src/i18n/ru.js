@@ -1664,6 +1664,7 @@ const ru = {
     levelPill: "Уровень {{n}} · {{name}}",
     verificationBadges: "Значки верификации",
     noBadgesYet: "Значки пока не получены",
+    noExpertiseYet: "Опыт пока не указан",
     recentMissions: "Недавние миссии",
     noRecentMissions: "Миссий пока нет",
     exportTitle: "ValidationCrew — экспорт аудитории",

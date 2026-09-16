@@ -1664,6 +1664,7 @@ const fr = {
     levelPill: "Niv. {{n}} · {{name}}",
     verificationBadges: "Badges de vérification",
     noBadgesYet: "Aucun badge obtenu pour l'instant",
+    noExpertiseYet: "Aucune expertise renseignée pour l'instant",
     recentMissions: "Missions récentes",
     noRecentMissions: "Aucune mission pour l'instant",
     exportTitle: "ValidationCrew — Exportation d’audience",

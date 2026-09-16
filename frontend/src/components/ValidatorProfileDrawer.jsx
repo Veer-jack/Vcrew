@@ -93,7 +93,13 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, stageCapt
 
           <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>
             <h4 style={{ margin: "0 0 18px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.expertiseTags", null, "Expertise")}</h4>
-            <div className="aud-tags">{(validator.expertise || []).map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
+            {(validator.expertise || []).length === 0 ? (
+              <div className="muted" style={{ fontSize: 12, padding: "10px 12px", border: "1px dashed var(--border)", borderRadius: "var(--radius-sm)", textAlign: "center" }}>
+                {t("audience.noExpertiseYet", null, "No expertise listed yet")}
+              </div>
+            ) : (
+              <div className="aud-tags">{validator.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
+            )}
           </div>
 
           <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>

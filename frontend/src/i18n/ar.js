@@ -1664,6 +1664,7 @@ const ar = {
     levelPill: "المستوى {{n}} · {{name}}",
     verificationBadges: "شارات التحقق",
     noBadgesYet: "لم يتم كسب أي شارات بعد",
+    noExpertiseYet: "لا توجد خبرة مدرجة بعد",
     recentMissions: "المهمات الأخيرة",
     noRecentMissions: "لا توجد مهمات بعد",
     exportTitle: "ValidationCrew — تصدير الجمهور",
