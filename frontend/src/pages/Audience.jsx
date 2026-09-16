@@ -81,9 +81,14 @@ function selToProfilePatch(sel, filters) {
 // differentiate members by, so match is undefined rather than a fake 100.
 function computeMatch(m, sel, filters) {
   const groups = [];
+  // matchOption() already treats "Worldwide"/"Remote" as a universal match
+  // (see line ~101) -- voting on the raw selection directly, instead of
+  // stripping those out first, lets a Worldwide-only selection register as
+  // a real (if trivially satisfied) vote instead of an empty one, which
+  // used to fall through to the "no filters selected" case and show "--"
+  // instead of the 100% every validator legitimately gets there.
   const vote = (g, opts) => { if (opts && opts.size > 0) groups.push([...opts].some(o => matchOption(m, g, o))); };
-  const specificGeo = sel.Geography ? new Set([...sel.Geography].filter(v => !/worldwide|remote/i.test(v))) : null;
-  vote("Geography", specificGeo);
+  vote("Geography", sel.Geography);
   vote("ValidationCrew Role", sel["ValidationCrew Role"]);
   vote("Professional", sel.Professional);
   vote("Interests", sel.Interests);
