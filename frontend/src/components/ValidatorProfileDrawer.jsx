@@ -91,6 +91,15 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, onAccept,
             </div>
           </div>
 
+          {/* Was shown on the Audience Explorer card itself but not in this
+              drawer, the fuller view you'd expect it in. */}
+          {validator.bio && (
+            <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>
+              <h4 style={{ margin: "0 0 10px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.bio", null, "Bio")}</h4>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--text)" }}>{validator.bio}</p>
+            </div>
+          )}
+
           <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>
             <h4 style={{ margin: "0 0 18px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.expertiseTags", null, "Expertise")}</h4>
             {(validator.expertise || []).length === 0 ? (
