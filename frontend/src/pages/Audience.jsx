@@ -144,7 +144,10 @@ export default function AudienceExplorer() {
   const [sortKey, setSortKey] = useState("match");
 
   useEffect(() => {
-    setIsLoading(true);
+    // isLoading already starts true (useState(true) above) and this effect
+    // only ever runs once on mount ([] deps) -- setting it again here was
+    // dead code that just tripped the "no setState synchronously in an
+    // effect" lint rule for no actual behavior change.
     api.audience().then(res => {
       // 1) Find custom cities, occs, and interests from DB that don't match standard lists
       const stdGeo = new Set(Object.values(res.filters.Geography || {}).flat().map(s => s.toLowerCase()));
