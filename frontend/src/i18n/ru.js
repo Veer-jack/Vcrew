@@ -503,7 +503,7 @@ const ru = {
   },
   missions: {
     rewardSample: "Образец продукта",
-    rewardFree: "Сообщество",
+    rewardFree: "Бесплатно",
     rewardGift: "подарочная карта",
     draftSaved: "Миссия сохранена как черновик",
     lastEditedCol: "Последнее изменение",

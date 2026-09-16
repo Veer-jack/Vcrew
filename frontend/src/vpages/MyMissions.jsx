@@ -23,17 +23,19 @@ const MM_STATUS = {
   saved:     { label: "Saved", labelKey: "status.saved", tone: "var(--accent)", bg: "var(--accent-weak)" },
 };
 
+// Order per tester request: Invited · Applied · Active · Submitted ·
+// Completed · Saved · Rejected · Not Accepted · Declined · Closed.
 const TABS = [
+  { k: "invited", l: "Invited", lKey: "status.invited" },
   { k: "applied", l: "Applied", lKey: "status.applied" },
   { k: "active", l: "Active", lKey: "status.active" },
   { k: "submitted", l: "Submitted", lKey: "status.submitted" },
   { k: "completed", l: "Completed", lKey: "status.completed" },
+  { k: "saved", l: "Saved", lKey: "status.saved" },
   { k: "rejected", l: "Rejected", lKey: "status.rejected" },
   { k: "not_selected", l: "Not Accepted", lKey: "status.notAccepted" },
-  { k: "closed", l: "Closed", lKey: "status.closed" },
   { k: "declined", l: "Declined", lKey: "status.declined" },
-  { k: "invited", l: "Invited", lKey: "status.invited" },
-  { k: "saved", l: "Saved", lKey: "status.saved" },
+  { k: "closed", l: "Closed", lKey: "status.closed" },
 ];
 
 function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
@@ -84,7 +86,16 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
         )}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />{t("status.awaiting", null, "Awaiting")}</span>}
         {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />{t("status.inReview", null, "In review")}</span>}
-        {m.status === "completed" && <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />{t("status.paid", null, "Paid")}</span>}
+        {/* Nothing here previously led back to what was actually submitted --
+            "Paid" was the whole row, with no way to review it afterward.
+            Same destination MissionDetails.jsx's own "View results" button
+            already uses for a completed mission. */}
+        {m.status === "completed" && (
+          <div className="col" style={{ alignItems: "flex-end", gap: 6 }}>
+            <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />{t("status.paid", null, "Paid")}</span>
+            <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={() => navigate(`/validator/missions/${m.taskId}/results`)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" size={13} /></button>
+          </div>
+        )}
         {m.status === "saved" && (
           <div className="row gap-2">
             <button className="btn btn-ghost" disabled={unsaving} onClick={async () => {

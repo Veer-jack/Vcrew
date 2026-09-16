@@ -503,7 +503,7 @@ const ar = {
   },
   missions: {
     rewardSample: "عينة منتج",
-    rewardFree: "المجتمع",
+    rewardFree: "مجاني",
     rewardGift: "بطاقة هدية",
     draftSaved: "تم حفظ المهمة كمسودة",
     lastEditedCol: "آخر تعديل",

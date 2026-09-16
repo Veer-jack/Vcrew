@@ -43,7 +43,6 @@ export default function MissionDetails() {
 
   const { task, rubric } = data;
   const vType = vtypes[task.type];
-  const spotPct = task.spotsTotal > 0 ? (task.spotsLeft / task.spotsTotal) * 100 : 100;
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
 
   // Shared by apply() and acceptInvite() — both actions are now gated
@@ -154,7 +153,12 @@ export default function MissionDetails() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
           {[
-            { ic: "users", l: t("missions.spotsLeft", null, "Slots left"), v: `${task.spotsLeft} / ${task.spotsTotal}` },
+            // Filled-first, matching the builder side's own "Participants:
+            // joined/target" convention -- "Slots left: 5/5" on a mission
+            // nobody had joined read as full rather than empty, and the two
+            // sides disagreeing on which side of the fraction "matters"
+            // wasn't obvious until you actually compared them side by side.
+            { ic: "users", l: t("missions.participants", null, "Participants"), v: `${task.spotsTotal - task.spotsLeft} / ${task.spotsTotal}` },
             { ic: "calendar", l: t("missions.deadline", null, "Deadline"), v: deadlineLabel(task.deadline) },
             { ic: "target", l: t("missions.yourMatch", null, "Your match"), v: `${task.match}%` },
           ].map((x, i) => (
@@ -213,13 +217,6 @@ export default function MissionDetails() {
           </div>
         </div>
 
-        <div style={{ padding: "0 var(--pad-card) var(--pad-card)" }}>
-          <div className="row between" style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>
-            <span>{task.spotsLeft} of {task.spotsTotal} {t("missions.spotsRemaining", null, "slots remaining")}</span>
-            <span className="mono" style={{ color: spotPct < 25 ? "var(--danger)" : "inherit" }}>{Math.round(100 - spotPct)}% {t("missions.filled", null, "filled")}</span>
-          </div>
-          <div className="lvl-meter"><i style={{ width: (100 - spotPct) + "%", background: spotPct < 25 ? "var(--danger)" : undefined }} /></div>
-        </div>
       </div>
 
       {task.myStatus === "declined" ? (
@@ -250,11 +247,6 @@ export default function MissionDetails() {
           : <span className="faint" style={{ fontSize: 12.5 }}><Icon name="checkCircle" size={13} /> {t("actions.reported", null, "Reported — admin will review")}</span>
         }
         <span className="grow" />
-        <span className="muted row gap-1" style={{ fontSize: 13, alignSelf: "center" }}>
-          {rewardPaysOnApproval(task.rewardType) && <>{t("missions.earn", null, "Earn")} </>}
-          <VReward amount={task.reward} type={task.rewardType} />
-          {rewardPaysOnApproval(task.rewardType) && <> {t("missions.onApproval", null, "on approval")}</>}
-        </span>
 
         {task.inviteId ? (
           <div className="row gap-2">

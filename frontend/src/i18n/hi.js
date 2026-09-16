@@ -503,7 +503,7 @@ const hi = {
   },
   missions: {
     rewardSample: "उत्पाद नमूना",
-    rewardFree: "समुदाय",
+    rewardFree: "मुफ़्त",
     rewardGift: "गिफ्ट कार्ड",
     draftSaved: "मिशन ड्राफ़्ट में सहेजा गया",
     lastEditedCol: "अंतिम संपादित",

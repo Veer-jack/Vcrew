@@ -503,7 +503,7 @@ const pt = {
   },
   missions: {
     rewardSample: "Amostra do produto",
-    rewardFree: "Comunidade",
+    rewardFree: "Grátis",
     rewardGift: "cartão-presente",
     draftSaved: "Missão salva como rascunho",
     lastEditedCol: "Última edição",

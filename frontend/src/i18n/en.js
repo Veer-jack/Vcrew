@@ -512,7 +512,7 @@ const en = {
     target: "Target",
     reward: "Reward",
     rewardSample: "Product sample",
-    rewardFree: "Community",
+    rewardFree: "Free",
     rewardGift: "gift card",
     deadline: "Deadline",
     category: "Category",

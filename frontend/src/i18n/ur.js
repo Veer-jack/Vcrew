@@ -503,7 +503,7 @@ const ur = {
   },
   missions: {
     rewardSample: "پروڈکٹ کا نمونہ",
-    rewardFree: "کمیونٹی",
+    rewardFree: "مفت",
     rewardGift: "گفٹ کارڈ",
     draftSaved: "مشن ڈرافٹ میں محفوظ ہو گیا",
     lastEditedCol: "آخری ترمیم",

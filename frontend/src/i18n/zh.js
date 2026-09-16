@@ -503,7 +503,7 @@ const zh = {
   },
   missions: {
     rewardSample: "产品样品",
-    rewardFree: "社区",
+    rewardFree: "免费",
     rewardGift: "礼品卡",
     draftSaved: "任务已保存为草稿",
     lastEditedCol: "最后编辑",

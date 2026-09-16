@@ -503,7 +503,7 @@ const bn = {
   },
   missions: {
     rewardSample: "পণ্যের নমুনা",
-    rewardFree: "কমিউনিটি",
+    rewardFree: "বিনামূল্যে",
     rewardGift: "গিফট কার্ড",
     draftSaved: "মিশন খসড়া হিসেবে সংরক্ষিত হয়েছে",
     lastEditedCol: "সর্বশেষ সম্পাদিত",
