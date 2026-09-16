@@ -276,8 +276,14 @@ export function InviteValidatorModal({ mission, onClose }) {
     return { displayList: [...recommended, ...rest], recommendedCount: recommended.length };
   }, [validators, search, activeFilters, viewOnlySelected, selectedIds, audienceFilterChips, filterIndex, matchesAudienceValue, t]);
 
-  const handleBulkInvite = async () => {
-    if (selectedIds.size === 0) return;
+  // { rejectedCount, total } while the "you sure?" dialog is up, otherwise
+  // null -- kept separate from just sending the request straight through so
+  // a builder re-inviting someone with negative history on this mission
+  // (declined an earlier invite, or had an application rejected) gets one
+  // deliberate confirmation instead of it happening silently.
+  const [rejectedConfirm, setRejectedConfirm] = useState(null);
+
+  const sendInvites = async () => {
     setInviting(true);
     try {
       await Promise.all(
@@ -291,10 +297,24 @@ export function InviteValidatorModal({ mission, onClose }) {
     }
   };
 
+  const handleBulkInvite = () => {
+    if (selectedIds.size === 0) return;
+    const rejectedCount = Array.from(selectedIds).filter(id => {
+      const v = validators.find(vv => vv.id === id);
+      return v?.invitedStatus === "not_selected" || v?.invitedStatus === "declined";
+    }).length;
+    if (rejectedCount > 0) {
+      setRejectedConfirm({ rejectedCount, total: selectedIds.size });
+      return;
+    }
+    sendInvites();
+  };
+
   return (
+    <>
     <Modal hideHeader={true} onClose={onClose} width={850}>
       <div className="col" style={{ height: "92vh", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-        
+
         {/* Fixed Header Section */}
         <div style={{ padding: "16px 24px 12px", flexShrink: 0 }}>
           
@@ -537,5 +557,23 @@ export function InviteValidatorModal({ mission, onClose }) {
 
       </div>
     </Modal>
+    {rejectedConfirm && (
+      <Modal title={rejectedConfirm.total === 1
+        ? t("invite.confirmRejectedSingleTitle", null, "Invite Rejected User?")
+        : t("invite.confirmRejectedMultiTitle", null, "Rejected Users Selected")} onClose={() => setRejectedConfirm(null)} width={440}>
+        <div style={{ padding: "0 20px 20px" }}>
+          <p style={{ fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+            {rejectedConfirm.total === 1
+              ? t("invite.confirmRejectedSingleBody", null, "This user was previously rejected. Do you still want to send them an invite to join this mission?")
+              : t("invite.confirmRejectedMultiBody", { n: rejectedConfirm.rejectedCount, total: rejectedConfirm.total }, `${rejectedConfirm.rejectedCount} of ${rejectedConfirm.total} selected participants were previously rejected. Do you still want to send invites to them?`)}
+          </p>
+          <div className="row gap-2" style={{ marginTop: 20, justifyContent: "flex-end" }}>
+            <button className="btn" onClick={() => setRejectedConfirm(null)}>{t("actions.noCancel", null, "No, Cancel")}</button>
+            <Btn variant="primary" onClick={() => { setRejectedConfirm(null); sendInvites(); }}>{t("actions.yesSendInvite", null, "Yes, Send Invite")}</Btn>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }

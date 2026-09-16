@@ -639,8 +639,13 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                   <span className="kdot" style={{ background: st.color }} />
                   <b>{t(`status.${st.id}`, null, st.label)}</b>
                   {drag && !droppable && <Icon name="lock" size={13} style={{ color: "var(--warning)" }} title="Review submission to reward" />}
+                  {/* Pending applications are waiting on the builder, not
+                      just informational like every other column's count --
+                      a tester flagged that nothing here signaled that until
+                      actually opening the mission. */}
+                  {st.id === "pending" && col.length > 0 && <Icon name="alertTriangle" size={13} style={{ color: "var(--danger)" }} />}
                 </div>
-                <span className="cnt">{col.length}</span>
+                <span className="cnt" style={st.id === "pending" && col.length > 0 ? { background: "var(--danger)", color: "#fff" } : undefined}>{col.length}</span>
               </div>
               <div className="kcol-body">
                 {col.map(p => (

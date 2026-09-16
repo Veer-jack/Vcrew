@@ -165,7 +165,12 @@ router.get("/", async (req, res) => {
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
       (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) as real_joined,
-      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected'))) as no_committed_participants
+      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected'))) as no_committed_participants,
+      -- A require-approval application sits in 'pending' waiting on the
+      -- builder specifically -- surfaced here so the list itself can flag
+      -- it, instead of the only sign being buried in the Participants tab
+      -- of a mission the builder had no reason to open yet.
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage = 'pending') as pending_review_count
   `;
   // Surfaced to the Invite-to-Mission modal so it can explain *why* a
   // mission still shows up for a validator who has some history with it
@@ -201,7 +206,11 @@ router.get("/", async (req, res) => {
   }
   sql += ` ORDER BY created_at DESC`;
   const rows = await db.prepare(sql).all(...params);
-  const missions = rows.map(m => ({ ...serializeMission(m, m.status === "draft" || m.no_committed_participants), validatorPriorStage: m.validator_prior_stage || null }));
+  const missions = rows.map(m => ({
+    ...serializeMission(m, m.status === "draft" || m.no_committed_participants),
+    validatorPriorStage: m.validator_prior_stage || null,
+    pendingReviewCount: parseInt(m.pending_review_count, 10) || 0,
+  }));
 
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
@@ -1996,8 +2005,12 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
 
   // Prevent inviting if they already joined -- same exception: a declined
   // participant row (see the decline routes) never actually joined anything.
+  // not_selected is the same story from the other direction -- a rejected
+  // application, not a join -- and was missing here entirely, so
+  // re-inviting a rejected applicant 400'd with this same "already joined"
+  // message, which was simply wrong for someone who never actually joined.
   const participant = await db.prepare(`SELECT * FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
-  if (participant && participant.stage !== "declined") return res.status(400).json({ error: "Validator has already joined this mission." });
+  if (participant && participant.stage !== "declined" && participant.stage !== "not_selected") return res.status(400).json({ error: "Validator has already joined this mission." });
 
   const isWaitlist = await db.prepare(`SELECT 1 FROM v_saved WHERE task_id = ? AND validator_id = ?`).get(req.params.id, req.params.validatorId);
 
