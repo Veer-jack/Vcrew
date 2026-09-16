@@ -227,6 +227,7 @@ router.get("/invitations", async (req, res) => {
       mi.mission_id, m.name AS mission_name, m.status AS mission_status, m.category AS mission_category,
       mi.validator_id, v.name AS validator_name, v.city AS validator_city,
       v.occupation AS validator_occupation, v.role AS validator_role, v.validator_type,
+      v.rating AS validator_rating, v.profile_completion AS validator_profile_completion,
       (vs.validator_id IS NOT NULL) AS is_waitlist
     FROM mission_invitations mi
     JOIN missions m ON m.id = mi.mission_id
@@ -251,7 +252,10 @@ router.get("/invitations", async (req, res) => {
       createdAt: r.created_at,
       isWaitlist: r.is_waitlist,
       mission: { id: r.mission_id, name: r.mission_name, status: r.mission_status, category: r.mission_category },
-      validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city, occ: r.validator_occupation, role },
+      // Same formulas audience.js uses for the same two stats, so a
+      // validator's trust/completion reads the same everywhere they show up.
+      validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city, occ: r.validator_occupation, role,
+        trust: Math.round((r.validator_rating || 0) * 20), profileCompletion: r.validator_profile_completion || 60 },
     };
   });
 
