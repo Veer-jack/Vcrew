@@ -803,6 +803,15 @@ function SlideOver({ sub, onClose, onAction }) {
               <div><QualityBadge quality="flagged" /></div>
             </div>
           )}
+          {/* Tester ask: revision_count alone said how many times a revision
+              was requested, not when -- this stamps the date the same way
+              Submitted/Time Taken/Tasks already do. */}
+          {sub.revisionRequestedAt && (
+            <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="edit" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.revisionRequested", null, "Revision Requested")}</div>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.revisionRequestedAt}</div>
+            </div>
+          )}
         </div>
         </div>
 

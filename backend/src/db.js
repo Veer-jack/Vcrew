@@ -157,6 +157,11 @@ export async function initDb() {
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
     if (!rColNames.includes('revision_count')) await client.query('ALTER TABLE responses ADD COLUMN revision_count INTEGER DEFAULT 0');
+    // Stamped every time a builder sends this response back for revision --
+    // revision_count alone said how many times, not when, so the review
+    // drawer had no date to show for "Revision Requested" the way it does
+    // for Submitted/Time Taken/Tasks.
+    if (!rColNames.includes('revision_requested_at')) await client.query('ALTER TABLE responses ADD COLUMN revision_requested_at TIMESTAMPTZ');
     // Every route that changes participants.stage also stamps this (see
     // schema.sql) -- joined_at only ever reflects when the row was first
     // created (i.e. when they were invited/applied), so a card that has

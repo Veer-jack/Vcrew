@@ -1712,6 +1712,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         trust: Math.round((r.trust_score || 0) * 10),
         status: r.status || "pending",
         revisionCount: r.revision_count || 0,
+        revisionRequestedAt: r.revision_requested_at ? new Date(r.revision_requested_at).toLocaleDateString() : null,
         // Was always "medium" for anything not flagged -- a hardcoded
         // placeholder never actually wired to real quality logic. Removed
         // rather than keep showing a number that meant nothing; "flagged"
@@ -1876,7 +1877,7 @@ router.post("/:id/submissions/:responseId/revision", authMiddleware, async (req,
   const response = await db.prepare(`SELECT validator_id, revision_count FROM responses WHERE id = ? AND mission_id = ?`).get(req.params.responseId, req.params.id);
   if (!response) return res.status(404).json({ error: "Submission not found" });
 
-  await db.prepare(`UPDATE responses SET status = 'revision', revision_count = revision_count + 1 WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
+  await db.prepare(`UPDATE responses SET status = 'revision', revision_count = revision_count + 1, revision_requested_at = NOW() WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
   await db.prepare(`UPDATE v_my_missions SET status = 'revision', status_label = 'Revision Requested', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || "Please review and fix the requested items.", req.params.id, response.validator_id);
   
   await db.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?,?,?,?,?,?,?,?,1,?)`)
