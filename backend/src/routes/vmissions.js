@@ -475,8 +475,13 @@ router.post("/:id/checkin/proof", (req, res, next) => {
     return res.status(400).json({ error: "This mission does not use daily check-ins" });
   }
 
+  // Same allowance the task-proof endpoint above already makes: a revision
+  // request drops v_my_missions.status to "revision" for the whole mission,
+  // not just the one task/day the builder actually flagged -- requiring a
+  // literal "active" here meant every subsequent day's check-in screenshot
+  // was rejected too, for the rest of the trial, until an admin/DB fix.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  if (!mm || mm.status !== "active") {
+  if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ error: "Mission not active or not accepted" });
   }
@@ -809,8 +814,12 @@ router.post("/:id/checkin", async (req, res) => {
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "trial") return res.status(400).json({ error: "This mission does not use daily check-ins" });
 
+  // Same "revision" allowance as the checkin/proof upload just above --
+  // a revision request on this mission (anywhere in it) drops status to
+  // "revision" for the whole thing, not just the flagged day, so requiring
+  // literal "active" here blocked every later day's check-in too.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  if (!mm || mm.status !== "active") return res.status(400).json({ error: "Mission not active or not accepted" });
+  if (!mm || (mm.status !== "active" && mm.status !== "revision")) return res.status(400).json({ error: "Mission not active or not accepted" });
 
   const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!p) return res.status(403).json({ error: "Not participating" });

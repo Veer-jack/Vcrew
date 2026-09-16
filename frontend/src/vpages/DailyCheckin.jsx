@@ -103,8 +103,11 @@ export default function DailyCheckin() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      {/* Top App Bar */}
-      <div style={{ height: 64, background: "#fff", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
+      {/* Top App Bar -- this page renders its own bar instead of the shared
+          VLayout/.topbar (it's a standalone route, not nested under that
+          layout), so it never inherited .topbar's position:sticky and just
+          scrolled away with the page, unlike the normal dashboard's. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, height: 64, background: "#fff", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <button className="btn btn-quiet" style={{ padding: 8 }} onClick={() => navigate("/validator/missions")}><Icon name="arrowLeft" size={18} /></button>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
