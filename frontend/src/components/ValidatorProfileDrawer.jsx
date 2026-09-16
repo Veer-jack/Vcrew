@@ -26,7 +26,7 @@ function StatTile({ label, value, accent }) {
 // Match/Trust/Profile completion come from the row already on hand; level,
 // badges and mission history need a real fetch since they're computed
 // server-side from the validator's full history.
-export function ValidatorProfileDrawer({ validator, onClose, onInvite, stageCaption, t }) {
+export function ValidatorProfileDrawer({ validator, onClose, onInvite, onAccept, onReject, reviewing, stageCaption, t }) {
   const [detail, setDetail] = useState(null);
   // Starts closed, flips open a frame after mount so the transform/opacity
   // transitions below actually animate instead of snapping straight to
@@ -152,7 +152,19 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, stageCapt
           <button className="btn" style={{ flex: 1, color: "var(--text)", border: "1px solid var(--border)", background: "transparent" }} onClick={onClose}>
             {t("actions.close", null, "Close")}
           </button>
-          {onInvite && <Btn variant="primary" style={{ flex: 1 }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>}
+          {onAccept && onReject ? (
+            <>
+              <button className="btn" style={{ flex: 1, color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent" }}
+                disabled={reviewing} onClick={onReject}>
+                {t("actions.reject", null, "Reject")}
+              </button>
+              <Btn variant="primary" style={{ flex: 1 }} disabled={reviewing} onClick={onAccept}>
+                {reviewing ? t("actions.working", null, "Working…") : t("actions.accept", null, "Accept")}
+              </Btn>
+            </>
+          ) : (
+            onInvite && <Btn variant="primary" style={{ flex: 1 }} icon="userplus" onClick={() => onInvite(validator)}>{t("actions.invite", null, "Invite")}</Btn>
+          )}
         </div>
       </div>
     </div>,

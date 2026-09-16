@@ -27,7 +27,11 @@ import { ValidatorProfileDrawer } from "../components/ValidatorProfileDrawer";
 // submission to review, not just a profile to look at. Pending/Rejected/
 // Failed keep their existing dedicated affordances (inline Accept/Reject,
 // or nothing) rather than gaining a second, competing click behavior.
-const PROFILE_VIEW_STAGES = new Set(["invited", "declined", "not_selected", "accepted", "started"]);
+// "pending" also opens the drawer (with Accept/Reject in its footer instead
+// of the usual Close/Invite) -- clicking anywhere on the card, not just the
+// two small inline buttons, is the same "click to act on this" affordance
+// every other stage here already has.
+const PROFILE_VIEW_STAGES = new Set(["invited", "declined", "not_selected", "accepted", "started", "pending"]);
 
 // Shared by every row in the mission header's "More" menu.
 const menuItemStyle = {
@@ -711,6 +715,11 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
           stageCaption={joinedLabel(t, viewingProfile)}
           t={t}
           onClose={() => setViewingProfile(null)}
+          {...(viewingProfile.stage === "pending" ? {
+            reviewing: reviewingId === viewingProfile.id,
+            onAccept: async () => { await reviewApplication(viewingProfile, "accept"); setViewingProfile(null); },
+            onReject: async () => { await reviewApplication(viewingProfile, "reject"); setViewingProfile(null); },
+          } : {})}
         />
       )}
     </div>
