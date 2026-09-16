@@ -78,7 +78,7 @@ function selToProfilePatch(sel, filters) {
 // independently) counts as one vote, using the exact same matchOption() the
 // results list itself filters by, so "100% match" and "shows up in results"
 // can never disagree. No filters selected at all means there's nothing to
-// differentiate members by, so everyone is a full match.
+// differentiate members by, so match is undefined rather than a fake 100.
 function computeMatch(m, sel, filters) {
   const groups = [];
   const vote = (g, opts) => { if (opts && opts.size > 0) groups.push([...opts].some(o => matchOption(m, g, o))); };
@@ -91,7 +91,7 @@ function computeMatch(m, sel, filters) {
     const opts = sel.Demographics ? new Set([...sel.Demographics].filter(o => filters.Demographics?.[key]?.includes(o))) : null;
     vote("Demographics", opts);
   }
-  if (!groups.length) return 100;
+  if (!groups.length) return null;
   return Math.round((groups.filter(Boolean).length / groups.length) * 100);
 }
 
@@ -317,7 +317,7 @@ export default function AudienceExplorer() {
       m.city,
       m.role,
       m.trust > 0 ? m.trust.toString() : t("audience.establishingTrust", null, "Establishing Trust"),
-      `${m.match}%`,
+      typeof m.match === "number" ? `${m.match}%` : "—",
       m.verified ? t("audience.yes", null, "Yes") : t("audience.no", null, "No")
     ]);
 
@@ -503,7 +503,7 @@ export default function AudienceExplorer() {
                             -- matches the reference's own right-aligned
                             "N%" over "Match" pair instead of a ring. */}
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--accent)", lineHeight: 1.2 }}>{m.match}%</div>
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--accent)", lineHeight: 1.2 }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</div>
                           <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em" }}>{t("audience.matchScore", null, "Match")}</div>
                         </div>
                       </div>
