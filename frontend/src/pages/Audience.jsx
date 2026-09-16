@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn, Empty, KpiCard, MatchRing } from "../components/ui";
+import { Avatar, Btn, Empty, KpiCard } from "../components/ui";
 import { api } from "../api/client";
 import { InviteToMissionModal } from "../components/InviteToMissionModal";
 import { Modal } from "../components/Modal";
@@ -466,22 +466,37 @@ export default function AudienceExplorer() {
               <div className="aud-grid">
                 {results.slice(0, visibleCount).map((m) => (
                   <div className="aud-card rise" key={m.id}>
-                  {/* Avatar + name/role now sit side by side in one row
-                      (was avatar alone up top, name and role on their own
-                      full-width lines below it) -- match% moves to the
-                      far end of that same row instead of pairing with the
-                      avatar alone. */}
-                  <div className="aud-card-top" style={{ alignItems: "flex-start" }}>
-                    <div className="row gap-3" style={{ alignItems: "flex-start", flex: 1, minWidth: 0 }}>
-                      <Avatar name={m.name} size={44} />
-                      <div style={{ minWidth: 0 }}>
+                  {/* Reworked to match the tester's reference exactly:
+                      avatar as its own fixed-width column, everything else
+                      stacked in the remaining flex column so the trust pill
+                      trails the name and the match% trails the occupation --
+                      natural flexbox alignment instead of manually offsetting
+                      margins by the avatar's width. */}
+                  <div className="row gap-3" style={{ alignItems: "flex-start" }}>
+                    <Avatar name={m.name} size={44} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="row between" style={{ alignItems: "center", gap: 8 }}>
                         <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
-                        <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
+                        {m.trust > 0 ? (
+                          <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
+                            <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
+                          </span>
+                        ) : (
+                          <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none", flexShrink: 0 }}>
+                            <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
+                          </span>
+                        )}
                       </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                      <MatchRing value={m.match} />
-                      <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em" }}>{t("audience.matchScore", null, "Match")}</span>
+                      <div className="row between" style={{ alignItems: "flex-start", gap: 8, marginTop: 2 }}>
+                        <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
+                        {/* Plain text match% (was MatchRing's circular badge)
+                            -- matches the reference's own right-aligned
+                            "N%" over "Match" pair instead of a ring. */}
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--accent)", lineHeight: 1.2 }}>{m.match}%</div>
+                          <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em" }}>{t("audience.matchScore", null, "Match")}</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   {/* Bio, clamped to 2 lines with an ellipsis -- wasn't shown
@@ -493,28 +508,25 @@ export default function AudienceExplorer() {
                       {m.bio}
                     </div>
                   )}
-                  <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
-                  <div className="aud-trust-row" style={{ alignItems: "center", gap: 10 }}>
-                    {m.trust > 0 ? (
-                      <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
-                        <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
-                      </span>
-                    ) : (
-                      <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none" }}>
-                        <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
-                      </span>
-                    )}
-                    {/* Only shown in the View Profile drawer before -- the
-                        one stat from there the tester wants visible on the
-                        card itself without an extra click. */}
-                    <span className="muted" style={{ fontSize: 11.5 }}>
-                      {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
-                    </span>
+                  {/* Blue accent chips (.mtag.accent), matching the reference
+                      -- was the plain gray .mtag look every other tag list
+                      already moved away from earlier this session. */}
+                  <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}</div>
+                  {/* Only shown in the View Profile drawer before -- the one
+                      stat from there the tester wants visible on the card
+                      itself without an extra click. */}
+                  <div className="muted" style={{ fontSize: 11.5 }}>
+                    {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
+                    {" · "}{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}
                   </div>
-                  <div className="muted" style={{ fontSize: 11.5 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</div>
+                  {/* Invite is the action a builder actually comes here to
+                      take, so it's the filled/primary button now -- the
+                      reference has View Profile filled instead, but the
+                      tester asked for these two swapped from how it shows
+                      there. */}
                   <div className="aud-card-actions">
-                    <Btn variant="ghost" size="sm" icon="eye" onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
-                    <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
+                    <Btn size="sm" icon="eye" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
+                    <Btn variant="primary" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
                   </div>
                 </div>
               ))}

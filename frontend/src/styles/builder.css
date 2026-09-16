@@ -410,7 +410,14 @@ html[data-direction="mono"] .mtag { border-radius: 4px; }
    way as the "applied filter" chips builders already recognise elsewhere. */
 .mtag.accent { color: var(--accent); background: var(--accent-weak); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .aud-trust-row { display: flex; }
-.aud-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+/* margin-top: auto anchors this to the bottom of .aud-card's own flex
+   column -- .aud-card is a CSS Grid item in .aud-grid, which stretches
+   every card in a row to match its tallest sibling by default, so a
+   card with less content (shorter bio, fewer chips) had genuinely extra
+   space at its bottom. Without this, that space sat below the buttons
+   instead of above them, so the button row landed at a different height
+   on every card instead of lining up across the row. */
+.aud-card-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
 .aud-card-actions .btn { flex: 1; }
 
 /* match ring */
