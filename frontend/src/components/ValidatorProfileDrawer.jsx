@@ -28,6 +28,7 @@ function StatTile({ label, value, accent }) {
 // server-side from the validator's full history.
 export function ValidatorProfileDrawer({ validator, onClose, onInvite, onAccept, onReject, reviewing, stageCaption, t }) {
   const [detail, setDetail] = useState(null);
+  const [bioExpanded, setBioExpanded] = useState(false);
   // Starts closed, flips open a frame after mount so the transform/opacity
   // transitions below actually animate instead of snapping straight to
   // their end state (which is what a same-frame transform would do).
@@ -96,7 +97,20 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, onAccept,
           {validator.bio && (
             <div style={{ padding: "24px 26px", borderBottom: "1px solid var(--border)" }}>
               <h4 style={{ margin: "0 0 10px", fontSize: 14.5, fontWeight: 800, letterSpacing: ".01em" }}>{t("audience.bio", null, "Bio")}</h4>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--text)" }}>{validator.bio}</p>
+              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--text)", ...(bioExpanded ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }) }}>
+                {validator.bio}
+              </p>
+              {/* 180 chars is roughly 3 lines at this width/font-size --
+                  close enough to decide whether the clamp above is even
+                  doing anything, without measuring real DOM layout for
+                  what's just a "hide the toggle when it'd be pointless"
+                  check. */}
+              {validator.bio.length > 180 && (
+                <button onClick={() => setBioExpanded(v => !v)}
+                  style={{ marginTop: 6, background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12.5, fontWeight: 700, color: "var(--accent)" }}>
+                  {bioExpanded ? t("actions.showLess", null, "Show less") : t("actions.showMore", null, "Show more")}
+                </button>
+              )}
             </div>
           )}
 
