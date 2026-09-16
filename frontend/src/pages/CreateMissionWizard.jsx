@@ -19,6 +19,7 @@ import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import { resolveActivePersonaKey } from "../data/personaConfig";
 import { categoryLabel, categoryDesc, ptypeLabel, ptypeDesc, rewardLabel, rewardDesc } from "../bi18n";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 function wzSteps(t) {
   return [
@@ -490,6 +491,7 @@ function StepParticipation({ d, set, ptypes, locked }) {
             value={d.durationDays}
             onChange={e => { const v = e.target.value; set({ durationDays: v === "" ? "" : Number(v) }); }}
             onBlur={() => set({ durationDays: Math.min(30, Math.max(3, Number(d.durationDays) || 7)) })}
+            onKeyDown={blockInvalidNumberKeys}
           />
           <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end. Choose between 3 and 30 days.")}</p>
         </div>
@@ -538,7 +540,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
             <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
-              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: e.target.value === "" ? "" : +e.target.value } })} />
+              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: e.target.value === "" ? "" : +e.target.value } })} onKeyDown={blockInvalidNumberKeys} />
             </div>
           </div>
         )}
@@ -567,7 +569,8 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
               }
               set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } });
             }}
-            onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }} />
+            onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }}
+            onKeyDown={blockInvalidNumberKeys} />
           <p className="fhint">
             {!builder?.verified
               ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)

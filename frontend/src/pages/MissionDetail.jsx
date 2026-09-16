@@ -20,6 +20,7 @@ import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
 import useBodyScrollLock from "../hooks/useBodyScrollLock";
 import { ValidatorProfileDrawer } from "../components/ValidatorProfileDrawer";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 // Kanban cards in these stages open the validator's profile on click (same
 // drawer as the Audience Explorer's "View Profile") -- Submitted/Rewarded
@@ -449,14 +450,14 @@ function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
             <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
-              <input className="fin" type="number" min="1" value={amount} onChange={e => setAmount(e.target.value === "" ? "" : +e.target.value)} />
+              <input className="fin" type="number" min="1" value={amount} onChange={e => setAmount(e.target.value === "" ? "" : +e.target.value)} onKeyDown={blockInvalidNumberKeys} />
             </div>
           </div>
         )}
 
         <div className="fld" style={{ marginTop: 16 }}>
           <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")}</label>
-          <input className="fin" type="number" min={alreadyJoined || 1} value={target} onChange={e => setTarget(e.target.value === "" ? "" : +e.target.value)} />
+          <input className="fin" type="number" min={alreadyJoined || 1} value={target} onChange={e => setTarget(e.target.value === "" ? "" : +e.target.value)} onKeyDown={blockInvalidNumberKeys} />
           <p className="fhint">{t("missionDetail.reopenTargetHint", { count: alreadyJoined }, `${alreadyJoined} have already joined across this mission's history — this is the new lifetime total, not additional slots.`)}</p>
           {liveCount !== null && (
             <p className="fhint" style={overAudienceCount ? { color: "var(--danger)" } : undefined}>

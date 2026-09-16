@@ -6,6 +6,7 @@ import { VAvatar, VStars, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 export default function Earnings() {
   const { t } = useTranslation();
@@ -78,7 +79,7 @@ export default function Earnings() {
               <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
                 <div className="fld" style={{ flex: 1, minWidth: 160 }}>
                   <label>{t("earnings.amountWithdraw", null, "Amount to withdraw")}</label>
-                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="200" max={data.available} value={amount} onChange={e => setAmount(e.target.value)} placeholder={`${t("earnings.upTo", null, "Up to")} ${data.available}`} /></div>
+                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="200" max={data.available} value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={blockInvalidNumberKeys} placeholder={`${t("earnings.upTo", null, "Up to")} ${data.available}`} /></div>
                 </div>
                 <button className="btn btn-primary" disabled={busy} onClick={withdraw}>{busy ? t("actions.processing", null, "Processing…") : t("actions.confirmWithdrawal", null, "Confirm withdrawal")}</button>
                 <button className="btn btn-quiet" onClick={() => { setWithdrawing(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</button>

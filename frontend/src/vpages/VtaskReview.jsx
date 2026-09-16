@@ -6,6 +6,7 @@ import { vapi } from "../vapi/client";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { VTypeTag } from "../vcomponents/vui";
 import { useTranslation } from "../i18n/index.jsx";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 // A marketplace (vtasks) listing has no per-task steps/questions/proof flow —
 // it's "go use the product, come back and rate it against the type's rubric."
@@ -150,7 +151,7 @@ export default function VtaskReview() {
         </div>
         <div className="fld" style={{ maxWidth: 200 }}>
           <label>{t("vtaskReview.minutesLabel", null, "Minutes spent")}</label>
-          <input className="fin" type="number" min="1" value={minutes} onChange={e => setMinutes(e.target.value)} />
+          <input className="fin" type="number" min="1" value={minutes} onChange={e => setMinutes(e.target.value)} onKeyDown={blockInvalidNumberKeys} />
         </div>
       </div>
 

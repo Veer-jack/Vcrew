@@ -10,6 +10,7 @@ import { api } from "../api/client";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { hasResumableDraft } from "../utils/missionDraft";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 // TABS defined in component
 
@@ -208,7 +209,7 @@ export default function Wallet() {
           <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
             <div className="fld" style={{ flex: 1, minWidth: 180 }}>
               <label>{t("wallet.amountToAdd", null, "Amount to add")}</label>
-              <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} /></div>
+              <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={blockInvalidNumberKeys} /></div>
             </div>
             {cardsReady ? (
               <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? t("actions.opening", null, "Opening…") : t("actions.payWithCardUpi", null, "Pay with card / UPI")}</Btn>
