@@ -2229,6 +2229,7 @@ const ar = {
   missionDetail: {
     thStatus: "الحالة",
     participationType: "نوع المشاركة",
+    requiresApprovalNote: "يتطلب موافقتك قبل أن يتمكن المدقق من البدء",
     noDeclinedParticipants: "لا توجد دعوات مرفوضة",
     emptyDeclined: "ستظهر هنا الدعوات التي تم رفضها والتطبيقات التي لا تقبلها.",
     meetingLinkRequired: "أضف رابط الاجتماع أولاً",

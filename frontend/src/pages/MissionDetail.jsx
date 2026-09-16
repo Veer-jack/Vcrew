@@ -252,6 +252,15 @@ function MissionOverview({ mission, participants, setTab, navigate, ptypes }) {
             <b style={{ fontSize: 15 }}>{ptypeLabel(t, pt)}</b>
             {pt.id === "trial" && mission.durationDays && <span className="faint" style={{ fontSize: 13 }}>· {t("createMission.durationDaysSuffix", { days: mission.durationDays }, `${mission.durationDays} days`)}</span>}
           </div>
+          {/* No visible sign of this setting existed anywhere outside the edit
+              wizard's own checkbox -- a builder had no way to confirm what a
+              published mission actually has stored without re-opening Edit. */}
+          {mission.requireApproval && (
+            <div className="row gap-2" style={{ marginTop: 10, alignItems: "center" }}>
+              <Icon name="userCheck" size={15} style={{ color: "var(--accent)" }} />
+              <span className="faint" style={{ fontSize: 13 }}>{t("missionDetail.requiresApprovalNote", null, "Requires your approval before a validator can start")}</span>
+            </div>
+          )}
         </div>
         <div className="card" style={{ padding: 20 }}>
           <span className="eyebrow">{t("missionDetail.theBrief", null, "The brief")}</span>

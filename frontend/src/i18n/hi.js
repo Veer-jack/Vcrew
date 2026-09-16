@@ -2229,6 +2229,7 @@ const hi = {
   missionDetail: {
     thStatus: "स्थिति",
     participationType: "भागीदारी प्रकार",
+    requiresApprovalNote: "वैलिडेटर के शुरू करने से पहले आपकी स्वीकृति आवश्यक है",
     noDeclinedParticipants: "कोई अस्वीकृत आमंत्रण नहीं",
     emptyDeclined: "जो आमंत्रण अस्वीकृत हो जाते हैं और जिन आवेदनों को आप स्वीकार नहीं करते हैं वे यहां दिखाई देंगे।",
     meetingLinkRequired: "पहले मीटिंग लिंक जोड़ें",

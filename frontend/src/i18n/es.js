@@ -2229,6 +2229,7 @@ const es = {
   missionDetail: {
     thStatus: "Estado",
     participationType: "Tipo de participación",
+    requiresApprovalNote: "Requiere tu aprobación antes de que un validador pueda empezar",
     noDeclinedParticipants: "No hay invitaciones rechazadas",
     emptyDeclined: "Las invitaciones rechazadas y las solicitudes que no aceptes aparecerán aquí.",
     meetingLinkRequired: "Agrega primero un enlace de reunión",

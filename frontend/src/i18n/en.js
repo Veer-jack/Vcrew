@@ -2248,6 +2248,7 @@ const en = {
     stageTime: "{{verb}} {{time}}",
     stageTimeAgo: "{{verb}} {{time}} ago",
     participationType: "Participation type",
+    requiresApprovalNote: "Requires your approval before a validator can start",
     theBrief: "The brief",
     noDescription: "No description provided yet.",
     participantPipeline: "Participant pipeline",

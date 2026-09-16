@@ -2229,6 +2229,7 @@ const ur = {
   missionDetail: {
     thStatus: "حیثیت",
     participationType: "شرکت کی قسم",
+    requiresApprovalNote: "ویلیڈیٹر کے شروع کرنے سے پہلے آپ کی منظوری درکار ہے",
     noDeclinedParticipants: "کوئی مسترد شدہ دعوت نہیں",
     emptyDeclined: "Invites that get declined and applications you don't accept will appear here.",
     meetingLinkRequired: "پہلے میٹنگ لنک شامل کریں",

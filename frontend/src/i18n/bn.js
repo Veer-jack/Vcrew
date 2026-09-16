@@ -2229,6 +2229,7 @@ const bn = {
   missionDetail: {
     thStatus: "অবস্থা",
     participationType: "অংশগ্রহণের ধরন",
+    requiresApprovalNote: "ভ্যালিডেটর শুরু করার আগে আপনার অনুমোদন প্রয়োজন",
     noDeclinedParticipants: "কোনো প্রত্যাখ্যাত আমন্ত্রণ নেই",
     emptyDeclined: "যে আমন্ত্রণগুলি প্রত্যাখ্যান করা হয় এবং আপনি যে অ্যাপ্লিকেশনগুলি গ্রহণ করেন না সেগুলি এখানে উপস্থিত হবে৷",
     meetingLinkRequired: "প্রথমে একটি মিটিং লিঙ্ক যোগ করুন",

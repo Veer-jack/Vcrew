@@ -2229,6 +2229,7 @@ const ru = {
   missionDetail: {
     thStatus: "Статус",
     participationType: "Тип участия",
+    requiresApprovalNote: "Требуется ваше одобрение, прежде чем валидатор сможет начать",
     noDeclinedParticipants: "Нет отклонённых приглашений",
     emptyDeclined: "Здесь будут отображаться приглашения, которые были отклонены, а также заявки, которые вы не приняли.",
     meetingLinkRequired: "Сначала добавьте ссылку на встречу",

@@ -2229,6 +2229,7 @@ const zh = {
   missionDetail: {
     thStatus: "状态",
     participationType: "参与类型",
+    requiresApprovalNote: "验证员开始前需要您的批准",
     noDeclinedParticipants: "没有被拒绝的邀请",
     emptyDeclined: "被拒绝的邀请和您不接受的申请将显示在此处。",
     meetingLinkRequired: "请先添加会议链接",
