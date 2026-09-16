@@ -486,7 +486,7 @@ export default function AudienceExplorer() {
                       <div className="aud-sub" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {[trFilterLabel(t, m.occ), trFilterLabel(t, m.city), trFilterLabel(t, m.role)].filter(Boolean).join(" | ")}
                       </div>
-                      <div className="row" style={{ alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+                      <div className="row between" style={{ alignItems: "center", gap: 8, marginTop: 6 }}>
                         {m.trust > 0 ? (
                           <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
                             <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
@@ -496,6 +496,11 @@ export default function AudienceExplorer() {
                             <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                           </span>
                         )}
+                        <span className="muted" style={{ fontSize: 11.5, flexShrink: 0 }}>
+                          {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
+                        </span>
+                      </div>
+                      <div className="row between" style={{ alignItems: "center", gap: 8, marginTop: 6 }}>
                         <span className="muted" style={{ fontSize: 11.5, flexShrink: 0 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
                         <span style={{ flexShrink: 0 }}>
                           <span style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)" }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</span>
@@ -517,13 +522,6 @@ export default function AudienceExplorer() {
                       -- was the plain gray .mtag look every other tag list
                       already moved away from earlier this session. */}
                   <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}</div>
-                  {/* Only shown in the View Profile drawer before -- the one
-                      stat from there the tester wants visible on the card
-                      itself without an extra click. Profile completion% now
-                      lives up by the trust pill instead of repeating here. */}
-                  <div className="muted" style={{ fontSize: 11.5 }}>
-                    {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
-                  </div>
                   {/* Invite is the action a builder actually comes here to
                       take, so it's the filled/primary button now -- the
                       reference has View Profile filled instead, but the
