@@ -246,9 +246,8 @@ export default function Invitations() {
                       </div>
                       {/* Same trust pill + profile completion% already shown
                           on the Audience Explorer card -- gives a sense of
-                          who this validator is without opening their profile.
-                          Each on its own line, flush left, same as there. */}
-                      <div style={{ marginTop: 4 }}>
+                          who this validator is without opening their profile. */}
+                      <div className="row" style={{ gap: 10, alignItems: "center", marginTop: 4 }}>
                         {g.validator.trust > 0 ? (
                           <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
                             <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
@@ -258,8 +257,8 @@ export default function Invitations() {
                             <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                           </span>
                         )}
+                        <span className="muted" style={{ fontSize: 11.5, marginLeft: 9 }}>{t("audience.profileComplete", { pct: g.validator.profileCompletion }, `Profile ${g.validator.profileCompletion}% complete`)}</span>
                       </div>
-                      <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>{t("audience.profileComplete", { pct: g.validator.profileCompletion }, `Profile ${g.validator.profileCompletion}% complete`)}</div>
                     </div>
                   </div>
                   <Icon name={isOpen ? "chevronUp" : "chevronDown"} size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
