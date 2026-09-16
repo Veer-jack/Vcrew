@@ -21,6 +21,20 @@ const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
                 {t("invite.recommended", null, "Recommended")}
               </span>
             )}
+            {/* Flags a validator the builder already turned down (a
+                rejected application) or who already declined -- on this
+                same mission -- so re-inviting is still possible (this is
+                just a heads-up, not a block) but never silent. */}
+            {v.invitedStatus === "not_selected" && (
+              <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>
+                {t("status.notSelected", null, "Not selected")}
+              </span>
+            )}
+            {v.invitedStatus === "declined" && (
+              <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>
+                {t("status.declined", null, "Declined")}
+              </span>
+            )}
           </div>
           <div className="muted" style={{ fontSize: 11.5, marginTop: 2, display: "flex", alignItems: "center" }}>
             {v.occ ? trFilterLabel(t, v.occ) : t("roles.member", null, "Member")} <span style={{ margin: "0 6px", fontSize: 16, color: "var(--border)" }}>•</span> {v.city ? trFilterLabel(t, v.city) : t("locations.remote", null, "Remote")}
@@ -46,7 +60,10 @@ const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
           <span className="muted" style={{ fontSize: 10.5, marginTop: 2, fontWeight: 500 }}>{t("metrics.trustScore", null, "Trust Score")}</span>
         </div>
         <div style={{ width: 100, textAlign: "right" }}>
-          {v.invitedStatus ? (
+          {/* Declined/not_selected stay re-invitable -- the chip next to
+              their name is the warning, not a block -- so only a live
+              pending invite or an already-joined participant locks this out. */}
+          {v.invitedStatus === "pending" || v.invitedStatus === "accepted" ? (
             <span className="faint" style={{ fontSize: 12.5, fontWeight: 600 }}>
               {v.invitedStatus === "accepted" ? t("invite.alreadyJoined", null, "Already joined") : t("invite.alreadyInvited", null, "Already invited")}
             </span>

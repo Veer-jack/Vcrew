@@ -46,6 +46,16 @@ router.get("/", async (req, res) => {
       }
       const invites = await db.prepare(`SELECT validator_id, status FROM mission_invitations WHERE mission_id = ? AND status != 'cancelled'`).all(missionId);
       invitedMap = Object.fromEntries(invites.map(i => [i.validator_id, i.status]));
+      // mission_invitations only ever covers the invite side -- a
+      // require-approval application the builder rejected, or one the
+      // validator withdrew, has no invitation row at all, so this list
+      // showed a plain "+ Invite" button for someone already turned down
+      // (or who'd already declined), with no warning of that history.
+      // participants.stage is the authoritative record of both outcomes
+      // (the Kanban reads the same column) -- checked after the invites so
+      // it wins over a stale/unrelated invitation status.
+      const outcomeRows = await db.prepare(`SELECT validator_id, stage FROM participants WHERE mission_id = ? AND stage IN ('declined', 'not_selected')`).all(missionId);
+      for (const r of outcomeRows) invitedMap[r.validator_id] = r.stage;
     }
   }
 
