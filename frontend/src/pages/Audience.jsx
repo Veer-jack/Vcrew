@@ -466,27 +466,22 @@ export default function AudienceExplorer() {
               <div className="aud-grid">
                 {results.slice(0, visibleCount).map((m) => (
                   <div className="aud-card rise" key={m.id}>
-                  {/* Reworked to match the tester's reference exactly:
-                      avatar as its own fixed-width column, everything else
-                      stacked in the remaining flex column so the trust pill
-                      trails the name and the match% trails the occupation --
-                      natural flexbox alignment instead of manually offsetting
-                      margins by the avatar's width. */}
+                  {/* Reordered per tester feedback: name, then a single
+                      occupation | location | role line, then the trust pill
+                      + profile completion together, then match% last -- was
+                      trust pill/match% crammed into the name/occupation
+                      rows themselves. */}
                   <div className="row gap-3" style={{ alignItems: "flex-start" }}>
                     <Avatar name={m.name} size={44} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* A long name wrapping to 2 lines grew this row's
-                          height on some cards but not others, so the trust
-                          pill/match% ended up at a different vertical spot
-                          card to card even though the layout is identical --
-                          truncating to one line with an ellipsis keeps every
-                          card's header the same height regardless of name
-                          length. */}
-                      <div className="row between" style={{ alignItems: "center", gap: 8, minWidth: 0 }}>
-                        <div className="aud-name" style={{ minWidth: 0 }}>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
-                          {m.verified && <span className="verif" style={{ flexShrink: 0 }}><Icon name="checkCircle" size={13} /></span>}
-                        </div>
+                      <div className="aud-name" style={{ minWidth: 0 }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
+                        {m.verified && <span className="verif" style={{ flexShrink: 0 }}><Icon name="checkCircle" size={13} /></span>}
+                      </div>
+                      <div className="aud-sub" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {[trFilterLabel(t, m.occ), trFilterLabel(t, m.city), trFilterLabel(t, m.role)].filter(Boolean).join(" | ")}
+                      </div>
+                      <div className="row between" style={{ alignItems: "center", gap: 8, marginTop: 6 }}>
                         {m.trust > 0 ? (
                           <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
                             <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
@@ -496,16 +491,11 @@ export default function AudienceExplorer() {
                             <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                           </span>
                         )}
+                        <span className="muted" style={{ fontSize: 11.5, flexShrink: 0 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
                       </div>
-                      <div className="row between" style={{ alignItems: "flex-start", gap: 8, marginTop: 2 }}>
-                        <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
-                        {/* Plain text match% (was MatchRing's circular badge)
-                            -- matches the reference's own right-aligned
-                            "N%" over "Match" pair instead of a ring. */}
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--accent)", lineHeight: 1.2 }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</div>
-                          <div className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em" }}>{t("audience.matchScore", null, "Match")}</div>
-                        </div>
+                      <div style={{ marginTop: 5 }}>
+                        <span style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)" }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</span>
+                        <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em", marginLeft: 5 }}>{t("audience.matchScore", null, "Match")}</span>
                       </div>
                     </div>
                   </div>
@@ -524,10 +514,10 @@ export default function AudienceExplorer() {
                   <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}</div>
                   {/* Only shown in the View Profile drawer before -- the one
                       stat from there the tester wants visible on the card
-                      itself without an extra click. */}
+                      itself without an extra click. Profile completion% now
+                      lives up by the trust pill instead of repeating here. */}
                   <div className="muted" style={{ fontSize: 11.5 }}>
                     {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
-                    {" · "}{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}
                   </div>
                   {/* Invite is the action a builder actually comes here to
                       take, so it's the filled/primary button now -- the
@@ -535,7 +525,7 @@ export default function AudienceExplorer() {
                       tester asked for these two swapped from how it shows
                       there. */}
                   <div className="aud-card-actions">
-                    <Btn size="sm" icon="eye" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
+                    <Btn size="sm" icon="eye" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => setViewProfileValidator(m)}>{t("actions.view", null, "View")}</Btn>
                     <Btn variant="primary" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
                   </div>
                 </div>
