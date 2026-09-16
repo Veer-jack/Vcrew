@@ -123,6 +123,13 @@ router.get("/", async (req, res) => {
       profileCompletion: v.profile_completion || 60,
       activeThisWeek,
       invitedStatus: invitedMap[v.id] || null,
+      // Both already sit on the validator row (missions_done is the same
+      // precomputed column the profile-detail endpoint below reads as
+      // `completed`) -- exposing them here too, in the bulk list response
+      // itself, is what actually lets the card show them without an extra
+      // per-card /audience/:id/profile fetch.
+      bio: v.bio || null,
+      missionsDone: v.missions_done || 0,
     };
   });
 

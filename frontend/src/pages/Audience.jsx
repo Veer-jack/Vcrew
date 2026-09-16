@@ -466,17 +466,35 @@ export default function AudienceExplorer() {
               <div className="aud-grid">
                 {results.slice(0, visibleCount).map((m) => (
                   <div className="aud-card rise" key={m.id}>
-                  <div className="aud-card-top">
-                    <Avatar name={m.name} size={44} />
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  {/* Avatar + name/role now sit side by side in one row
+                      (was avatar alone up top, name and role on their own
+                      full-width lines below it) -- match% moves to the
+                      far end of that same row instead of pairing with the
+                      avatar alone. */}
+                  <div className="aud-card-top" style={{ alignItems: "flex-start" }}>
+                    <div className="row gap-3" style={{ alignItems: "flex-start", flex: 1, minWidth: 0 }}>
+                      <Avatar name={m.name} size={44} />
+                      <div style={{ minWidth: 0 }}>
+                        <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
+                        <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
                       <MatchRing value={m.match} />
                       <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em" }}>{t("audience.matchScore", null, "Match")}</span>
                     </div>
                   </div>
-                  <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
-                  <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
+                  {/* Bio, clamped to 2 lines with an ellipsis -- wasn't shown
+                      on the card at all before, only after opening View
+                      Profile. Same clamp technique already used for bio-like
+                      text elsewhere (ATesterApplications.jsx, Discover.jsx). */}
+                  {m.bio && (
+                    <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {m.bio}
+                    </div>
+                  )}
                   <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
-                  <div className="aud-trust-row">
+                  <div className="aud-trust-row" style={{ alignItems: "center", gap: 10 }}>
                     {m.trust > 0 ? (
                       <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
                         <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
@@ -486,6 +504,12 @@ export default function AudienceExplorer() {
                         <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                       </span>
                     )}
+                    {/* Only shown in the View Profile drawer before -- the
+                        one stat from there the tester wants visible on the
+                        card itself without an extra click. */}
+                    <span className="muted" style={{ fontSize: 11.5 }}>
+                      {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
+                    </span>
                   </div>
                   <div className="muted" style={{ fontSize: 11.5 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</div>
                   <div className="aud-card-actions">
