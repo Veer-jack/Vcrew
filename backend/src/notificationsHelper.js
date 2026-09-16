@@ -1,39 +1,40 @@
 import { db } from "./db.js";
 import { ptypeOf } from "./meta.js";
+import { buildAudienceClauses } from "./routes/audience.js";
 
 /**
  * Fires asynchronously when a builder publishes a mission.
- * Targets validators whose role perfectly matches the mission audience.
+ * Targets validators who match the mission's full audience -- Geography,
+ * Professional, Interests, Demographics and ValidationCrew Role, not just
+ * role. This used to only ever check role (and, when the builder set no
+ * role filter at all, silently defaulted to excluding Testers "to avoid
+ * spam") -- a validator who matched on every other criterion the builder
+ * actually set (city, occupation, interests...) could still browse the
+ * mission in Discover (which applies no audience filtering of its own) yet
+ * never get notified about it. buildAudienceClauses is the same matching
+ * logic already used everywhere else a builder's audience gets checked
+ * against real validators (Audience Explorer, the Invite modal, the live
+ * match-count on the mission wizard), so "who gets notified" now agrees
+ * with "who this mission is actually for" instead of its own narrower rule.
  */
 export async function notifyMatchingValidators(missionId) {
   try {
     const mission = await db.prepare(`
-      SELECT m.*, b.org as builder_org 
-      FROM missions m 
-      JOIN builders b ON b.id = m.builder_id 
+      SELECT m.*, b.org as builder_org
+      FROM missions m
+      JOIN builders b ON b.id = m.builder_id
       WHERE m.id = ?
     `).get(missionId);
-    
+
     if (!mission || mission.status !== 'active') return;
 
-    // Parse the audience json to see what roles they want
     let audience = {};
     try {
       audience = JSON.parse(mission.audience_json || "{}");
     } catch (e) {}
 
-    const targetRoles = audience["ValidationCrew Role"] || audience.role || [];
-    let roleFilter = "";
-    let roleParams = [];
-
-    if (targetRoles.length > 0) {
-      roleFilter = `AND role IN (${targetRoles.map(() => '?').join(',')})`;
-      roleParams = [...targetRoles];
-    } else {
-      // If no specific role is targeted, we default to notifying standard Users and Validators,
-      // but maybe skip Testers unless explicitly asked, to avoid spam.
-      roleFilter = `AND role IN ('User', 'Validator')`;
-    }
+    const { clauses, params } = buildAudienceClauses(audience);
+    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
     // Uses ptype (Feedback Format), not category — ptype is what the validator will
     // actually do (matches the "Feedback Format" label on the mission page), while
@@ -48,8 +49,8 @@ export async function notifyMatchingValidators(missionId) {
       INSERT INTO v_notifications (validator_id, cat, icon, tone, type, title, body, time_label, unread, target_id)
       SELECT id, 'mission', 'bolt', 'primary', 'new_mission', 'New Mission Match', ?, 'Just now', 1, ?
       FROM validators
-      WHERE 1=1 ${roleFilter}
-    `).run(body, missionId, ...roleParams);
+      ${where}
+    `).run(body, missionId, ...params);
 
   } catch (error) {
     console.error("notifyMatchingValidators error:", error);

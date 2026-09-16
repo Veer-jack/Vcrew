@@ -189,7 +189,7 @@ router.get("/:id/profile", async (req, res) => {
 // candidate list) — one clause builder so both agree on exactly what "this
 // person matches the mission's audience" means. Each group is AND'd
 // together; values within a group are OR'd.
-function buildAudienceClauses(audience) {
+export function buildAudienceClauses(audience) {
   const clauses = [];
   const params = [];
 
