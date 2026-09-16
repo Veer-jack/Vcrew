@@ -2101,6 +2101,7 @@ const es = {
     draftDeleteFailed: "No se pudo eliminar este borrador — inténtalo de nuevo.",
     deleteDraft: "Eliminar borrador",
     onboardingWarning: "Puedes seguir creando esta misión, pero deberás seleccionar tu rol y completar la configuración antes de que pueda publicarse.",
+    missionCapWarning: "Las cuentas no verificadas pueden ejecutar un máximo de {{limit}} misiones activas. Verifica tu sitio web para desbloquear campañas ilimitadas.",
     deadlineLabel: "Fecha límite de la misión",
     deadlineHint: "El último día en que esta misión acepta nuevos participantes.",
   },

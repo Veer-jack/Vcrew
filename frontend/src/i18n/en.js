@@ -2080,6 +2080,7 @@ const en = {
     draftDeleteFailed: "Couldn't delete this draft — try again.",
     deleteDraft: "Delete draft",
     onboardingWarning: "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.",
+    missionCapWarning: "Unverified accounts can run a maximum of {{limit}} active missions. Verify your website to unlock unlimited campaigns.",
     deadlineLabel: "Mission deadline",
     deadlineHint: "The last day this mission accepts new participants.",
     issueInfo: "Mission info is incomplete",

@@ -2101,6 +2101,7 @@ const fr = {
     draftDeleteFailed: "Impossible de supprimer ce brouillon — réessayez.",
     deleteDraft: "Supprimer le brouillon",
     onboardingWarning: "Vous pouvez continuer à créer cette mission, mais vous devrez sélectionner votre rôle et terminer la configuration avant qu'elle puisse être publiée.",
+    missionCapWarning: "Les comptes non vérifiés peuvent exécuter un maximum de {{limit}} missions actives. Vérifiez votre site Web pour débloquer des campagnes illimitées.",
     deadlineLabel: "Date limite de la mission",
     deadlineHint: "Le dernier jour où cette mission accepte de nouveaux participants.",
   },

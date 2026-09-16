@@ -2101,6 +2101,7 @@ const pt = {
     draftDeleteFailed: "Não foi possível excluir este rascunho — tente novamente.",
     deleteDraft: "Excluir rascunho",
     onboardingWarning: "Você pode continuar criando esta missão, mas precisará selecionar sua função e concluir a configuração antes que ela possa ser publicada.",
+    missionCapWarning: "Contas não verificadas podem executar no máximo {{limit}} missões ativas. Verifique seu site para desbloquear campanhas ilimitadas.",
     deadlineLabel: "Prazo da missão",
     deadlineHint: "O último dia em que esta missão aceita novos participantes.",
   },

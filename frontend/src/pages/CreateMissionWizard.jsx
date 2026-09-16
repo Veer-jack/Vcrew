@@ -890,6 +890,22 @@ export default function CreateMissionWizard() {
   // one builder's in-progress mission draft to another.
   const builderId = builder?.id;
 
+  // The unverified-account active-mission cap used to only ever surface as a
+  // 400 from the Publish button on the last step — a builder who filled in
+  // 5 steps of a mission had no way to know they were already at the limit
+  // until that final click failed. Fetched once per mount (skipped entirely
+  // for a verified builder, since the cap doesn't apply) so every step can
+  // show the same warning the create/publish routes actually enforce,
+  // instead of only finding out after the fact.
+  const [activeMissionsCount, setActiveMissionsCount] = useState(0);
+  useEffect(() => {
+    if (!builder || builder.verified) return;
+    api.missions({ status: "active" }).then(res => setActiveMissionsCount((res.missions || []).length)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builder?.id, builder?.verified]);
+  const UNVERIFIED_MISSION_LIMIT = 3;
+  const overMissionCap = !builder?.verified && activeMissionsCount >= UNVERIFIED_MISSION_LIMIT;
+
   // True only when this exact page load was reached by clicking a specific
   // draft row in a list (Missions → Draft tab, or Dashboard's recent-
   // missions table) — carried on the navigation itself (browser history
@@ -2017,6 +2033,21 @@ export default function CreateMissionWizard() {
                 off, same resume logic Dashboard's own "Continue Setup"
                 already uses. */}
             <Btn variant="primary" size="sm" onClick={() => { const key = resolveActivePersonaKey(builder); navigate(key ? `/signup?role=${key}` : "/get-started/feedback"); }} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
+          </div>
+        )}
+        {/* Same cap the create/publish routes actually enforce (see
+            missions.js) — this used to only ever surface as a 400 from
+            Publish on the last step, so a builder who'd already hit the
+            limit filled in the whole wizard before finding out. wasActive is
+            excluded: the cap only blocks a NEW mission going live, not
+            editing one that's already active. */}
+        {!wasActive && overMissionCap && (
+          <div className="card" style={{ margin: "16px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+            <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+              {t("createMission.missionCapWarning", { limit: UNVERIFIED_MISSION_LIMIT }, `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`)}
+            </p>
+            <Btn variant="primary" size="sm" onClick={() => navigate("/settings")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.viewProfile", null, "View Profile")}</Btn>
           </div>
         )}
         <div className="wz-content wide">

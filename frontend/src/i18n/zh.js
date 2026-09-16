@@ -2101,6 +2101,7 @@ const zh = {
     draftDeleteFailed: "无法删除此草稿——请重试。",
     deleteDraft: "删除草稿",
     onboardingWarning: "您可以继续构建此任务，但在任务上线之前，您需要选择您的角色并完成设置。",
+    missionCapWarning: "未验证的账户最多可以运行 {{limit}} 个活动任务。验证您的网站以解锁无限任务。",
     deadlineLabel: "任务截止日期",
     deadlineHint: "此任务接受新参与者的最后一天。",
   },
