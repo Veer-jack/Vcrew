@@ -1672,6 +1672,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
 
           let displayLabel = key;
           let displayValue = String(val);
+          let isRating = false;
 
           if (typeof val === "object" && val !== null) {
             if (val._detail) {
@@ -1689,10 +1690,13 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
             
             if (qMatch) {
               displayLabel = isDetail ? `Detail: ${qMatch.text}` : qMatch.text;
+              // The "_detail" follow-up (free text) is never itself a rating,
+              // even when it's attached to a rating question's id.
+              isRating = !isDetail && qMatch.type === "rating";
             }
           }
-          
-          details.push({ label: displayLabel, value: displayValue });
+
+          details.push({ label: displayLabel, value: displayValue, isRating });
         }
 
         return {

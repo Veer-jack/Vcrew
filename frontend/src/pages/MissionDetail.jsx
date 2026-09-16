@@ -8,7 +8,7 @@ import { createPortal } from "react-dom";
 import { toast as hotToast } from "react-hot-toast";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
+import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
 import { useMeta, ptypeOf } from "../context/MetaContext";
 import { ptypeLabel, rewardLabel, rewardDesc } from "../bi18n";
 import { api } from "../api/client";
@@ -860,8 +860,14 @@ function SlideOver({ sub, onClose, onAction }) {
                             <Icon name="info" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{dt.label}</div>
                           </div>
-                          <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word" }}>
-                            {dt.value}
+                          <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word", display: "flex", alignItems: "center", gap: 8 }}>
+                            {/* Rating questions stored/displayed the raw 1-5
+                                number ("5") -- shown as stars, matching the
+                                same star icon the validator actually tapped
+                                to answer (Workspace.jsx's RatingQ). */}
+                            {dt.isRating && !isNaN(parseInt(dt.value, 10))
+                              ? <><Stars value={parseInt(dt.value, 10)} size={14} /><span className="faint">{dt.value}/5</span></>
+                              : dt.value}
                           </div>
                         </div>
                       ))}
