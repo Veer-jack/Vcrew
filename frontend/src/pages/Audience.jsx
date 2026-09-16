@@ -475,8 +475,18 @@ export default function AudienceExplorer() {
                   <div className="row gap-3" style={{ alignItems: "flex-start" }}>
                     <Avatar name={m.name} size={44} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="row between" style={{ alignItems: "center", gap: 8 }}>
-                        <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
+                      {/* A long name wrapping to 2 lines grew this row's
+                          height on some cards but not others, so the trust
+                          pill/match% ended up at a different vertical spot
+                          card to card even though the layout is identical --
+                          truncating to one line with an ellipsis keeps every
+                          card's header the same height regardless of name
+                          length. */}
+                      <div className="row between" style={{ alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <div className="aud-name" style={{ minWidth: 0 }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
+                          {m.verified && <span className="verif" style={{ flexShrink: 0 }}><Icon name="checkCircle" size={13} /></span>}
+                        </div>
                         {m.trust > 0 ? (
                           <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
                             <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
