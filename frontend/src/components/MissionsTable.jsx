@@ -60,7 +60,7 @@ const TAB_DATE_COL = {
 // make sense on the full Missions page) is genuinely a third shape, not a
 // variant of either existing one -- kept as a separate branch so neither
 // of those two paths' behavior changes at all.
-export default function MissionsTable({ rows, nav, categories, onDelete, tab, selectedIds, onToggleSelect, onToggleSelectAll, compact }) {
+export default function MissionsTable({ rows, nav, categories, onDelete, tab, selectedIds, onToggleSelect, onToggleSelectAll, compact, notifCounts }) {
   const { t } = useTranslation();
   if (!rows.length) return <div className="muted" style={{ padding: 24 }}>{t("missions.noMissionsYet", null, "No missions yet — create your first one.")}</div>;
   // Every row is selectable here, regardless of status — selection also
@@ -149,7 +149,18 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
               <td>
                 <div className="t-name">
                   <MissionLogo name={m.name} cat={m.category} size={34} />
-                  <div><div>{m.name}</div><div className="t-sub" title={m.region} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 360 }}>{truncateRegion(m.region)}</div></div>
+                  <div>
+                    <div className="row gap-2" style={{ alignItems: "center" }}>
+                      <span>{m.name}</span>
+                      {notifCounts?.[m.id] > 0 && (
+                        <span title={t("missions.newParticipantsHint", { count: notifCounts[m.id] }, `${notifCounts[m.id]} new participant${notifCounts[m.id] === 1 ? "" : "s"}`)}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: "none", background: "var(--danger)", color: "#fff", padding: "1px 7px 1px 5px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                          <Icon name="alertCircle" size={11} />{notifCounts[m.id]}
+                        </span>
+                      )}
+                    </div>
+                    <div className="t-sub" title={m.region} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 360 }}>{truncateRegion(m.region)}</div>
+                  </div>
                 </div>
               </td>
               <td style={cx("center")}><TypeTag cat={m.category} categories={categories} /></td>

@@ -51,6 +51,7 @@ export default function Missions() {
   };
   const [missions, setMissions] = useState([]);
   const [counts, setCounts] = useState({});
+  const [notifCounts, setNotifCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [toast, setToast] = useState(null);
@@ -191,6 +192,24 @@ export default function Missions() {
       .then(entries => setCounts(Object.fromEntries(entries)));
   }, [missions]);
 
+  // Unread "new participant" chip per mission row, for a builder who lands
+  // on Missions without ever opening the bell — same 10s poll cadence as
+  // AppLayout's own bell badge so the two never drift far apart.
+  useEffect(() => {
+    const fetchNotifCounts = () => api.notifications().then(d => {
+      const byMission = {};
+      for (const n of d.notifications || []) {
+        if (n.unread && n.type === "participant_joined" && n.missionId) {
+          byMission[n.missionId] = (byMission[n.missionId] || 0) + 1;
+        }
+      }
+      setNotifCounts(byMission);
+    }).catch(() => {});
+    fetchNotifCounts();
+    const interval = setInterval(fetchNotifCounts, 10000);
+    return () => clearInterval(interval);
+  }, [dataVersion]);
+
   return (
     <div className="page rise">
       <style>{`
@@ -293,7 +312,7 @@ export default function Missions() {
           : (
             <div style={{ paddingBottom: 32 }}>
               <MissionsTable rows={visibleRows} nav={navigate} categories={categories} onDelete={handleDelete} tab={tab}
-                selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} />
+                selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} notifCounts={notifCounts} />
               {pageCount > 1 && (
                 <div className="row" style={{ alignItems: "center", justifyContent: "center", gap: 16, marginTop: 16 }}>
                   <button className="btn btn-ghost" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}>
