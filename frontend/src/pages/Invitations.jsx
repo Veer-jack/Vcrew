@@ -247,7 +247,7 @@ export default function Invitations() {
                       {/* Same trust pill + profile completion% already shown
                           on the Audience Explorer card -- gives a sense of
                           who this validator is without opening their profile. */}
-                      <div className="row between" style={{ gap: 10, alignItems: "center", marginTop: 4 }}>
+                      <div className="row" style={{ gap: 10, alignItems: "center", marginTop: 4 }}>
                         {g.validator.trust > 0 ? (
                           <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
                             <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
