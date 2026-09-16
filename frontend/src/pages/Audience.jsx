@@ -270,28 +270,17 @@ export default function AudienceExplorer() {
 
   const results = useMemo(() => {
     if (!sel.Geography) return members;
-    return members.filter(m => {
-      const specificGeo = sel.Geography.size > 0 ? [...sel.Geography].filter(v => !/worldwide|remote/i.test(v)) : [];
-      const geo = sel.Geography.size === 0 || (specificGeo.length === 0 ? true : specificGeo.some(o => matchOption(m, "Geography", o)));
-      const role = !sel["ValidationCrew Role"] || sel["ValidationCrew Role"].size === 0 || [...sel["ValidationCrew Role"]].some(o => matchOption(m, "ValidationCrew Role", o));
-      const occ = !sel.Professional || sel.Professional.size === 0 || [...sel.Professional].some(o => matchOption(m, "Professional", o));
-      const int = sel.Interests.size === 0 || [...sel.Interests].some(o => matchOption(m, "Interests", o));
-      const ageOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.Age?.includes(o)));
-      const genOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.Gender?.includes(o)));
-      const incOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Income Bracket"]?.includes(o)));
-      const marOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Marital Status"]?.includes(o)));
-      const kidOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Has Kids"]?.includes(o)));
-
-      const demoAge = ageOpts.size === 0 || [...ageOpts].some(o => matchOption(m, "Demographics", o));
-      const demoGen = genOpts.size === 0 || [...genOpts].some(o => matchOption(m, "Demographics", o));
-      const demoInc = incOpts.size === 0 || [...incOpts].some(o => matchOption(m, "Demographics", o));
-      const demoMar = marOpts.size === 0 || [...marOpts].some(o => matchOption(m, "Demographics", o));
-      const demoKids = kidOpts.size === 0 || [...kidOpts].some(o => matchOption(m, "Demographics", o));
-      const demo = demoAge && demoGen && demoInc && demoMar && demoKids;
-      
-      const qq = !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase());
-      return geo && role && occ && int && demo && qq;
-    }).map(m => ({ ...m, match: computeMatch(m, sel, filters) }))
+    // Used to require matching every single selected filter group (a hard
+    // AND across Geography/Role/Professional/Interests/each Demographics
+    // subgroup) to show up at all -- a validator who matched 2 of 3 selected
+    // groups was excluded outright, even though computeMatch would've
+    // scored them a very reasonable 67%. Now anyone at or above a 75% match
+    // shows up, using the exact same per-group vote computeMatch already
+    // does, so "shows up in results" and "match%" can't disagree.
+    return members
+      .filter(m => !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase()))
+      .map(m => ({ ...m, match: computeMatch(m, sel, filters) }))
+      .filter(m => m.match === null || m.match >= 75)
       .sort((a, b) => {
       if (sortKey === "trust") return (b.trust || 0) - (a.trust || 0);
       if (sortKey === "name") return a.name.localeCompare(b.name);
