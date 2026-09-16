@@ -486,35 +486,40 @@ export default function AudienceExplorer() {
                       <div className="aud-sub" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {[trFilterLabel(t, m.occ), trFilterLabel(t, m.city), trFilterLabel(t, m.role)].filter(Boolean).join(" | ")}
                       </div>
-                      <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 6 }}>
-                        {m.trust > 0 ? (
-                          <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
-                            <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
-                          </span>
-                        ) : (
-                          <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none", flexShrink: 0 }}>
-                            <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
-                          </span>
-                        )}
-                        <span className="muted" style={{ fontSize: 11.5, flexShrink: 0 }}>
-                          {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
-                        </span>
-                      </div>
-                      <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 6 }}>
-                        {/* .mtag has 9px of left padding inside its pill
-                            shape (see builder.css), so "Building Trust"'s
-                            own text sits 9px in from the row's left edge --
-                            matching that here lines this line's first
-                            letter up with the row above instead of both
-                            looking offset even though their containers
-                            start at the same x. */}
-                        <span className="muted" style={{ fontSize: 11.5, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
-                        <span style={{ flexShrink: 0 }}>
-                          <span style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)" }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</span>
-                          <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em", marginLeft: 5 }}>{t("audience.matchScore", null, "Match")}</span>
-                        </span>
-                      </div>
                     </div>
+                  </div>
+                  {/* Pulled out of the indented name column (which sits to
+                      the right of the avatar) so these start at the card's
+                      true left edge, same as Bio below -- nested under the
+                      name column, they were indented ~56px further right
+                      than Bio, so no amount of spacing between items here
+                      could ever line the two up. */}
+                  <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 8 }}>
+                    {m.trust > 0 ? (
+                      <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
+                        <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
+                      </span>
+                    ) : (
+                      <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none", flexShrink: 0 }}>
+                        <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
+                      </span>
+                    )}
+                    <span className="muted" style={{ fontSize: 11.5, flexShrink: 0 }}>
+                      {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
+                    </span>
+                  </div>
+                  <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 6 }}>
+                    {/* .mtag has 9px of left padding inside its pill shape
+                        (see builder.css), so "Building Trust"'s own text
+                        sits 9px in from the row's left edge -- matching
+                        that here lines this line's first letter up with
+                        the row above instead of both looking offset even
+                        though their containers start at the same x. */}
+                    <span className="muted" style={{ fontSize: 11.5, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
+                    <span style={{ flexShrink: 0 }}>
+                      <span style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)" }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</span>
+                      <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em", marginLeft: 5 }}>{t("audience.matchScore", null, "Match")}</span>
+                    </span>
                   </div>
                   {/* Bio, clamped to 2 lines with an ellipsis -- wasn't shown
                       on the card at all before, only after opening View
