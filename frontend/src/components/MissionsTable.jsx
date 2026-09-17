@@ -158,16 +158,6 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                           <Icon name="alertCircle" size={11} />{notifCounts[m.id]}
                         </span>
                       )}
-                      {/* A require-approval application waits specifically on
-                          the builder -- otherwise invisible until the mission
-                          is actually opened, which a tester flagged: nothing
-                          on this list said an applicant was waiting. */}
-                      {m.pendingReviewCount > 0 && (
-                        <span title={t("missions.pendingReviewHint", { count: m.pendingReviewCount }, `${m.pendingReviewCount} application${m.pendingReviewCount === 1 ? "" : "s"} awaiting your review`)}
-                          style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: "none", background: "var(--danger)", color: "#fff", padding: "1px 7px 1px 5px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-                          <Icon name="alertTriangle" size={11} />{m.pendingReviewCount}
-                        </span>
-                      )}
                     </div>
                     <div className="t-sub" title={m.region} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 360 }}>{truncateRegion(m.region)}</div>
                   </div>
