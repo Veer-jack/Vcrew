@@ -255,21 +255,24 @@ export default function Workspace() {
     }
   }
 
-  // Only clears the task currently open -- resetting every task the
-  // validator already answered would throw away real work over one card
-  // they want to redo. Saves right away (not the debounced scheduleSave)
-  // with the cleared arrays passed explicitly, since state set here hasn't
+  // Wipes every task's steps/answers/proof and takes the validator back to
+  // the first one -- a full restart of the mission, not just the task
+  // currently open. Saves right away (not the debounced scheduleSave) with
+  // the cleared arrays passed explicitly, since state set here hasn't
   // re-rendered yet -- saveDraft would otherwise read the stale pre-reset
   // values straight off the closure and persist the very data being wiped.
-  const resetCurrentTask = () => {
-    const clearedSteps = [...stepsDone]; clearedSteps[curIdx] = new Set();
-    const clearedAnswers = [...answers]; clearedAnswers[curIdx] = {};
-    const clearedProof = [...proofUploaded]; clearedProof[curIdx] = false;
+  const resetAllTasks = () => {
+    const clearedSteps = tasks.map(() => new Set());
+    const clearedAnswers = tasks.map(() => ({}));
+    const clearedProof = tasks.map(() => false);
     setStepsDone(clearedSteps);
     setAnswers(clearedAnswers);
     setProofUploaded(clearedProof);
+    setCurIdx(0);
+    setMaxReached(0);
     setShowResetTaskWarning(false);
-    saveDraft(curIdx, false, { answers: clearedAnswers, proofUploaded: clearedProof });
+    window.scrollTo(0, 0);
+    saveDraft(0, false, { answers: clearedAnswers, proofUploaded: clearedProof });
   };
   const exitWorkspace = async () => { await saveDraft(curIdx); navigate("/validator/missions"); };
 
@@ -518,11 +521,13 @@ export default function Workspace() {
         </div>
       </div>
       {showResetTaskWarning && (
-        <Modal title={t("missions.startFreshTaskTitle", null, "Start fresh on this task?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
-          <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--text-muted)" }}>{t("missions.startFreshTaskConfirm", null, "This clears the steps, answers, and proof you've entered for this task. Other tasks aren't affected.")}</p>
-          <div className="row gap-2" style={{ justifyContent: "flex-end" }}>
-            <button className="btn outline" onClick={() => setShowResetTaskWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
-            <button className="btn btn-primary" onClick={resetCurrentTask}>{t("missions.startFreshTask", null, "Start fresh")}</button>
+        <Modal title={t("missions.startFreshTaskTitle", null, "Start fresh on this mission?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("missions.startFreshTaskConfirm", null, "This clears the steps, answers, and proof you've entered for every task and takes you back to the first one.")}</p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={() => setShowResetTaskWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-primary" onClick={resetAllTasks}>{t("missions.startFreshTask", null, "Start fresh")}</button>
+            </div>
           </div>
         </Modal>
       )}
