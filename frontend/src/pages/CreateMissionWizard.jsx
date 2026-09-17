@@ -455,6 +455,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
 function StepParticipation({ d, set, ptypes, locked }) {
   const { t } = useTranslation();
   const trialFieldRef = useRef(null);
+  const approvalFieldRef = useRef(null);
   const prevPtype = useRef(d.ptype);
   useEffect(() => {
     // The duration field only appears once "Multi-Day Diary Study" is
@@ -463,6 +464,10 @@ function StepParticipation({ d, set, ptypes, locked }) {
     // render while it's already selected.
     if (d.ptype === "trial" && prevPtype.current !== "trial") {
       trialFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (prevPtype.current !== d.ptype) {
+      // Any card pick can push the "require approval" checkbox off-screen
+      // below the grid — nudge it into view so it's not missed.
+      approvalFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     prevPtype.current = d.ptype;
   }, [d.ptype]);
@@ -496,7 +501,7 @@ function StepParticipation({ d, set, ptypes, locked }) {
           <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end. Choose between 3 and 30 days.")}</p>
         </div>
       )}
-      <label className="row gap-2" style={{ marginTop: 24, alignItems: "flex-start", cursor: locked ? "default" : "pointer", maxWidth: 480 }}>
+      <label ref={approvalFieldRef} className="row gap-2" style={{ marginTop: 24, alignItems: "flex-start", cursor: locked ? "default" : "pointer", maxWidth: 480 }}>
         <input type="checkbox" checked={!!d.requireApproval} disabled={locked} style={{ marginTop: 3, cursor: locked ? "default" : "pointer" }}
           onChange={e => set({ requireApproval: e.target.checked })} />
         <span>
