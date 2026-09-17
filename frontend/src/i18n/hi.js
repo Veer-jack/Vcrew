@@ -2968,6 +2968,8 @@ const hi = {
     egSoftwareEngineer: "जैसे सॉफ्टवेयर इंजीनियर",
     industry: "उद्योग",
     egTechnology: "जैसे प्रौद्योगिकी",
+    selectOccupation: "व्यवसाय चुनें",
+    selectIndustry: "उद्योग चुनें",
     location: "स्थान (शहर)",
     egBengaluru: "जैसे बेंगलुरु",
     shippingAddress: "शिपिंग पता",

@@ -2968,6 +2968,8 @@ const zh = {
     egSoftwareEngineer: "例如软件工程师",
     industry: "工业",
     egTechnology: "例如技术",
+    selectOccupation: "选择职业",
+    selectIndustry: "选择行业",
     location: "地点（城市）",
     egBengaluru: "例如班加罗尔",
     shippingAddress: "送货地址",

@@ -6,6 +6,7 @@ import { ScoreRing, StatTile, VAvatar, VStars } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { levelName, levelPerks, badgeLabel, badgeDesc, expertiseLabel } from "../vi18n";
+import { ROLES, INDUSTRIES } from "./VOnboarding";
 
 export default function Profile() {
   const { t } = useTranslation();
@@ -68,7 +69,7 @@ export default function Profile() {
       <div className="rise" style={{ marginBottom: 22 }}>
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           {!editing ? (
-            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "center" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "flex-start" }}>
               <VAvatar name={data.name} size={84} ring />
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
@@ -106,11 +107,22 @@ export default function Profile() {
               <div className="row gap-3 wrap">
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("profile.occupation", null, "Occupation")}</label>
-                  <input className="fin" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder={t("profile.egSoftwareEngineer", null, "e.g. Software Engineer")} />
+                  <select className="fin" style={{ background: "var(--panel)" }} value={occupation} onChange={e => setOccupation(e.target.value)}>
+                    <option value="">{t("profile.selectOccupation", null, "Select occupation")}</option>
+                    {/* A value saved before this became a fixed list (free text back then)
+                        won't match any option below -- keep it selectable instead of the
+                        select silently falling back to blank and losing it on save. */}
+                    {occupation && !ROLES.includes(occupation) && <option value={occupation}>{occupation}</option>}
+                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
                 </div>
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("profile.industry", null, "Industry")}</label>
-                  <input className="fin" value={industry} onChange={e => setIndustry(e.target.value)} placeholder={t("profile.egTechnology", null, "e.g. Technology")} />
+                  <select className="fin" style={{ background: "var(--panel)" }} value={industry} onChange={e => setIndustry(e.target.value)}>
+                    <option value="">{t("profile.selectIndustry", null, "Select industry")}</option>
+                    {industry && !INDUSTRIES.includes(industry) && <option value={industry}>{industry}</option>}
+                    {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
+                  </select>
                 </div>
               </div>
               <div className="row gap-3 wrap">

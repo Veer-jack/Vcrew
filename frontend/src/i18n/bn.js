@@ -2968,6 +2968,8 @@ const bn = {
     egSoftwareEngineer: "যেমন সফটওয়্যার ইঞ্জিনিয়ার",
     industry: "শিল্প",
     egTechnology: "যেমন প্রযুক্তি",
+    selectOccupation: "পেশা নির্বাচন করুন",
+    selectIndustry: "শিল্প নির্বাচন করুন",
     location: "অবস্থান (শহর)",
     egBengaluru: "যেমন বেঙ্গালুরু",
     shippingAddress: "শিপিং ঠিকানা",

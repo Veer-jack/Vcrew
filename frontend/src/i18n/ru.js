@@ -2968,6 +2968,8 @@ const ru = {
     egSoftwareEngineer: "например Инженер-программист",
     industry: "Промышленность",
     egTechnology: "например Технология",
+    selectOccupation: "Выберите профессию",
+    selectIndustry: "Выберите отрасль",
     location: "Местоположение (Город)",
     egBengaluru: "например Бангалор",
     shippingAddress: "Адрес доставки",

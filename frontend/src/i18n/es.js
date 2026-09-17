@@ -2968,6 +2968,8 @@ const es = {
     egSoftwareEngineer: "por ej. Ingeniero de software",
     industry: "Industria",
     egTechnology: "por ej. Tecnología",
+    selectOccupation: "Selecciona una ocupación",
+    selectIndustry: "Selecciona una industria",
     location: "Ubicación (Ciudad)",
     egBengaluru: "por ej. Bangalore",
     shippingAddress: "Dirección de envío",

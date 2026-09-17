@@ -2968,6 +2968,8 @@ const ar = {
     egSoftwareEngineer: "على سبيل المثال مهندس البرمجيات",
     industry: "الصناعة",
     egTechnology: "على سبيل المثال التكنولوجيا",
+    selectOccupation: "اختر المهنة",
+    selectIndustry: "اختر الصناعة",
     location: "الموقع (المدينة)",
     egBengaluru: "على سبيل المثال بنغالورو",
     shippingAddress: "عنوان الشحن",

@@ -2968,6 +2968,8 @@ const ur = {
     egSoftwareEngineer: "جیسے سافٹ ویئر انجینئر",
     industry: "صنعت",
     egTechnology: "جیسے ٹیکنالوجی",
+    selectOccupation: "پیشہ منتخب کریں",
+    selectIndustry: "صنعت منتخب کریں",
     location: "مقام (شہر)",
     egBengaluru: "جیسے بنگلورو",
     shippingAddress: "شپنگ ایڈریس",

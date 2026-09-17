@@ -2967,6 +2967,8 @@ const en = {
     egSoftwareEngineer: "e.g. Software Engineer",
     industry: "Industry",
     egTechnology: "e.g. Technology",
+    selectOccupation: "Select occupation",
+    selectIndustry: "Select industry",
     location: "Location (City)",
     egBengaluru: "e.g. Bengaluru",
     shippingAddress: "Shipping address",
