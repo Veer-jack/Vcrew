@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
+import { Btn } from "../components/ui";
 import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { useVAuth } from "../vcontext/VAuthContext";
@@ -8,6 +9,112 @@ import { vapi } from "../vapi/client";
 import { deadlineLabel, deadlineHours, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
 import { vtLabel, rewardBandLabel, sortLabel } from "../vi18n";
+import { TYPES, stepLabelsFor } from "./VOnboarding.jsx";
+
+// Mirrors the builder Dashboard's own ProfileCompletionBanner -- Skip (in
+// onboarding's rail) always just saves progress and exits, so this is what
+// picks that back up: a "Continue Setup" card when a type's picked but not
+// finished, or a "Select your type" card when Skip happened before that
+// even. Validators have no onboarding-completed flag on the backend (unlike
+// builders' onboarding_completed_at) -- city is only ever set by the
+// onboarding save itself, so its absence is the same signal in practice.
+function ProfileCompletionBanner({ validator, navigate, t }) {
+  if (!validator || validator.city) return null;
+
+  let validatorType = null;
+  try { validatorType = JSON.parse(localStorage.getItem(`VC_V_TYPE_${validator.id}`)); } catch { /* ignore */ }
+
+  if (!validatorType) {
+    return (
+      <div className="card" style={{ border: "1px solid var(--accent-weak)", padding: 0, marginBottom: 20, display: "flex", flexWrap: "wrap", overflow: "hidden" }}>
+        <div style={{ flex: "1 1 320px", padding: 32, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "var(--accent-weak)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+              <Icon name="user" size={26} />
+            </div>
+            <h3 style={{ fontSize: 20, margin: 0, fontWeight: 700 }}>{t("discover.selectTypeAndSetup", null, "Select your type and complete setup")}</h3>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>{t("discover.selectTypeDesc", null, "Choose the type that best describes you to unlock the right missions and start earning.")}</p>
+          <div style={{ marginTop: 16 }}>
+            <Btn variant="primary" onClick={() => navigate("/validator/onboarding")}><Icon name="user" size={16} /> {t("actions.selectType", null, "Select Type")}</Btn>
+          </div>
+        </div>
+        <div style={{ flex: "1 1 320px", padding: 32, background: "var(--panel-2)", borderLeft: "1px solid var(--border)" }}>
+          <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{t("discover.chooseYourType", null, "Choose your type")}</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {TYPES.map(ty => (
+              <div key={ty.key} style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, padding: 14, textAlign: "center" }}>
+                <div style={{ color: ty.color, marginBottom: 8 }}><Icon name={ty.icon} size={20} /></div>
+                <div style={{ fontSize: 11, fontWeight: 700 }}>{t(`vOnboarding.types.${ty.key}.title`, null, ty.title)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const type = TYPES.find(ty => ty.key === validatorType);
+  const stepLabels = stepLabelsFor(t, validatorType);
+  const totalSteps = stepLabels.length;
+  let step = 0;
+  try { step = JSON.parse(localStorage.getItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator.id}`)) || 0; } catch { /* ignore */ }
+  const pct = totalSteps ? Math.round((step / totalSteps) * 100) : 0;
+
+  const changeRole = () => {
+    if (!window.confirm(t("vOnboarding.confirmChangeRole", null, "Are you sure you want to change your role? This will clear all your progress."))) return;
+    localStorage.removeItem(`VC_V_TYPE_${validator.id}`);
+    localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator.id}`);
+    localStorage.removeItem(`VC_V_MAXSTEP_${validatorType.toUpperCase()}_${validator.id}`);
+    localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}_${validator.id}`);
+    navigate("/validator/onboarding");
+  };
+
+  return (
+    <div className="card" style={{ border: "1px solid var(--accent)", padding: 24, marginBottom: 20, display: "flex", flexWrap: "wrap", gap: 32, alignItems: "center" }}>
+      <div style={{ flex: "0 0 160px", textAlign: "center" }}>
+        <div style={{ width: 54, height: 54, borderRadius: "50%", background: type?.bg, color: type?.color, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+          <Icon name={type?.icon || "user"} size={26} />
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{step} {t("dashboard.of", null, "of")} {totalSteps} {t("dashboard.completed", null, "completed")}</div>
+        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)" }} />
+        </div>
+      </div>
+      <div style={{ flex: "1 1 240px" }}>
+        <h3 style={{ fontSize: 18, margin: "0 0 4px" }}>{t("discover.completeYourTypeProfile", { type: t(`vOnboarding.types.${validatorType}.title`, null, type?.title) }, `Complete your ${type?.title} profile`)}</h3>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 14px" }}>{t(`vOnboarding.types.${validatorType}.desc`, null, type?.desc)}</p>
+        <span className="pill" style={{ fontSize: 11, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 700 }}>{t("dashboard.step", null, "Step")} {Math.min(step + 1, totalSteps)} {t("dashboard.of", null, "of")} {totalSteps}</span>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("dashboard.nextStep", null, "Next step")}</div>
+          <b style={{ fontSize: 14 }}>{stepLabels[Math.min(step, totalSteps - 1)]}</b>
+        </div>
+      </div>
+      <div style={{ flex: "0 0 240px", borderLeft: "1px solid var(--border)", paddingLeft: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+          {stepLabels.map((label, i) => {
+            const isDone = i < step;
+            const isCurr = i === step;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, opacity: (isDone || isCurr) ? 1 : 0.5 }}>
+                {isDone ? (
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--success)", color: "#fff", display: "grid", placeItems: "center" }}><Icon name="check" size={12} /></div>
+                ) : (
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: isCurr ? "var(--accent)" : "var(--panel)", border: isCurr ? "none" : "1px solid var(--border)", color: isCurr ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700 }}>{i + 1}</div>
+                )}
+                <span style={{ fontSize: 13, fontWeight: isCurr ? 600 : 500 }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Btn variant="primary" block onClick={() => navigate("/validator/onboarding")}>{t("actions.continueSetup", null, "Continue Setup →")}</Btn>
+          <Btn variant="ghost" block onClick={changeRole}>{t("actions.changeRole", null, "Change role")}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Same grouping the card badges already use (see MktCard/FeaturedMission
 // above) — the status tabs are just a filter over that same vocabulary,
@@ -310,6 +417,8 @@ export default function Discover() {
 
   return (
     <div className="page">
+      <ProfileCompletionBanner validator={validator} navigate={navigate} t={t} />
+
       <div className="rise" style={{ marginBottom: 18 }}>
         <h2 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("discover.welcomeHeadline", { name: validator?.name?.split(" ")[0] || "" }, `Welcome ${validator?.name?.split(" ")[0] || ""}, find your next mission`)}</h2>
         <p className="muted" style={{ margin: 0, fontSize: 15 }}>{data.total} {t("discover.sub1", null, "open missions matched to your expertise · ")} {t("discover.sub2", null, "paid on approval.")}</p>

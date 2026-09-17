@@ -26,7 +26,7 @@ function useDraft(key, defaultState) {
   return [val, setVal];
 }
 
-const TYPES = [
+export const TYPES = [
   { key: "user", icon: "users", title: "User", tagline: "I use everyday products", desc: "Perfect for testing physical products, food, packaging, fashion, and consumer apps. No tech experience needed.", color: "#059669", bg: "var(--success-weak)", missions: "Surveys, taste tests, packaging reviews, lifestyle products" },
   { key: "validator", icon: "shield", title: "Validator", tagline: "I have professional expertise", desc: "For professionals, domain experts, and tech-savvy users who can evaluate apps, SaaS products, and digital experiences.", color: "#4f46e5", bg: "var(--accent-weak)", missions: "App testing, UX evaluation, SaaS reviews, expert feedback" },
   { key: "tester", icon: "star", title: "Verified Tester", tagline: "I have QA / product testing experience", desc: "For experienced testers and researchers. Submit your resume or LinkedIn for admin verification. Access premium high-pay missions.", color: "#d97706", bg: "var(--warning-weak)", missions: "Premium missions, complex testing, research studies", badge: "Admin verified 72hr review" },
@@ -55,7 +55,7 @@ export const TECH_TOOLS = ["Figma","Sketch","Notion","JIRA","Postman","Selenium"
 export const TESTER_DOMAINS = ["Mobile app testing","Web app testing","API testing","Performance testing","Security testing","Accessibility testing","UX research","AI product evaluation","Cross-browser testing","Regression testing","Exploratory testing","Physical product evaluation","Market research","Other"];
 export const CERT = ["ISTQB Foundation","ISTQB Advanced","AWS Certified","Google UX Design","Scrum / Agile","Six Sigma","PMP","None","Other"];
 
-export // Per-type step labels, used by the left rail (built once you've picked a
+// Per-type step labels, used by the left rail (built once you've picked a
 // type) instead of each onboarding sub-form drawing its own horizontal
 // progress bar at the top of the content -- the tester's explicit ask was
 // a left-side rail you can jump around in, matching the builder wizard's
@@ -65,7 +65,7 @@ const STEP_DEFS = {
   validator: [["basicInfo", "Basic info"], ["professional", "Professional"], ["expertise", "Expertise"], ["availability", "Availability"]],
   tester: [["basicInfo", "Basic info"], ["professional", "Professional"], ["proof", "Proof"], ["declaration", "Declaration"]],
 };
-const stepLabelsFor = (t, type) => (STEP_DEFS[type] || []).map(([k, fb]) => t(`vOnboarding.steps.${k}`, null, fb));
+export const stepLabelsFor = (t, type) => (STEP_DEFS[type] || []).map(([k, fb]) => t(`vOnboarding.steps.${k}`, null, fb));
 
 export const optLabel = (t, ns) => (o, i) => t(`vOnboarding.options.${ns}.${i}`, null, o);
 
