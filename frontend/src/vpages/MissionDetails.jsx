@@ -150,6 +150,19 @@ export default function MissionDetails() {
         </div>
       )}
 
+      {/* Was never shown anywhere -- the builder's rejection note only ever
+          reached the validator as a one-time notification toast, easy to
+          miss and gone for good afterward. */}
+      {task.myStatus === "rejected" && task.myReason && (
+        <div className="card rise" style={{ padding: "16px var(--pad-card)", marginBottom: 16, background: "var(--danger-weak)", border: "1px solid var(--danger)", display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <Icon name="xCircle" size={20} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontWeight: 700, color: "var(--danger)", marginBottom: 3 }}>{t("missions.submissionRejected", null, "Your submission was rejected")}</div>
+            <div style={{ fontSize: 13.5, color: "var(--text)" }}>{task.myReason}</div>
+          </div>
+        </div>
+      )}
+
       <div className="card rise" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "26px var(--pad-card)", borderBottom: "var(--hairline) solid var(--border)",
           background: `linear-gradient(180deg, color-mix(in srgb, var(${vType.accentVar}) 8%, var(--panel)), var(--panel))` }}>
@@ -260,7 +273,9 @@ export default function MissionDetails() {
           title={task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? t("actions.notifyMe", null, "Notify me if a slot opens") : (task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save"))}>
           {task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />}
         </button>
-        {!task.inviteId && !accepted && task.myStatus !== "not_selected" && (
+        {/* Already judged and done -- there's nothing left here to decline
+            out of, same reasoning "not_selected" already gets excluded for. */}
+        {!task.inviteId && !accepted && task.myStatus !== "not_selected" && task.myStatus !== "rejected" && (
           <button className="btn btn-quiet" disabled={busy} onClick={declineMission} style={{ color: "var(--danger)" }}>
             {task.myStatus === "applied" ? t("actions.withdrawApplication", null, "Withdraw application") : t("actions.decline", null, "Decline")}
           </button>

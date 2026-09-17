@@ -1866,7 +1866,11 @@ router.post("/:id/submissions/:responseId/rejected", authMiddleware, async (req,
 
     await tx.prepare(`UPDATE responses SET status = 'rejected', data_json = data_json WHERE id = ? AND mission_id = ?`).run(req.params.responseId, req.params.id);
 
-    await tx.prepare(`UPDATE v_my_missions SET status = 'rejected' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
+    // Reason used to only ever reach the validator as a one-time notification
+    // body -- persisted here too (same column the revision-request and
+    // removed-by-builder flows already use), so it's still visible whenever
+    // they come back to the mission later instead of only in that toast.
+    await tx.prepare(`UPDATE v_my_missions SET status = 'rejected', reason = ? WHERE mission_id = ? AND validator_id = ?`).run(req.body.note || null, req.params.id, response.validator_id);
     await tx.prepare(`UPDATE participants SET stage = 'rejected', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, response.validator_id);
 
     // Free up the slot since they are rejected
