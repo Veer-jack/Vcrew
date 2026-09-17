@@ -85,6 +85,9 @@ export default function Workspace() {
   const [mission, setMission] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [curIdx, setCurIdx] = useState(0);
+  // Tracks the furthest task ever reached -- separate from curIdx so going
+  // back to review an earlier task doesn't re-lock the ones already passed.
+  const [maxReached, setMaxReached] = useState(0);
   const [stepsDone, setStepsDone] = useState([]);
   const [answers, setAnswers] = useState([]);
   const [proofUploaded, setProofUploaded] = useState([]);
@@ -174,6 +177,10 @@ export default function Workspace() {
             savedAnswers = t.map((_, i) => rawAnswers[i] || {});
             savedIdx = wrapped ? (data.responses.curIdx || 0) : 0;
             setCurIdx(savedIdx);
+            // A task with saved answers was reached even if curIdx itself
+            // points earlier (e.g. the validator went back before closing).
+            const furthestAnswered = savedAnswers.reduce((max, a, i) => (a && Object.keys(a).length > 0 ? i : max), 0);
+            setMaxReached(Math.max(savedIdx, furthestAnswered));
           }
           setIsRevision(!!data.isRevision);
           setRevisionReason(data.revisionReason || "");
@@ -287,6 +294,7 @@ export default function Workspace() {
       setSubmitting(false);
     } else {
       setCurIdx(i => i + 1);
+      setMaxReached(m => Math.max(m, curIdx + 1));
       window.scrollTo(0, 0);
       saveDraft(curIdx + 1);
     }
@@ -345,10 +353,10 @@ export default function Workspace() {
             </button>
           )}
           {tasks.map((t, i) => {
-            const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
-            // Only a task already reached can be jumped back to -- one still
-            // locked behind the current task hasn't been generated into view
-            // yet and has nothing to switch to.
+            // Locked is relative to the furthest task ever reached, not the
+            // current position -- otherwise stepping back to review an
+            // earlier task re-locked every task already passed.
+            const state = i === curIdx ? "active" : i <= maxReached ? "done" : "locked";
             const jumpable = !isReadOnly && state !== "locked" && i !== curIdx;
             return (
               <div key={t.id} onClick={jumpable ? () => { setCurIdx(i); window.scrollTo(0, 0); saveDraft(i); } : undefined}
@@ -506,7 +514,7 @@ export default function Workspace() {
         </div>
       </div>
       {showResetTaskWarning && (
-        <Modal tone="warning" title={t("missions.startFreshTaskTitle", null, "Start fresh on this task?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
+        <Modal title={t("missions.startFreshTaskTitle", null, "Start fresh on this task?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--text-muted)" }}>{t("missions.startFreshTaskConfirm", null, "This clears the steps, answers, and proof you've entered for this task. Other tasks aren't affected.")}</p>
           <div className="row gap-2" style={{ justifyContent: "flex-end" }}>
             <button className="btn outline" onClick={() => setShowResetTaskWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
