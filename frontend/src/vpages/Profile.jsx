@@ -117,7 +117,7 @@ export default function Profile() {
               <div className="row gap-3 wrap">
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("profile.occupation", null, "Occupation")}</label>
-                  <select className="fin" style={{ background: "var(--panel)" }} value={occupation} onChange={e => setOccupation(e.target.value)}>
+                  <select className="fin" style={{ backgroundColor: "var(--panel)" }} value={occupation} onChange={e => setOccupation(e.target.value)}>
                     <option value="">{t("profile.selectOccupation", null, "Select occupation")}</option>
                     {/* A value saved before this became a fixed list (free text back then)
                         won't match any option below -- keep it selectable instead of the
@@ -128,7 +128,7 @@ export default function Profile() {
                 </div>
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("profile.industry", null, "Industry")}</label>
-                  <select className="fin" style={{ background: "var(--panel)" }} value={industry} onChange={e => setIndustry(e.target.value)}>
+                  <select className="fin" style={{ backgroundColor: "var(--panel)" }} value={industry} onChange={e => setIndustry(e.target.value)}>
                     <option value="">{t("profile.selectIndustry", null, "Select industry")}</option>
                     {industry && !INDUSTRIES.includes(industry) && <option value={industry}>{industry}</option>}
                     {INDUSTRIES.map(i => <option key={i} value={i}>{i}</option>)}
