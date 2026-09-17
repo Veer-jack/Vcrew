@@ -503,9 +503,13 @@ export default function Workspace() {
 
         {/* Bottom nav */}
         <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 36px", background: "color-mix(in srgb,var(--bg) 90%,transparent)", backdropFilter: "blur(12px)", borderTop: "1px solid var(--border)", zIndex: 30 }}>
-          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
-            <Icon name="arrowLeft" size={16} /> {t("actions.previous", null, "Previous")}
-          </button>
+          {/* Only shown in review mode -- otherwise this duplicated the
+              sidebar's own Back control below it. */}
+          {isReadOnly && (
+            <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
+              <Icon name="arrowLeft" size={16} /> {t("actions.previous", null, "Previous")}
+            </button>
+          )}
           <span style={{ flex: 1 }} />
           <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate("/validator/missions") : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
             {isReadOnly ? (curIdx === tasks.length - 1 ? t("actions.backToMissions", null, "Back to Missions") : t("actions.nextTask", null, "Next task")) : (submitting ? t("actions.submitting", null, "Submitting…") : curIdx === tasks.length - 1 ? t("actions.submitAllResponses", null, "Submit all responses") : t("actions.nextTask", null, "Next task"))}
