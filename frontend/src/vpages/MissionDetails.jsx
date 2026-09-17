@@ -61,8 +61,15 @@ export default function MissionDetails() {
   const apply = async () => {
     setBusy(true);
     try {
-      await vapi.applyTask(task.id);
-      setData(d => ({ ...d, task: { ...d.task, myStatus: "active" } }));
+      // Hardcoded to "active" here regardless of what actually happened --
+      // a require-approval mission's apply genuinely lands at 'applied', not
+      // 'active' (see POST /marketplace/:id/apply), so this showed "Accepted
+      // · Start now" for a couple of seconds no matter what, only correcting
+      // itself to "Awaiting builder review" once the validator left and came
+      // back and the page did a real fetch. Using the response's own status
+      // means the very first render already shows the truth.
+      const { myMission } = await vapi.applyTask(task.id);
+      setData(d => ({ ...d, task: { ...d.task, myStatus: myMission?.status || "active" } }));
     } catch (e) {
       handleJoinError(e);
     } finally { setBusy(false); }
