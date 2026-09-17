@@ -920,12 +920,13 @@ router.post("/invitations/:id/accept", async (req, res) => {
             .run(m.id, req.validator.id);
         }
       }
-      // A prior decline (see POST /marketplace/:id/decline) left a
-      // 'declined' row here — a fresh invite shouldn't silently bypass
-      // that, so update it in place rather than inserting a second row,
-      // and reject if the validator hasn't explicitly undone the decline.
+      // A prior decline (see POST /marketplace/:id/decline) can leave a
+      // 'declined' row here. That used to also block accepting here, but
+      // `invite` above is already a specific, currently-pending invitation
+      // the builder deliberately re-sent -- the validator explicitly
+      // accepting it is a clearer, later signal than a stale decline flag,
+      // so update the row in place instead of rejecting the accept.
       const existingMy = await tx.prepare(`SELECT id, status FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, m.id);
-      if (existingMy?.status === "declined") throw new Error("DECLINED_MISSION");
       if (existingMy) {
         await tx.prepare(`UPDATE v_my_missions SET status = 'active' WHERE id = ?`).run(existingMy.id);
       } else {
@@ -956,9 +957,6 @@ router.post("/invitations/:id/accept", async (req, res) => {
   } catch (err) {
     if (err.message === "MISSION_FULL") {
       return res.status(400).json({ error: "Sorry, this mission has just filled all available slots." });
-    }
-    if (err.message === "DECLINED_MISSION") {
-      return res.status(400).json({ error: "You declined this mission. Undo that from My Missions if you'd like to accept it." });
     }
     throw err;
   }

@@ -2043,6 +2043,14 @@ router.post("/:id/invite/:validatorId", authMiddleware, async (req, res) => {
         .run(req.params.id, req.params.validatorId, validator.name, validator.email, validator.city || 'Remote', trust);
     }
 
+    // The decline routes stamp v_my_missions with status='declined' so the
+    // validator's own "Declined" tab and Undo action work -- but that row
+    // has no "invited" state of its own (the Invited tab reads straight from
+    // mission_invitations above). Left in place, it stuck around as a stale
+    // "you declined this" flag that blocked Accept on this brand-new invite.
+    await tx.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`)
+      .run(req.params.validatorId, req.params.id);
+
     if (isWaitlist) {
       await tx.prepare(`INSERT INTO v_notifications (validator_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'invite', 'waitlist_invite', 'star', 'accent', ?, ?, 'Just now', 1, ?)`)
         .run(req.params.validatorId, "Waitlist Slot Opened!", `A slot opened up! You've been invited to the mission you saved: ${mission.name}`, req.params.id);

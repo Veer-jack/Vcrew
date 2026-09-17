@@ -243,7 +243,7 @@ export default function MissionDetails() {
 
       </div>
 
-      {task.myStatus === "declined" ? (
+      {task.myStatus === "declined" && !task.inviteId ? (
         <div className="row gap-3 wrap rise-2" style={{ position: "sticky", bottom: 0, marginTop: 18, padding: "14px 16px", alignItems: "center",
           background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
           border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>

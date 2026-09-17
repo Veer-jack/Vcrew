@@ -558,7 +558,7 @@ export function InviteValidatorModal({ mission, onClose }) {
       </div>
     </Modal>
     {rejectedConfirm && (
-      <Modal title={rejectedConfirm.total === 1
+      <Modal tone="warning" title={rejectedConfirm.total === 1
         ? t("invite.confirmRejectedSingleTitle", null, "Invite Rejected User?")
         : t("invite.confirmRejectedMultiTitle", null, "Rejected Users Selected")} onClose={() => setRejectedConfirm(null)} width={440}>
         <div style={{ padding: "0 20px 20px" }}>
