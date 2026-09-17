@@ -192,14 +192,17 @@ export default function Missions() {
       .then(entries => setCounts(Object.fromEntries(entries)));
   }, [missions]);
 
-  // Unread "new participant" chip per mission row, for a builder who lands
-  // on Missions without ever opening the bell — same 10s poll cadence as
-  // AppLayout's own bell badge so the two never drift far apart.
+  // Unread-notification chip per mission row, for a builder who lands on
+  // Missions without ever opening the bell — same 10s poll cadence as
+  // AppLayout's own bell badge so the two never drift far apart. Counts
+  // any unread notification about the mission (not just a new participant
+  // joining), matching MissionDetail's own per-tab badges, which resolve
+  // the same notifications down to whichever tab answers them.
   useEffect(() => {
     const fetchNotifCounts = () => api.notifications().then(d => {
       const byMission = {};
       for (const n of d.notifications || []) {
-        if (n.unread && n.type === "participant_joined" && n.missionId) {
+        if (n.unread && n.missionId) {
           byMission[n.missionId] = (byMission[n.missionId] || 0) + 1;
         }
       }

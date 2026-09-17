@@ -153,7 +153,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                     <div className="row gap-2" style={{ alignItems: "center" }}>
                       <span>{m.name}</span>
                       {notifCounts?.[m.id] > 0 && (
-                        <span title={t("missions.newParticipantsHint", { count: notifCounts[m.id] }, `${notifCounts[m.id]} new participant${notifCounts[m.id] === 1 ? "" : "s"}`)}
+                        <span title={t("missions.unreadUpdatesHint", { count: notifCounts[m.id] }, `${notifCounts[m.id]} unread update${notifCounts[m.id] === 1 ? "" : "s"}`)}
                           style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: "none", background: "var(--danger)", color: "#fff", padding: "1px 7px 1px 5px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
                           <Icon name="alertCircle" size={11} />{notifCounts[m.id]}
                         </span>

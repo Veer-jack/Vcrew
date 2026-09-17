@@ -150,6 +150,25 @@ const TABS = [
   { k: "payments", lk: "missionDetail.tabs.payments", l: "Payments", ic: "wallet" },
 ];
 
+// Which tab a given notification type is "about" -- lets an unread
+// notification for this mission surface as a red badge on the one tab
+// that actually answers it, same idea as the unread chip Missions.jsx
+// already shows per row, just resolved down to a specific tab once
+// you're actually inside the mission.
+const NOTIF_TYPE_TAB = {
+  participant_joined: "participants",
+  application_received: "participants",
+  invite_declined: "participants",
+  user_minus: "participants",
+  schedule_accepted: "participants",
+  schedule_declined: "participants",
+  mission_failed: "participants",
+  shipment_received: "participants",
+  mission_started: "overview",
+  submission: "responses",
+  checkin: "responses",
+};
+
 const TC_SEV = {
   crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
   imp: { l: "Important", color: "var(--warning)", bg: "var(--warning-weak)" },
@@ -1867,6 +1886,40 @@ export default function MissionDetail() {
   // below -- null means no confirm modal is open.
   const [pendingStatus, setPendingStatus] = useState(null);
   const [changingStatus, setChangingStatus] = useState(false);
+  const [missionNotifs, setMissionNotifs] = useState([]);
+
+  // Same 10s poll cadence as AppLayout's own bell badge and the Missions
+  // list chip, scoped down to just this mission's notifications.
+  useEffect(() => {
+    const fetchNotifs = () => api.notifications().then(d => {
+      setMissionNotifs((d.notifications || []).filter(n => String(n.missionId) === String(id)));
+    }).catch(() => {});
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 10000);
+    return () => clearInterval(interval);
+  }, [id, dataVersion]);
+
+  const unreadCountByTab = {};
+  for (const n of missionNotifs) {
+    if (!n.unread) continue;
+    const tabKey = NOTIF_TYPE_TAB[n.type];
+    if (tabKey) unreadCountByTab[tabKey] = (unreadCountByTab[tabKey] || 0) + 1;
+  }
+
+  // Opening a tab is what actually answers whatever its unread
+  // notifications were about -- mark them read the same way clicking one
+  // in the bell itself would, instead of leaving the badge stuck until
+  // the builder happens to open the bell separately.
+  // Runs on the initial tab too (not just switches), since landing
+  // directly on e.g. ?tab=participants from a notification link should
+  // clear that badge just as much as clicking the tab would.
+  useEffect(() => {
+    const ids = missionNotifs.filter(n => n.unread && NOTIF_TYPE_TAB[n.type] === tab).map(n => n.id);
+    if (!ids.length) return;
+    setMissionNotifs(prev => prev.map(n => ids.includes(n.id) ? { ...n, unread: false } : n));
+    ids.forEach(nid => api.markRead(nid).catch(() => {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, missionNotifs]);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -2192,7 +2245,20 @@ export default function MissionDetail() {
         <KpiCard label={t("metrics.spend", null, "Spend")} value={inrK(mission.spend)} icon="wallet" />
       </div>
 
-      <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
+      <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => (
+        <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)} style={{ position: "relative" }}>
+          <Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}
+          {/* Unread notifications about this mission, resolved to whichever
+              tab actually answers them (see NOTIF_TYPE_TAB) -- a small red
+              badge, same "something new happened here" signal as the bell
+              icon's own dot, cleared the moment this tab is opened. */}
+          {unreadCountByTab[t.k] > 0 && (
+            <span style={{ position: "absolute", top: 2, right: 2, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 8, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", lineHeight: 1 }}>
+              {unreadCountByTab[t.k]}
+            </span>
+          )}
+        </button>
+      ))}</div>
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} ptypes={ptypes} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={mission.status === "archived" ? null : () => navigate(`/missions/${id}/edit?step=3`)} />}
