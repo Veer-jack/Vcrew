@@ -165,16 +165,15 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="rise-2" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 22 }}>
-        <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 14 }}>
-          <ScoreRing value={trustScore} size={56} />
+      <div className="rise-2" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 22 }}>
+        <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 16 }}>
+          <ScoreRing value={trustScore} size={60} />
           <div style={{ minWidth: 0 }}><span className="eyebrow">{t("profile.trustScore", null, "Trust Score")}</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>{t("profile.top5", null, "Top 5% on platform")}</div></div>
         </div>
-        <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 14 }}>
-          <ScoreRing value={avgExpertise} size={56} />
+        <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 16 }}>
+          <ScoreRing value={avgExpertise} size={60} />
           <div style={{ minWidth: 0 }}><span className="eyebrow">{t("profile.expertise", null, "Expertise")}</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>{t("profile.across", null, "Across")} {(data.expertise || []).length} {t("profile.niches", null, "niches")}</div></div>
         </div>
-        <StatTile label={t("profile.completionRate", null, "Completion rate")} value={`${data.acceptRate || 0}%`} sub={t("profile.startedSubmitted", null, "Started → submitted")} accent="var(--accent)" icon="check" />
         <StatTile label={t("profile.missionsCompleted", null, "Missions completed")} value={data.completed || 0} sub={`₹${(data.lifetime || 0).toLocaleString("en-IN")} ${t("profile.lifetime", null, "lifetime")}`} accent="var(--warning)" icon="bolt" />
       </div>
 
