@@ -173,7 +173,12 @@ export default function MissionDetails() {
             header pill, so repeating it here was the only actual duplicate.
             Requirements moved into this row's third column instead of
             sitting in its own section further down the page. */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
+        {/* Requirements needs real room for three inline chips -- equal
+            thirds left it wrapping onto its own extra line and made the
+            whole card look taller than it needed to be. Participants/
+            Deadline only ever hold one short line of text, so they don't
+            need nearly as much width. */}
+        <div style={{ display: "grid", gridTemplateColumns: "0.6fr 0.6fr 1.6fr", borderBottom: "var(--hairline) solid var(--border)" }}>
           {[
             // Filled-first, matching the builder side's own "Participants:
             // joined/target" convention -- "Slots left: 5/5" on a mission
@@ -190,10 +195,10 @@ export default function MissionDetails() {
           ))}
           <div style={{ padding: "16px var(--pad-card)", borderLeft: "var(--hairline) solid var(--border)" }}>
             <div className="row gap-2 faint" style={{ fontSize: 11.5, marginBottom: 7 }}><Icon name="fileText" size={13} />{t("missions.requirements", null, "Requirements")}</div>
-            <div className="row gap-2 wrap">
-              <span className="pill"><Icon name="shield" size={13} />{t("missions.verifiedProfile", null, "Verified profile")}</span>
-              <span className="pill"><Icon name="cpu" size={13} />{rubric.label} {t("missions.expertise", null, "expertise")}</span>
-              <span className="pill"><Icon name="star" size={13} />4.0+ {t("missions.rating", null, "rating")}</span>
+            <div className="row gap-1 wrap">
+              <span className="pill" style={{ padding: "4px 9px", fontSize: 11.5 }}><Icon name="shield" size={12} />{t("missions.verifiedProfile", null, "Verified profile")}</span>
+              <span className="pill" style={{ padding: "4px 9px", fontSize: 11.5 }}><Icon name="cpu" size={12} />{rubric.label} {t("missions.expertise", null, "expertise")}</span>
+              <span className="pill" style={{ padding: "4px 9px", fontSize: 11.5 }}><Icon name="star" size={12} />4.0+ {t("missions.rating", null, "rating")}</span>
             </div>
           </div>
         </div>
