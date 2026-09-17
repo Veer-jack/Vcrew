@@ -249,11 +249,12 @@ export default function MissionDetails() {
       <div className="row gap-3 wrap rise-2" style={{ position: "sticky", bottom: 0, marginTop: 18, padding: "14px 16px",
         background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
         border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
-        <button className="btn btn-ghost" onClick={toggleSave}>
-          {task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save")}</>}
+        <button className="btn btn-ghost" onClick={toggleSave}
+          title={task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? t("actions.notifyMe", null, "Notify me if a slot opens") : (task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save"))}>
+          {task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />}
         </button>
         {!task.inviteId && !accepted && task.myStatus !== "not_selected" && (
-          <button className="btn btn-quiet" disabled={busy} onClick={declineMission}>
+          <button className="btn btn-quiet" disabled={busy} onClick={declineMission} style={{ color: "var(--danger)" }}>
             {task.myStatus === "applied" ? t("actions.withdrawApplication", null, "Withdraw application") : t("actions.decline", null, "Decline")}
           </button>
         )}
