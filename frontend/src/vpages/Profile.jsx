@@ -69,28 +69,34 @@ export default function Profile() {
       <div className="rise" style={{ marginBottom: 22 }}>
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           {!editing ? (
-            <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 20, alignItems: "flex-start" }}>
+            <>
+            <div className="row between" style={{ alignItems: "flex-start" }}>
               <VAvatar name={data.name} size={84} ring />
-              <div style={{ minWidth: 0 }}>
-                <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
-                  <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
-                  <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />{t("profile.lvlPrefix", null, "Lvl")} {data.level || 1} · {data.levelName ? levelName(t, data.level, data.levelName) : t("profile.trial", null, "Trial")}</span>
-                  <span className="tag" style={{ background: data.role === "Validator" ? "var(--purple-weak)" : data.role === "Tester" ? "var(--success-weak)" : "var(--border-color)", color: data.role === "Validator" ? "var(--purple)" : data.role === "Tester" ? "var(--success)" : "var(--text-muted)" }}>
-                    <Icon name={data.role === "Validator" ? "shield" : data.role === "Tester" ? "checkSquare" : "user"} size={13} />
-                    {data.role || t("profile.user", null, "User")}
-                  </span>
-                </div>
-                <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.occupation || t("profile.unspecified", null, "Unspecified")} · {(data.specialties || []).join(" · ")}</p>
-                {data.location && <p className="muted" style={{ margin: "3px 0 0", fontSize: 13 }}><Icon name="mapPin" size={12} /> {data.location}</p>}
-                {data.bio && <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.4 }}>{data.bio}</p>}
-                <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
-                  <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating || 0} · {data.ratingCount || 0} {t("profile.reviewsSuffix", null, "reviews")}</span>
-                  <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy || 0}{t("profile.accuracySuffix", null, "% accuracy")}</span>
-                  <span className="pill"><Icon name="flame" size={14} style={{ color: "var(--vt-proto)" }} />{data.streak || 0}{t("profile.streakSuffix", null, "-day streak")}</span>
-                </div>
-              </div>
               <button className="btn btn-ghost" onClick={startEdit}><Icon name="edit" />{t("actions.editProfile", null, "Edit profile")}</button>
             </div>
+            <div style={{ marginTop: 14 }}>
+              <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.02em" }}>{data.name}</h2>
+                <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="award" size={13} />{t("profile.lvlPrefix", null, "Lvl")} {data.level || 1} · {data.levelName ? levelName(t, data.level, data.levelName) : t("profile.trial", null, "Trial")}</span>
+                <span className="tag" style={{ background: data.role === "Validator" ? "var(--purple-weak)" : data.role === "Tester" ? "var(--success-weak)" : "var(--border-color)", color: data.role === "Validator" ? "var(--purple)" : data.role === "Tester" ? "var(--success)" : "var(--text-muted)" }}>
+                  <Icon name={data.role === "Validator" ? "shield" : data.role === "Tester" ? "checkSquare" : "user"} size={13} />
+                  {data.role || t("profile.user", null, "User")}
+                </span>
+              </div>
+              <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.occupation || t("profile.unspecified", null, "Unspecified")} · {(data.specialties || []).join(" · ")}</p>
+              {data.location && <p className="muted" style={{ margin: "3px 0 0", fontSize: 13 }}><Icon name="mapPin" size={12} /> {data.location}</p>}
+              {data.bio && <p style={{ margin: "8px 0 0", fontSize: 14, lineHeight: 1.4 }}>{data.bio}</p>}
+              <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
+                <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating || 0} · {data.ratingCount || 0} {t("profile.reviewsSuffix", null, "reviews")}</span>
+                <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy || 0}{t("profile.accuracySuffix", null, "% accuracy")}</span>
+                <span className="pill"><Icon name="flame" size={14} style={{ color: "var(--vt-proto)" }} />{data.streak || 0}{t("profile.streakSuffix", null, "-day streak")}</span>
+              </div>
+            </div>
+
+            <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
+            <PhoneSetup bare client={vapi} phone={data.phone} phoneVerified={data.phoneVerified}
+              onUpdate={(phone) => setData(d => ({ ...d, phone, phoneVerified: !!phone }))} />
+            </>
           ) : (
             <form onSubmit={save} className="col gap-4">
               {error && <div className="err-banner">{error}</div>}
@@ -232,8 +238,6 @@ export default function Profile() {
         </div>
 
         <div className="col gap-5 rise-3">
-          <PhoneSetup client={vapi} phone={data.phone} phoneVerified={data.phoneVerified}
-            onUpdate={(phone) => setData(d => ({ ...d, phone, phoneVerified: !!phone }))} />
           <PayoutSetup client={vapi} vpa={data.payoutVpa}
             onUpdate={(payoutVpa) => setData(d => ({ ...d, payoutVpa }))} />
           <div className="card" style={{ padding: "var(--pad-card)" }}>
