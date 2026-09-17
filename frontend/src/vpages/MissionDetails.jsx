@@ -164,23 +164,23 @@ export default function MissionDetails() {
       )}
 
       <div className="card rise" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "26px var(--pad-card)", borderBottom: "var(--hairline) solid var(--border)",
+        <div style={{ padding: "20px var(--pad-card)", borderBottom: "var(--hairline) solid var(--border)",
           background: `linear-gradient(180deg, color-mix(in srgb, var(${vType.accentVar}) 8%, var(--panel)), var(--panel))` }}>
           <div className="row between wrap gap-4" style={{ alignItems: "flex-start" }}>
             <div className="row gap-3" style={{ alignItems: "flex-start" }}>
-              <span style={{ width: 56, height: 56, borderRadius: 15, display: "grid", placeItems: "center", flex: "none", background: `var(${vType.accentVar})`, color: "#fff" }}><Icon name={vType.icon} size={28} /></span>
+              <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none", background: `var(${vType.accentVar})`, color: "#fff" }}><Icon name={vType.icon} size={22} /></span>
               <div>
-                <div className="row gap-2 wrap" style={{ marginBottom: 7 }}>
+                <div className="row gap-2 wrap" style={{ marginBottom: 6 }}>
                   <VTypeTag type={task.type} vtypes={vtypes} />
                   {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={12} />{cat.label}</span>}
                   {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={12} />{t("missions.highDemand", null, "High demand")}</span>}
                   <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("missions.match", null, "match")}</span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
-                <p className="muted" style={{ margin: "4px 0 0", fontSize: 15 }}>{headerMeta}</p>
+                <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 13.5 }}>{headerMeta}</p>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div>}</div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div>}</div>
           </div>
         </div>
 
@@ -291,7 +291,7 @@ export default function MissionDetails() {
         {task.inviteId ? (
           <div className="row gap-2">
             <button className="btn btn-ghost" disabled={busy} onClick={declineMission} style={{ color: "var(--danger)" }}>{t("actions.decline", null, "Decline")}</button>
-            <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : acceptInvite}>
+            <button className="btn btn-primary" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : acceptInvite}>
               <Icon name="userplus" />
               {busy ? t("actions.accepting", null, "Accepting…") : task.spotsLeft <= 0 ? t("missions.slotsFilled", null, "Slots Filled") : t("actions.acceptInvitation", null, "Accept Invitation")}
             </button>
@@ -307,7 +307,7 @@ export default function MissionDetails() {
         ) : task.myStatus === "not_selected" ? (
           <span className="pill" style={{ fontSize: 13, padding: "10px 16px", color: "var(--text-faint)" }}><Icon name="x" size={14} />{t("missions.notSelectedThisTime", null, "Not selected this time")}</span>
         ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" ? (
-          <button className="btn btn-primary btn-lg" onClick={() => {
+          <button className="btn btn-primary" onClick={() => {
               const inProgress = task.myStatus === "active";
               const dest = task.myStatus === "completed" ? "results"
                 : (task.ptype === "trial" && inProgress) ? "checkin"
@@ -325,7 +325,7 @@ export default function MissionDetails() {
               opacity: task.myStatus === "rejected" ? 0.8 : 1
             }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} /> {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : task.myStatus === "active" ? t("actions.acceptedStartNow", null, "Accepted · Start now") : t("actions.viewReason", null, "View reason")}</button>
         ) : (
-          <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
+          <button className="btn btn-primary" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
             {busy ? t("actions.applying", null, "Applying…") : (task.status !== "active" && task.status !== "live" && task.status !== "published") ? t("missions.missionClosed", null, "Mission Closed") : task.spotsLeft <= 0 ? t("missions.outOfSlots", null, "Out of slots") : t("actions.applyToMission", null, "Apply to this mission")} {task.spotsLeft > 0 && (task.status === "active" || task.status === "live" || task.status === "published") && <Icon name="arrowRight" />}
           </button>
         )}
