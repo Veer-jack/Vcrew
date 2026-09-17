@@ -1994,10 +1994,10 @@ export default function CreateMissionWizard() {
         <div className="wz-rail-foot">
           <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           {step === 0 ? (
-            <button className="btn" onClick={handleCancelClick} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
+            <button className="btn" onClick={handleCancelClick} style={{ alignSelf: "flex-start", marginLeft: 10, border: "none", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
             <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-              <button className="btn" onClick={handleCancelClick} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
+              <button className="btn" onClick={handleCancelClick} style={{ border: "none", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
               <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("createMission.back", null, "Back")}</button>
             </div>
           )}
