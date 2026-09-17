@@ -44,6 +44,17 @@ export default function MissionDetails() {
   const { task, rubric } = data;
   const vType = vtypes[task.type];
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
+  const pt = task.ptype && ptypes ? ptypes.find(p => p.id === task.ptype) : null;
+  // Header metadata line -- tagline/company plus the participation format,
+  // which used to sit in its own "Mission requirements" block further down
+  // the page. Filtered + joined so a missing piece (no ptype, no question
+  // count) doesn't leave a stray leading/trailing separator.
+  const headerMeta = [
+    task.tagline,
+    task.company,
+    pt && `${t("missions.feedbackFormat", null, "Feedback Format:")} ${pt.label}`,
+    task.questionCount > 0 && t("missions.questionCount", { count: task.questionCount }, `${task.questionCount} questions`),
+  ].filter(Boolean).join(" | ");
 
   // Shared by apply() and acceptInvite() — both actions are now gated
   // server-side on having a complete-enough profile (see vmarketplace.js /
@@ -151,13 +162,17 @@ export default function MissionDetails() {
                   <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("missions.match", null, "match")}</span>
                 </div>
                 <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
-                <p className="muted" style={{ margin: "4px 0 0", fontSize: 15 }}>{task.tagline} · {task.company}</p>
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 15 }}>{headerMeta}</p>
               </div>
             </div>
             <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div>}</div>
           </div>
         </div>
 
+        {/* "Your match" dropped -- it's already the one match% shown, in the
+            header pill, so repeating it here was the only actual duplicate.
+            Requirements moved into this row's third column instead of
+            sitting in its own section further down the page. */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
           {[
             // Filled-first, matching the builder side's own "Participants:
@@ -167,44 +182,45 @@ export default function MissionDetails() {
             // wasn't obvious until you actually compared them side by side.
             { ic: "users", l: t("missions.participants", null, "Participants"), v: `${task.spotsTotal - task.spotsLeft} / ${task.spotsTotal}` },
             { ic: "calendar", l: t("missions.deadline", null, "Deadline"), v: deadlineLabel(task.deadline) },
-            { ic: "target", l: t("missions.yourMatch", null, "Your match"), v: `${task.match}%` },
           ].map((x, i) => (
             <div key={i} style={{ padding: "16px var(--pad-card)", borderLeft: i ? "var(--hairline) solid var(--border)" : "none" }}>
               <div className="row gap-2 faint" style={{ fontSize: 11.5, marginBottom: 5 }}><Icon name={x.ic} size={13} />{x.l}</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{x.v}</div>
             </div>
           ))}
+          <div style={{ padding: "16px var(--pad-card)", borderLeft: "var(--hairline) solid var(--border)" }}>
+            <div className="row gap-2 faint" style={{ fontSize: 11.5, marginBottom: 7 }}><Icon name="fileText" size={13} />{t("missions.requirements", null, "Requirements")}</div>
+            <div className="row gap-2 wrap">
+              <span className="pill"><Icon name="shield" size={13} />{t("missions.verifiedProfile", null, "Verified profile")}</span>
+              <span className="pill"><Icon name="cpu" size={13} />{rubric.label} {t("missions.expertise", null, "expertise")}</span>
+              <span className="pill"><Icon name="star" size={13} />4.0+ {t("missions.rating", null, "rating")}</span>
+            </div>
+          </div>
         </div>
 
         <div style={{ padding: "var(--pad-card)" }}>
           <div className="eyebrow" style={{ marginBottom: 9 }}>{t("missions.aboutThisMission", null, "About this mission")}</div>
           <p style={{ margin: "0 0 22px", fontSize: 15, lineHeight: 1.6, overflowWrap: "anywhere", wordBreak: "break-word" }}>{task.brief}</p>
+          {/* Tinted so the two panels read as distinct blocks instead of one
+              continuous section -- blue for the task list, warm/cream for
+              the grading criteria. Mission-format details (Feedback Format,
+              question count) moved up into the header metadata line, so the
+              old "Mission requirements" sub-block here was dropped as a
+              duplicate; same for the Requirements chips, now in the stats
+              row above instead of repeated in this panel too. */}
           <div className="m2" style={{ gap: 22 }}>
-            <div>
+            <div style={{ background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: "var(--radius)", padding: 22 }}>
               <div className="eyebrow" style={{ marginBottom: 11 }}>{t("missions.whatYoullDo", null, "What you'll do")}</div>
               <div style={{ display: "grid", gap: 9 }}>
                 {task.steps.map((s, i) => (
                   <div key={i} className="row gap-3" style={{ alignItems: "flex-start" }}>
-                    <span className="mono" style={{ width: 22, height: 22, flex: "none", borderRadius: 6, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 600, background: "var(--accent-weak)", color: "var(--accent)" }}>{i + 1}</span>
+                    <span className="mono" style={{ width: 22, height: 22, flex: "none", borderRadius: 6, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 600, background: "var(--panel)", color: "var(--accent)" }}>{i + 1}</span>
                     <span style={{ fontSize: 14, overflowWrap: "anywhere", wordBreak: "break-word" }}>{s}</span>
                   </div>
                 ))}
               </div>
-              {task.ptype && ptypes && ptypes.find(p => p.id === task.ptype) && (() => {
-                const pt = ptypes.find(p => p.id === task.ptype);
-                return (
-                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-                    <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>{t("missions.missionRequirements", null, "Mission requirements")}</h3>
-                    <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14.5, color: "var(--text)", lineHeight: 1.6 }}>
-                      <li>{t("missions.feedbackFormat", null, "Feedback Format:")} {pt.label}</li>
-                      {task.questionCount > 0 && <li>{t("missions.questionCount", { count: task.questionCount }, `${task.questionCount} questions`)}</li>}
-                    </ul>
-                    {!(task.questionCount > 0) && <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23, marginTop: 10 }}>{pt.desc}</div>}
-                  </div>
-                );
-              })()}
             </div>
-            <div>
+            <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", padding: 22 }}>
               <div className="eyebrow" style={{ marginBottom: 11 }}>{t("missions.gradedOn", null, "What you'll be graded on")}</div>
               <div style={{ display: "grid", gap: 8 }}>
                 {rubric.rubric.map(d => (
@@ -213,12 +229,6 @@ export default function MissionDetails() {
                     <span><b style={{ fontWeight: 700 }}>{d.label}</b> <span className="faint">— {d.help}</span></span>
                   </div>
                 ))}
-              </div>
-              <div className="eyebrow" style={{ margin: "20px 0 11px" }}>{t("missions.requirements", null, "Requirements")}</div>
-              <div className="row gap-2 wrap">
-                <span className="pill"><Icon name="shield" size={13} />{t("missions.verifiedProfile", null, "Verified profile")}</span>
-                <span className="pill"><Icon name="cpu" size={13} />{rubric.label} {t("missions.expertise", null, "expertise")}</span>
-                <span className="pill"><Icon name="star" size={13} />4.0+ {t("missions.rating", null, "rating")}</span>
               </div>
             </div>
           </div>
