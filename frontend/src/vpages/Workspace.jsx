@@ -384,12 +384,12 @@ export default function Workspace() {
         </div>
         {!isReadOnly && (
           <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
-            <button className="btn btn-ghost" style={{ padding: "6px 4px", fontSize: 13, justifyContent: "flex-start" }} onClick={() => setShowResetTaskWarning(true)}>
-              <Icon name="refresh" size={15} /> {t("missions.startFreshTask", null, "Start fresh")}
+            <button className="backlink" onClick={() => setShowResetTaskWarning(true)}>
+              <Icon name="refresh" size={16} /> {t("missions.startFreshTask", null, "Start fresh")}
             </button>
-            <div className="row gap-2">
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={exitWorkspace}>{t("createMission.cancel", null, "Cancel")}</button>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>{t("createMission.back", null, "Back")}</button>
+            <div className="row gap-2" style={{ alignItems: "center" }}>
+              <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={exitWorkspace}>{t("createMission.cancel", null, "Cancel")}</button>
+              <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>{t("createMission.back", null, "Back")}</button>
             </div>
           </div>
         )}
