@@ -5,15 +5,59 @@ import { Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
 import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
+import {
+  Chips, Field, optLabel, AGE_GROUPS, GENDERS, INCOME, HEIGHT, WEIGHT, SKIN_TONE, HAIR_TYPE, HAIR_LENGTH, BODY_TYPE,
+  OCCUPATIONS, FOOD_PREF, LIFESTYLE, DEVICES, HOURS, ROLES, EXP, INDUSTRIES, PRODUCT_TYPES, TECH_TOOLS, TESTER_DOMAINS, CERT,
+} from "./VOnboarding.jsx";
+import { SelectAllToggle } from "../components/OnboardingFields.jsx";
 
 export default function VSettings() {
   const { t } = useTranslation();
-  const { validator, refresh, logout, setValidator } = useVAuth();
+  const { validator, refresh, setValidator } = useVAuth();
   const [name, setName] = useState(validator?.name || "");
   const [email, setEmail] = useState(validator?.email || "");
+  const [handle, setHandle] = useState(validator?.handle || "");
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+
+  // Everything collected during onboarding, keyed the same way the
+  // onboarding draft itself uses (and PATCH /profile expects) -- the
+  // camelCase fields below (ageGroup, hasKids, ...) are what publicValidator
+  // actually returns, so this is the one place converting between the two.
+  const [pd, setPd] = useState({
+    age_group: validator?.ageGroup || "", gender: validator?.gender || "", marital: validator?.marital || "",
+    has_kids: validator?.hasKids || "", income: validator?.income || "", height: validator?.height || "",
+    weight: validator?.weight || "", skin_tone: validator?.skinTone || "", hair_type: validator?.hairType || "",
+    hair_length: validator?.hairLength || "", body_type: validator?.bodyType || "", occupation: validator?.occupation || "",
+    food_pref: validator?.foodPref || "", lifestyle: validator?.lifestyle || [], devices: validator?.devices || [],
+    hours: validator?.hours || "", bio: validator?.bio || "", experience: validator?.experience || "",
+    industry: validator?.industry || [], company: validator?.company || "", product_types: validator?.productTypes || [],
+    tech_tools: validator?.techTools || [], domains: validator?.testingDomains || [], certifications: validator?.certifications || [],
+    linkedin_url: validator?.linkedinUrl || "", portfolio_url: validator?.portfolioUrl || "", testing_bio: validator?.testingBio || "",
+  });
+  const setF = (k, v) => setPd(p => ({ ...p, [k]: v }));
+  const [detailsBusy, setDetailsBusy] = useState(false);
+  const [detailsSaved, setDetailsSaved] = useState(false);
+  const [detailsError, setDetailsError] = useState("");
+  const saveDetails = async () => {
+    setDetailsBusy(true); setDetailsError(""); setDetailsSaved(false);
+    try {
+      // vapi.updateProfile() hits PATCH /api/v/profile (vprofile.js), a much
+      // older, narrower route that only knows about name/handle/occupation/
+      // industry/location/bio/specialties/address -- none of these onboarding
+      // fields. /auth/profile (vauth.js) is the route the onboarding wizard
+      // itself saves to and is the one that actually persists all of these.
+      await vapi.patch("/auth/profile", pd);
+      await refresh();
+      setDetailsSaved(true);
+      setTimeout(() => setDetailsSaved(false), 3000);
+    } catch (err) {
+      setDetailsError(err.message || t("settings.saveFailed", null, "Couldn't save changes"));
+    } finally {
+      setDetailsBusy(false);
+    }
+  };
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
@@ -60,7 +104,10 @@ export default function VSettings() {
   const save = async () => {
     setBusy(true); setError(""); setSaved(false);
     try {
-      await vapi.updateProfile({ name, email });
+      // Same fix as saveDetails below -- vapi.updateProfile() (PATCH
+      // /api/v/profile) doesn't handle email at all, so it was silently
+      // dropped on every save before this. /auth/profile does.
+      await vapi.patch("/auth/profile", { name, email, handle });
       await refresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -77,9 +124,9 @@ export default function VSettings() {
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("settings.title", null, "Settings")}</h1>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24, maxWidth: 1000 }}>
-        {/* Left Column */}
-        <div className="col gap-4">
+      {/* Single vertical stack (was a 2-column grid) -- matches the builder
+          side's own Settings layout, one full-width card at a time. */}
+      <div className="col gap-5" style={{ maxWidth: 980 }}>
           {/* Profile Card */}
           <div className="card" style={{ padding: 24 }}>
             <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
@@ -130,17 +177,84 @@ export default function VSettings() {
               </div>
               <div className="fld">
                 <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.handle", null, "Handle")}</label>
-                <input className="fin" value={`@${validator?.handle}`} disabled style={{ background: "var(--surface-1)", cursor: "not-allowed" }} />
+                <div className="inw has-pre"><span className="pre">@</span><input className="fin" value={handle} onChange={e => setHandle(e.target.value.toLowerCase().replace(/\s/g, ""))} /></div>
+              </div>
+              <div>
+                <Btn variant="primary" onClick={save} disabled={busy}>
+                  {busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save Changes")}
+                </Btn>
               </div>
             </div>
           </div>
 
+          {/* Profile Details -- everything collected during onboarding
+              (age/gender/income/height/weight/... for a User, bio/role/
+              experience/industry/... for a Validator, plus tester-only
+              fields once tester_status is set) -- was collected but never
+              shown or editable anywhere in Settings. */}
+          <div className="card" style={{ padding: 24 }}>
+            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
+                <Icon name="clipboard" size={20} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.profileDetails", null, "Profile Details")}</h3>
+                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.profileDetailsDesc", null, "Everything you shared while setting up your account.")}</p>
+              </div>
+            </div>
+
+            {validator?.validator_type === "user" ? (
+              <>
+                <Field label={t("vOnboarding.fields.ageGroup", null, "Age group")}><Chips options={AGE_GROUPS} value={pd.age_group} onChange={v => setF("age_group", v)} multi={false} getLabel={optLabel(t, "ageGroups")} /></Field>
+                <Field label={t("vOnboarding.fields.gender", null, "Gender")}><Chips options={GENDERS} value={pd.gender} onChange={v => setF("gender", v)} multi={false} getLabel={optLabel(t, "genders")} /></Field>
+                <Field label={t("vOnboarding.fields.maritalStatus", null, "Marital status")}><Chips options={["Single", "Married", "Divorced", "Widowed", "In a relationship"]} value={pd.marital} onChange={v => setF("marital", v)} multi={false} getLabel={optLabel(t, "marital")} /></Field>
+                <Field label={t("vOnboarding.fields.kids", null, "Kids?")}><Chips options={["Yes", "No", "Prefer not to say"]} value={pd.has_kids} onChange={v => setF("has_kids", v)} multi={false} getLabel={optLabel(t, "kids")} /></Field>
+                <Field label={t("vOnboarding.fields.income", null, "Income")}><Chips options={INCOME} value={pd.income} onChange={v => setF("income", v)} multi={false} getLabel={optLabel(t, "income")} /></Field>
+                <Field label={t("vOnboarding.fields.height", null, "Height")}><Chips options={HEIGHT} value={pd.height} onChange={v => setF("height", v)} multi={false} getLabel={optLabel(t, "height")} /></Field>
+                <Field label={t("vOnboarding.fields.weight", null, "Weight")}><Chips options={WEIGHT} value={pd.weight} onChange={v => setF("weight", v)} multi={false} getLabel={optLabel(t, "weight")} /></Field>
+                <Field label={t("vOnboarding.fields.skinTone", null, "Skin tone")}><Chips options={SKIN_TONE} value={pd.skin_tone} onChange={v => setF("skin_tone", v)} multi={false} getLabel={optLabel(t, "skinTone")} /></Field>
+                <Field label={t("vOnboarding.fields.hairType", null, "Hair type")}><Chips options={HAIR_TYPE} value={pd.hair_type} onChange={v => setF("hair_type", v)} multi={false} getLabel={optLabel(t, "hairType")} /></Field>
+                <Field label={t("vOnboarding.fields.hairLength", null, "Hair length")}><Chips options={HAIR_LENGTH} value={pd.hair_length} onChange={v => setF("hair_length", v)} multi={false} getLabel={optLabel(t, "hairLength")} /></Field>
+                <Field label={t("vOnboarding.fields.bodyType", null, "Body type")}><Chips options={BODY_TYPE} value={pd.body_type} onChange={v => setF("body_type", v)} multi={false} getLabel={optLabel(t, "bodyType")} /></Field>
+                <Field label={t("vOnboarding.fields.occupation", null, "Occupation")}><Chips options={OCCUPATIONS} value={pd.occupation} onChange={v => setF("occupation", v)} multi={false} getLabel={optLabel(t, "occupations")} /></Field>
+                <Field label={t("vOnboarding.fields.foodPreference", null, "Food preference")}><Chips options={FOOD_PREF} value={pd.food_pref} onChange={v => setF("food_pref", v)} multi={false} getLabel={optLabel(t, "foodPref")} /></Field>
+                <Field label={t("vOnboarding.fields.lifestyleInterests", null, "Lifestyle interests")} action={<SelectAllToggle options={LIFESTYLE} value={pd.lifestyle} onChange={v => setF("lifestyle", v)} />}><Chips options={LIFESTYLE} value={pd.lifestyle} onChange={v => setF("lifestyle", v)} getLabel={optLabel(t, "lifestyle")} /></Field>
+                <Field label={t("vOnboarding.fields.devices", null, "Devices")} action={<SelectAllToggle options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} />}><Chips options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} getLabel={optLabel(t, "devices")} /></Field>
+                <Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")}><Chips options={HOURS} value={pd.hours} onChange={v => setF("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field>
+              </>
+            ) : (
+              <>
+                <Field label={t("vOnboarding.fields.shortBio", null, "Short bio")}><textarea className="fin" rows={3} value={pd.bio} onChange={e => setF("bio", e.target.value)} /></Field>
+                <Field label={t("vOnboarding.fields.role", null, "Role")}><Chips options={ROLES} value={pd.occupation} onChange={v => setF("occupation", v)} multi={false} getLabel={optLabel(t, "roles")} /></Field>
+                <Field label={t("vOnboarding.fields.experience", null, "Experience")}><Chips options={EXP} value={pd.experience} onChange={v => setF("experience", v)} multi={false} getLabel={optLabel(t, "experience")} /></Field>
+                <Field label={t("vOnboarding.fields.industry", null, "Industry")} action={<SelectAllToggle options={INDUSTRIES} value={pd.industry} onChange={v => setF("industry", v)} />}><Chips options={INDUSTRIES} value={pd.industry} onChange={v => setF("industry", v)} getLabel={optLabel(t, "industries")} /></Field>
+                <Field label={t("vOnboarding.fields.company", null, "Company")}><input className="fin" value={pd.company} onChange={e => setF("company", e.target.value)} /></Field>
+                <Field label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} action={<SelectAllToggle options={PRODUCT_TYPES} value={pd.product_types} onChange={v => setF("product_types", v)} />}><Chips options={PRODUCT_TYPES} value={pd.product_types} onChange={v => setF("product_types", v)} getLabel={optLabel(t, "productTypes")} /></Field>
+                <Field label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")} action={<SelectAllToggle options={TECH_TOOLS} value={pd.tech_tools} onChange={v => setF("tech_tools", v)} />}><Chips options={TECH_TOOLS} value={pd.tech_tools} onChange={v => setF("tech_tools", v)} getLabel={optLabel(t, "techTools")} /></Field>
+                <Field label={t("vOnboarding.fields.devices", null, "Devices")} action={<SelectAllToggle options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} />}><Chips options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} getLabel={optLabel(t, "devices")} /></Field>
+                <Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")}><Chips options={HOURS} value={pd.hours} onChange={v => setF("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field>
+                {validator?.tester_status && (
+                  <>
+                    <Field label={t("vOnboarding.fields.testingDomains", null, "Testing domains")} action={<SelectAllToggle options={TESTER_DOMAINS} value={pd.domains} onChange={v => setF("domains", v)} />}><Chips options={TESTER_DOMAINS} value={pd.domains} onChange={v => setF("domains", v)} getLabel={optLabel(t, "testerDomains")} /></Field>
+                    <Field label={t("vOnboarding.fields.certifications", null, "Certifications")} action={<SelectAllToggle options={CERT} value={pd.certifications} onChange={v => setF("certifications", v)} />}><Chips options={CERT} value={pd.certifications} onChange={v => setF("certifications", v)} getLabel={optLabel(t, "certifications")} /></Field>
+                    <Field label={t("vOnboarding.fields.linkedinUrl", null, "LinkedIn URL")}><input className="fin" value={pd.linkedin_url} onChange={e => setF("linkedin_url", e.target.value)} /></Field>
+                    <Field label={t("vOnboarding.fields.portfolioGithub", null, "Portfolio / GitHub")}><input className="fin" value={pd.portfolio_url} onChange={e => setF("portfolio_url", e.target.value)} /></Field>
+                    <Field label={t("vOnboarding.fields.describeTestingExperience", null, "Describe your testing experience")}><textarea className="fin" rows={4} value={pd.testing_bio} onChange={e => setF("testing_bio", e.target.value)} /></Field>
+                  </>
+                )}
+              </>
+            )}
+
+            {detailsError && <p style={{ color: "var(--danger)", fontSize: 13, margin: "4px 0 8px" }}>{detailsError}</p>}
+            {detailsSaved && <p style={{ color: "var(--success)", fontSize: 13, margin: "4px 0 8px" }}>✓ {t("settings.changesSaved", null, "Changes saved")}</p>}
+            <Btn variant="primary" onClick={saveDetails} disabled={detailsBusy}>
+              {detailsBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save Changes")}
+            </Btn>
+          </div>
+
           <PhoneSetup client={vapi} phone={validator?.phone} phoneVerified={validator?.phoneVerified}
             onUpdate={(phone) => setValidator(v => ({ ...v, phone, phoneVerified: !!phone }))} />
-        </div>
 
-        {/* Right Column */}
-        <div className="col gap-4">
           {/* Security Card */}
           {!validator?.oauthProvider && (
             <div className="card" style={{ padding: 24 }}>
@@ -190,19 +304,6 @@ export default function VSettings() {
             </div>
           )}
 
-          {/* More Settings Coming Soon */}
-          <div className="card" style={{ padding: 24, background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
-            <div className="row gap-3" style={{ alignItems: "center" }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="sparkle" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.moreSettings", null, "More settings coming soon")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.moreSettingsDesc", null, "We're working on new preferences and customizations for your account.")}</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Validator type & status */}
@@ -266,22 +367,6 @@ export default function VSettings() {
             </button>
           </div>
         )}
-      </div>
-
-      {/* Sign Out */}
-      <div className="card row between wrap" style={{ marginTop: 24, padding: 24, background: "color-mix(in srgb, var(--danger) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)", maxWidth: 1000, alignItems: "center", gap: 16 }}>
-        <div className="row gap-4" style={{ alignItems: "center" }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: "color-mix(in srgb, var(--danger) 10%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--danger)" }}>
-            <Icon name="logout" size={24} />
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--danger)" }}>{t("settings.signOutTitle", null, "Sign Out")}</h3>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{t("settings.signOutDesc", null, "You'll need to sign back in to access your missions and earnings.")}</p>
-          </div>
-        </div>
-        <button className="btn btn-outline" style={{ color: "var(--danger)", borderColor: "var(--danger)", background: "transparent" }} onClick={logout}>
-          {t("actions.signOut", null, "Sign out")}
-        </button>
       </div>
     </div>
   );

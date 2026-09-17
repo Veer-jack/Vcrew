@@ -46,10 +46,40 @@ function publicValidator(v) {
     oauthProvider: v.oauth_provider || null,
     validator_type: v.validator_type,
     tester_status: v.tester_status,
+    tester_tier: v.tester_tier,
     role: v.role,
     avatar: v.avatar,
     bio: v.bio,
-    city: v.city
+    city: v.city,
+    // Everything collected during onboarding (PATCH /profile below writes
+    // all of these) -- was saved to the DB but never actually sent back
+    // to the frontend, so Settings had no way to show or edit any of it.
+    occupation: v.occupation,
+    experience: v.experience_years,
+    industry: JSON.parse(v.industry_json || "[]"),
+    company: v.company,
+    productTypes: JSON.parse(v.product_types_json || "[]"),
+    techTools: JSON.parse(v.tech_tools_json || "[]"),
+    ageGroup: v.age_group,
+    gender: v.gender,
+    marital: v.marital_status,
+    hasKids: v.has_kids,
+    income: v.income_bracket,
+    height: v.height,
+    weight: v.weight,
+    skinTone: v.skin_tone,
+    hairType: v.hair_type,
+    hairLength: v.hair_length,
+    bodyType: v.body_type,
+    foodPref: v.food_preference,
+    lifestyle: JSON.parse(v.lifestyle_json || "[]"),
+    devices: JSON.parse(v.devices_json || "[]"),
+    hours: v.hours_per_week,
+    testingDomains: JSON.parse(v.testing_domains_json || "[]"),
+    certifications: JSON.parse(v.certifications_json || "[]"),
+    linkedinUrl: v.linkedin_url,
+    portfolioUrl: v.portfolio_url,
+    testingBio: v.testing_bio,
   };
 }
 
