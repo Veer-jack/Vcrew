@@ -23,7 +23,7 @@ function timeAgo(dateStr) {
 
 async function serializeThread(t, withMessages, lang) {
   const tTime = t.created_at ? timeAgo(t.created_at) : "Just now";
-  const out = { id: t.id, name: t.name || "Builder", role: t.role || "Builder", mission: t.mission, time: tTime };
+  const out = { id: t.id, name: t.name || "Builder", role: t.role || "Builder", mission: t.mission, missionId: t.mission_id || null, time: tTime };
 
   const msgs = await db.prepare(`SELECT * FROM thread_messages WHERE thread_id = ? ORDER BY id ASC`).all(t.id);
   const doTranslate = lang && lang !== "en" && msgs.length;

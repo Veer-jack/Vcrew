@@ -43,7 +43,10 @@ function myStatusButtonStyle(myStatus) {
 function myStatusButtonLabel(t, myStatus, resumeLabel, openLabel) {
   if (myStatus === "completed") return t("actions.viewResults", null, "View results");
   if (myStatus === "submitted") return t("actions.viewSubmission", null, "View submission");
-  if (myStatus === "active") return resumeLabel;
+  // Matches the exact wording the single-mission detail page already uses
+  // for this status -- "Resume"/"Resume mission" on the card said something
+  // different from "Accepted · Start now" on the page it opens into.
+  if (myStatus === "active") return t("actions.acceptedStartNow", null, "Accepted · Start now");
   if (myStatus === "applied") return t("status.awaiting", null, "Awaiting");
   if (myStatus === "rejected") return t("actions.viewReason", null, "View reason");
   if (myStatus === "not_selected") return t("status.notSelected", null, "Not selected");

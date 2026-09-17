@@ -11,7 +11,7 @@ export default function MissionDetails() {
   const { t, dataVersion } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vtypes, ptypes } = useVMeta();
+  const { vtypes, ptypes, categories } = useVMeta();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
 
@@ -45,6 +45,7 @@ export default function MissionDetails() {
   const vType = vtypes[task.type];
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
   const pt = task.ptype && ptypes ? ptypes.find(p => p.id === task.ptype) : null;
+  const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
   // Header metadata line -- tagline/company plus the participation format,
   // which used to sit in its own "Mission requirements" block further down
   // the page. Filtered + joined so a missing piece (no ptype, no question
@@ -158,6 +159,7 @@ export default function MissionDetails() {
               <div>
                 <div className="row gap-2 wrap" style={{ marginBottom: 7 }}>
                   <VTypeTag type={task.type} vtypes={vtypes} />
+                  {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={12} />{cat.label}</span>}
                   {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={12} />{t("missions.highDemand", null, "High demand")}</span>}
                   <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("missions.match", null, "match")}</span>
                 </div>

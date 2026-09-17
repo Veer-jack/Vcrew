@@ -212,7 +212,7 @@ export default function Messages() {
                     border: m.from === "me" ? "none" : "var(--hairline) solid var(--border)",
                     borderBottomRightRadius: m.from === "me" ? 4 : 14, borderBottomLeftRadius: m.from === "me" ? 14 : 4 }}>
                     {m.attachment
-                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6 }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
+                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6, textDecoration: "underline" }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
                       : m.text}
                   </div>
                   <div className="feed-time" style={{ textAlign: m.from === "me" ? "right" : "left", marginTop: 4, padding: "0 4px" }}>{m.time}</div>

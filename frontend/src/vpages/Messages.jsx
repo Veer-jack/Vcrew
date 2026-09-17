@@ -167,11 +167,15 @@ export default function Messages() {
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <div className="row gap-3" style={{ padding: "13px var(--pad-page)", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <VAvatar name={active.name} size={40} />
-            <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)} · {active.mission}</div></div>
-            <button className="icon-btn" aria-label={t("vMessages.openInNewTab", null, "Open in new tab")}><Icon name="external" size={17} /></button>
+            <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)}</div></div>
+            {active.mission && <span className="pill" style={{ fontSize: 12 }}><Icon name="layers" size={13} />{active.mission}</span>}
+            {active.missionId && (
+              <button className="icon-btn" aria-label={t("vMessages.openInNewTab", null, "Open mission in new tab")} onClick={() => window.open(`/validator/missions/${active.missionId}`, "_blank", "noopener")}>
+                <Icon name="external" size={17} />
+              </button>
+            )}
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "var(--pad-page)", display: "flex", flexDirection: "column", gap: 12, background: "var(--bg)" }}>
-            <div style={{ textAlign: "center", margin: "4px 0 8px" }}><span className="pill" style={{ fontSize: 11.5 }}>{active.mission}</span></div>
             {visibleMessagesCount < active.messages.length && (
               <div style={{ textAlign: "center" }}>
                 <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setVisibleMessagesCount(c => c + 50)}>{t("actions.loadPrevious", null, "Load previous")}</button>
@@ -185,7 +189,7 @@ export default function Messages() {
                     border: m.from === "me" ? "none" : "var(--hairline) solid var(--border)",
                     borderBottomRightRadius: m.from === "me" ? 4 : 14, borderBottomLeftRadius: m.from === "me" ? 14 : 4 }}>
                     {m.attachment
-                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6 }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
+                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6, textDecoration: "underline" }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
                       : m.text}
                   </div>
                   <div className="feed-time" style={{ textAlign: m.from === "me" ? "right" : "left", marginTop: 4, padding: "0 4px" }}>{m.time}</div>
