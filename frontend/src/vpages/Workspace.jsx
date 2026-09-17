@@ -100,24 +100,18 @@ export default function Workspace() {
   const [saveStatus, setSaveStatus] = useState("idle");
   const [showResetTaskWarning, setShowResetTaskWarning] = useState(false);
 
-  // Checking off steps used to not count as "progress worth saving" here --
-  // only answering a question or uploading proof did. A validator who
-  // ticked steps but hadn't reached a question yet, then closed the tab,
-  // had nothing saved at all: no autosave had fired, and the only other
-  // save points (Back/Next, the explicit Save & Exit button) never ran
-  // either. stepsDone now triggers the same debounced autosave.
-  const isFirstRender = useRef(true);
-  useEffect(() => {
-    if (loading || isReadOnly) return;
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    const timerId = setTimeout(() => {
-      saveDraft(curIdx);
-    }, 1200);
-    return () => clearTimeout(timerId);
-  }, [answers, proofUploaded, stepsDone]);
+  // Checking off a step, answering a question, or uploading proof should all
+  // count as "progress worth saving" without waiting for Next/Continue --
+  // scheduleSave (called directly from those three actions below, not from
+  // a useEffect keyed off state) debounces a save 1200ms after the last edit,
+  // so a validator who typed one answer and closed the tab still keeps it.
+  const saveTimerRef = useRef(null);
+  const scheduleSave = (newIdx) => {
+    if (isReadOnly) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveDraft(newIdx), 1200);
+  };
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
 
   // The debounce above only fires 1200ms after the last edit -- closing the
   // tab, hitting browser back, or navigating elsewhere in the app inside
@@ -226,17 +220,21 @@ export default function Workspace() {
 
   const toggleStep = (si) => {
     setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
+    scheduleSave(curIdx);
   };
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
+    scheduleSave(curIdx);
   };
-  async function saveDraft(newIdx = curIdx, keepalive = false) {
+  async function saveDraft(newIdx = curIdx, keepalive = false, overrides = {}) {
     if (isReadOnly) return;
     if (!keepalive) setSaveStatus("saving");
     try {
-      const finalAnswers = answers.map((ans, i) => {
+      const ansSrc = overrides.answers || answers;
+      const proofSrc = overrides.proofUploaded || proofUploaded;
+      const finalAnswers = ansSrc.map((ans, i) => {
         const c = { ...ans };
-        if (proofUploaded[i]) c._proof = proofUploaded[i];
+        if (proofSrc[i]) c._proof = proofSrc[i];
         return c;
       });
       // keepalive: true is what actually makes this survive a tab close or
@@ -252,12 +250,19 @@ export default function Workspace() {
 
   // Only clears the task currently open -- resetting every task the
   // validator already answered would throw away real work over one card
-  // they want to redo.
+  // they want to redo. Saves right away (not the debounced scheduleSave)
+  // with the cleared arrays passed explicitly, since state set here hasn't
+  // re-rendered yet -- saveDraft would otherwise read the stale pre-reset
+  // values straight off the closure and persist the very data being wiped.
   const resetCurrentTask = () => {
-    setStepsDone(p => { const a = [...p]; a[curIdx] = new Set(); return a; });
-    setAnswers(p => { const a = [...p]; a[curIdx] = {}; return a; });
-    setProofUploaded(p => { const a = [...p]; a[curIdx] = false; return a; });
+    const clearedSteps = [...stepsDone]; clearedSteps[curIdx] = new Set();
+    const clearedAnswers = [...answers]; clearedAnswers[curIdx] = {};
+    const clearedProof = [...proofUploaded]; clearedProof[curIdx] = false;
+    setStepsDone(clearedSteps);
+    setAnswers(clearedAnswers);
+    setProofUploaded(clearedProof);
     setShowResetTaskWarning(false);
+    saveDraft(curIdx, false, { answers: clearedAnswers, proofUploaded: clearedProof });
   };
   const exitWorkspace = async () => { await saveDraft(curIdx); navigate("/validator/missions"); };
 
@@ -341,8 +346,13 @@ export default function Workspace() {
           )}
           {tasks.map((t, i) => {
             const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
+            // Only a task already reached can be jumped back to -- one still
+            // locked behind the current task hasn't been generated into view
+            // yet and has nothing to switch to.
+            const jumpable = !isReadOnly && state !== "locked" && i !== curIdx;
             return (
-              <div key={t.id} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", opacity: state === "locked" ? 0.45 : 1 }}>
+              <div key={t.id} onClick={jumpable ? () => { setCurIdx(i); window.scrollTo(0, 0); saveDraft(i); } : undefined}
+                style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", opacity: state === "locked" ? 0.45 : 1, cursor: jumpable ? "pointer" : "default" }}>
                 <span style={{
                   width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
                   fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, flexShrink: 0, zIndex: 1,
@@ -367,7 +377,7 @@ export default function Workspace() {
               <Icon name="refresh" size={15} /> {t("missions.startFreshTask", null, "Start fresh")}
             </button>
             <div className="row gap-2">
-              <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", flex: 1 }} onClick={exitWorkspace}>{t("createMission.cancel", null, "Cancel")}</button>
+              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={exitWorkspace}>{t("createMission.cancel", null, "Cancel")}</button>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>{t("createMission.back", null, "Back")}</button>
             </div>
           </div>
@@ -465,6 +475,7 @@ export default function Workspace() {
                     try {
                       const res = await vapi.uploadWorkspaceProof(id, file);
                       setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.filename; return a; });
+                      scheduleSave(curIdx);
                     } catch (err) {
                       alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));
                     } finally {
@@ -495,7 +506,7 @@ export default function Workspace() {
         </div>
       </div>
       {showResetTaskWarning && (
-        <Modal title={t("missions.startFreshTaskTitle", null, "Start fresh on this task?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
+        <Modal tone="warning" title={t("missions.startFreshTaskTitle", null, "Start fresh on this task?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "var(--text-muted)" }}>{t("missions.startFreshTaskConfirm", null, "This clears the steps, answers, and proof you've entered for this task. Other tasks aren't affected.")}</p>
           <div className="row gap-2" style={{ justifyContent: "flex-end" }}>
             <button className="btn outline" onClick={() => setShowResetTaskWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
