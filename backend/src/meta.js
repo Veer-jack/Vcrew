@@ -48,7 +48,7 @@ export const TASK_GUIDANCE = {
         steps: ["Consider the pricing or value described", "Answer honestly about what you'd realistically pay"],
         questions: [
           { id: "q4", text: "What's a fair price for this?", type: "multiple_choice", options: ["I wouldn't pay for it", "Low price", "Mid-range price", "Premium price"] },
-          { id: "q5", text: "Would you recommend this to a friend?", type: "yes_no_detail" },
+          { id: "q5", text: "Would you recommend this to a friend?", type: "yes_no_detail", detailOn: "no" },
           { id: "q6", text: "How well does this solve a real problem for you?", type: "rating", scale: 5 },
         ],
         proof: null, min_time_seconds: 150,
@@ -126,7 +126,7 @@ export const TASK_GUIDANCE = {
         steps: ["Think about what you currently use instead of this product", "Write your contribution as if debating the pros and cons with the group"],
         questions: [
           { id: "q3", text: "How does this compare to what you use today?", type: "text" },
-          { id: "q4", text: "Would this replace your current solution?", type: "yes_no_detail" },
+          { id: "q4", text: "Would this replace your current solution?", type: "yes_no_detail", detailOn: "no" },
         ],
         proof: null, min_time_seconds: 240,
       },
