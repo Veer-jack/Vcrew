@@ -1692,6 +1692,7 @@ const es = {
     lead: "Busque miembros verificados y filtros de capas para encontrar exactamente quién debe validar su producto.",
     showingDefaults: "Mostrando la audiencia que eligió al configurar su cuenta.",
     customAudience: "Estás explorando una audiencia personalizada.",
+    showingEveryone: "Mostrando a todos — no se aplicaron filtros.",
     matchingMembers: "Miembros coincidentes",
     verified: "Verificado",
     avgTrustScore: "Puntaje de confianza promedio",

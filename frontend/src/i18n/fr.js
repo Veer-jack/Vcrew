@@ -1692,6 +1692,7 @@ const fr = {
     lead: "Recherchez des membres vérifiés et des filtres de couches pour trouver exactement qui doit valider votre produit.",
     showingDefaults: "Affichage de l'audience que vous avez choisie lors de la création de votre compte.",
     customAudience: "Vous explorez une audience personnalisée.",
+    showingEveryone: "Affichage de tout le monde — aucun filtre appliqué.",
     matchingMembers: "Membres correspondants",
     verified: "Vérifié",
     avgTrustScore: "Score de confiance moyen",

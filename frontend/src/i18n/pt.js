@@ -1692,6 +1692,7 @@ const pt = {
     lead: "Pesquise membros verificados e filtros de camada para descobrir exatamente quem deve validar seu produto.",
     showingDefaults: "Mostrando o público que você escolheu ao configurar sua conta.",
     customAudience: "Você está explorando um público personalizado.",
+    showingEveryone: "Mostrando todos — nenhum filtro aplicado.",
     matchingMembers: "Membros correspondentes",
     verified: "Verificado",
     avgTrustScore: "Pontuação média de confiança",

@@ -1692,6 +1692,7 @@ const zh = {
     lead: "搜索经过验证的成员和层过滤器，以准确找到应该验证您的产品的人员。",
     showingDefaults: "显示您在设置帐户时选择的受众群体。",
     customAudience: "您正在探索自定义受众。",
+    showingEveryone: "正在显示所有人 — 未应用任何筛选条件。",
     matchingMembers: "匹配会员",
     verified: "已验证",
     avgTrustScore: "平均信任评分",

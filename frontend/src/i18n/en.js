@@ -1683,6 +1683,7 @@ const en = {
     lead: "Search verified members and layer filters to find exactly who should validate your product.",
     showingDefaults: "Showing the audience you picked when setting up your account.",
     customAudience: "You are exploring a custom audience.",
+    showingEveryone: "Showing everyone — no filters applied.",
     matchingMembers: "Matching members",
     availableMembers: "Available members",
     verified: "Verified",
