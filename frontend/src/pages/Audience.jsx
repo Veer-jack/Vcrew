@@ -558,7 +558,7 @@ export default function AudienceExplorer() {
                         though their containers start at the same x. */}
                     {/* Match% dropped per tester feedback -- was the only
                         content alongside Profile complete% on this row. */}
-                    <span className="muted" style={{ fontSize: 11.5, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
+                    <span className="muted" style={{ fontSize: 11.5, fontWeight: 600, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
                   </div>
                   {/* Bio, clamped to 2 lines with an ellipsis -- wasn't shown
                       on the card at all before, only after opening View
