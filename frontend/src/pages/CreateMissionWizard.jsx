@@ -2128,14 +2128,12 @@ export default function CreateMissionWizard() {
                   onClick={goNext}
                   style={!readyToPublish ? { opacity: 0.5, pointerEvents: "none" } : undefined}
                 >
-                  {wasActive
-                    // Edits already autosaved as they were typed (see the
-                    // debounced update effect above) — this button's only
-                    // remaining job is a deliberate "done editing" checkpoint,
-                    // not the thing that actually saves anything, so it no
-                    // longer claims to be a save action.
-                    ? (busy ? t("actions.finishing", null, "Finishing…") : t("actions.done", null, "Done"))
-                    : (busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission"))}
+                  {/* wasActive edits already autosaved as they were typed (see
+                      the debounced update effect above) -- this button
+                      doesn't trigger a second publish either way, but tester
+                      feedback said "Done" read as if the mission wasn't live
+                      yet. Same label either way now. */}
+                  {busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission")}
                 </Btn>
               </span>
             </div>
