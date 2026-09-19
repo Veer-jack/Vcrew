@@ -91,18 +91,20 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
   const cx = (align, extra) => ({ textAlign: align, ...extra });
   return (
     <div className="tbl-wrap missions-tbl-wrap">
-      {/* table-layout: fixed + an explicit width on every real column keeps
+      {/* table-layout: fixed + an explicit width on every column keeps
           Type/Created/etc. pinned to the same pixel position regardless of
-          which trailing columns a given tab shows. Mission is the one
-          column with no declared width (a minWidth floor instead) — the
-          only one table-layout:fixed lets stretch, so it's the one that
-          soaks up whatever's left of the container's width on a wide
-          screen (more room for what's actually the least predictable,
-          longest-running piece of content) instead of that space sitting
-          dead in a blank trailing column. On a narrow viewport it just
-          holds its floor and the table overflows into the (deliberately
-          unstyled, see .missions-tbl-wrap) horizontal scroll instead of
-          squeezing anything further. */}
+          which trailing columns a given tab shows. Mission gets a % width
+          (not px, and not left undefined) so it stays a large, consistent
+          share of the table on every tab — a leftover-space/minWidth
+          approach here doesn't work: table-layout:fixed ignores min-width
+          for column sizing, and on a tab with more trailing px-width
+          columns (Active/Completed/...) there's barely anything left over,
+          so only the tab with the fewest other columns (Draft) ever looked
+          right. A name too long even for 32% still gets a "..." via the
+          ellipsis below rather than wrapping. On a narrow viewport this can
+          push the table past the container width, which just overflows
+          into the (deliberately unstyled, see .missions-tbl-wrap)
+          horizontal scroll instead of squeezing anything further. */}
       <table className="tbl" style={{ tableLayout: "fixed" }}>
         <thead>
           <tr>
@@ -112,7 +114,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   ref={el => { if (el) el.indeterminate = !allSelected && rows.some(m => selectedIds?.has(m.id)); }} />
               </th>
             )}
-            <th style={thStyle(undefined, "left", { minWidth: 260, padding: "13px 24px" })}>{t("missions.missionCol", null, "Mission")}</th>
+            <th style={thStyle("32%", "left", { padding: "13px 24px" })}>{t("missions.missionCol", null, "Mission")}</th>
             <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
             {(isAll || compact) && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
             {!compact && <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>}
