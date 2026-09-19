@@ -333,7 +333,7 @@ export default function DailyCheckin() {
                       setUploadingProof(true);
                       try {
                         const res = await vapi.uploadCheckinProof(id, file);
-                        setProofFilename(res.file.filename);
+                        setProofFilename(res.file.url);
                       } catch (err) {
                         alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));
                       } finally {

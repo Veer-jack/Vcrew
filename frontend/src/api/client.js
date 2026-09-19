@@ -158,5 +158,7 @@ export const api = {
       return data;
     });
   },
-  deleteMissionFile: (missionId, filename) => request(`/missions/${missionId}/files/${filename}`, { method: "DELETE" }),
+  // filename is now a full Cloudinary URL for newer uploads -- must be
+  // encoded or its own slashes get parsed as extra route segments.
+  deleteMissionFile: (missionId, filename) => request(`/missions/${missionId}/files/${encodeURIComponent(filename)}`, { method: "DELETE" }),
 };

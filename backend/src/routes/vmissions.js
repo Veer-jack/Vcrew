@@ -3,18 +3,13 @@ import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { VTYPES } from "../vmeta.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { randomUUID } from "crypto";
+import { cloudinary, makeCloudinaryStorage } from "../upload.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
 import { translateBatch } from "../translate.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
-
-const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // A participant only ever moves accepted -> started once they've actually
 // done something (first check-in, first interview acceptance, first poll
@@ -32,16 +27,8 @@ async function markParticipantStarted(missionId, validatorId) {
   return result.changes > 0;
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    cb(null, `${randomUUID()}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: makeCloudinaryStorage("vcrew-proof"),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
   fileFilter: (req, file, cb) => {
     const allowed = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"];
@@ -50,6 +37,15 @@ const upload = multer({
   },
 });
 router.use(validatorAuthMiddleware);
+
+// A rejected upload (mission not found, wrong status, ...) still landed on
+// Cloudinary before the rejection was known -- best-effort delete it rather
+// than leaving it orphaned, same intent the old fs.unlinkSync had for local
+// disk. Not awaited by callers since it's cleanup, not part of the response.
+function cleanupUpload(file) {
+  const resourceType = file.mimetype?.startsWith("video") ? "video" : "image";
+  cloudinary.uploader.destroy(file.filename, { resource_type: resourceType }).catch(() => {});
+}
 
 function serializeRow(row) {
   return {
@@ -437,7 +433,7 @@ router.post("/:id/workspace/proof", (req, res, next) => {
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(404).json({ error: "Mission not found" });
   }
 
@@ -446,13 +442,13 @@ router.post("/:id/workspace/proof", (req, res, next) => {
   // task the builder flagged, so it must be allowed from either state.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(400).json({ error: "Mission not active or not accepted" });
   }
 
   res.status(201).json({
     ok: true,
-    file: { filename: req.file.filename, url: `/api/uploads/${req.file.filename}` },
+    file: { filename: req.file.filename, url: req.file.path },
   });
 });
 
@@ -467,11 +463,11 @@ router.post("/:id/checkin/proof", (req, res, next) => {
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(404).json({ error: "Mission not found" });
   }
   if (m.ptype !== "trial") {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(400).json({ error: "This mission does not use daily check-ins" });
   }
 
@@ -482,13 +478,13 @@ router.post("/:id/checkin/proof", (req, res, next) => {
   // was rejected too, for the rest of the trial, until an admin/DB fix.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(400).json({ error: "Mission not active or not accepted" });
   }
 
   res.status(201).json({
     ok: true,
-    file: { filename: req.file.filename, url: `/api/uploads/${req.file.filename}` },
+    file: { filename: req.file.filename, url: req.file.path },
   });
 });
 

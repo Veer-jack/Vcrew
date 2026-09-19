@@ -1246,7 +1246,7 @@ function FileCard({ f, onDelete }) {
       </div>
       <div className="row gap-2">
         {f.filename && (
-          <a href={`/api/uploads/${f.filename}`} download={f.name}
+          <a href={f.filename.startsWith("http") ? f.filename : `/api/uploads/${f.filename}`} download={f.name}
             className="btn btn-ghost" style={{ fontSize: 12, flex: 1, justifyContent: "center" }}>
             <Icon name="download" size={13} /> {t("actions.download", null, "Download")}
           </a>

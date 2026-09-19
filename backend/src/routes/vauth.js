@@ -5,25 +5,14 @@ import { sendValidatorWelcome } from "../email.js";
 import { isValidEmail, isValidPassword } from "../validators.js";
 import { levelForCompleted } from "../vmeta.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { randomUUID } from "crypto";
+import { makeCloudinaryStorage } from "../upload.js";
 
 export const router = Router();
 
 const VALID_LANGS = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
 
-// Same uploads dir + unguessable-UUID-filename convention as the mission proof uploads
-// (vmissions.js) and the generic /api/uploads/:filename server, just with a document
-// mimetype allowlist instead of image/video — a resume is a different kind of file.
-const RESUME_UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
-fs.mkdirSync(RESUME_UPLOADS_DIR, { recursive: true });
-
 const resumeUpload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, RESUME_UPLOADS_DIR),
-    filename: (req, file, cb) => cb(null, `${randomUUID()}${path.extname(file.originalname) || ""}`),
-  }),
+  storage: makeCloudinaryStorage("vcrew-resumes"),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB, matches the onboarding UI's stated limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") cb(null, true);
@@ -332,8 +321,10 @@ router.post("/profile/resume", validatorAuthMiddleware, (req, res, next) => {
 }, async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+  // req.file.path is the Cloudinary secure_url (see upload.js) -- stored
+  // directly, since there's no local disk path to reconstruct a URL from.
   await db.prepare(`UPDATE validators SET resume_path = ?, resume_filename = ? WHERE id = ?`)
-    .run(req.file.filename, req.file.originalname, req.validator.id);
+    .run(req.file.path, req.file.originalname, req.validator.id);
 
   res.status(201).json({ ok: true, resume_filename: req.file.originalname });
 });

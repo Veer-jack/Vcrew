@@ -485,7 +485,7 @@ export default function Workspace() {
                     setUploadingProof(true);
                     try {
                       const res = await vapi.uploadWorkspaceProof(id, file);
-                      setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.filename; return a; });
+                      setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.url; return a; });
                       scheduleSave(curIdx);
                     } catch (err) {
                       alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));

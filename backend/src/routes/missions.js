@@ -14,6 +14,7 @@ import { sendMissionPublished, sendMissionUpdated } from "../email.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
 import { translateBatch } from "../translate.js";
+import { cloudinary, makeCloudinaryStorage } from "../upload.js";
 
 // Lazy import to avoid circular dependency — admin.js imports db.js,
 // missions.js imports admin.js only for the automod helper.
@@ -24,19 +25,13 @@ async function automodMission(id) {
   } catch { /* best effort — never block mission creation */ }
 }
 
+// Legacy local files predating the Cloudinary migration -- still served
+// from here on a plain filename lookup; new uploads go straight to
+// Cloudinary and never touch this directory.
 const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    cb(null, `${randomUUID()}${ext}`);
-  },
-});
 
 const upload = multer({
-  storage,
+  storage: makeCloudinaryStorage("vcrew-mission-files"),
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB per file
   fileFilter: (req, file, cb) => {
     const allowed = [
@@ -330,7 +325,7 @@ router.get("/:id", async (req, res) => {
       for (const [key, val] of Object.entries(ans)) {
         if (key === "_proof") {
           const arr = Array.isArray(val) ? val : [val];
-          arr.filter(v => typeof v === 'string').forEach(v => attachments.push(v));
+          arr.filter(v => typeof v === 'string').forEach(v => attachments.push((v.startsWith("/api") || v.startsWith("http")) ? v : `/api/uploads/${v}`));
         } else if (typeof val === "string" && val.length > 10) {
           synthQuote = val;
         } else if (typeof val === "string" && val.length > 2 && val.length <= 15) {
@@ -370,7 +365,7 @@ router.get("/:id", async (req, res) => {
       checkinsByValidator[c.validator_id].push({
         dayNumber: c.day_number,
         answers: (() => { try { return JSON.parse(c.answers_json || "{}"); } catch { return {}; } })(),
-        screenshotUrl: c.screenshot_path ? `/api/uploads/${c.screenshot_path}` : null,
+        screenshotUrl: c.screenshot_path ? (c.screenshot_path.startsWith("http") ? c.screenshot_path : `/api/uploads/${c.screenshot_path}`) : null,
         submittedAt: c.submitted_at,
       });
     }
@@ -1166,7 +1161,7 @@ router.patch("/:id/responses/:rid", async (req, res) => {
 router.post("/:id/files", upload.single("file"), async (req, res) => {
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ? AND builder_id = ?`).get(req.params.id, req.builder.id);
   if (!m) {
-    if (req.file) fs.unlinkSync(req.file.path);
+    if (req.file) cloudinary.uploader.destroy(req.file.filename, { resource_type: req.file.mimetype?.startsWith("image") ? "image" : "raw" }).catch(() => {});
     return res.status(404).json({ error: "Mission not found" });
   }
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
@@ -1176,14 +1171,17 @@ router.post("/:id/files", upload.single("file"), async (req, res) => {
   const size = humanSize(req.file.size);
   const now = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 
+  // req.file.path is the Cloudinary secure_url (see upload.js) -- stored
+  // directly as file_path, since there's no local disk path to reconstruct
+  // a URL from anymore.
   await db.prepare(`
     INSERT INTO mission_files (mission_id, section, name, kind, size, by, when_label, file_path, mime_type)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(m.id, section, req.file.originalname, kind, size, req.builder.name, now, req.file.filename, req.file.mimetype);
+  `).run(m.id, section, req.file.originalname, kind, size, req.builder.name, now, req.file.path, req.file.mimetype);
 
   res.status(201).json({
     ok: true,
-    file: { name: req.file.originalname, kind, size, by: req.builder.name, when: now, filename: req.file.filename },
+    file: { name: req.file.originalname, kind, size, by: req.builder.name, when: now, filename: req.file.path },
   });
 });
 
@@ -1196,8 +1194,16 @@ router.delete("/:id/files/:filename", async (req, res) => {
   if (!row) return res.status(404).json({ error: "File not found" });
 
   await db.prepare(`DELETE FROM mission_files WHERE id = ?`).run(row.id);
-  const filePath = path.join(UPLOADS_DIR, req.params.filename);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  if (row.file_path.startsWith("http")) {
+    // Cloudinary's public_id is the URL's path segment between the
+    // resource-type marker and the extension -- easier to just derive it
+    // from the folder+filename we always upload with than to parse the URL.
+    const publicId = `vcrew-mission-files/${path.basename(row.file_path, path.extname(row.file_path))}`;
+    cloudinary.uploader.destroy(publicId, { resource_type: row.mime_type?.startsWith("image") ? "image" : "raw" }).catch(() => {});
+  } else {
+    const filePath = path.join(UPLOADS_DIR, row.file_path);
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
 
   res.json({ ok: true });
 });
@@ -1645,7 +1651,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
       checkinsByValidator[c.validator_id].push({
         dayNumber: c.day_number,
         answers: (() => { try { return JSON.parse(c.answers_json || "{}"); } catch { return {}; } })(),
-        screenshotUrl: c.screenshot_path ? `/api/uploads/${c.screenshot_path}` : null,
+        screenshotUrl: c.screenshot_path ? (c.screenshot_path.startsWith("http") ? c.screenshot_path : `/api/uploads/${c.screenshot_path}`) : null,
         submittedAt: c.submitted_at,
       });
     }
@@ -1695,7 +1701,7 @@ router.get("/:id/submissions", authMiddleware, async (req, res) => {
         for (const [key, val] of Object.entries(ans)) {
           if (key === "_proof") {
             const arr = Array.isArray(val) ? val : [val];
-            attachments = arr.filter(v => typeof v === 'string').map(v => v.startsWith("/api") ? v : `/api/uploads/${v}`);
+            attachments = arr.filter(v => typeof v === 'string').map(v => (v.startsWith("/api") || v.startsWith("http")) ? v : `/api/uploads/${v}`);
             continue;
           }
 
