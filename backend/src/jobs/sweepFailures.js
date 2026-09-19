@@ -122,7 +122,7 @@ export async function sweepStalePendingApplications() {
         // The builder gets a heads-up too — this happened without them, unlike
         // a manual accept where they already know.
         await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'application_auto_accepted', 'clock', 'primary', ?, ?, 'Just now', 1, ?)`)
-          .run(app.builder_id, "Application Auto-Accepted", `An applicant for "${app.mission_name}" was automatically accepted after ${PENDING_APPLICATION_TIMEOUT_HOURS}h of no response — review your Pending queue sooner to decide yourself next time.`, app.mission_id);
+          .run(app.builder_id, "Application Auto-Accepted", `An applicant for "${app.mission_name}" was auto-accepted after ${PENDING_APPLICATION_TIMEOUT_HOURS}h of no response.`, app.mission_id);
         accepted++;
       }
     });
