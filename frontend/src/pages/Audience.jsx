@@ -126,11 +126,11 @@ const matchOption = (m, g, o) => {
 
 // A validator with a long expertise list wrapped to many rows and blew the
 // card's height out -- the full list is only ever a click away anyway (View
-// Profile's drawer shows every tag), so this clamps to whatever fits on the
-// first row and folds the rest into a "+N" chip instead. Same real-layout-
-// measurement technique as Settings' ChipField (a fixed item-count cutoff
-// doesn't work consistently across validators with different tag-label
-// widths), just targeting 1 row here instead of 2.
+// Profile's drawer shows every tag), so this clamps to whatever fits within
+// the first 2 rows and folds the rest into a "+N" chip instead. Same real-
+// layout-measurement technique as Settings' ChipField (a fixed item-count
+// cutoff doesn't work consistently across validators with different
+// tag-label widths).
 function ExpertiseChips({ items, t }) {
   const rowRef = useRef(null);
   const [visibleCount, setVisibleCount] = useState(null);
@@ -144,9 +144,9 @@ function ExpertiseChips({ items, t }) {
     const chips = Array.from(rowRef.current.children);
     if (chips.length < 2) { setVisibleCount(null); return; }
     const tops = [...new Set(chips.map(c => c.offsetTop))];
-    if (tops.length <= 1) { setVisibleCount(null); return; } // already fits on one row
-    const secondRowTop = tops[1];
-    const fitCount = chips.filter(c => c.offsetTop < secondRowTop).length;
+    if (tops.length <= 2) { setVisibleCount(null); return; } // already fits within 2 rows
+    const thirdRowTop = tops[2];
+    const fitCount = chips.filter(c => c.offsetTop < thirdRowTop).length;
     setVisibleCount(Math.max(1, fitCount - 1)); // reserve a slot for the +N chip
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [itemsKey]);
