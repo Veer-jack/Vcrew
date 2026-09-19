@@ -175,14 +175,26 @@ export default function Settings() {
               <Avatar name={builder?.name || ""} size={52} color={builder?.color} />
               <div>
                 <div style={{ fontWeight: 800, fontSize: 16 }}>{builder?.name}</div>
-                {builder?.designation && <div className="faint" style={{ fontSize: 12.5 }}>{builder.designation}</div>}
-                <div className="faint" style={{ fontSize: 13 }}>{builder?.email} · {builder?.org}</div>
-                {builder?.website && (
-                  <a href={builder.website} target="_blank" rel="noopener noreferrer" className="row gap-1"
-                    style={{ alignItems: "center", fontSize: 12.5, color: "var(--accent)", marginTop: 4, width: "fit-content" }}>
-                    <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
-                  </a>
-                )}
+                {/* Designation, email·org, and website used to each sit on
+                    their own line -- combined into one pipe-separated row,
+                    same joined-segments pattern used for the validator
+                    drawer's header line. */}
+                <div className="faint row gap-1" style={{ fontSize: 12.5, flexWrap: "wrap", alignItems: "center", marginTop: 2 }}>
+                  {[
+                    builder?.designation && <span key="desig">{builder.designation}</span>,
+                    (builder?.email || builder?.org) && <span key="eo" style={{ fontSize: 13 }}>{[builder?.email, builder?.org].filter(Boolean).join(" · ")}</span>,
+                    builder?.website && (
+                      <a key="web" href={builder.website} target="_blank" rel="noopener noreferrer" className="row gap-1" style={{ alignItems: "center", color: "var(--accent)" }}>
+                        <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
+                      </a>
+                    ),
+                  ].filter(Boolean).map((part, i) => (
+                    <span key={i} className="row gap-1" style={{ alignItems: "center" }}>
+                      {i > 0 && <span style={{ color: "var(--text-faint)" }}>|</span>}
+                      {part}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
             {/* Edits "Your details" through the same onboarding step
@@ -328,6 +340,14 @@ export default function Settings() {
                 // City text inputs) but never showed up here at all.
                 { label: t("onboardingFields.stateRegion", null, "State / Region"), values: builder?.profile?.state ? [builder.profile.state] : [] },
                 { label: t("onboardingFields.city", null, "City"), values: builder?.profile?.district ? [builder.profile.district] : [] },
+                { label: t("onboardingFields.education", null, "Education"), values: builder?.profile?.educations },
+                { label: t("onboardingFields.incomeBand", null, "Income band"), values: builder?.profile?.incomeBands },
+                { label: t("onboardingFields.languages", null, "Languages"), values: builder?.profile?.languages, span: true },
+                // Custom ("Other") interests are tracked in their own array
+                // alongside the picked ones, not folded into the same list
+                // the way a custom occupation is -- merge both here so a
+                // typed-in interest isn't silently missing from this card.
+                { label: t("onboardingFields.interests", null, "Interests"), values: [...(builder?.profile?.interests || []), ...(builder?.profile?.interestsOther || [])], span: true },
               ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} span={f.span} dropdown={f.dropdown} />)}
             </div>
           </div>
