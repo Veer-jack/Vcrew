@@ -84,8 +84,10 @@ export function ValidatorProfileDrawer({ validator, onClose, onInvite, onAccept,
               </div>
               <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
             </div>
+            {/* Match% dropped per tester feedback -- Kanban usage never
+                passed a validator.match to begin with (see the caller),
+                so this only ever affected Audience Explorer's own drawer. */}
             <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, overflowX: "auto", scrollbarWidth: "none" }}>
-              <StatTile label={t("audience.matchScore", null, "Match")} value={typeof validator.match === "number" ? `${validator.match}%` : "—"} accent="var(--accent)" />
               <StatTile label={t("audience.trustScore", null, "Trust score")} value={validator.trust > 0 ? validator.trust : "—"} />
               <StatTile label={t("audience.completionRate", null, "Completion rate")} value={detail ? `${detail.completionRate}%` : "—"} />
               <StatTile label={t("audience.missionsDone", null, "Missions done")} value={detail ? detail.completed : "—"} />

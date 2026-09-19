@@ -556,11 +556,9 @@ export default function AudienceExplorer() {
                         that here lines this line's first letter up with
                         the row above instead of both looking offset even
                         though their containers start at the same x. */}
+                    {/* Match% dropped per tester feedback -- was the only
+                        content alongside Profile complete% on this row. */}
                     <span className="muted" style={{ fontSize: 11.5, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
-                    <span style={{ flexShrink: 0 }}>
-                      <span style={{ fontWeight: 800, fontSize: 13, color: "var(--accent)" }}>{typeof m.match === "number" ? `${m.match}%` : "—"}</span>
-                      <span className="muted" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".03em", marginLeft: 5 }}>{t("audience.matchScore", null, "Match")}</span>
-                    </span>
                   </div>
                   {/* Bio, clamped to 2 lines with an ellipsis -- wasn't shown
                       on the card at all before, only after opening View
