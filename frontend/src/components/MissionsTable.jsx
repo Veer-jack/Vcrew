@@ -93,16 +93,19 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
     <div className="tbl-wrap missions-tbl-wrap">
       {/* table-layout: fixed + an explicit width on every column keeps
           Type/Created/etc. pinned to the same pixel position regardless of
-          which trailing columns a given tab shows. Mission gets a % width
-          (not px, and not left undefined) so it stays a large, consistent
-          share of the table on every tab — a leftover-space/minWidth
-          approach here doesn't work: table-layout:fixed ignores min-width
-          for column sizing, and on a tab with more trailing px-width
-          columns (Active/Completed/...) there's barely anything left over,
-          so only the tab with the fewest other columns (Draft) ever looked
-          right. A name too long even for 32% still gets a "..." via the
-          ellipsis below rather than wrapping. On a narrow viewport this can
-          push the table past the container width, which just overflows
+          which trailing columns a given tab shows. Mission gets a generous
+          fixed px width (360), not a %: verified live (real render, not
+          just spec-reading) that browsers largely ignore a percentage
+          width on <col> once it's mixed with pixel-width sibling columns
+          under table-layout:fixed -- it silently fell back to "whatever's
+          left over after the fixed-px columns", which on a tab with more
+          trailing columns (Active/Completed/...) was almost nothing, so
+          only Draft (fewest other columns) ever looked right. Every other
+          column here is plain px and renders at exactly its declared size,
+          which is why Mission is too now. A name too long even for 360px
+          still gets a "..." via the ellipsis below rather than wrapping.
+          On a narrow viewport this can push the table past the container
+          width, which just overflows
           into the (deliberately unstyled, see .missions-tbl-wrap)
           horizontal scroll instead of squeezing anything further. */}
       <table className="tbl" style={{ tableLayout: "fixed" }}>
@@ -115,7 +118,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
             cross-check against if the two ever drift apart. */}
         <colgroup>
           {onToggleSelect && <col style={{ width: 36 }} />}
-          <col style={{ width: "32%" }} />
+          <col style={{ width: 360 }} />
           <col style={{ width: 150 }} />
           {(isAll || compact) && <col style={{ width: 140 }} />}
           {!compact && <col style={{ width: 160 }} />}
@@ -175,10 +178,10 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   <input type="checkbox" checked={!!selectedIds?.has(m.id)} onChange={() => onToggleSelect(m.id)} />
                 </td>
               )}
-              <td style={{ padding: "13px 24px" }}>
-                <div className="t-name" style={{ minWidth: 0 }}>
+              <td style={{ padding: "13px 24px", maxWidth: 0 }}>
+                <div className="t-name" style={{ minWidth: 0, width: "100%" }}>
                   <MissionLogo name={m.name} cat={m.category} size={34} />
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: "1 1 0%" }}>
                     <div className="row gap-2" style={{ alignItems: "center", minWidth: 0 }}>
                       <span title={m.name} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{m.name}</span>
                       {notifCounts?.[m.id] > 0 && (
