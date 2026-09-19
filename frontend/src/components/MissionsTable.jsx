@@ -92,14 +92,17 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
   return (
     <div className="tbl-wrap missions-tbl-wrap">
       {/* table-layout: fixed + an explicit width on every real column keeps
-          Checkbox/Mission/Type/Created/etc. pinned to the same pixel
-          position regardless of which trailing columns a given tab shows.
-          The one column with no declared width — the trailing filler right
-          before </tr> — is the only one table-layout:fixed lets stretch, so
-          it silently soaks up whatever's left of the container's width
-          (a tab with fewer/narrower trailing columns just gets a wider gap
-          after them) without shifting anything that comes before it, and
-          the table still spans the container edge-to-edge on every tab. */}
+          Type/Created/etc. pinned to the same pixel position regardless of
+          which trailing columns a given tab shows. Mission is the one
+          column with no declared width (a minWidth floor instead) — the
+          only one table-layout:fixed lets stretch, so it's the one that
+          soaks up whatever's left of the container's width on a wide
+          screen (more room for what's actually the least predictable,
+          longest-running piece of content) instead of that space sitting
+          dead in a blank trailing column. On a narrow viewport it just
+          holds its floor and the table overflows into the (deliberately
+          unstyled, see .missions-tbl-wrap) horizontal scroll instead of
+          squeezing anything further. */}
       <table className="tbl" style={{ tableLayout: "fixed" }}>
         <thead>
           <tr>
@@ -109,7 +112,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   ref={el => { if (el) el.indeterminate = !allSelected && rows.some(m => selectedIds?.has(m.id)); }} />
               </th>
             )}
-            <th style={thStyle(180, "left")}>{t("missions.missionCol", null, "Mission")}</th>
+            <th style={thStyle(undefined, "left", { minWidth: 260, padding: "13px 24px" })}>{t("missions.missionCol", null, "Mission")}</th>
             <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
             {(isAll || compact) && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
             {!compact && <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>}
@@ -124,7 +127,6 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
               </>
             )}
             {onDelete && <th style={thStyle(32, "center", { padding: "13px 8px" })}></th>}
-            <th />
           </tr>
         </thead>
         <tbody>
@@ -146,12 +148,12 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   <input type="checkbox" checked={!!selectedIds?.has(m.id)} onChange={() => onToggleSelect(m.id)} />
                 </td>
               )}
-              <td>
-                <div className="t-name">
+              <td style={{ padding: "13px 24px" }}>
+                <div className="t-name" style={{ minWidth: 0 }}>
                   <MissionLogo name={m.name} cat={m.category} size={34} />
-                  <div>
-                    <div className="row gap-2" style={{ alignItems: "center" }}>
-                      <span>{m.name}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="row gap-2" style={{ alignItems: "center", minWidth: 0 }}>
+                      <span title={m.name} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{m.name}</span>
                       {notifCounts?.[m.id] > 0 && (
                         <span title={t("missions.unreadUpdatesHint", { count: notifCounts[m.id] }, `${notifCounts[m.id]} unread update${notifCounts[m.id] === 1 ? "" : "s"}`)}
                           style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: "none", background: "var(--danger)", color: "#fff", padding: "1px 7px 1px 5px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
@@ -239,7 +241,6 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   )}
                 </td>
               )}
-              <td />
             </tr>
           ))}
         </tbody>
