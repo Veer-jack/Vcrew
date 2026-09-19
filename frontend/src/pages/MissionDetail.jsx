@@ -2024,11 +2024,16 @@ export default function MissionDetail() {
 
   const selectTab = (k) => {
     setTab(k);
+    // setSearchParams drops the current history entry's state unless told
+    // to keep it -- without this, switching sub-tabs here silently wiped
+    // location.state.fromTab, so the "Missions" breadcrumb (which reads it)
+    // fell back to the All tab instead of wherever this mission was
+    // actually opened from, the moment you touched a sub-tab.
     setSearchParams(prev => {
       const p = new URLSearchParams(prev);
       p.set("tab", k);
       return p;
-    }, { replace: true });
+    }, { replace: true, state: location.state });
     // Overview is meant to be read top-down from the mission header; every
     // other tab is a utility view (data list, review queue, files) where
     // making the user manually scroll past the header + KPIs on every
