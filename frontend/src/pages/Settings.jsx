@@ -342,12 +342,12 @@ export default function Settings() {
                 { label: t("onboardingFields.city", null, "City"), values: builder?.profile?.district ? [builder.profile.district] : [] },
                 { label: t("onboardingFields.education", null, "Education"), values: builder?.profile?.educations },
                 { label: t("onboardingFields.incomeBand", null, "Income band"), values: builder?.profile?.incomeBands },
-                { label: t("onboardingFields.languages", null, "Languages"), values: builder?.profile?.languages, span: true },
+                { label: t("onboardingFields.languages", null, "Languages"), values: builder?.profile?.languages, span: true, dropdown: true },
                 // Custom ("Other") interests are tracked in their own array
                 // alongside the picked ones, not folded into the same list
                 // the way a custom occupation is -- merge both here so a
                 // typed-in interest isn't silently missing from this card.
-                { label: t("onboardingFields.interests", null, "Interests"), values: [...(builder?.profile?.interests || []), ...(builder?.profile?.interestsOther || [])], span: true },
+                { label: t("onboardingFields.interests", null, "Interests"), values: [...(builder?.profile?.interests || []), ...(builder?.profile?.interestsOther || [])], span: true, dropdown: true },
               ].map(f => <ChipField key={f.label} label={f.label} values={f.values} required={f.required} span={f.span} dropdown={f.dropdown} />)}
             </div>
           </div>
