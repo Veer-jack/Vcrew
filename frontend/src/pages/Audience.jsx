@@ -156,12 +156,9 @@ function ExpertiseChips({ items, t }) {
   return (
     <div ref={rowRef} className="aud-tags">
       {shown.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}
-      {/* Plain text, not another chip -- and pushed flush to the end of
-          its own wrapped row (marginLeft:auto's flex-wrap behavior) so it
-          lands at the same spot on every card's row 2 regardless of how
-          many real chips happened to fit before it, instead of tacking on
-          wherever the last one ends. */}
-      {remaining > 0 && <span className="muted" style={{ fontSize: 12, fontWeight: 600, marginLeft: "auto", alignSelf: "center" }}>+{remaining}</span>}
+      {/* Plain text, not another chip -- sits right after the last real one
+          instead of being pushed out to the row's far edge. */}
+      {remaining > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", alignSelf: "center" }}>+{remaining}</span>}
     </div>
   );
 }
