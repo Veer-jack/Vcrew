@@ -228,7 +228,13 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
    a thin nav bar. Same 28px side gutter either way (still inherited from
    .wrap), just less unused space on either side on a wide screen. */
 .nav-in { display: flex; align-items: center; gap: 30px; height: 70px; max-width: 1400px; }
-.brand { display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+/* flex-shrink:0 -- without it, a locale whose nav-link translations run
+   longer than English (French, Russian, ...) squeezed the flex row hard
+   enough to shrink the logo itself instead of just tightening the gaps
+   around it, clipping the wordmark. Pinned to its natural size in every
+   language now, same as the mark/wordmark spans below always were meant
+   to render. */
+.brand { display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; flex-shrink: 0; }
 .brand .wordmark { display: flex; flex-direction: column; line-height: 1.08; }
 .brand .v-name { font-size: 16px; font-weight: 800; letter-spacing: -.03em; }
 .brand .crew { font-size: 16px; font-weight: 800; letter-spacing: -.03em; color: #2563eb; }
@@ -239,7 +245,10 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .nav-links a { padding: 8px 14px; border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); transition: color .14s, background .14s; white-space: nowrap; }
 .nav-links a:hover { color: var(--ink); background: var(--bg-soft); }
 .nav-spacer { flex: 1; }
-.nav-cta { display: flex; align-items: center; gap: 10px; }
+/* Same reasoning as .brand above -- the "Go to Dashboard"/account cluster
+   shouldn't get squeezed out of its normal size either, or its position
+   relative to the edge would shift language to language too. */
+.nav-cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-burger { display: none; width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; align-items: center; justify-content: center; }
 .nav-burger svg { width: 20px; height: 20px; color: var(--ink); }
 
