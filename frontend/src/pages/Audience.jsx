@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Empty, KpiCard } from "../components/ui";
@@ -123,6 +123,43 @@ const matchOption = (m, g, o) => {
   }
   return false;
 };
+
+// A validator with a long expertise list wrapped to many rows and blew the
+// card's height out -- the full list is only ever a click away anyway (View
+// Profile's drawer shows every tag), so this clamps to whatever fits on the
+// first row and folds the rest into a "+N" chip instead. Same real-layout-
+// measurement technique as Settings' ChipField (a fixed item-count cutoff
+// doesn't work consistently across validators with different tag-label
+// widths), just targeting 1 row here instead of 2.
+function ExpertiseChips({ items, t }) {
+  const rowRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(null);
+  // Primitive fingerprint, not the array itself -- the caller passes a
+  // freshly-mapped array literal every render, so depending on `items` by
+  // reference would re-run this (and its setState) every render, looping.
+  const itemsKey = (items || []).join("|");
+
+  useLayoutEffect(() => {
+    if (!rowRef.current) { setVisibleCount(null); return; }
+    const chips = Array.from(rowRef.current.children);
+    if (chips.length < 2) { setVisibleCount(null); return; }
+    const tops = [...new Set(chips.map(c => c.offsetTop))];
+    if (tops.length <= 1) { setVisibleCount(null); return; } // already fits on one row
+    const secondRowTop = tops[1];
+    const fitCount = chips.filter(c => c.offsetTop < secondRowTop).length;
+    setVisibleCount(Math.max(1, fitCount - 1)); // reserve a slot for the +N chip
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey]);
+
+  const shown = visibleCount != null ? items.slice(0, visibleCount) : items;
+  const remaining = visibleCount != null ? items.length - visibleCount : 0;
+  return (
+    <div ref={rowRef} className="aud-tags">
+      {shown.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}
+      {remaining > 0 && <span className="mtag accent" style={{ opacity: .85 }}>+{remaining}</span>}
+    </div>
+  );
+}
 
 export default function AudienceExplorer() {
   const { t } = useTranslation();
@@ -356,9 +393,19 @@ export default function AudienceExplorer() {
           <button className="backlink" style={{ fontSize: 13, color: "var(--accent)" }} onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); setUsingDefaults(false); }}>{t("actions.resetEveryone", null, "Reset to see everyone")}</button>
         </div>
       )}
-      {!usingDefaults && Object.keys(builder?.profile || {}).length > 0 && (
+      {/* "Custom audience" implies deliberate filters are active -- right
+          after "Reset to see everyone" there are none at all, so that
+          copy was actively misleading (looked like the reset hadn't
+          worked). Split into the two states it was conflating. */}
+      {!usingDefaults && hasAnyFilter && Object.keys(builder?.profile || {}).length > 0 && (
         <div className="row between" style={{ alignItems: "center", padding: "10px 16px", background: "var(--panel)", border: "1px dashed var(--border)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: 13 }}>
           <span className="muted" style={{ fontWeight: 500 }}><Icon name="info" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />{t("audience.customAudience", null, "You are exploring a custom audience.")}</span>
+          <button className="backlink" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500 }} onClick={() => setShowRestoreModal(true)}>{t("actions.restoreDefaults", null, "Restore profile defaults")}</button>
+        </div>
+      )}
+      {!usingDefaults && !hasAnyFilter && Object.keys(builder?.profile || {}).length > 0 && (
+        <div className="row between" style={{ alignItems: "center", padding: "10px 16px", background: "var(--panel)", border: "1px dashed var(--border)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: 13 }}>
+          <span className="muted" style={{ fontWeight: 500 }}><Icon name="users" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />{t("audience.showingEveryone", null, "Showing everyone — no filters applied.")}</span>
           <button className="backlink" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500 }} onClick={() => setShowRestoreModal(true)}>{t("actions.restoreDefaults", null, "Restore profile defaults")}</button>
         </div>
       )}
@@ -525,7 +572,7 @@ export default function AudienceExplorer() {
                   {/* Blue accent chips (.mtag.accent), matching the reference
                       -- was the plain gray .mtag look every other tag list
                       already moved away from earlier this session. */}
-                  <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}</div>
+                  <ExpertiseChips items={m.expertise} t={t} />
                   {/* Invite is the action a builder actually comes here to
                       take, so it's the filled/primary button now -- the
                       reference has View Profile filled instead, but the
