@@ -164,7 +164,6 @@ const NOTIF_TYPE_TAB = {
   schedule_declined: "participants",
   mission_failed: "participants",
   shipment_received: "participants",
-  mission_started: "overview",
   submission: "responses",
   checkin: "responses",
 };
@@ -678,13 +677,13 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
                     onClick={() => {
-                      if (p.stage === "submitted") openSubmission(p);
+                      if (p.stage === "submitted" || p.stage === "rewarded") openSubmission(p);
                       else if (PROFILE_VIEW_STAGES.has(p.stage)) setViewingProfile(p);
                     }}
-                    title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : PROFILE_VIEW_STAGES.has(p.stage) ? t("missionDetail.viewProfileHint", null, "Click to view their profile") : undefined}
+                    title={(p.stage === "submitted" || p.stage === "rewarded") ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : PROFILE_VIEW_STAGES.has(p.stage) ? t("missionDetail.viewProfileHint", null, "Click to view their profile") : undefined}
                     style={{
                       ...((p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected") ? { opacity: 0.85 } : {}),
-                      ...((p.stage === "submitted" || PROFILE_VIEW_STAGES.has(p.stage)) ? { cursor: "pointer" } : { cursor: "default" }),
+                      ...((p.stage === "submitted" || p.stage === "rewarded" || PROFILE_VIEW_STAGES.has(p.stage)) ? { cursor: "pointer" } : { cursor: "default" }),
                       ...(p.stage === "submitted" ? { opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
                     }}>
                     <div className="kcard-top">
