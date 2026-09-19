@@ -2226,6 +2226,7 @@ const en = {
     selectConversation: "Select a conversation",
     selectConversationHint: "Choose someone from the list on the left to view your messages.",
     errSendFile: "Couldn't send file",
+    lead: "Chat directly with your validators and researchers.",
     noConversations: "No conversations yet.",
     searchPlaceholder: "Search conversations…",
     noMatch: "No conversations match \"{{q}}\".",

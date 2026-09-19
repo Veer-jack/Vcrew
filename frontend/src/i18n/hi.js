@@ -2227,6 +2227,7 @@ const hi = {
     selectConversation: "एक बातचीत चुनें",
     selectConversationHint: "अपने संदेश देखने के लिए बाईं ओर की सूची से किसी को चुनें।",
     errSendFile: "फ़ाइल नहीं भेजी जा सकी",
+    lead: "अपने वैलिडेटर्स और रिसर्चर्स से सीधे चैट करें।",
     noConversations: "अभी तक कोई बातचीत नहीं.",
     searchPlaceholder: "वार्तालाप खोजें…",
     noMatch: "कोई भी वार्तालाप \" {{q}} \" से मेल नहीं खाता।",

@@ -2227,6 +2227,7 @@ const es = {
     selectConversation: "Selecciona una conversación",
     selectConversationHint: "Elige a alguien de la lista de la izquierda para ver tus mensajes.",
     errSendFile: "No se pudo enviar el archivo",
+    lead: "Chatea directamente con tus validadores e investigadores.",
     noConversations: "Aún no hay conversaciones.",
     searchPlaceholder: "Buscar conversaciones…",
     noMatch: "Ninguna conversación coincide con \" {{q}} \".",

@@ -2227,6 +2227,7 @@ const zh = {
     selectConversation: "选择一个对话",
     selectConversationHint: "从左侧列表中选择一个人以查看您的消息。",
     errSendFile: "无法发送文件",
+    lead: "直接与您的验证者和研究人员聊天。",
     noConversations: "还没有对话。",
     searchPlaceholder: "搜索对话...",
     noMatch: "没有对话匹配“ {{q}} ”。",

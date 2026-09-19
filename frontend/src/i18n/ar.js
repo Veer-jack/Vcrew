@@ -2227,6 +2227,7 @@ const ar = {
     selectConversation: "اختر محادثة",
     selectConversationHint: "اختر شخصًا من القائمة على اليسار لعرض رسائلك.",
     errSendFile: "تعذر إرسال الملف",
+    lead: "تحدث مباشرة مع المدققين والباحثين لديك.",
     noConversations: "لا توجد محادثات حتى الآن.",
     searchPlaceholder: "بحث في المحادثات...",
     noMatch: "لا توجد محادثات تطابق \" {{q}} \".",

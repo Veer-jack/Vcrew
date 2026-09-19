@@ -122,7 +122,7 @@ export default function Messages() {
   if (!threads.length) return (
     <div className="page rise">
       <div className="ph" style={{ marginBottom: 16 }}>
-        <div><h1 style={{ margin: 0 }}>{t("messages.title", null, "Messages")}</h1></div>
+        <div><h1 style={{ margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("messages.lead", null, "Chat directly with your validators and researchers.")}</p></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6, maxWidth: 380 }}>
@@ -148,19 +148,15 @@ export default function Messages() {
     : threads;
 
   return (
-    // Flex column so the standard .ph header (every other page has one --
-    // this was the one page missing a module name entirely) sits above the
-    // conversation grid without breaking its own full-viewport-height,
-    // no-page-scroll layout -- flex:1/minHeight:0 on the grid below just
-    // fills whatever height the header doesn't use, instead of a hardcoded
+    // .page (like every other page) for the same max-width + centering,
+    // with a flex column layout on top so the standard .ph header sits
+    // above the conversation grid without breaking full-height, no-page-
+    // scroll behavior -- flex:1/minHeight:0 on the grid below just fills
+    // whatever height the header doesn't use, instead of a hardcoded
     // "100vh minus header px" guess that drifts if the header ever wraps.
-    // No lead/subtitle line here (unlike other pages' .ph) -- a full-height
-    // chat UI needs that vertical room for the conversation itself, and a
-    // bare title still satisfies "give this page a name" without the extra
-    // line eating into it.
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
-      <div className="ph" style={{ padding: "16px 28px 12px", marginBottom: 0, flex: "none" }}>
-        <div><h1 style={{ margin: 0 }}>{t("messages.title", null, "Messages")}</h1></div>
+    <div className="page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
+      <div className="ph" style={{ flex: "none" }}>
+        <div><h1 style={{ margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("messages.lead", null, "Chat directly with your validators and researchers.")}</p></div>
       </div>
       <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", flex: 1, minHeight: 0 }}>
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
