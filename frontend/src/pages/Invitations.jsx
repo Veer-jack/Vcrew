@@ -215,7 +215,13 @@ export default function Invitations() {
           // sitting over every collapsed group too.
           <div className="col gap-3">
           {filtered.map(g => {
-            const hasWaitlist = g.items.some(i => i.isWaitlist);
+            // The group itself shows if ANY of its invites match the status
+            // filter (see the comment on `filtered` above), but the rows
+            // inside it should only be the ones that actually match --
+            // otherwise picking "Accepted" still listed that validator's
+            // Declined/Pending invites right alongside it.
+            const visibleItems = statusFilter.length === 0 ? g.items : g.items.filter(i => statusFilter.includes(i.status));
+            const hasWaitlist = visibleItems.some(i => i.isWaitlist);
             const isOpen = expanded.has(g.validator.id);
             return (
               <div key={g.validator.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -233,8 +239,8 @@ export default function Invitations() {
                           below too, bolding text that was never meant to be. */}
                       <div className="row" style={{ gap: 6, alignItems: "center", fontWeight: 700 }}>
                         {g.validator.name}
-                        <span className="tag" title={g.items.map(i => i.mission.name).join("\n")} style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>
-                          {g.items.length === 1 ? t("invitations.oneMission", null, "1 mission") : t("invitations.missionCount", { count: g.items.length }, `${g.items.length} missions`)}
+                        <span className="tag" title={visibleItems.map(i => i.mission.name).join("\n")} style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>
+                          {visibleItems.length === 1 ? t("invitations.oneMission", null, "1 mission") : t("invitations.missionCount", { count: visibleItems.length }, `${visibleItems.length} missions`)}
                         </span>
                         {hasWaitlist && <span title={t("invitations.waitlistTitle", null, "Invited from Waitlist")} style={{ color: "var(--accent)", display: "flex" }}><Icon name="star" size={14} /></span>}
                       </div>
@@ -309,7 +315,7 @@ export default function Invitations() {
                             feedback anywhere despite the whole thing being clickable
                             in spirit. The Action cell stops propagation so Withdraw
                             doesn't also trigger the row's navigate. */}
-                        {g.items.map(inv => (
+                        {visibleItems.map(inv => (
                           <tr key={inv.id} className="click" onClick={() => navigate(`/missions/${inv.mission.id}`)}>
                             <td style={{ textAlign: "left" }}>{inv.mission.name}</td>
                             <td style={{ textAlign: "center" }}><TypeTag cat={inv.mission.category} categories={categories} /></td>

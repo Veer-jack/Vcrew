@@ -56,6 +56,18 @@ router.get("/", async (req, res) => {
       // it wins over a stale/unrelated invitation status.
       const outcomeRows = await db.prepare(`SELECT validator_id, stage FROM participants WHERE mission_id = ? AND stage IN ('declined', 'not_selected')`).all(missionId);
       for (const r of outcomeRows) invitedMap[r.validator_id] = r.stage;
+      // Anyone with a real, still-current-or-concluded relationship to this
+      // mission (invited, applied, accepted, started, submitted, rewarded,
+      // rejected, failed) isn't a fresh invite candidate — unlike a decline
+      // or a rejected application, there's nothing to "invite" here.
+      // Ravi Varma being fully rewarded still showed up with a plain +Invite
+      // button because this route only ever excluded/flagged declined and
+      // not_selected, never checked for an active/concluded participant row.
+      const activeRows = await db.prepare(`SELECT validator_id FROM participants WHERE mission_id = ? AND stage NOT IN ('declined', 'not_selected')`).all(missionId);
+      if (activeRows.length) {
+        sql += ` AND id NOT IN (${activeRows.map(() => "?").join(",")})`;
+        params.push(...activeRows.map(r => r.validator_id));
+      }
     }
   }
 
