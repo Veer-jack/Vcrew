@@ -158,7 +158,7 @@ export default function Messages() {
       <div className="ph" style={{ flex: "none" }}>
         <div><h1 style={{ margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("messages.lead", null, "Chat directly with your validators and researchers.")}</p></div>
       </div>
-      <div className="msg-grid" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", flex: 1, minHeight: 0 }}>
+      <div className="msg-grid card" style={{ display: "grid", gridTemplateColumns: "330px minmax(0,1fr)", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px 18px 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           {refetching && <div style={{ marginBottom: 8 }}><UpdatingBadge show /></div>}
