@@ -223,7 +223,11 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .nm-emerald { background: var(--emerald-w); color: var(--emerald); }
 .nm-tx b { display: block; font-size: 14px; color: var(--ink); font-weight: 700; letter-spacing: -.01em; }
 .nm-tx small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
-.nav-in { display: flex; align-items: center; gap: 30px; height: 70px; }
+/* Wider than the site's normal .wrap max-width (1180px) -- that cap exists
+   to keep paragraph/feature-grid content readable, which doesn't apply to
+   a thin nav bar. Same 28px side gutter either way (still inherited from
+   .wrap), just less unused space on either side on a wide screen. */
+.nav-in { display: flex; align-items: center; gap: 30px; height: 70px; max-width: 1400px; }
 .brand { display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
 .brand .wordmark { display: flex; flex-direction: column; line-height: 1.08; }
 .brand .v-name { font-size: 16px; font-weight: 800; letter-spacing: -.03em; }

@@ -292,7 +292,7 @@
                   ${initials}
                 </div>
                 <div style="display:flex; flex-direction:column; line-height:1.2; text-align:left;">
-                  <span style="font-weight:600; font-size:14px; color:var(--ink, #0f172a);">${name}</span>
+                  <span style="font-weight:600; font-size:14px; color:var(--ink, #0f172a); white-space:nowrap;">${name}</span>
                   <span style="font-size:12px; color:var(--text-light, #64748b); display:flex; align-items:center; gap:4px;">
                     ${role} 
                     <svg style="width:12px; height:12px; color:var(--text-light);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
