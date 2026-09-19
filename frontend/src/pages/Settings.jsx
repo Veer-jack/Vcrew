@@ -36,7 +36,13 @@ function ChipField({ label, values, required, span, dropdown, hideLabel }) {
   const valuesKey = (values || []).join("|");
 
   useLayoutEffect(() => {
-    if (!dropdown || open || !rowRef.current) { setVisibleCount(null); return; }
+    if (!dropdown || !rowRef.current) { setVisibleCount(null); return; }
+    // While expanded, `shown` is the full list -- nothing to measure, and
+    // critically, resetting visibleCount to null here (as this used to)
+    // also makes `collapsible` below false, which hid the "Show less"
+    // button the instant you clicked "Show all". Leaving it untouched
+    // keeps collapsible true so the button stays visible while expanded.
+    if (open) return;
     const chips = Array.from(rowRef.current.children);
     if (chips.length < 2) return;
     const tops = [...new Set(chips.map(c => c.offsetTop))];
@@ -335,6 +341,7 @@ export default function Settings() {
                 // already strips it from the geography line, so a custom
                 // occupation doesn't show up next to a phantom "Other" chip.
                 { label: t("onboardingFields.occupation", null, "Occupation"), values: (builder?.profile?.occupations || []).filter(v => v.toLowerCase() !== "other"), span: true, dropdown: true },
+                { label: t("audience.filterGroupLabel.validationCrewRole", null, "ValidationCrew Role"), values: builder?.profile?.validatorTypes },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
                 // State/City were saved (LocationFields' own State/Region and
                 // City text inputs) but never showed up here at all.

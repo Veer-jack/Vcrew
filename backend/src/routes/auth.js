@@ -206,9 +206,19 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
   const website = req.body?.website !== undefined ? (req.body.website ? String(req.body.website).trim() : null) : req.builder.website;
 
   const personaKey = PERSONA_LABELS[persona] ? persona : "founder";
-  let profileJson = null;
+  // Merged onto the EXISTING profile, same as PATCH /profile -- this used
+  // to wholesale-replace profile_json (or even null it out entirely with
+  // no `profile` in the body), so re-entering the onboarding wizard after
+  // already customizing Audience & Demographics in Settings silently wiped
+  // every field the wizard's own payload didn't happen to include.
+  let profileJson = req.builder.profile_json || null;
   if (profile && typeof profile === "object") {
-    const serialized = JSON.stringify(profile);
+    let existingProfile = {};
+    if (req.builder.profile_json) {
+      try { existingProfile = JSON.parse(req.builder.profile_json); } catch { existingProfile = {}; }
+    }
+    const merged = { ...existingProfile, ...profile };
+    const serialized = JSON.stringify(merged);
     if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
     profileJson = serialized;
   }
