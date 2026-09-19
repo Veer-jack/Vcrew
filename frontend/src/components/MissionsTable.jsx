@@ -106,29 +106,54 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
           into the (deliberately unstyled, see .missions-tbl-wrap)
           horizontal scroll instead of squeezing anything further. */}
       <table className="tbl" style={{ tableLayout: "fixed" }}>
+        {/* <col> widths, not just widths on the <th> cells -- table-layout:fixed
+            is only unambiguously required to honor column widths declared
+            this way, and mixing a "%" width in with the "px" widths on <th>
+            alone wasn't taking effect reliably across tabs. Kept in exact
+            lockstep with the <thead> row right below (same conditions, same
+            order) since colgroup has no per-column label to visually
+            cross-check against if the two ever drift apart. */}
+        <colgroup>
+          {onToggleSelect && <col style={{ width: 36 }} />}
+          <col style={{ width: "32%" }} />
+          <col style={{ width: 150 }} />
+          {(isAll || compact) && <col style={{ width: 140 }} />}
+          {!compact && <col style={{ width: 160 }} />}
+          {isAll && <col style={{ width: 190 }} />}
+          {isAll && <col style={{ width: 210 }} />}
+          {!isAll && !compact && dateCol && <col style={{ width: 160 }} />}
+          {(!isAll || compact) && (
+            <>
+              <col style={{ width: 150 }} />
+              <col style={{ width: 100 }} />
+              {!hideCompletion && <col style={{ width: 150 }} />}
+            </>
+          )}
+          {onDelete && <col style={{ width: 32 }} />}
+        </colgroup>
         <thead>
           <tr>
             {onToggleSelect && (
-              <th style={thStyle(36, "center")}>
+              <th style={thStyle(undefined, "center")}>
                 <input type="checkbox" checked={allSelected} onChange={onToggleSelectAll} style={{ cursor: "pointer" }}
                   ref={el => { if (el) el.indeterminate = !allSelected && rows.some(m => selectedIds?.has(m.id)); }} />
               </th>
             )}
-            <th style={thStyle("32%", "left", { padding: "13px 24px" })}>{t("missions.missionCol", null, "Mission")}</th>
-            <th style={thStyle(150, "center")}>{t("missions.typeCol", null, "Type")}</th>
-            {(isAll || compact) && <th style={thStyle(140, "center")}>{t("missions.statusCol", null, "Status")}</th>}
-            {!compact && <th style={thStyle(160, "center")}>{t("missions.createdCol", null, "Created")}</th>}
-            {isAll && <th style={thStyle(190, "center")}>{t("missions.deadlineCol", null, "Deadline")}</th>}
-            {isAll && <th style={thStyle(210, "center")}>{t("missions.completedDateCol", null, "Completed Date")}</th>}
-            {!isAll && !compact && dateCol && <th style={thStyle(160, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
+            <th style={thStyle(undefined, "left", { padding: "13px 24px" })}>{t("missions.missionCol", null, "Mission")}</th>
+            <th style={thStyle(undefined, "center")}>{t("missions.typeCol", null, "Type")}</th>
+            {(isAll || compact) && <th style={thStyle(undefined, "center")}>{t("missions.statusCol", null, "Status")}</th>}
+            {!compact && <th style={thStyle(undefined, "center")}>{t("missions.createdCol", null, "Created")}</th>}
+            {isAll && <th style={thStyle(undefined, "center")}>{t("missions.deadlineCol", null, "Deadline")}</th>}
+            {isAll && <th style={thStyle(undefined, "center")}>{t("missions.completedDateCol", null, "Completed Date")}</th>}
+            {!isAll && !compact && dateCol && <th style={thStyle(undefined, "center")}>{t(dateCol.label, null, dateCol.fallback)}</th>}
             {(!isAll || compact) && (
               <>
-                <th style={thStyle(150, "center")}>{t("metrics.participants", null, "Participants")}</th>
-                <th style={thStyle(100, "center")}>{t("metrics.reward", null, "Reward")}</th>
-                {!hideCompletion && <th style={thStyle(150, "center")}>{t("metrics.completion", null, "Completion")}</th>}
+                <th style={thStyle(undefined, "center")}>{t("metrics.participants", null, "Participants")}</th>
+                <th style={thStyle(undefined, "center")}>{t("metrics.reward", null, "Reward")}</th>
+                {!hideCompletion && <th style={thStyle(undefined, "center")}>{t("metrics.completion", null, "Completion")}</th>}
               </>
             )}
-            {onDelete && <th style={thStyle(32, "center", { padding: "13px 8px" })}></th>}
+            {onDelete && <th style={thStyle(undefined, "center", { padding: "13px 8px" })}></th>}
           </tr>
         </thead>
         <tbody>
