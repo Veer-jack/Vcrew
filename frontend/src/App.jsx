@@ -131,7 +131,7 @@ function BuilderRoutes() {
           having reset in the first place. */}
       <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
       <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
-      {/* key includes builder?.id, not just the path -- this page edits real
+      {/* Keyed on builder?.id alone, not the path -- this page edits real
           identity columns (name/designation/org/website, see
           EditAccountStep's handleSave), and its own "unchanged baseline"
           state is deliberately captured once per mount, not resynced on
@@ -139,8 +139,15 @@ function BuilderRoutes() {
           exact URL through a log-out/log-in-as-someone-else (no navigation
           in between) kept the previous account's typed-but-unsaved values
           in place -- clicking Save then wrote them onto whichever account
-          the session had switched to, not the one they were typed for. */}
-      <Route path="/settings/edit-step/:step" element={<RequireAuth><EditAccountStep key={`${location.pathname}:${builder?.id}`} /></RequireAuth>} />
+          the session had switched to, not the one they were typed for.
+          location.pathname used to be in this key too, but that's the same
+          string as this route's own :step param -- it was forcing a full
+          remount (silently wiping the in-progress draft) on every single
+          step-to-step rail navigation inside the wizard, defeating the
+          "draft persists across steps" behavior EditAccountStep otherwise
+          already implements. Dropped; builder?.id alone still catches the
+          actual account-switch case this key exists for. */}
+      <Route path="/settings/edit-step/:step" element={<RequireAuth><EditAccountStep key={builder?.id} /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
