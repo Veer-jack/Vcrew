@@ -2705,6 +2705,7 @@ const ru = {
     customCountryPlaceholder: "Введите вашу страну",
     customState: "Ваш штат/область",
     customStatePlaceholder: "Введите ваш штат/область",
+    customEntryPlaceholder: "Введите и нажмите Enter",
     city: "Город",
     cityPlaceholder: "Бангалор",
     age: "Возраст",

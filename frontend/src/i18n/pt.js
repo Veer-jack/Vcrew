@@ -2705,6 +2705,7 @@ const pt = {
     customCountryPlaceholder: "Digite seu país",
     customState: "Seu estado",
     customStatePlaceholder: "Digite seu estado",
+    customEntryPlaceholder: "Digite e pressione Enter",
     city: "Cidade",
     cityPlaceholder: "Bengaluru",
     age: "Idade",

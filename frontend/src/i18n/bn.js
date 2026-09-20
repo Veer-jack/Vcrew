@@ -2705,6 +2705,7 @@ const bn = {
     customCountryPlaceholder: "আপনার দেশ লিখুন",
     customState: "আপনার রাজ্য",
     customStatePlaceholder: "আপনার রাজ্য লিখুন",
+    customEntryPlaceholder: "লিখুন এবং এন্টার চাপুন",
     city: "শহর",
     cityPlaceholder: "বেঙ্গালুরু",
     age: "বয়স",

@@ -2704,6 +2704,7 @@ const en = {
     customCountryPlaceholder: "Type your country",
     customState: "Your state",
     customStatePlaceholder: "Type your state",
+    customEntryPlaceholder: "Type and press Enter",
     city: "City",
     cityPlaceholder: "Bengaluru",
     age: "Age",

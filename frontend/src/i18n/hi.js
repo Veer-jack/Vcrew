@@ -2705,6 +2705,7 @@ const hi = {
     customCountryPlaceholder: "अपना देश लिखें",
     customState: "आपका राज्य",
     customStatePlaceholder: "अपना राज्य लिखें",
+    customEntryPlaceholder: "लिखें और एंटर दबाएँ",
     city: "शहर",
     cityPlaceholder: "बेंगलुरु",
     age: "उम्र",

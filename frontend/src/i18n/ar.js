@@ -2705,6 +2705,7 @@ const ar = {
     customCountryPlaceholder: "اكتب اسم بلدك",
     customState: "ولايتك",
     customStatePlaceholder: "اكتب اسم ولايتك",
+    customEntryPlaceholder: "اكتب واضغط Enter",
     city: "المدينة",
     cityPlaceholder: "بنغالورو",
     age: "العمر",

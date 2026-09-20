@@ -2705,6 +2705,7 @@ const ur = {
     customCountryPlaceholder: "اپنا ملک لکھیں",
     customState: "آپ کی ریاست",
     customStatePlaceholder: "اپنی ریاست لکھیں",
+    customEntryPlaceholder: "لکھیں اور Enter دبائیں",
     city: "شہر",
     cityPlaceholder: "بنگلورو",
     age: "عمر",

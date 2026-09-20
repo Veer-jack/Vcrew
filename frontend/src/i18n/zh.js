@@ -2705,6 +2705,7 @@ const zh = {
     customCountryPlaceholder: "输入您的国家",
     customState: "您的州/省",
     customStatePlaceholder: "输入您的州/省",
+    customEntryPlaceholder: "输入后按回车",
     city: "城市",
     cityPlaceholder: "班加罗尔",
     age: "年龄",
