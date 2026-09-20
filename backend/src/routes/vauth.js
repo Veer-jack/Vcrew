@@ -40,6 +40,8 @@ function publicValidator(v) {
     avatar: v.avatar,
     bio: v.bio,
     city: v.city,
+    country: v.address_country,
+    state: v.address_state,
     // Everything collected during onboarding (PATCH /profile below writes
     // all of these) -- was saved to the DB but never actually sent back
     // to the frontend, so Settings had no way to show or edit any of it.

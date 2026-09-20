@@ -8,8 +8,10 @@ import { useTranslation } from "../i18n/index.jsx";
 import {
   Chips, Field, optLabel, AGE_GROUPS, GENDERS, INCOME, HEIGHT, WEIGHT, SKIN_TONE, HAIR_TYPE, HAIR_LENGTH, BODY_TYPE,
   OCCUPATIONS, FOOD_PREF, LIFESTYLE, DEVICES, HOURS, ROLES, EXP, INDUSTRIES, PRODUCT_TYPES, TECH_TOOLS, TESTER_DOMAINS, CERT,
+  LANGUAGES, CountryStateFields, filterGroupAdapter, resolveOnboardingOther,
 } from "./VOnboarding.jsx";
 import { SelectAllToggle } from "../components/OnboardingFields.jsx";
+import { FilterGroup } from "../pages/CreateMissionWizard";
 
 export default function VSettings() {
   const { t } = useTranslation();
@@ -25,15 +27,29 @@ export default function VSettings() {
   // onboarding draft itself uses (and PATCH /profile expects) -- the
   // camelCase fields below (ageGroup, hasKids, ...) are what publicValidator
   // actually returns, so this is the one place converting between the two.
+  // A saved custom value (someone picked "Other" during onboarding) is
+  // just its own typed text in the DB, not the "Other" sentinel + a
+  // separate *Other field -- reconstruct that shape here once, on load,
+  // the same way CountryStateFields normalizes country/state itself,
+  // otherwise the saved value doesn't match any known chip/checkbox and
+  // silently renders as if nothing were ever set.
+  const savedOccupation = validator?.occupation || "";
+  const isCustomOccupation = savedOccupation && !OCCUPATIONS.includes(savedOccupation) && !ROLES.includes(savedOccupation);
   const [pd, setPd] = useState({
+    country: validator?.country || "", countryOther: "", state: validator?.state || "", stateOther: "",
+    language: validator?.languages || [], languageOther: (validator?.languages || []).filter(v => !LANGUAGES.includes(v)),
     age_group: validator?.ageGroup || "", gender: validator?.gender || "", marital: validator?.marital || "",
     has_kids: validator?.hasKids || "", income: validator?.income || "", height: validator?.height || "",
     weight: validator?.weight || "", skin_tone: validator?.skinTone || "", hair_type: validator?.hairType || "",
-    hair_length: validator?.hairLength || "", body_type: validator?.bodyType || "", occupation: validator?.occupation || "",
+    hair_length: validator?.hairLength || "", body_type: validator?.bodyType || "",
+    occupation: isCustomOccupation ? "Other" : savedOccupation, occupationOther: isCustomOccupation ? savedOccupation : "",
     food_pref: validator?.foodPref || "", lifestyle: validator?.lifestyle || [], devices: validator?.devices || [],
     hours: validator?.hours || "", bio: validator?.bio || "", experience: validator?.experience || "",
-    industry: validator?.industry || [], company: validator?.company || "", product_types: validator?.productTypes || [],
-    tech_tools: validator?.techTools || [], domains: validator?.testingDomains || [], certifications: validator?.certifications || [],
+    industry: validator?.industry || [], industryOther: (validator?.industry || []).filter(v => !INDUSTRIES.includes(v)),
+    company: validator?.company || "", product_types: validator?.productTypes || [],
+    tech_tools: validator?.techTools || [],
+    domains: validator?.testingDomains || [], domainsOther: (validator?.testingDomains || []).filter(v => !TESTER_DOMAINS.includes(v)),
+    certifications: validator?.certifications || [], certificationsOther: (validator?.certifications || []).filter(v => !CERT.includes(v)),
     linkedin_url: validator?.linkedinUrl || "", portfolio_url: validator?.portfolioUrl || "", testing_bio: validator?.testingBio || "",
   });
   const setF = (k, v) => setPd(p => ({ ...p, [k]: v }));
@@ -48,7 +64,7 @@ export default function VSettings() {
       // industry/location/bio/specialties/address -- none of these onboarding
       // fields. /auth/profile (vauth.js) is the route the onboarding wizard
       // itself saves to and is the one that actually persists all of these.
-      await vapi.patch("/auth/profile", pd);
+      await vapi.patch("/auth/profile", resolveOnboardingOther(pd, t));
       await refresh();
       setDetailsSaved(true);
       setTimeout(() => setDetailsSaved(false), 3000);
@@ -203,6 +219,10 @@ export default function VSettings() {
               </div>
             </div>
 
+            <CountryStateFields d={pd} set={setF} />
+            <FilterGroup title={t("vOnboarding.fields.languages", null, "Languages")} options={LANGUAGES.filter(o => o !== "Other")} {...filterGroupAdapter(pd.language, "language", setF)} otherEntries={pd.languageOther} trFilterLabel={(_, v) => optLabel(t, "languages")(v, LANGUAGES.indexOf(v))} initialExpanded />
+            <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.language, "language", setF)} otherEntries={pd.languageOther} onOtherEntriesChange={v => setF("languageOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "language" }, "Add your own language value")} trFilterLabel={(_, v) => v} initialExpanded />
+
             {validator?.validator_type === "user" ? (
               <>
                 <Field label={t("vOnboarding.fields.ageGroup", null, "Age group")}><Chips options={AGE_GROUPS} value={pd.age_group} onChange={v => setF("age_group", v)} multi={false} getLabel={optLabel(t, "ageGroups")} /></Field>
@@ -217,6 +237,7 @@ export default function VSettings() {
                 <Field label={t("vOnboarding.fields.hairLength", null, "Hair length")}><Chips options={HAIR_LENGTH} value={pd.hair_length} onChange={v => setF("hair_length", v)} multi={false} getLabel={optLabel(t, "hairLength")} /></Field>
                 <Field label={t("vOnboarding.fields.bodyType", null, "Body type")}><Chips options={BODY_TYPE} value={pd.body_type} onChange={v => setF("body_type", v)} multi={false} getLabel={optLabel(t, "bodyType")} /></Field>
                 <Field label={t("vOnboarding.fields.occupation", null, "Occupation")}><Chips options={OCCUPATIONS} value={pd.occupation} onChange={v => setF("occupation", v)} multi={false} getLabel={optLabel(t, "occupations")} /></Field>
+                {pd.occupation === "Other" && <Field label={t("onboardingFields.occupationOtherLabel", null, "Please specify occupation")}><input className="fin" value={pd.occupationOther || ""} onChange={e => setF("occupationOther", e.target.value)} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} /></Field>}
                 <Field label={t("vOnboarding.fields.foodPreference", null, "Food preference")}><Chips options={FOOD_PREF} value={pd.food_pref} onChange={v => setF("food_pref", v)} multi={false} getLabel={optLabel(t, "foodPref")} /></Field>
                 <Field label={t("vOnboarding.fields.lifestyleInterests", null, "Lifestyle interests")} action={<SelectAllToggle options={LIFESTYLE} value={pd.lifestyle} onChange={v => setF("lifestyle", v)} />}><Chips options={LIFESTYLE} value={pd.lifestyle} onChange={v => setF("lifestyle", v)} getLabel={optLabel(t, "lifestyle")} /></Field>
                 <Field label={t("vOnboarding.fields.devices", null, "Devices")} action={<SelectAllToggle options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} />}><Chips options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} getLabel={optLabel(t, "devices")} /></Field>
@@ -226,8 +247,10 @@ export default function VSettings() {
               <>
                 <Field label={t("vOnboarding.fields.shortBio", null, "Short bio")}><textarea className="fin" rows={3} value={pd.bio} onChange={e => setF("bio", e.target.value)} /></Field>
                 <Field label={t("vOnboarding.fields.role", null, "Role")}><Chips options={ROLES} value={pd.occupation} onChange={v => setF("occupation", v)} multi={false} getLabel={optLabel(t, "roles")} /></Field>
+                {pd.occupation === "Other" && <Field label={t("onboardingFields.customRole", null, "Your role")}><input className="fin" value={pd.occupationOther || ""} onChange={e => setF("occupationOther", e.target.value)} placeholder={t("onboardingFields.customRolePlaceholder", null, "Type your role")} /></Field>}
                 <Field label={t("vOnboarding.fields.experience", null, "Experience")}><Chips options={EXP} value={pd.experience} onChange={v => setF("experience", v)} multi={false} getLabel={optLabel(t, "experience")} /></Field>
-                <Field label={t("vOnboarding.fields.industry", null, "Industry")} action={<SelectAllToggle options={INDUSTRIES} value={pd.industry} onChange={v => setF("industry", v)} />}><Chips options={INDUSTRIES} value={pd.industry} onChange={v => setF("industry", v)} getLabel={optLabel(t, "industries")} /></Field>
+                <FilterGroup title={t("vOnboarding.fields.industry", null, "Industry")} options={INDUSTRIES.filter(o => o !== "Other")} {...filterGroupAdapter(pd.industry, "industry", setF)} otherEntries={pd.industryOther} trFilterLabel={(_, v) => optLabel(t, "industries")(v, INDUSTRIES.indexOf(v))} initialExpanded />
+                <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.industry, "industry", setF)} otherEntries={pd.industryOther} onOtherEntriesChange={v => setF("industryOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "industry" }, "Add your own industry value")} trFilterLabel={(_, v) => v} initialExpanded />
                 <Field label={t("vOnboarding.fields.company", null, "Company")}><input className="fin" value={pd.company} onChange={e => setF("company", e.target.value)} /></Field>
                 <Field label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} action={<SelectAllToggle options={PRODUCT_TYPES} value={pd.product_types} onChange={v => setF("product_types", v)} />}><Chips options={PRODUCT_TYPES} value={pd.product_types} onChange={v => setF("product_types", v)} getLabel={optLabel(t, "productTypes")} /></Field>
                 <Field label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")} action={<SelectAllToggle options={TECH_TOOLS} value={pd.tech_tools} onChange={v => setF("tech_tools", v)} />}><Chips options={TECH_TOOLS} value={pd.tech_tools} onChange={v => setF("tech_tools", v)} getLabel={optLabel(t, "techTools")} /></Field>
@@ -235,8 +258,10 @@ export default function VSettings() {
                 <Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")}><Chips options={HOURS} value={pd.hours} onChange={v => setF("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field>
                 {validator?.tester_status && (
                   <>
-                    <Field label={t("vOnboarding.fields.testingDomains", null, "Testing domains")} action={<SelectAllToggle options={TESTER_DOMAINS} value={pd.domains} onChange={v => setF("domains", v)} />}><Chips options={TESTER_DOMAINS} value={pd.domains} onChange={v => setF("domains", v)} getLabel={optLabel(t, "testerDomains")} /></Field>
-                    <Field label={t("vOnboarding.fields.certifications", null, "Certifications")} action={<SelectAllToggle options={CERT} value={pd.certifications} onChange={v => setF("certifications", v)} />}><Chips options={CERT} value={pd.certifications} onChange={v => setF("certifications", v)} getLabel={optLabel(t, "certifications")} /></Field>
+                    <FilterGroup title={t("vOnboarding.fields.testingDomains", null, "Testing domains")} options={TESTER_DOMAINS.filter(o => o !== "Other")} {...filterGroupAdapter(pd.domains, "domains", setF)} otherEntries={pd.domainsOther} trFilterLabel={(_, v) => optLabel(t, "testerDomains")(v, TESTER_DOMAINS.indexOf(v))} initialExpanded />
+                    <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.domains, "domains", setF)} otherEntries={pd.domainsOther} onOtherEntriesChange={v => setF("domainsOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "testing domain" }, "Add your own testing domain value")} trFilterLabel={(_, v) => v} initialExpanded />
+                    <FilterGroup title={t("vOnboarding.fields.certifications", null, "Certifications")} options={CERT.filter(o => o !== "Other")} {...filterGroupAdapter(pd.certifications, "certifications", setF)} otherEntries={pd.certificationsOther} trFilterLabel={(_, v) => optLabel(t, "certifications")(v, CERT.indexOf(v))} initialExpanded />
+                    <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.certifications, "certifications", setF)} otherEntries={pd.certificationsOther} onOtherEntriesChange={v => setF("certificationsOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "certification" }, "Add your own certification value")} trFilterLabel={(_, v) => v} initialExpanded />
                     <Field label={t("vOnboarding.fields.linkedinUrl", null, "LinkedIn URL")}><input className="fin" value={pd.linkedin_url} onChange={e => setF("linkedin_url", e.target.value)} /></Field>
                     <Field label={t("vOnboarding.fields.portfolioGithub", null, "Portfolio / GitHub")}><input className="fin" value={pd.portfolio_url} onChange={e => setF("portfolio_url", e.target.value)} /></Field>
                     <Field label={t("vOnboarding.fields.describeTestingExperience", null, "Describe your testing experience")}><textarea className="fin" rows={4} value={pd.testing_bio} onChange={e => setF("testing_bio", e.target.value)} /></Field>

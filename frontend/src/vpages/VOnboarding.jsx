@@ -109,11 +109,34 @@ export const Field = ({ label, required, hint, info, action, children }) => (
 // empty dropdown. Both levels also carry an "Other" option for anything the
 // list is missing, revealing a plain text field for that custom entry --
 // same pattern PersonalFields above already uses for job title/designation.
-function CountryStateFields({ d, set }) {
+export function CountryStateFields({ d, set }) {
   const { t } = useTranslation();
   const otherLabel = t("onboardingFields.other", null, "Other");
   const regions = d.country && d.country !== otherLabel ? (REGIONS_BY_COUNTRY[d.country] || []) : [];
   const hasStates = regions.length > 0;
+  // Settings loads a validator's already-saved country/state, which (for
+  // anyone who picked "Other" during onboarding) is the typed custom text
+  // itself, not the "Other" sentinel -- normalize that into the same
+  // sentinel+*Other-field shape a fresh "Other" pick produces, once, so the
+  // dropdown shows "Other" selected and the reveal field isn't blank
+  // instead of the value looking silently lost. Onboarding's own draft
+  // always starts blank, so this is a no-op there.
+  useEffect(() => {
+    if (d.country && d.country !== otherLabel && !COUNTRY_NAMES.includes(d.country) && !d.countryOther) {
+      set("country", otherLabel);
+      set("countryOther", d.country);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!d.country || d.country === otherLabel) return;
+    const knownRegions = REGIONS_BY_COUNTRY[d.country] || [];
+    if (d.state && d.state !== otherLabel && knownRegions.length > 0 && !knownRegions.includes(d.state) && !d.stateOther) {
+      set("state", otherLabel);
+      set("stateOther", d.state);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <>
       <Field label={t("onboardingFields.country", null, "Country")}>
@@ -158,7 +181,7 @@ function CountryStateFields({ d, set }) {
 // custom entries -- with no separate resolve-at-submit step needed, and
 // Select all/Clear all can no longer drop a custom entry since FilterGroup's
 // own bulk actions already include the saved custom entries as targets.
-function filterGroupAdapter(value, key, set) {
+export function filterGroupAdapter(value, key, set) {
   const arr = value || [];
   const sel = new Set(arr);
   return {
@@ -166,6 +189,28 @@ function filterGroupAdapter(value, key, set) {
     toggle: (_, o) => set(key, sel.has(o) ? arr.filter(x => x !== o) : [...arr, o]),
     onSelectAll: (targets) => set(key, targets.every(o => sel.has(o)) ? arr.filter(x => !targets.includes(x)) : [...new Set([...arr, ...targets])]),
   };
+}
+
+// Shared by the onboarding wizard's own goNext and Settings' saveDetails --
+// having Settings duplicate this (like it already duplicated Chips/Field
+// wholesale from this file) is exactly how it fell out of sync with
+// onboarding's Other-handling in the first place. Chips fields store the
+// raw "Other" option itself when picked, not the typed custom text --
+// resolve those to what was actually typed (single-select) or strip the
+// derived "Other" marker FilterGroup adds alongside a checked custom
+// entry's own text (multi-select, see filterGroupAdapter) -- right before
+// this reaches the backend.
+export function resolveOnboardingOther(data, t) {
+  const otherLabel = t("onboardingFields.other", null, "Other");
+  const resolveSingle = (val, otherVal) => (val === "Other" ? (otherVal || "").trim() : val);
+  const resolveMulti = (arr) => (arr || []).filter(v => v !== "Other");
+  const patch = { country: data.country === otherLabel ? data.countryOther : data.country, state: data.state === otherLabel ? data.stateOther : data.state };
+  if ("occupation" in data) patch.occupation = resolveSingle(data.occupation, data.occupationOther);
+  if ("language" in data) patch.language = resolveMulti(data.language);
+  if ("industry" in data) patch.industry = resolveMulti(data.industry);
+  if ("domains" in data) patch.domains = resolveMulti(data.domains);
+  if ("certifications" in data) patch.certifications = resolveMulti(data.certifications);
+  return { ...data, ...patch };
 }
 
 function TypeSelector({ onSelect }) {
@@ -370,26 +415,7 @@ export default function VOnboarding() {
       setMaxReached(m => Math.max(m, n));
     } else {
       let finalData = (validatorType === "validator" || validatorType === "tester") ? { ...data, occupation: data.occupation || data.role } : data;
-      const otherLabel = t("onboardingFields.other", null, "Other");
-      // Chips fields store the raw "Other" option itself when picked, not
-      // the typed custom text -- resolve those to what was actually typed
-      // (single-select) or fold the custom entries in alongside the rest of
-      // the selection (multi-select) right before this leaves the wizard,
-      // same as the Country/State "Other" resolution above.
-      const resolveSingle = (val, otherVal) => (val === "Other" ? (otherVal || "").trim() : val);
-      // FilterGroup keeps a checked custom entry's own text directly in the
-      // selection array (see saveOther's `toggle(title, v)`), alongside a
-      // literal "Other" marker it adds for its own derived-checkbox state --
-      // the array already reflects exactly what's checked, real or custom,
-      // so nothing needs folding back in here, just that marker stripped.
-      const resolveMulti = (arr) => (arr || []).filter(v => v !== "Other");
-      const patch = { country: finalData.country === otherLabel ? finalData.countryOther : finalData.country, state: finalData.state === otherLabel ? finalData.stateOther : finalData.state };
-      if ("occupation" in finalData) patch.occupation = resolveSingle(finalData.occupation, finalData.occupationOther);
-      if ("language" in finalData) patch.language = resolveMulti(finalData.language);
-      if ("industry" in finalData) patch.industry = resolveMulti(finalData.industry);
-      if ("domains" in finalData) patch.domains = resolveMulti(finalData.domains);
-      if ("certifications" in finalData) patch.certifications = resolveMulti(finalData.certifications);
-      finalData = { ...finalData, ...patch };
+      finalData = resolveOnboardingOther(finalData, t);
       handleDone(finalData, validatorType);
     }
   };
