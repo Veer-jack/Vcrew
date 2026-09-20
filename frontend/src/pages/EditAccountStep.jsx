@@ -80,10 +80,10 @@ function StepRail({ persona, currentKey, dirty, onNavigate, onCancel }) {
       {dirty && <p className="faint" style={{ fontSize: 11.5, marginTop: 12, padding: "0 10px" }}>{t("settings.unsavedHint", null, "You have unsaved changes.")}</p>}
       <div className="wz-rail-foot">
         {!prevStep ? (
-          <button className="btn" onClick={onCancel} style={{ alignSelf: "flex-start", marginLeft: 10, border: "none", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
+          <button className="btn" onClick={onCancel} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
         ) : (
           <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-            <button className="btn" onClick={onCancel} style={{ border: "none", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
+            <button className="btn" onClick={onCancel} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
             <button className="btn" onClick={() => onNavigate(`/settings/edit-step/${prevStep.key}`)} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
           </div>
         )}
