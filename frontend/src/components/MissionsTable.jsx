@@ -2,15 +2,15 @@ import Icon from "./Icon";
 import { MissionLogo, PBarRow, StatusTag, TypeTag, inr } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
 
-// Region is stored as one long comma-joined string (e.g. every country an
-// audience filter matched) — show the first few and collapse the rest into
-// a count instead of letting the row balloon to five lines, with the full
-// list still available on hover.
-function truncateRegion(region, max = 4) {
-  if (!region) return "";
-  const parts = region.split(", ");
-  if (parts.length <= max) return region;
-  return `${parts.slice(0, max).join(", ")} +${parts.length - max} more`;
+// Column-width ellipsis alone let a title of short words (e.g. "AI App UX
+// Test Beta") show all 5 words if they happened to fit in 360px -- the
+// tester wants a hard word-count cap regardless of how much space is
+// actually used, not just a visual overflow cutoff.
+function truncateTitle(name, max = 3) {
+  if (!name) return "";
+  const words = name.trim().split(/\s+/);
+  if (words.length <= max) return name;
+  return `${words.slice(0, max).join(" ")}...`;
 }
 
 // The em-dash "no value yet" placeholder always sits centered in its cell,
@@ -183,7 +183,7 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                   <MissionLogo name={m.name} cat={m.category} size={34} />
                   <div style={{ minWidth: 0, flex: "1 1 0%" }}>
                     <div className="row gap-2" style={{ alignItems: "center", minWidth: 0 }}>
-                      <span title={m.name} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{m.name}</span>
+                      <span title={m.name} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{truncateTitle(m.name)}</span>
                       {notifCounts?.[m.id] > 0 && (
                         <span title={t("missions.unreadUpdatesHint", { count: notifCounts[m.id] }, `${notifCounts[m.id]} unread update${notifCounts[m.id] === 1 ? "" : "s"}`)}
                           style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: "none", background: "var(--danger)", color: "#fff", padding: "1px 7px 1px 5px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
@@ -191,7 +191,6 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
                         </span>
                       )}
                     </div>
-                    <div className="t-sub" title={m.region} style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 360 }}>{truncateRegion(m.region)}</div>
                   </div>
                 </div>
               </td>
