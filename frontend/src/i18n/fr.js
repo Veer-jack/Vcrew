@@ -2936,6 +2936,7 @@ const fr = {
     noValidations: "Aucune validation pour l'instant.",
   },
   vMessages: {
+    lead: "Discutez directement avec les builders et chercheurs avec qui vous travaillez.",
     couldntSendFile: "Impossible d'envoyer le fichier",
     openInNewTab: "Ouvrir dans un nouvel onglet",
     attachFile: "Joindre un fichier",

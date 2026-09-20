@@ -2936,6 +2936,7 @@ const es = {
     noValidations: "Aún no hay validaciones.",
   },
   vMessages: {
+    lead: "Chatea directamente con los builders e investigadores con los que trabajas.",
     couldntSendFile: "No se pudo enviar el archivo",
     openInNewTab: "Abrir en nueva pestaña",
     attachFile: "Adjuntar archivo",

@@ -2936,6 +2936,7 @@ const zh = {
     noValidations: "尚未验证。",
   },
   vMessages: {
+    lead: "与您正在合作的构建者和研究人员直接聊天。",
     couldntSendFile: "无法发送文件",
     openInNewTab: "在新选项卡中打开",
     attachFile: "附加文件",

@@ -2935,6 +2935,7 @@ const en = {
     noValidations: "No validations yet.",
   },
   vMessages: {
+    lead: "Chat directly with the builders and researchers you're working with.",
     couldntSendFile: "Couldn't send file",
     openInNewTab: "Open in new tab",
     attachFile: "Attach file",
