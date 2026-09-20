@@ -1992,7 +1992,7 @@ export default function CreateMissionWizard() {
           })}
         </div>
         <div className="wz-rail-foot">
-          <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
+          <button className="backlink" onClick={startFresh} style={{ marginLeft: 10 }}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           {step === 0 ? (
             <button className="btn" onClick={handleCancelClick} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
