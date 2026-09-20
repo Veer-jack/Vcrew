@@ -10,6 +10,10 @@ import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { SelectAllToggle } from "../components/OnboardingFields.jsx";
+import countryRegionData from "country-region-data/data.json";
+
+const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a.localeCompare(b));
+const REGIONS_BY_COUNTRY = Object.fromEntries(countryRegionData.map(c => [c.countryName, c.regions.map(r => r.name)]));
 
 function useDraft(key, defaultState) {
   const [val, setVal] = useState(() => {
@@ -98,6 +102,51 @@ export const Field = ({ label, required, hint, info, action, children }) => (
   </div>
 );
 
+// Country drives which State/Region dropdown shows -- most countries have a
+// known region list (country-region-data), so State stays a dropdown; a
+// country without one (or "Other") falls back to free text instead of an
+// empty dropdown. Both levels also carry an "Other" option for anything the
+// list is missing, revealing a plain text field for that custom entry --
+// same pattern PersonalFields above already uses for job title/designation.
+function CountryStateFields({ d, set }) {
+  const { t } = useTranslation();
+  const otherLabel = t("onboardingFields.other", null, "Other");
+  const regions = d.country && d.country !== otherLabel ? (REGIONS_BY_COUNTRY[d.country] || []) : [];
+  const hasStates = regions.length > 0;
+  return (
+    <>
+      <Field label={t("onboardingFields.country", null, "Country")}>
+        <select className="fin" value={d.country || ""} onChange={e => { set("country", e.target.value); set("state", ""); }}>
+          <option value="" disabled>{t("onboardingFields.selectCountry", null, "Select country")}</option>
+          {COUNTRY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+          <option value={otherLabel}>{otherLabel}</option>
+        </select>
+      </Field>
+      {d.country === otherLabel && (
+        <Field label={t("onboardingFields.customCountry", null, "Your country")}>
+          <input className="fin" value={d.countryOther || ""} onChange={e => set("countryOther", e.target.value)} placeholder={t("onboardingFields.customCountryPlaceholder", null, "Type your country")} />
+        </Field>
+      )}
+      <Field label={t("onboardingFields.state", null, "State")}>
+        {hasStates ? (
+          <select className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)}>
+            <option value="" disabled>{t("onboardingFields.selectState", null, "Select state")}</option>
+            {regions.map(r => <option key={r} value={r}>{r}</option>)}
+            <option value={otherLabel}>{otherLabel}</option>
+          </select>
+        ) : (
+          <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
+        )}
+      </Field>
+      {hasStates && d.state === otherLabel && (
+        <Field label={t("onboardingFields.customState", null, "Your state")}>
+          <input className="fin" value={d.stateOther || ""} onChange={e => set("stateOther", e.target.value)} placeholder={t("onboardingFields.customStatePlaceholder", null, "Type your state")} />
+        </Field>
+      )}
+    </>
+  );
+}
+
 function TypeSelector({ onSelect }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(null);
@@ -153,12 +202,12 @@ function UserOnboarding({ step, onNext, vid }) {
 
 function ValidatorOnboarding({ step, onNext, error, vid }) {
   const { t } = useTranslation();
-  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", language: [], bio: "", occupation: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
+  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], bio: "", occupation: "", experience: "", industry: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0, d.product_types.length > 0, d.hours && d.devices.length > 0];
   return (
     <div className="rise" style={{ maxWidth: 600, margin: "0 auto" }}>
-      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.tellUsAboutYourself", null, "Tell us about yourself")}</h2><Field label={t("vOnboarding.fields.fullName", null, "Full name")} required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder={t("vOnboarding.placeholders.yourFullName", null, "Your full name")} /></Field><Field label={t("vOnboarding.fields.handle", null, "Handle")} required hint={t("vOnboarding.hints.lowercaseNoSpaces", null, "Lowercase, no spaces")} info={t("vOnboarding.hints.handleInfo", null, "Your unique @username on ValidationCrew — shown to builders on your profile and submissions.")}><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder={t("vOnboarding.placeholders.yourHandle", null, "yourhandle")} /></div></Field><Field label={t("vOnboarding.fields.city", null, "City")} required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder={t("vOnboarding.placeholders.cityBengaluruRemote", null, "e.g. Bengaluru, Remote")} /></Field><Field label={t("vOnboarding.fields.languages", null, "Languages")} action={<SelectAllToggle options={LANGUAGES} value={d.language} onChange={v => set("language", v)} />}><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} getLabel={optLabel(t, "languages")} /></Field><Field label={t("vOnboarding.fields.shortBio", null, "Short bio")} hint={t("vOnboarding.hints.bioHint", null, "Tell builders what makes your feedback valuable")}><textarea className="fin" rows={3} value={d.bio} onChange={e => set("bio", e.target.value)} placeholder={t("vOnboarding.placeholders.bioExample", null, "e.g. Product designer with 5 years at B2B SaaS companies.")} /></Field></>)}
+      {step === 0 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.tellUsAboutYourself", null, "Tell us about yourself")}</h2><Field label={t("vOnboarding.fields.fullName", null, "Full name")} required><input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder={t("vOnboarding.placeholders.yourFullName", null, "Your full name")} /></Field><Field label={t("vOnboarding.fields.handle", null, "Handle")} required hint={t("vOnboarding.hints.lowercaseNoSpaces", null, "Lowercase, no spaces")} info={t("vOnboarding.hints.handleInfo", null, "Your unique @username on ValidationCrew — shown to builders on your profile and submissions.")}><div className="inw has-pre"><span className="pre">@</span><input className="fin" value={d.handle} onChange={e => set("handle", e.target.value.toLowerCase().replace(/\s/g,""))} placeholder={t("vOnboarding.placeholders.yourHandle", null, "yourhandle")} /></div></Field><Field label={t("vOnboarding.fields.city", null, "City")} required><input className="fin" value={d.city} onChange={e => set("city", e.target.value)} placeholder={t("vOnboarding.placeholders.cityBengaluruRemote", null, "e.g. Bengaluru, Remote")} /></Field><CountryStateFields d={d} set={set} /><Field label={t("vOnboarding.fields.languages", null, "Languages")} action={<SelectAllToggle options={LANGUAGES} value={d.language} onChange={v => set("language", v)} />}><Chips options={LANGUAGES} value={d.language} onChange={v => set("language", v)} getLabel={optLabel(t, "languages")} /></Field><Field label={t("vOnboarding.fields.shortBio", null, "Short bio")} hint={t("vOnboarding.hints.bioHint", null, "Tell builders what makes your feedback valuable")}><textarea className="fin" rows={3} value={d.bio} onChange={e => set("bio", e.target.value)} placeholder={t("vOnboarding.placeholders.bioExample", null, "e.g. Product designer with 5 years at B2B SaaS companies.")} /></Field></>)}
       {step === 1 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.professionalBackground", null, "Professional background")}</h2><Field label={t("vOnboarding.fields.role", null, "Role")} required><Chips options={ROLES} value={d.occupation || d.role} onChange={v => set("occupation", v)} multi={false} getLabel={optLabel(t, "roles")} /></Field><Field label={t("vOnboarding.fields.experience", null, "Experience")} required><Chips options={EXP} value={d.experience} onChange={v => set("experience", v)} multi={false} getLabel={optLabel(t, "experience")} /></Field><Field label={t("vOnboarding.fields.industry", null, "Industry")} required action={<SelectAllToggle options={INDUSTRIES} value={d.industry} onChange={v => set("industry", v)} />}><Chips options={INDUSTRIES} value={d.industry} onChange={v => set("industry", v)} getLabel={optLabel(t, "industries")} /></Field><Field label={t("vOnboarding.fields.company", null, "Company")} hint={t("vOnboarding.hints.companyOptional", null, "Optional")}><input className="fin" value={d.company} onChange={e => set("company", e.target.value)} placeholder={t("vOnboarding.placeholders.companyExample", null, "e.g. Razorpay, Freelance")} /></Field></>)}
       {step === 2 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.yourExpertise", null, "Your expertise")}</h2><Field label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} required action={<SelectAllToggle options={PRODUCT_TYPES} value={d.product_types} onChange={v => set("product_types", v)} />}><Chips options={PRODUCT_TYPES} value={d.product_types} onChange={v => set("product_types", v)} getLabel={optLabel(t, "productTypes")} /></Field><Field label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")} action={<SelectAllToggle options={TECH_TOOLS} value={d.tech_tools} onChange={v => set("tech_tools", v)} />}><Chips options={TECH_TOOLS} value={d.tech_tools} onChange={v => set("tech_tools", v)} getLabel={optLabel(t, "techTools")} /></Field></>)}
       {step === 3 && (<><h2 style={{ fontSize: 22, fontWeight: 800, margin: "0 0 22px" }}>{t("vOnboarding.headers.availability", null, "Availability")}</h2><Field label={t("vOnboarding.fields.devices", null, "Devices")} required action={<SelectAllToggle options={DEVICES} value={d.devices} onChange={v => set("devices", v)} />}><Chips options={DEVICES} value={d.devices} onChange={v => set("devices", v)} getLabel={optLabel(t, "devices")} /></Field><Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} required><Chips options={HOURS} value={d.hours} onChange={v => set("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field></>)}
@@ -299,7 +348,14 @@ export default function VOnboarding() {
       setStep(n);
       setMaxReached(m => Math.max(m, n));
     } else {
-      const finalData = (validatorType === "validator" || validatorType === "tester") ? { ...data, occupation: data.occupation || data.role } : data;
+      let finalData = (validatorType === "validator" || validatorType === "tester") ? { ...data, occupation: data.occupation || data.role } : data;
+      if (validatorType === "validator") {
+        const otherLabel = t("onboardingFields.other", null, "Other");
+        finalData = { ...finalData,
+          country: finalData.country === otherLabel ? finalData.countryOther : finalData.country,
+          state: finalData.state === otherLabel ? finalData.stateOther : finalData.state,
+        };
+      }
       handleDone(finalData, validatorType);
     }
   };

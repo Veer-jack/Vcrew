@@ -264,8 +264,10 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
         linkedin_url = COALESCE($35, linkedin_url),
         portfolio_url = COALESCE($36, portfolio_url),
         testing_bio = COALESCE($37, testing_bio),
-        specialties_json = COALESCE($38, specialties_json)
-      WHERE id = $39
+        specialties_json = COALESCE($38, specialties_json),
+        address_country = COALESCE($39, address_country),
+        address_state = COALESCE($40, address_state)
+      WHERE id = $41
     `).run(
       b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
       b.handle || null, b.bio || null, b.city || null, b.city_type || null,
@@ -291,6 +293,7 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
       b.certifications ? JSON.stringify(b.certifications) : null,
       b.linkedin_url || null, b.portfolio_url || null, b.testing_bio || null,
       b.specialties_json || null,
+      b.country || null, b.state || null,
       req.validator.id
     );
   } catch (err) {
