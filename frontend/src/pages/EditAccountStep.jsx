@@ -35,6 +35,11 @@ function genericPersonalValid(d) {
 // same spot the real onboarding wizard's own Start over/Skip/Back live in.
 function StepRail({ persona, currentKey, dirty, onNavigate, onCancel }) {
   const { t } = useTranslation();
+  // Same Cancel/Back pair, same spot and styling, as the mission wizard's
+  // own rail footer -- jumping between steps via the list above already
+  // works, but a tester expected the same explicit Back affordance here.
+  const currentIndex = persona ? persona.steps.findIndex(s => s.key === currentKey) : -1;
+  const prevStep = currentIndex > 0 ? persona.steps[currentIndex - 1] : null;
   // No persona yet (role never picked) -- there's nothing to rail-navigate
   // between, just the one identity step this page is already showing.
   if (!persona) {
@@ -74,7 +79,14 @@ function StepRail({ persona, currentKey, dirty, onNavigate, onCancel }) {
       </div>
       {dirty && <p className="faint" style={{ fontSize: 11.5, marginTop: 12, padding: "0 10px" }}>{t("settings.unsavedHint", null, "You have unsaved changes.")}</p>}
       <div className="wz-rail-foot">
-        <button className="backlink" onClick={onCancel} style={{ marginLeft: 8 }}>{t("actions.cancel", null, "Cancel")}</button>
+        {!prevStep ? (
+          <button className="btn" onClick={onCancel} style={{ alignSelf: "flex-start", marginLeft: 10, border: "none", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
+        ) : (
+          <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
+            <button className="btn" onClick={onCancel} style={{ border: "none", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
+            <button className="btn" onClick={() => onNavigate(`/settings/edit-step/${prevStep.key}`)} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
+          </div>
+        )}
       </div>
     </aside>
   );
