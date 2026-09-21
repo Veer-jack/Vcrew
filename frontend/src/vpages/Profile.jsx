@@ -17,7 +17,7 @@ export default function Profile() {
   const [occupation, setOccupation] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
-  const [address, setAddress] = useState({ line1: "", line2: "", city: "", state: "", stateOther: "", postalCode: "", country: "", countryOther: "" });
+  const [address, setAddress] = useState({ line1: "", line2: "", city: "", cityOther: "", state: "", stateOther: "", postalCode: "", country: "", countryOther: "" });
   const [bio, setBio] = useState("");
   const [specialties, setSpecialties] = useState([]);
   const [tagInput, setTagInput] = useState("");
@@ -34,7 +34,7 @@ export default function Profile() {
     setOccupation(data.occupation || "");
     setIndustry(data.industry || "");
     setLocation(data.location || "");
-    setAddress({ ...{ line1: "", line2: "", city: "", state: "", stateOther: "", postalCode: "", country: "", countryOther: "" }, ...(data.address || {}) });
+    setAddress({ ...{ line1: "", line2: "", city: "", cityOther: "", state: "", stateOther: "", postalCode: "", country: "", countryOther: "" }, ...(data.address || {}) });
     setBio(data.bio || "");
     setSpecialties([...(data.specialties || [])]);
     setTagInput(""); setError(""); setEditing(true);
@@ -43,7 +43,7 @@ export default function Profile() {
   const addTag = (e) => {
     e.preventDefault();
     const tag = tagInput.trim();
-    if (tag && !specialties.includes(tag) && specialties.length < 6) setSpecialties(s => [...s, tag]);
+    if (tag && !specialties.includes(tag)) setSpecialties(s => [...s, tag]);
     setTagInput("");
   };
 
@@ -150,19 +150,17 @@ export default function Profile() {
                   {/* State first, then Country -- picking a state directly
                       resolves its country automatically; picking a country
                       first instead scopes the state dropdown to it. City
-                      stays free text (a real per-state city list is a much
-                      bigger dataset than country/state and still needs its
-                      own "Other" escape hatch, so it doesn't save typing
-                      either) -- kept next to Postal code below. */}
+                      follows, fetched from the backend once both are known
+                      (routes/geo.js) -- falls back to free text on its own
+                      if that state isn't covered, same as State does when a
+                      country has no known regions. */}
                   <CountryStateFields
                     stateFirst
-                    d={{ country: address.country, countryOther: address.countryOther, state: address.state, stateOther: address.stateOther }}
+                    withCity
+                    d={{ country: address.country, countryOther: address.countryOther, state: address.state, stateOther: address.stateOther, city: address.city, cityOther: address.cityOther }}
                     set={(key, value) => setAddress(a => ({ ...a, [key]: value }))}
                   />
-                  <div className="row gap-3 wrap">
-                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.city} onChange={e => setAddress(a => ({ ...a, city: e.target.value }))} placeholder={t("profile.city", null, "City")} />
-                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.postalCode} onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))} placeholder={t("profile.postalCode", null, "Postal code")} />
-                  </div>
+                  <input className="fin" value={address.postalCode} onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))} placeholder={t("profile.postalCode", null, "Postal code")} />
                 </div>
               </div>
               <div className="fld">
@@ -174,7 +172,7 @@ export default function Profile() {
                 <p className="fhint">{t("profile.bioWordCount", { count: bio.trim() ? bio.trim().split(/\s+/).length : 0 }, `${bio.trim() ? bio.trim().split(/\s+/).length : 0} words`)}</p>
               </div>
               <div className="fld">
-                <label>{t("profile.specialtiesLimit", null, "Specialties (up to 6)")}</label>
+                <label>{t("profile.specialties", null, "Specialties")}</label>
                 <div className="row gap-2 wrap" style={{ marginBottom: specialties.length ? 8 : 0 }}>
                   {specialties.map(tag => (
                     <span key={tag} className="pill" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -183,13 +181,11 @@ export default function Profile() {
                     </span>
                   ))}
                 </div>
-                {specialties.length < 6 && (
-                  <div className="row gap-2">
-                    <input className="fin" value={tagInput} onChange={e => setTagInput(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter") addTag(e); }} placeholder={t("profile.addSpecialty", null, "Add a specialty and press Enter")} />
-                    <button type="button" className="btn btn-quiet" onClick={addTag}>{t("actions.add", null, "Add")}</button>
-                  </div>
-                )}
+                <div className="row gap-2">
+                  <input className="fin" value={tagInput} onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") addTag(e); }} placeholder={t("profile.addSpecialty", null, "Add a specialty and press Enter")} />
+                  <button type="button" className="btn btn-quiet" onClick={addTag}>{t("actions.add", null, "Add")}</button>
+                </div>
               </div>
               <div className="row gap-2">
                 <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}</button>

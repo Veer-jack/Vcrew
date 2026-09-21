@@ -125,7 +125,7 @@ router.patch("/", async (req, res) => {
   if (!name) return res.status(400).json({ error: "Name is required" });
   if (handle && !handle.startsWith("@")) handle = `@${handle}`;
   if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
-  specialties = specialties.map(s => String(s).trim()).filter(Boolean).slice(0, 6);
+  specialties = specialties.map(s => String(s).trim()).filter(Boolean);
 
   await db.prepare(`UPDATE validators SET name = ?, handle = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ?,
       address_line1 = ?, address_line2 = ?, address_city = ?, address_state = ?, address_postal_code = ?, address_country = ? WHERE id = ?`)
