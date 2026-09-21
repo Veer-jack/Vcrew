@@ -224,64 +224,83 @@ export default function Profile() {
         <StatTile label={t("profile.missionsCompleted", null, "Missions completed")} value={data.completed || 0} sub={`₹${(data.lifetime || 0).toLocaleString("en-IN")} ${t("profile.lifetime", null, "lifetime")}`} accent="var(--warning)" icon="bolt" />
       </div>
 
-      <div className="split" style={{ gridTemplateColumns: "minmax(0,1fr) 340px" }}>
-        <div className="col gap-5 rise-3">
-          <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <div className="row between" style={{ marginBottom: 4 }}>
-              <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{t("profile.reputationLadder", null, "Reputation ladder")}</h3>
-              {data.nextLevel && <span className="faint" style={{ fontSize: 12.5 }}>{Math.max(0, data.nextLevel.min - (data.completed || 0))} {t("profile.validationsTo", null, "validations to")} {levelName(t, data.nextLevel.n, data.nextLevel.name)}</span>}
-            </div>
-            <div className="lvl-meter" style={{ margin: "12px 0 18px" }}><i style={{ width: (data.levelPct || 0) + "%" }} /></div>
-            <div style={{ display: "grid", gap: 4 }}>
-              {(data.levels || []).map(l => {
-                const state = l.n < (data.level || 1) ? "done" : l.n === (data.level || 1) ? "cur" : "up";
-                return (
-                  <div key={l.n} className="row gap-3" style={{ padding: "10px 0", borderTop: l.n > 1 ? "var(--hairline) solid var(--border)" : "none", opacity: state === "up" ? .55 : 1 }}>
-                    <span style={{ width: 30, height: 30, borderRadius: "50%", flex: "none", display: "grid", placeItems: "center", fontFamily: "var(--mono)", fontWeight: 600, fontSize: 12,
-                      background: state === "done" ? "var(--success)" : state === "cur" ? "var(--accent)" : "var(--panel-inset)",
-                      color: state === "up" ? "var(--text-faint)" : "#fff",
-                      boxShadow: state === "cur" ? "0 0 0 4px var(--accent-weak)" : "none" }}>
-                      {state === "done" ? <Icon name="check" size={14} /> : l.n}
-                    </span>
-                    <div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>{levelName(t, l.n, l.name)}</b> <span className="faint" style={{ fontSize: 12.5 }}>· {levelPerks(t, l.n, l.perks)}</span></div>
-                    {state === "cur" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("profile.you", null, "You")}</span>}
-                    <span className="mono faint" style={{ fontSize: 11.5 }}>{l.min}+</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* Private logistics data, not identity -- only needed for Sample
+          Distribution missions, so it gets its own small card instead of
+          crowding the public-facing overview card above. Hidden entirely
+          until something's actually been saved. */}
+      {(data.address?.line1 || data.address?.city || data.address?.country) && (
+        <div className="card rise-2" style={{ padding: "var(--pad-card)", marginBottom: 22 }}>
+          <span className="eyebrow">{t("profile.shippingAddress", null, "Shipping address")}</span>
+          <p className="faint" style={{ fontSize: 14, margin: "8px 0 0", lineHeight: 1.6 }}>
+            {[data.address.line1, data.address.line2].filter(Boolean).join(", ")}
+            {(data.address.line1 || data.address.line2) && (data.address.city || data.address.state || data.address.postalCode || data.address.country) && <br />}
+            {[data.address.city, data.address.state, data.address.postalCode].filter(Boolean).join(", ")}
+            {(data.address.city || data.address.state || data.address.postalCode) && data.address.country && ", "}
+            {data.address.country}
+          </p>
+        </div>
+      )}
 
-          <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>{t("profile.expertiseScores", null, "Expertise scores")}</h3>
-            <div style={{ display: "grid", gap: 12 }}>
-              {(data.expertise || []).map((e, i) => (
-                <div key={i} className="row gap-3" style={{ fontSize: 13.5 }}>
-                  <span style={{ width: 130, flex: "none", fontWeight: 600 }}>{expertiseLabel(t, e.l)}</span>
-                  <span style={{ flex: 1, height: 9, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: e.v + "%", borderRadius: 20, background: "linear-gradient(90deg, var(--accent), var(--accent-2))" }} /></span>
-                  <span className="mono" style={{ width: 36, textAlign: "right", fontWeight: 600, fontSize: 12.5 }}>{e.v}</span>
-                </div>
-              ))}
-            </div>
+      <div className="col gap-5">
+        <div className="card rise-3" style={{ padding: "var(--pad-card)" }}>
+          <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>{t("profile.expertiseScores", null, "Expertise scores")}</h3>
+          <div style={{ display: "grid", gap: 12 }}>
+            {(data.expertise || []).map((e, i) => (
+              <div key={i} className="row gap-3" style={{ fontSize: 13.5 }}>
+                <span style={{ width: 130, flex: "none", fontWeight: 600 }}>{expertiseLabel(t, e.l)}</span>
+                <span style={{ flex: 1, height: 9, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}><i style={{ display: "block", height: "100%", width: e.v + "%", borderRadius: 20, background: "linear-gradient(90deg, var(--accent), var(--accent-2))" }} /></span>
+                <span className="mono" style={{ width: 36, textAlign: "right", fontWeight: 600, fontSize: 12.5 }}>{e.v}</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="col gap-5 rise-3">
-          <PayoutSetup client={vapi} vpa={data.payoutVpa}
-            onUpdate={(payoutVpa) => setData(d => ({ ...d, payoutVpa }))} />
-          <div className="card" style={{ padding: "var(--pad-card)" }}>
-            <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>{t("profile.verificationBadges", null, "Verification badges")}</h3>
-            <div style={{ display: "grid", gap: 10 }}>
-              {(data.badges || []).map((b, i) => (
-                <div key={i} className="row gap-3" style={{ opacity: b.got ? 1 : .5 }}>
-                  <span style={{ width: 38, height: 38, borderRadius: 11, flex: "none", display: "grid", placeItems: "center",
-                    background: b.got ? "var(--success-weak)" : "var(--panel-inset)", color: b.got ? "var(--success)" : "var(--text-faint)" }}>
-                    <Icon name={b.icon} size={18} />
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5 }}>{badgeLabel(t, b.label)}</div><div className="faint" style={{ fontSize: 12 }}>{badgeDesc(t, b.label, b.desc)}</div></div>
-                  {b.got && <Icon name="check" size={16} style={{ color: "var(--success)", flex: "none" }} />}
-                </div>
-              ))}
+        <div className="split" style={{ gridTemplateColumns: "minmax(0,1fr) 340px" }}>
+          <div className="col gap-5 rise-3">
+            <div className="card" style={{ padding: "var(--pad-card)" }}>
+              <div className="row between" style={{ marginBottom: 4 }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800 }}>{t("profile.reputationLadder", null, "Reputation ladder")}</h3>
+                {data.nextLevel && <span className="faint" style={{ fontSize: 12.5 }}>{Math.max(0, data.nextLevel.min - (data.completed || 0))} {t("profile.validationsTo", null, "validations to")} {levelName(t, data.nextLevel.n, data.nextLevel.name)}</span>}
+              </div>
+              <div className="lvl-meter" style={{ margin: "12px 0 18px" }}><i style={{ width: (data.levelPct || 0) + "%" }} /></div>
+              <div style={{ display: "grid", gap: 4 }}>
+                {(data.levels || []).map(l => {
+                  const state = l.n < (data.level || 1) ? "done" : l.n === (data.level || 1) ? "cur" : "up";
+                  return (
+                    <div key={l.n} className="row gap-3" style={{ padding: "10px 0", borderTop: l.n > 1 ? "var(--hairline) solid var(--border)" : "none", opacity: state === "up" ? .55 : 1 }}>
+                      <span style={{ width: 30, height: 30, borderRadius: "50%", flex: "none", display: "grid", placeItems: "center", fontFamily: "var(--mono)", fontWeight: 600, fontSize: 12,
+                        background: state === "done" ? "var(--success)" : state === "cur" ? "var(--accent)" : "var(--panel-inset)",
+                        color: state === "up" ? "var(--text-faint)" : "#fff",
+                        boxShadow: state === "cur" ? "0 0 0 4px var(--accent-weak)" : "none" }}>
+                        {state === "done" ? <Icon name="check" size={14} /> : l.n}
+                      </span>
+                      <div style={{ flex: 1 }}><b style={{ fontSize: 14 }}>{levelName(t, l.n, l.name)}</b> <span className="faint" style={{ fontSize: 12.5 }}>· {levelPerks(t, l.n, l.perks)}</span></div>
+                      {state === "cur" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("profile.you", null, "You")}</span>}
+                      <span className="mono faint" style={{ fontSize: 11.5 }}>{l.min}+</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="col gap-5 rise-3">
+            <PayoutSetup client={vapi} vpa={data.payoutVpa}
+              onUpdate={(payoutVpa) => setData(d => ({ ...d, payoutVpa }))} />
+            <div className="card" style={{ padding: "var(--pad-card)" }}>
+              <h3 style={{ margin: "0 0 14px", fontSize: 17, fontWeight: 800 }}>{t("profile.verificationBadges", null, "Verification badges")}</h3>
+              <div style={{ display: "grid", gap: 10 }}>
+                {(data.badges || []).map((b, i) => (
+                  <div key={i} className="row gap-3" style={{ opacity: b.got ? 1 : .5 }}>
+                    <span style={{ width: 38, height: 38, borderRadius: 11, flex: "none", display: "grid", placeItems: "center",
+                      background: b.got ? "var(--success-weak)" : "var(--panel-inset)", color: b.got ? "var(--success)" : "var(--text-faint)" }}>
+                      <Icon name={b.icon} size={18} />
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5 }}>{badgeLabel(t, b.label)}</div><div className="faint" style={{ fontSize: 12 }}>{badgeDesc(t, b.label, b.desc)}</div></div>
+                    {b.got && <Icon name="check" size={16} style={{ color: "var(--success)", flex: "none" }} />}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>
