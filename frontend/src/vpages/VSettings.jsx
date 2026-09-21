@@ -3,7 +3,6 @@ import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 import { Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
-import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
 import {
   Chips, Field, optLabel, AGE_GROUPS, GENDERS, INCOME, HEIGHT, WEIGHT, SKIN_TONE, HAIR_TYPE, HAIR_LENGTH, BODY_TYPE,
@@ -16,6 +15,18 @@ import { FilterGroup } from "../pages/CreateMissionWizard";
 export default function VSettings() {
   const { t } = useTranslation();
   const { validator, refresh, setValidator } = useVAuth();
+  // The onboarding wizard's own role picker is skipped whenever a draft
+  // type is already sitting in localStorage (VC_V_TYPE_<id>), which is
+  // exactly what's left behind by an earlier onboarding attempt that never
+  // reached the final "Complete setup" (that's the only place it gets
+  // cleared) -- landing here from "Upgrade to Validator" resumed that old,
+  // possibly different, draft instead of showing "Which best describes
+  // you?" fresh. Clearing it first guarantees the picker actually shows,
+  // with the current role already highlighted there (see TypeSelector).
+  const goReOnboard = () => {
+    localStorage.removeItem(`VC_V_TYPE_${validator?.id}`);
+    window.location.href = "/validator/onboarding";
+  };
   const [name, setName] = useState(validator?.name || "");
   const [email, setEmail] = useState(validator?.email || "");
   const [handle, setHandle] = useState(validator?.handle || "");
@@ -138,6 +149,34 @@ export default function VSettings() {
     <div className="page rise">
       <div className="ph" style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("settings.title", null, "Settings")}</h1>
+      </div>
+
+      {/* Account type/status chips -- top of the page, plain row (no card),
+          so the upgrade/apply action reads like a banner instead of being
+          buried at the bottom of the page. */}
+      <div className="row gap-2 wrap" style={{ marginBottom: 24, maxWidth: 980 }}>
+        <span className="pill">
+          {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
+        </span>
+
+        {validator?.validator_type === "tester" && validator?.tester_status === "pending_review" && (
+          <span className="pill" style={{ color: "var(--warning)" }}>⏳ {t("settings.underReview", null, "Under review")}</span>
+        )}
+        {validator?.validator_type === "tester" && validator?.tester_status === "approved" && (
+          <span className="pill" style={{ color: "var(--success)" }}>✓ {validator?.tester_tier === "senior" ? t("settings.senior", null, "Senior") : t("settings.junior", null, "Junior")} {t("settings.verifiedTag", null, "Verified")}</span>
+        )}
+        {validator?.validator_type === "tester" && validator?.tester_status === "rejected" && (
+          <>
+            <span className="pill" style={{ color: "var(--danger)" }}>✗ {t("settings.notApproved", null, "Not approved")}</span>
+            <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
+          </>
+        )}
+        {validator?.validator_type === "user" && (
+          <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
+        )}
+        {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
+          <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
+        )}
       </div>
 
       {/* Single vertical stack (was a 2-column grid) -- matches the builder
@@ -277,9 +316,6 @@ export default function VSettings() {
             </Btn>
           </div>
 
-          <PhoneSetup client={vapi} phone={validator?.phone} phoneVerified={validator?.phoneVerified}
-            onUpdate={(phone) => setValidator(v => ({ ...v, phone, phoneVerified: !!phone }))} />
-
           {/* Security Card */}
           {!validator?.oauthProvider && (
             <div className="card" style={{ padding: 24 }}>
@@ -331,36 +367,6 @@ export default function VSettings() {
 
       </div>
 
-      {/* Validator type & status -- chips instead of a heading+paragraph+button
-          block per row, per feedback that the card version was too heavy for
-          what's just a status + one action. */}
-      <div className="card" style={{ padding: 22, marginBottom: 24 }}>
-        <div className="eyebrow" style={{ marginBottom: 12 }}>{t("settings.accountType", null, "Account type")}</div>
-        <div className="row gap-2 wrap">
-          <span className="pill">
-            {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
-          </span>
-
-          {validator?.validator_type === "tester" && validator?.tester_status === "pending_review" && (
-            <span className="pill" style={{ color: "var(--warning)" }}>⏳ {t("settings.underReview", null, "Under review")}</span>
-          )}
-          {validator?.validator_type === "tester" && validator?.tester_status === "approved" && (
-            <span className="pill" style={{ color: "var(--success)" }}>✓ {validator?.tester_tier === "senior" ? t("settings.senior", null, "Senior") : t("settings.junior", null, "Junior")} {t("settings.verifiedTag", null, "Verified")}</span>
-          )}
-          {validator?.validator_type === "tester" && validator?.tester_status === "rejected" && (
-            <>
-              <span className="pill" style={{ color: "var(--danger)" }}>✗ {t("settings.notApproved", null, "Not approved")}</span>
-              <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.reapplyTester", null, "Reapply for Verified Tester")} →</button>
-            </>
-          )}
-          {validator?.validator_type === "user" && (
-            <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.upgradeValidator", null, "Upgrade to Validator")} →</button>
-          )}
-          {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
-            <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester")} →</button>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

@@ -1626,7 +1626,7 @@ const en = {
     junior: "Junior",
     testerUnlocked: "Tester — premium missions unlocked",
     applicationNotApproved: "Application not approved — you can update your profile and reapply",
-    reapplyTester: "Reapply for Verified Tester",
+    reapplyTester: "Reapply for Verified Tester →",
     upgradeAccount: "Upgrade your account",
     upgradeDesc: "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.",
     upgradeValidator: "Upgrade to Validator →",

@@ -1626,7 +1626,7 @@ const pt = {
     junior: "Júnior",
     testerUnlocked: "Testador – missões premium desbloqueadas",
     applicationNotApproved: "Inscrição não aprovada – você pode atualizar seu perfil e se inscrever novamente",
-    reapplyTester: "Candidate-se novamente para testador verificado",
+    reapplyTester: "Candidate-se novamente para testador verificado →",
     upgradeAccount: "Atualize sua conta",
     upgradeDesc: "Possui experiência profissional? Atualize para o Validator para acessar testes de aplicativos e missões de produtos digitais.",
     upgradeValidator: "Atualize para o validador →",

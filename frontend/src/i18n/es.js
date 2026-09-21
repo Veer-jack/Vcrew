@@ -1626,7 +1626,7 @@ const es = {
     junior: "júnior",
     testerUnlocked: "Probador: misiones premium desbloqueadas",
     applicationNotApproved: "Solicitud no aprobada: puede actualizar su perfil y volver a presentar la solicitud",
-    reapplyTester: "Vuelva a solicitar el probador verificado",
+    reapplyTester: "Vuelva a solicitar el probador verificado →",
     upgradeAccount: "Actualiza tu cuenta",
     upgradeDesc: "¿Tiene experiencia profesional? Actualice a Validator para acceder a pruebas de aplicaciones y misiones de productos digitales.",
     upgradeValidator: "Actualizar a Validador →",

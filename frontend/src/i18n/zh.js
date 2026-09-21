@@ -1626,7 +1626,7 @@ const zh = {
     junior: "初级",
     testerUnlocked: "测试员 — 已解锁高级任务",
     applicationNotApproved: "申请未获批准 — 您可以更新您的个人资料并重新申请",
-    reapplyTester: "重新申请验证测试员",
+    reapplyTester: "重新申请验证测试员 →",
     upgradeAccount: "升级您的帐户",
     upgradeDesc: "有专业知识吗？升级到验证器以访问应用程序测试和数字产品任务。",
     upgradeValidator: "升级到验证器 →",
