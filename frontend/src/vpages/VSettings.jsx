@@ -191,7 +191,12 @@ export default function VSettings() {
             </div>
           )}
 
-          {validator?.validator_type === "validator" && !validator?.tester_status && (
+          {/* Anything other than pending/rejected -- covers a never-applied
+              validator (tester_status null) and also any stale/out-of-sync
+              record where tester_status is already "approved" but
+              validator_type was never bumped to "tester", so the apply
+              option doesn't just silently vanish for them. */}
+          {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && validator?.tester_status !== "rejected" && (
             <div style={{ padding: "12px 0" }}>
               <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
               <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
