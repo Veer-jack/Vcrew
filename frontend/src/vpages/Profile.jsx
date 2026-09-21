@@ -222,24 +222,29 @@ export default function Profile() {
           <div style={{ minWidth: 0 }}><span className="eyebrow">{t("profile.expertise", null, "Expertise")}</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>{t("profile.across", null, "Across")} {(data.expertise || []).length} {t("profile.niches", null, "niches")}</div></div>
         </div>
         <StatTile label={t("profile.missionsCompleted", null, "Missions completed")} value={data.completed || 0} sub={`₹${(data.lifetime || 0).toLocaleString("en-IN")} ${t("profile.lifetime", null, "lifetime")}`} accent="var(--warning)" icon="bolt" />
+        {/* Private logistics data, not identity -- only needed for Sample
+            Distribution missions -- but matched to the same icon+eyebrow
+            card style as Trust Score/Expertise above, joining their grid
+            row instead of standing out as a full-width banner. Hidden
+            entirely until something's actually been saved. */}
+        {(data.address?.line1 || data.address?.city || data.address?.country) && (
+          <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 60, height: 60, borderRadius: "50%", background: "var(--accent-weak)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Icon name="mapPin" size={24} style={{ color: "var(--accent)" }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <span className="eyebrow">{t("profile.shippingAddress", null, "Shipping address")}</span>
+              <div className="faint" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+                {[data.address.line1, data.address.line2].filter(Boolean).join(", ")}
+                {(data.address.line1 || data.address.line2) && (data.address.city || data.address.state || data.address.postalCode || data.address.country) && <br />}
+                {[data.address.city, data.address.state, data.address.postalCode].filter(Boolean).join(", ")}
+                {(data.address.city || data.address.state || data.address.postalCode) && data.address.country && ", "}
+                {data.address.country}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Private logistics data, not identity -- only needed for Sample
-          Distribution missions, so it gets its own small card instead of
-          crowding the public-facing overview card above. Hidden entirely
-          until something's actually been saved. */}
-      {(data.address?.line1 || data.address?.city || data.address?.country) && (
-        <div className="card rise-2" style={{ padding: "var(--pad-card)", marginBottom: 22 }}>
-          <span className="eyebrow">{t("profile.shippingAddress", null, "Shipping address")}</span>
-          <p className="faint" style={{ fontSize: 14, margin: "8px 0 0", lineHeight: 1.6 }}>
-            {[data.address.line1, data.address.line2].filter(Boolean).join(", ")}
-            {(data.address.line1 || data.address.line2) && (data.address.city || data.address.state || data.address.postalCode || data.address.country) && <br />}
-            {[data.address.city, data.address.state, data.address.postalCode].filter(Boolean).join(", ")}
-            {(data.address.city || data.address.state || data.address.postalCode) && data.address.country && ", "}
-            {data.address.country}
-          </p>
-        </div>
-      )}
 
       <div className="col gap-5">
         <div className="card rise-3" style={{ padding: "var(--pad-card)" }}>
