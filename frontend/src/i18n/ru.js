@@ -2997,6 +2997,7 @@ const ru = {
     country: "Страна",
     bio: "Био",
     bioPlaceholder: "Краткая биография о себе...",
+    bioWordCount: "{{count}} слов",
     specialtiesLimit: "Специализации (до 6)",
     addSpecialty: "Добавьте специальность и нажмите Enter",
     trustScore: "Оценка доверия",

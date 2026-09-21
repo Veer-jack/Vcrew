@@ -2997,6 +2997,7 @@ const zh = {
     country: "国家",
     bio: "简介",
     bioPlaceholder: "关于您自己的简短简历...",
+    bioWordCount: "{{count}} 字",
     specialtiesLimit: "专业（最多6个）",
     addSpecialty: "添加专业并按 Enter",
     trustScore: "信任分数",

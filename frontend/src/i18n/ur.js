@@ -2997,6 +2997,7 @@ const ur = {
     country: "ملک",
     bio: "بایو",
     bioPlaceholder: "اپنے بارے میں ایک مختصر سوانح...",
+    bioWordCount: "{{count}} الفاظ",
     specialtiesLimit: "خصوصیات (6 تک)",
     addSpecialty: "ایک خصوصیت شامل کریں اور انٹر دبائیں۔",
     trustScore: "اعتماد کا اسکور",

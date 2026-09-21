@@ -2997,6 +2997,7 @@ const bn = {
     country: "দেশ",
     bio: "বায়ো",
     bioPlaceholder: "নিজের সম্পর্কে একটি সংক্ষিপ্ত জীবনী...",
+    bioWordCount: "{{count}} শব্দ",
     specialtiesLimit: "বিশেষত্ব (6 পর্যন্ত)",
     addSpecialty: "একটি বিশেষত্ব যোগ করুন এবং এন্টার টিপুন",
     trustScore: "ট্রাস্ট স্কোর",

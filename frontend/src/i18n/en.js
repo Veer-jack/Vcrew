@@ -2996,6 +2996,7 @@ const en = {
     country: "Country",
     bio: "Bio",
     bioPlaceholder: "A short bio about yourself...",
+    bioWordCount: "{{count}} words",
     specialtiesLimit: "Specialties (up to 6)",
     addSpecialty: "Add a specialty and press Enter",
     trustScore: "Trust Score",

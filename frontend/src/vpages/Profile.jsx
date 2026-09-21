@@ -157,13 +157,14 @@ export default function Profile() {
                   <input className="fin" value={address.line2} onChange={e => setAddress(a => ({ ...a, line2: e.target.value }))} placeholder={t("profile.address2", null, "Address line 2 (optional)")} />
                   {/* State first, then Country -- picking a state directly
                       resolves its country automatically; picking a country
-                      first instead scopes the state dropdown to it. City
-                      follows, fetched from the backend once both are known
-                      (routes/geo.js) -- falls back to free text on its own
-                      if that state isn't covered, same as State does when a
-                      country has no known regions. */}
+                      first instead scopes the state dropdown to it -- shown
+                      Country-first here per request, State can still be
+                      picked on its own further down if Country is left
+                      blank. City follows, fetched from the backend once
+                      both are known (routes/geo.js) -- falls back to free
+                      text on its own if that state isn't covered, same as
+                      State does when a country has no known regions. */}
                   <CountryStateFields
-                    stateFirst
                     withCity
                     d={{ country: address.country, countryOther: address.countryOther, state: address.state, stateOther: address.stateOther, city: address.city, cityOther: address.cityOther }}
                     set={(key, value) => setAddress(a => ({ ...a, [key]: value }))}

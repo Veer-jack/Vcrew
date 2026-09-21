@@ -2997,6 +2997,7 @@ const ar = {
     country: "البلد",
     bio: "السيرة الذاتية",
     bioPlaceholder: "سيرة ذاتية مختصرة عن نفسك...",
+    bioWordCount: "{{count}} كلمة",
     specialtiesLimit: "التخصصات (حتى 6)",
     addSpecialty: "أضف تخصصًا واضغط على Enter",
     trustScore: "نقاط الثقة",

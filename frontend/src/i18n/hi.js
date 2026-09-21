@@ -2997,6 +2997,7 @@ const hi = {
     country: "देश",
     bio: "बायो",
     bioPlaceholder: "अपने बारे में एक संक्षिप्त जीवनी...",
+    bioWordCount: "{{count}} शब्द",
     specialtiesLimit: "विशेषताएँ (6 तक)",
     addSpecialty: "एक विशेषता जोड़ें और Enter दबाएँ",
     trustScore: "विश्वास स्कोर",
