@@ -3422,6 +3422,7 @@ const en = {
     },
   },
   vLayout: {
+    roleChangedToast: "Your role is now {{role}}",
     catMessages: "Messages",
     yearsAgo: "{{count}} years ago",
     monthsAgo: "{{count}} months ago",

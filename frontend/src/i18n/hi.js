@@ -3423,6 +3423,7 @@ const hi = {
     },
   },
   vLayout: {
+    roleChangedToast: "आपकी भूमिका अब {{role}} है",
     catMessages: "संदेश",
     yearsAgo: "{{count}} वर्ष पहले",
     monthsAgo: "{{count}} महीने पहले",

@@ -3423,6 +3423,7 @@ const ur = {
     },
   },
   vLayout: {
+    roleChangedToast: "آپ کا کردار اب {{role}} ہے",
     catMessages: "پیغامات",
     yearsAgo: "{{count}} سال پہلے",
     monthsAgo: "{{count}} مہینے پہلے",

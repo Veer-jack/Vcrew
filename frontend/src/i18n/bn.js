@@ -3423,6 +3423,7 @@ const bn = {
     },
   },
   vLayout: {
+    roleChangedToast: "আপনার ভূমিকা এখন {{role}}",
     catMessages: "বার্তা",
     yearsAgo: "{{count}} বছর আগে",
     monthsAgo: "{{count}} মাস আগে",

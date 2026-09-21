@@ -3423,6 +3423,7 @@ const zh = {
     },
   },
   vLayout: {
+    roleChangedToast: "您的角色现在是{{role}}",
     catMessages: "消息",
     yearsAgo: "{{count}} 年前",
     monthsAgo: "{{count}} 个月前",

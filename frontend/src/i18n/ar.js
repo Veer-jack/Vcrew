@@ -3423,6 +3423,7 @@ const ar = {
     },
   },
   vLayout: {
+    roleChangedToast: "دورك الآن هو {{role}}",
     catMessages: "الرسائل",
     yearsAgo: "{{count}} منذ سنوات",
     monthsAgo: "{{count}} منذ أشهر",

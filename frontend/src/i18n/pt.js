@@ -3423,6 +3423,7 @@ const pt = {
     },
   },
   vLayout: {
+    roleChangedToast: "Sua função agora é {{role}}",
     catMessages: "Mensagens",
     yearsAgo: "{{count}} anos atrás",
     monthsAgo: "{{count}} meses atrás",

@@ -3423,6 +3423,7 @@ const ru = {
     },
   },
   vLayout: {
+    roleChangedToast: "Теперь ваша роль — {{role}}",
     catMessages: "Сообщения",
     yearsAgo: "{{count}} лет назад",
     monthsAgo: "{{count}} месяцев назад",

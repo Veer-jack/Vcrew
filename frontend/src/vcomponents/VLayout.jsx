@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandLogoFull, BrandMark } from "../components/BrandMark";
@@ -204,6 +205,17 @@ export default function VLayout() {
   }, [dataVersion]);
 
   useEffect(() => { setShowProfile(false); }, [location.pathname]);
+
+  // Set by VOnboarding's handleDone right before its hard page-load redirect
+  // (a toast fired there would never get to render) -- picked up once here,
+  // since every /validator/* page mounts under this layout.
+  useEffect(() => {
+    const roleLabel = localStorage.getItem("vc_role_changed_toast");
+    if (!roleLabel) return;
+    localStorage.removeItem("vc_role_changed_toast");
+    toast.success(t("vLayout.roleChangedToast", { role: roleLabel }, `Your role is now ${roleLabel}`));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // A "cover the whole page and close on click" overlay doesn't work here:
   // .topbar has backdrop-filter, which makes it the containing block for any

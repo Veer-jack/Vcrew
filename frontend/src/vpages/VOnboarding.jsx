@@ -23,13 +23,33 @@ const COUNTRY_BY_STATE = {};
 for (const c of countryRegionData) for (const r of c.regions) if (!(r.name in COUNTRY_BY_STATE)) COUNTRY_BY_STATE[r.name] = c.countryName;
 const ALL_STATE_NAMES = Object.keys(COUNTRY_BY_STATE).sort((a, b) => a.localeCompare(b));
 
-function useDraft(key, defaultState) {
+function isEmptyDraftValue(v) {
+  return v === "" || v === undefined || v === null || (Array.isArray(v) && v.length === 0);
+}
+
+// `backfill` (used only for the per-role onboarding drafts, to fill in
+// already-saved validator data) is applied on top of whatever draft comes
+// back -- stored or default -- so it still works even for a draft that
+// already exists in localStorage but was never actually filled in (e.g.
+// this exact key got persisted blank on an earlier visit, since the persist
+// effect below writes on every mount, not just on an actual edit). Only
+// fields still empty in the resolved draft get backfilled, so anything the
+// user has genuinely typed is never touched.
+function useDraft(key, defaultState, backfill) {
   const [val, setVal] = useState(() => {
+    let base = defaultState;
     try {
       const stored = localStorage.getItem(key);
-      if (stored) return JSON.parse(stored);
+      if (stored) base = JSON.parse(stored);
     } catch { /* ignore */ }
-    return defaultState;
+    if (backfill && base && typeof base === "object") {
+      const merged = { ...base };
+      for (const k in backfill) {
+        if (isEmptyDraftValue(merged[k]) && !isEmptyDraftValue(backfill[k])) merged[k] = backfill[k];
+      }
+      return merged;
+    }
+    return base;
   });
   useEffect(() => {
     if (val === null) localStorage.removeItem(key);
@@ -411,7 +431,7 @@ export function validatorToDraft(validator) {
 
 function UserOnboarding({ step, onNext, vid, validator }) {
   const { t } = useTranslation();
-  const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", occupationOther: "", food_pref: "", lifestyle: [], devices: [], hours: "", ...validatorToDraft(validator) });
+  const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", occupationOther: "", food_pref: "", lifestyle: [], devices: [], hours: "" }, validatorToDraft(validator));
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.age_group && d.gender && d.income, d.height && d.weight && d.skin_tone && d.body_type, d.occupation && d.hours && d.devices.length > 0];
   return (
@@ -429,7 +449,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
 
 function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
   const { t } = useTranslation();
-  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], bio: "", occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "", ...validatorToDraft(validator) });
+  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], bio: "", occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" }, validatorToDraft(validator));
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0, d.product_types.length > 0, d.hours && d.devices.length > 0];
   return (
@@ -452,7 +472,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState("");
-  const [d, setD] = useDraft(`VC_V_DRAFT_TESTER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", domains: [], domainsOther: [], certifications: [], certificationsOther: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false, ...validatorToDraft(validator) });
+  const [d, setD] = useDraft(`VC_V_DRAFT_TESTER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", domains: [], domainsOther: [], certifications: [], certificationsOther: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false }, validatorToDraft(validator));
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const wordCount = d.testing_bio ? d.testing_bio.trim().split(/\s+/).filter(Boolean).length : 0;
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0 && d.company.trim(), d.linkedin_url.trim() && resumeUploaded && wordCount >= 30, d.agreed];
@@ -530,9 +550,14 @@ export default function VOnboarding() {
 
   // An account that's already completed onboarding once (matches
   // RequireVAuth's own "already set up" check) has nothing to lose by
-  // leaving -- only a genuinely first-time setup still warns.
+  // just reviewing that same role again -- but switching to a role they
+  // haven't finished setting up yet is a genuine in-progress edit (only
+  // saved to localStorage, not the DB, until Complete Setup), so that
+  // case still warns same as first-time setup.
+  const currentRole = validator?.tester_status === "approved" ? "tester" : validator?.validator_type;
   const alreadyOnboarded = !!(validator?.validator_type && validator?.city);
-  const isDirty = !!validatorType && !showPending && !alreadyOnboarded;
+  const isSwitchingRole = !!validatorType && validatorType !== currentRole;
+  const isDirty = !!validatorType && !showPending && (!alreadyOnboarded || isSwitchingRole);
   useUnsavedChangesWarning(isDirty, t("vOnboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
 
   // Fired unconditionally on every mount before, so it could show twice from
@@ -553,6 +578,7 @@ export default function VOnboarding() {
   const handleDone = async (data, vtype) => {
     setError("");
     try {
+      const wasRoleSwitch = alreadyOnboarded && vtype !== currentRole;
       await vapi.patch("/auth/profile", { ...data, validator_type: vtype, specialties_json: JSON.stringify(data.product_types || data.specialties || []) });
       localStorage.removeItem(`VC_V_TYPE_${validator?.id}`);
       localStorage.removeItem(`VC_V_STEP_${vtype.toUpperCase()}_${validator?.id}`);
@@ -561,6 +587,11 @@ export default function VOnboarding() {
       await refresh();
       if (vtype === "tester") setShowPending(true);
       else {
+        // The redirect below is a hard page load, so a toast fired here
+        // would never get the chance to render -- VLayout (which every
+        // /validator/* page mounts under) picks this flag up on its own
+        // first render instead and clears it right away.
+        if (wasRoleSwitch) localStorage.setItem("vc_role_changed_toast", TYPES.find(x => x.key === vtype)?.title || vtype);
         window.__bypassUnload = true;
         window.location.href = "/validator";
       }
@@ -683,7 +714,7 @@ export default function VOnboarding() {
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
         {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} />
-          : !validatorType ? <TypeSelector onSelect={setValidatorType} currentType={validator?.tester_status === "approved" ? "tester" : validator?.validator_type} />
+          : !validatorType ? <TypeSelector onSelect={setValidatorType} currentType={currentRole} />
           : validatorType === "user" ? <UserOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} />
           : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} error={error} />
           : <TesterOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} error={error} />}
