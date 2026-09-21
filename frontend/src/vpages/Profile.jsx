@@ -215,7 +215,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <div className="rise-2" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 22 }}>
+      <div className="rise-2" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 22 }}>
         <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 16 }}>
           <ScoreRing value={trustScore} size={60} />
           <div style={{ minWidth: 0 }}><span className="eyebrow">{t("profile.trustScore", null, "Trust Score")}</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>{t("profile.top5", null, "Top 5% on platform")}</div></div>
