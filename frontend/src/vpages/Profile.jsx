@@ -168,6 +168,10 @@ export default function Profile() {
               <div className="fld">
                 <label>{t("profile.bio", null, "Bio")}</label>
                 <textarea className="fin" rows={3} value={bio} onChange={e => setBio(e.target.value)} placeholder={t("profile.bioPlaceholder", null, "A short bio about yourself...")} />
+                {/* No live count anywhere before this -- easy to type way past
+                    a reasonable length (see the repeated-text bug this was
+                    reported alongside) with no feedback at all. */}
+                <p className="fhint">{t("profile.bioWordCount", { count: bio.trim() ? bio.trim().split(/\s+/).length : 0 }, `${bio.trim() ? bio.trim().split(/\s+/).length : 0} words`)}</p>
               </div>
               <div className="fld">
                 <label>{t("profile.specialtiesLimit", null, "Specialties (up to 6)")}</label>
