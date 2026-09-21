@@ -130,6 +130,7 @@ function SearchableSelect({ value, onChange, options, placeholder }) {
     <div style={{ position: "relative" }}>
       <input
         className="fin"
+        style={{ paddingRight: 36 }}
         value={open ? query : (value || "")}
         placeholder={placeholder}
         onFocus={() => { setOpen(true); setQuery(""); setActiveIndex(0); }}
@@ -143,6 +144,11 @@ function SearchableSelect({ value, onChange, options, placeholder }) {
           else if (e.key === "Escape") { setQuery(""); setOpen(false); }
         }}
       />
+      {/* Same chevron a native select.fin gets from its own CSS
+          (background-image, see builder.css) -- this is a plain input, so
+          that rule doesn't apply, and a selected value with no dropdown
+          affordance at all reads as just a text field, not a select. */}
+      <Icon name="chevronDown" size={14} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} />
       {open && (
         <div className="scroll-hover" style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, maxHeight: 260, overflowY: "auto",
