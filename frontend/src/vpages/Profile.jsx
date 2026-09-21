@@ -98,7 +98,7 @@ export default function Profile() {
               <button className="btn btn-ghost" onClick={startEdit}><Icon name="edit" />{t("actions.editProfile", null, "Edit profile")}</button>
             </div>
             <div style={{ marginTop: 14 }}>
-              {data.bio && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4 }}>{data.bio}</p>}
+              {data.bio && <p style={{ margin: 0, fontSize: 14, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{data.bio}</p>}
               <div className="row gap-3 wrap" style={{ marginTop: 12 }}>
                 <span className="pill"><Icon name="star" size={14} style={{ color: "var(--warning)" }} />{data.rating || 0} · {data.ratingCount || 0} {t("profile.reviewsSuffix", null, "reviews")}</span>
                 <span className="pill"><Icon name="shield" size={14} style={{ color: "var(--success)" }} />{data.accuracy || 0}{t("profile.accuracySuffix", null, "% accuracy")}</span>
