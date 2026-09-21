@@ -69,6 +69,9 @@ router.get("/cities", (req, res) => {
   if (!region) return res.json({ cities: [] });
 
   const cityData = readJson(path.join(DATA_ROOT, "region_city_data", dataCountry, `${region.toponymName}.json`));
-  const cities = (cityData?.cities || []).map(c => c.asciiname).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  // Some regions list the same city name twice (distinct localities sharing
+  // a name) -- dedupe here so every consumer gets a clean list instead of
+  // each one having to guard against it (e.g. React's <option key> map).
+  const cities = [...new Set((cityData?.cities || []).map(c => c.asciiname).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   res.json({ cities });
 });
