@@ -93,21 +93,25 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
     <div className="tbl-wrap missions-tbl-wrap">
       {/* table-layout: fixed + an explicit width on every column keeps
           Type/Created/etc. pinned to the same pixel position regardless of
-          which trailing columns a given tab shows. Mission gets a generous
-          fixed px width (360), not a %: verified live (real render, not
-          just spec-reading) that browsers largely ignore a percentage
-          width on <col> once it's mixed with pixel-width sibling columns
-          under table-layout:fixed -- it silently fell back to "whatever's
-          left over after the fixed-px columns", which on a tab with more
+          which trailing columns a given tab shows. Mission gets a fixed px
+          width, not a %: verified live (real render, not just spec-reading)
+          that browsers largely ignore a percentage width on <col> once
+          it's mixed with pixel-width sibling columns under
+          table-layout:fixed -- it silently fell back to "whatever's left
+          over after the fixed-px columns", which on a tab with more
           trailing columns (Active/Completed/...) was almost nothing, so
           only Draft (fewest other columns) ever looked right. Every other
           column here is plain px and renders at exactly its declared size,
-          which is why Mission is too now. A name too long even for 360px
-          still gets a "..." via the ellipsis below rather than wrapping.
-          On a narrow viewport this can push the table past the container
-          width, which just overflows
-          into the (deliberately unstyled, see .missions-tbl-wrap)
-          horizontal scroll instead of squeezing anything further. */}
+          which is why Mission is too now. 240px comfortably fits a title
+          already capped to 3 words (see truncateTitle above) -- shrunk
+          from an earlier 360px specifically to reclaim the dead space a
+          tester flagged, since the old width was sized for uncapped
+          titles that no longer render here. A name too long even for
+          240px still gets a "..." via the ellipsis below rather than
+          wrapping. On a narrow viewport this can push the table past the
+          container width, which just overflows into the (deliberately
+          unstyled, see .missions-tbl-wrap) horizontal scroll instead of
+          squeezing anything further. */}
       <table className="tbl" style={{ tableLayout: "fixed" }}>
         {/* <col> widths, not just widths on the <th> cells -- table-layout:fixed
             is only unambiguously required to honor column widths declared
@@ -118,18 +122,18 @@ export default function MissionsTable({ rows, nav, categories, onDelete, tab, se
             cross-check against if the two ever drift apart. */}
         <colgroup>
           {onToggleSelect && <col style={{ width: 36 }} />}
-          <col style={{ width: 360 }} />
-          <col style={{ width: 150 }} />
-          {(isAll || compact) && <col style={{ width: 140 }} />}
-          {!compact && <col style={{ width: 160 }} />}
-          {isAll && <col style={{ width: 190 }} />}
-          {isAll && <col style={{ width: 210 }} />}
-          {!isAll && !compact && dateCol && <col style={{ width: 160 }} />}
+          <col style={{ width: 240 }} />
+          <col style={{ width: 130 }} />
+          {(isAll || compact) && <col style={{ width: 120 }} />}
+          {!compact && <col style={{ width: 140 }} />}
+          {isAll && <col style={{ width: 150 }} />}
+          {isAll && <col style={{ width: 150 }} />}
+          {!isAll && !compact && dateCol && <col style={{ width: 140 }} />}
           {(!isAll || compact) && (
             <>
-              <col style={{ width: 150 }} />
-              <col style={{ width: 100 }} />
-              {!hideCompletion && <col style={{ width: 150 }} />}
+              <col style={{ width: 120 }} />
+              <col style={{ width: 80 }} />
+              {!hideCompletion && <col style={{ width: 120 }} />}
             </>
           )}
           {onDelete && <col style={{ width: 32 }} />}

@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
 import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
@@ -213,8 +212,7 @@ export default function EditAccountStep() {
   return (
     <div className="wiz-shell">
       <header className="wiz-top">
-        <BrandMark size={28} />
-        <span style={{ fontWeight: 800 }}>ValidationCrew</span>
+        <span style={{ fontWeight: 800 }}>{t("actions.editProfile", null, "Edit profile")}</span>
         <div style={{ flex: 1 }} />
         {/* Every other LanguageSwitcher usage (AppLayout topbar, RoleSelect,
             IntentFork) passes onSave to persist the choice server-side --
