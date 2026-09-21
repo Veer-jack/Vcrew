@@ -377,9 +377,41 @@ function TypeSelector({ onSelect, currentType }) {
   );
 }
 
-function UserOnboarding({ step, onNext, vid }) {
+// Fills onboarding fields from data the validator already saved -- either
+// during a previous onboarding for this same role, or fields common across
+// roles when switching to a new one. useDraft only ever falls back to this
+// when no draft is already sitting in localStorage for the key, so a draft
+// in progress is never clobbered. Mirrors the same DB-field reconstruction
+// VSettings.jsx's edit form already does (occupation/industry/etc "Other"
+// values aren't stored separately -- reconstruct by checking whether the
+// saved value matches a known option).
+export function validatorToDraft(validator) {
+  if (!validator) return {};
+  const savedOccupation = validator.occupation || "";
+  const isCustomOccupation = savedOccupation && !OCCUPATIONS.includes(savedOccupation) && !ROLES.includes(savedOccupation);
+  return {
+    name: validator.name || "", handle: validator.handle || "", city: validator.city || "",
+    country: validator.country || "", state: validator.state || "",
+    language: validator.languages || [], languageOther: (validator.languages || []).filter(v => !LANGUAGES.includes(v)),
+    age_group: validator.ageGroup || "", gender: validator.gender || "", marital: validator.marital || "",
+    has_kids: validator.hasKids || "", income: validator.income || "", height: validator.height || "",
+    weight: validator.weight || "", skin_tone: validator.skinTone || "", hair_type: validator.hairType || "",
+    hair_length: validator.hairLength || "", body_type: validator.bodyType || "",
+    occupation: isCustomOccupation ? "Other" : savedOccupation, occupationOther: isCustomOccupation ? savedOccupation : "",
+    food_pref: validator.foodPref || "", lifestyle: validator.lifestyle || [], devices: validator.devices || [],
+    hours: validator.hours || "", bio: validator.bio || "", experience: validator.experience || "",
+    industry: validator.industry || [], industryOther: (validator.industry || []).filter(v => !INDUSTRIES.includes(v)),
+    company: validator.company || "", product_types: validator.productTypes || [],
+    tech_tools: validator.techTools || [], tools: validator.techTools || [],
+    domains: validator.testingDomains || [], domainsOther: (validator.testingDomains || []).filter(v => !TESTER_DOMAINS.includes(v)),
+    certifications: validator.certifications || [], certificationsOther: (validator.certifications || []).filter(v => !CERT.includes(v)),
+    linkedin_url: validator.linkedinUrl || "", portfolio_url: validator.portfolioUrl || "", testing_bio: validator.testingBio || "",
+  };
+}
+
+function UserOnboarding({ step, onNext, vid, validator }) {
   const { t } = useTranslation();
-  const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", occupationOther: "", food_pref: "", lifestyle: [], devices: [], hours: "" });
+  const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], age_group: "", gender: "", marital: "", has_kids: "", income: "", height: "", weight: "", skin_tone: "", hair_type: "", hair_length: "", body_type: "", occupation: "", occupationOther: "", food_pref: "", lifestyle: [], devices: [], hours: "", ...validatorToDraft(validator) });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), d.age_group && d.gender && d.income, d.height && d.weight && d.skin_tone && d.body_type, d.occupation && d.hours && d.devices.length > 0];
   return (
@@ -395,9 +427,9 @@ function UserOnboarding({ step, onNext, vid }) {
   );
 }
 
-function ValidatorOnboarding({ step, onNext, error, vid }) {
+function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
   const { t } = useTranslation();
-  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], bio: "", occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "" });
+  const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], bio: "", occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", product_types: [], tech_tools: [], devices: [], hours: "", ...validatorToDraft(validator) });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0, d.product_types.length > 0, d.hours && d.devices.length > 0];
   return (
@@ -414,13 +446,13 @@ function ValidatorOnboarding({ step, onNext, error, vid }) {
   );
 }
 
-function TesterOnboarding({ step, onNext, error, vid }) {
+function TesterOnboarding({ step, onNext, error, vid, validator }) {
   const { t } = useTranslation();
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState("");
-  const [d, setD] = useDraft(`VC_V_DRAFT_TESTER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", domains: [], domainsOther: [], certifications: [], certificationsOther: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false });
+  const [d, setD] = useDraft(`VC_V_DRAFT_TESTER_${vid}`, { name: "", handle: "", city: "", country: "", countryOther: "", state: "", stateOther: "", language: [], languageOther: [], occupation: "", occupationOther: "", experience: "", industry: [], industryOther: [], company: "", domains: [], domainsOther: [], certifications: [], certificationsOther: [], tools: [], linkedin_url: "", portfolio_url: "", resume_filename: "", testing_bio: "", agreed: false, ...validatorToDraft(validator) });
   const set = (k, v) => setD(p => ({ ...p, [k]: v }));
   const wordCount = d.testing_bio ? d.testing_bio.trim().split(/\s+/).filter(Boolean).length : 0;
   const valid = [d.name.trim() && d.handle.trim() && d.city.trim(), (d.occupation || d.role) && d.experience && d.industry.length > 0 && d.company.trim(), d.linkedin_url.trim() && resumeUploaded && wordCount >= 30, d.agreed];
@@ -652,9 +684,9 @@ export default function VOnboarding() {
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
         {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} />
           : !validatorType ? <TypeSelector onSelect={setValidatorType} currentType={validator?.tester_status === "approved" ? "tester" : validator?.validator_type} />
-          : validatorType === "user" ? <UserOnboarding vid={validator?.id} step={step} onNext={goNext} />
-          : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} step={step} onNext={goNext} error={error} />
-          : <TesterOnboarding vid={validator?.id} step={step} onNext={goNext} error={error} />}
+          : validatorType === "user" ? <UserOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} />
+          : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} error={error} />
+          : <TesterOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} error={error} />}
       </div>
     </div>
   );
