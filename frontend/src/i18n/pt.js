@@ -1484,6 +1484,7 @@ const pt = {
     chooseDescFitsBest: "Escolha a descrição que melhor se adapta a você – nós adaptaremos cada etapa a seguir.",
     welcome: "Bem-vindo ao ValidationCrew",
     whichBestDescribesYou: "O que melhor descreve você?",
+    currentRole: "Função atual",
     chooseTypeDesc: "Escolha o seu tipo para ver as missões certas para você.",
     missions: "Missões:",
     appSubmitted: "Inscrição enviada!",

@@ -1484,6 +1484,7 @@ const zh = {
     chooseDescFitsBest: "选择最适合您的描述 - 我们将量身定制接下来的每一步。",
     welcome: "欢迎来到 ValidationCrew",
     whichBestDescribesYou: "哪一项最能描述您？",
+    currentRole: "当前角色",
     chooseTypeDesc: "选择您的类型以查看适合您的任务。",
     missions: "使命：",
     appSubmitted: "申请已提交！",

@@ -1484,6 +1484,7 @@ const bn = {
     chooseDescFitsBest: "আপনার সাথে সবচেয়ে উপযুক্ত বর্ণনাটি বেছে নিন — আমরা পরবর্তী প্রতিটি পদক্ষেপকে তুলব।",
     welcome: "ValidationCrew-এ স্বাগতম",
     whichBestDescribesYou: "কোনটি আপনাকে সেরা বর্ণনা করে?",
+    currentRole: "বর্তমান ভূমিকা",
     chooseTypeDesc: "আপনার জন্য সঠিক মিশন দেখতে আপনার ধরন নির্বাচন করুন.",
     missions: "মিশন:",
     appSubmitted: "আবেদন জমা!",

@@ -1484,6 +1484,7 @@ const ur = {
     chooseDescFitsBest: "وہ تفصیل منتخب کریں جو آپ کے لیے موزوں ہو — ہم اس کے بعد آنے والے ہر قدم کو تیار کریں گے۔",
     welcome: "ValidationCrew میں خوش آمدید",
     whichBestDescribesYou: "جو آپ کی بہترین وضاحت کرتا ہے؟",
+    currentRole: "موجودہ کردار",
     chooseTypeDesc: "اپنے لیے صحیح مشن دیکھنے کے لیے اپنی قسم کا انتخاب کریں۔",
     missions: "مشن:",
     appSubmitted: "درخواست جمع کرائی گئی!",

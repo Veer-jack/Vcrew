@@ -1484,6 +1484,7 @@ const ar = {
     chooseDescFitsBest: "اختر الوصف الذي يناسبك بشكل أفضل — وسنقوم بتخصيص كل خطوة تالية.",
     welcome: "مرحبًا بك في ValidationCrew",
     whichBestDescribesYou: "ما هو أفضل وصف لك؟",
+    currentRole: "الدور الحالي",
     chooseTypeDesc: "اختر النوع الخاص بك لرؤية المهام المناسبة لك.",
     missions: "البعثات:",
     appSubmitted: "تم تقديم الطلب!",

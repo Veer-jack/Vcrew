@@ -1484,6 +1484,7 @@ const ru = {
     chooseDescFitsBest: "Выберите описание, которое подходит вам лучше всего — мы адаптируем каждый следующий шаг.",
     welcome: "Добро пожаловать в ValidationCrew",
     whichBestDescribesYou: "Что лучше всего описывает вас?",
+    currentRole: "Текущая роль",
     chooseTypeDesc: "Выберите свой тип, чтобы увидеть подходящие для вас миссии.",
     missions: "Миссии:",
     appSubmitted: "Заявка отправлена!",

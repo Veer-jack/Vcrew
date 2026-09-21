@@ -329,7 +329,11 @@ export function resolveOnboardingOther(data, t) {
   return { ...data, ...patch };
 }
 
-function TypeSelector({ onSelect }) {
+// currentType comes from the validator's own validator_type -- reached from
+// Settings' "Apply for Verified Tester"/"Upgrade to Validator" links, which
+// land here without ever showing which role is already theirs, reading like
+// a blank first-time choice rather than "upgrade from what you have now".
+function TypeSelector({ onSelect, currentType }) {
   const { t } = useTranslation();
   const [hovered, setHovered] = useState(null);
   return (
@@ -340,25 +344,34 @@ function TypeSelector({ onSelect }) {
         <p style={{ color: "var(--text-muted)", fontSize: 15, margin: 0 }}>{t("onboarding.chooseTypeDesc", null, "Choose your type to see the right missions for you.")}</p>
       </div>
       <div style={{ display: "grid", gap: 16 }}>
-        {TYPES.map(ty => (
-          <button key={ty.key} type="button" onClick={() => onSelect(ty.key)}
-            onMouseEnter={() => setHovered(ty.key)} onMouseLeave={() => setHovered(null)}
-            style={{ display: "grid", gridTemplateColumns: "56px 1fr auto", gap: 16, alignItems: "center", padding: "20px 22px", borderRadius: "var(--radius)", textAlign: "left", cursor: "pointer", border: "1.5px solid " + (hovered === ty.key ? ty.color : "var(--border)"), background: hovered === ty.key ? ty.bg : "var(--panel)", transition: "all .15s" }}>
-            <div style={{ width: 56, height: 56, borderRadius: 14, background: ty.bg, display: "grid", placeItems: "center" }}>
-              <Icon name={ty.icon} size={24} style={{ color: ty.color }} />
-            </div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <span style={{ fontWeight: 800, fontSize: 16 }}>{t(`vOnboarding.types.${ty.key}.title`, null, ty.title)}</span>
-                <span style={{ fontSize: 12, color: "var(--text-faint)" }}>· {t(`vOnboarding.types.${ty.key}.tagline`, null, ty.tagline)}</span>
-                {ty.badge && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "var(--warning-weak)", color: "var(--warning)" }}>{t(`vOnboarding.types.${ty.key}.badge`, null, ty.badge)}</span>}
+        {TYPES.map(ty => {
+          const isCurrent = ty.key === currentType;
+          const on = isCurrent || hovered === ty.key;
+          return (
+            <button key={ty.key} type="button" onClick={() => onSelect(ty.key)}
+              onMouseEnter={() => setHovered(ty.key)} onMouseLeave={() => setHovered(null)}
+              style={{ position: "relative", display: "grid", gridTemplateColumns: "56px 1fr auto", gap: 16, alignItems: "center", padding: "20px 22px", borderRadius: "var(--radius)", textAlign: "left", cursor: "pointer", border: "1.5px solid " + (on ? ty.color : "var(--border)"), background: on ? ty.bg : "var(--panel)", boxShadow: isCurrent ? `0 0 0 1px ${ty.color}` : "none", transition: "all .15s" }}>
+              {isCurrent && (
+                <span style={{ position: "absolute", top: -10, left: 18, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, background: ty.color, color: "#fff" }}>
+                  <Icon name="check" size={11} />{t("onboarding.currentRole", null, "Current role")}
+                </span>
+              )}
+              <div style={{ width: 56, height: 56, borderRadius: 14, background: ty.bg, display: "grid", placeItems: "center" }}>
+                <Icon name={ty.icon} size={24} style={{ color: ty.color }} />
               </div>
-              <p style={{ margin: "0 0 6px", fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{t(`vOnboarding.types.${ty.key}.desc`, null, ty.desc)}</p>
-              <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)" }}>{t("onboarding.missions", null, "Missions:")} {t(`vOnboarding.types.${ty.key}.missions`, null, ty.missions)}</p>
-            </div>
-            <Icon name="chevronRight" size={18} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
-          </button>
-        ))}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 800, fontSize: 16 }}>{t(`vOnboarding.types.${ty.key}.title`, null, ty.title)}</span>
+                  <span style={{ fontSize: 12, color: "var(--text-faint)" }}>· {t(`vOnboarding.types.${ty.key}.tagline`, null, ty.tagline)}</span>
+                  {ty.badge && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "var(--warning-weak)", color: "var(--warning)" }}>{t(`vOnboarding.types.${ty.key}.badge`, null, ty.badge)}</span>}
+                </div>
+                <p style={{ margin: "0 0 6px", fontSize: 13.5, color: "var(--text-muted)", lineHeight: 1.5 }}>{t(`vOnboarding.types.${ty.key}.desc`, null, ty.desc)}</p>
+                <p style={{ margin: 0, fontSize: 12, color: "var(--text-faint)" }}>{t("onboarding.missions", null, "Missions:")} {t(`vOnboarding.types.${ty.key}.missions`, null, ty.missions)}</p>
+              </div>
+              <Icon name="chevronRight" size={18} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -634,7 +647,7 @@ export default function VOnboarding() {
       </aside>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 24px", overflowY: "auto" }}>
         {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} />
-          : !validatorType ? <TypeSelector onSelect={setValidatorType} />
+          : !validatorType ? <TypeSelector onSelect={setValidatorType} currentType={validator?.tester_status === "approved" ? "tester" : validator?.validator_type} />
           : validatorType === "user" ? <UserOnboarding vid={validator?.id} step={step} onNext={goNext} />
           : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} step={step} onNext={goNext} error={error} />
           : <TesterOnboarding vid={validator?.id} step={step} onNext={goNext} error={error} />}

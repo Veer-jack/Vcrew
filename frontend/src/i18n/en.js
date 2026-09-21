@@ -1484,6 +1484,7 @@ const en = {
     chooseDescFitsBest: "Choose the description that fits you best — we'll tailor every step that follows.",
     welcome: "Welcome to ValidationCrew",
     whichBestDescribesYou: "Which best describes you?",
+    currentRole: "Current role",
     chooseTypeDesc: "Choose your type to see the right missions for you.",
     missions: "Missions:",
     appSubmitted: "Application submitted!",
