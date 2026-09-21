@@ -237,7 +237,7 @@ export default function Profile() {
             </div>
             <div style={{ minWidth: 0 }}>
               <span className="eyebrow">{t("profile.shippingAddress", null, "Shipping address")}</span>
-              <div className="faint" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5 }}>
+              <div className="faint" style={{ fontSize: 12, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                 {[data.address.line1, data.address.line2].filter(Boolean).join(", ")}
                 {(data.address.line1 || data.address.line2) && (data.address.city || data.address.state || data.address.postalCode || data.address.country) && <br />}
                 {[data.address.city, data.address.state, data.address.postalCode].filter(Boolean).join(", ")}
