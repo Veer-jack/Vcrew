@@ -496,7 +496,11 @@ export default function VOnboarding() {
   const [maxReached, setMaxReached] = useDraft(`VC_V_MAXSTEP_${typeKey}_${validator?.id}`, 0);
   const totalSteps = STEP_DEFS[validatorType]?.length || 0;
 
-  const isDirty = !!validatorType && !showPending;
+  // An account that's already completed onboarding once (matches
+  // RequireVAuth's own "already set up" check) has nothing to lose by
+  // leaving -- only a genuinely first-time setup still warns.
+  const alreadyOnboarded = !!(validator?.validator_type && validator?.city);
+  const isDirty = !!validatorType && !showPending && !alreadyOnboarded;
   useUnsavedChangesWarning(isDirty, t("vOnboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
 
   // Fired unconditionally on every mount before, so it could show twice from

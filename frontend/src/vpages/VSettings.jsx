@@ -168,14 +168,14 @@ export default function VSettings() {
         {validator?.validator_type === "tester" && validator?.tester_status === "rejected" && (
           <>
             <span className="pill" style={{ color: "var(--danger)" }}>✗ {t("settings.notApproved", null, "Not approved")}</span>
-            <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
+            <button className="pill" style={{ cursor: "pointer" }} onClick={goReOnboard}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
           </>
         )}
         {validator?.validator_type === "user" && (
-          <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
+          <button className="pill" style={{ cursor: "pointer" }} onClick={goReOnboard}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
         )}
         {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
-          <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
+          <button className="pill" style={{ cursor: "pointer" }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
         )}
       </div>
 
