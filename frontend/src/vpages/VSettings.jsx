@@ -331,62 +331,35 @@ export default function VSettings() {
 
       </div>
 
-      {/* Validator type & status */}
+      {/* Validator type & status -- chips instead of a heading+paragraph+button
+          block per row, per feedback that the card version was too heavy for
+          what's just a status + one action. */}
       <div className="card" style={{ padding: 22, marginBottom: 24 }}>
-        <div className="eyebrow" style={{ marginBottom: 16 }}>{t("settings.accountType", null, "Account type")}</div>
-        <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.type", null, "Type")}</div>
-          <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
+        <div className="eyebrow" style={{ marginBottom: 12 }}>{t("settings.accountType", null, "Account type")}</div>
+        <div className="row gap-2 wrap">
+          <span className="pill">
             {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
-          </div>
+          </span>
+
+          {validator?.validator_type === "tester" && validator?.tester_status === "pending_review" && (
+            <span className="pill" style={{ color: "var(--warning)" }}>⏳ {t("settings.underReview", null, "Under review")}</span>
+          )}
+          {validator?.validator_type === "tester" && validator?.tester_status === "approved" && (
+            <span className="pill" style={{ color: "var(--success)" }}>✓ {validator?.tester_tier === "senior" ? t("settings.senior", null, "Senior") : t("settings.junior", null, "Junior")} {t("settings.verifiedTag", null, "Verified")}</span>
+          )}
+          {validator?.validator_type === "tester" && validator?.tester_status === "rejected" && (
+            <>
+              <span className="pill" style={{ color: "var(--danger)" }}>✗ {t("settings.notApproved", null, "Not approved")}</span>
+              <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.reapplyTester", null, "Reapply for Verified Tester")} →</button>
+            </>
+          )}
+          {validator?.validator_type === "user" && (
+            <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.upgradeValidator", null, "Upgrade to Validator")} →</button>
+          )}
+          {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
+            <button className="pill" style={{ cursor: "pointer" }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester")} →</button>
+          )}
         </div>
-
-        {/* Tester status */}
-        {validator?.validator_type === "tester" && (
-          <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{t("settings.verificationStatus", null, "Verification status")}</div>
-            {validator?.tester_status === "pending_review" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--warning)" }}>
-                <span>⏳</span> {t("settings.underReview", null, "Under review — admin will respond within 72 hours")}
-              </div>
-            )}
-            {validator?.tester_status === "approved" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--success)" }}>
-                <span>✓</span> {t("settings.verifiedTag", null, "Verified")} {validator?.tester_tier === "senior" ? t("settings.senior", null, "Senior") : t("settings.junior", null, "Junior")} {t("settings.testerUnlocked", null, "Tester — premium missions unlocked")}
-              </div>
-            )}
-            {validator?.tester_status === "rejected" && (
-              <div>
-                <div style={{ fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>✗ {t("settings.applicationNotApproved", null, "Application not approved — you can update your profile and reapply")}</div>
-                <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.reapplyTester", null, "Reapply for Verified Tester")}</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Upgrade options */}
-        {validator?.validator_type === "user" && (
-          <div style={{ padding: "12px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.upgradeAccount", null, "Upgrade your account")}</div>
-              <button className="btn btn-ghost" style={{ fontSize: 13, flexShrink: 0 }} onClick={() => window.location.href = "/validator/onboarding"}>
-                {t("settings.upgradeValidator", null, "Upgrade to Validator →")}
-              </button>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "6px 0 0" }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
-          </div>
-        )}
-        {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
-          <div style={{ padding: "12px 0" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.applyTester", null, "Apply for Verified Tester")}</div>
-              <button className="btn btn-ghost" style={{ fontSize: 13, flexShrink: 0 }} onClick={() => window.location.href = "/validator/onboarding"}>
-                {t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}
-              </button>
-            </div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "6px 0 0" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
-          </div>
-        )}
       </div>
     </div>
   );
