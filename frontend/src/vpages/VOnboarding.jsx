@@ -110,6 +110,61 @@ export const Field = ({ label, required, hint, info, action, children }) => (
   </div>
 );
 
+// A single-value dropdown with filter-as-you-type -- checked first: nothing
+// like this already existed in the codebase (no combobox library installed
+// either), every existing text-input+filtered-list pattern here is
+// multi-select. Country/State/City lists run into the hundreds or
+// thousands, making a plain <select>'s native scroll genuinely painful, so
+// this was worth building once and reusing across all three. Same search-
+// box-over-a-list visual pattern Missions.jsx's own "Filter by Type"
+// popover already uses, just single-select-and-close instead of checkboxes.
+function SearchableSelect({ value, onChange, options, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+  const filtered = query.trim() ? options.filter(o => o.toLowerCase().includes(query.trim().toLowerCase())) : options;
+
+  const commit = (v) => { onChange(v); setQuery(""); setOpen(false); };
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        className="fin"
+        value={open ? query : (value || "")}
+        placeholder={placeholder}
+        onFocus={() => { setOpen(true); setQuery(""); setActiveIndex(0); }}
+        onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={e => {
+          if (!open) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActiveIndex(i => Math.min(i + 1, filtered.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActiveIndex(i => Math.max(i - 1, 0)); }
+          else if (e.key === "Enter") { e.preventDefault(); if (filtered[activeIndex]) commit(filtered[activeIndex]); }
+          else if (e.key === "Escape") { setQuery(""); setOpen(false); }
+        }}
+      />
+      {open && (
+        <div className="scroll-hover" style={{
+          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, maxHeight: 260, overflowY: "auto",
+          background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)", padding: 6,
+        }}>
+          {filtered.length === 0 && <div className="muted" style={{ padding: "8px 10px", fontSize: 13 }}>{placeholder}</div>}
+          {filtered.map((o, i) => (
+            <div key={o} className="menu-item" onMouseDown={e => e.preventDefault()} onClick={() => commit(o)}
+              style={{
+                padding: "8px 10px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5,
+                background: i === activeIndex ? "var(--accent-weak)" : "transparent",
+                color: o === value ? "var(--accent)" : "var(--text)", fontWeight: o === value ? 700 : 500,
+              }}>
+              {o}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Country drives which State/Region dropdown shows -- most countries have a
 // known region list (country-region-data), so State stays a dropdown; a
 // country without one (or "Other") falls back to free text instead of an
@@ -173,11 +228,7 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
   }, []);
   const countryField = (
     <Field key="country" label={t("onboardingFields.country", null, "Country")}>
-      <select className="fin" value={d.country || ""} onChange={e => { set("country", e.target.value); set("state", ""); }}>
-        <option value="" disabled>{t("onboardingFields.selectCountry", null, "Select country")}</option>
-        {COUNTRY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
-        <option value={otherLabel}>{otherLabel}</option>
-      </select>
+      <SearchableSelect value={d.country} onChange={v => { set("country", v); set("state", ""); }} options={[...COUNTRY_NAMES, otherLabel]} placeholder={t("onboardingFields.selectCountry", null, "Select country")} />
     </Field>
   );
   const countryOtherField = d.country === otherLabel && (
@@ -188,8 +239,7 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
   const stateField = (
     <Field key="state" label={t("onboardingFields.state", null, "State")}>
       {hasStates ? (
-        <select className="fin" value={d.state || ""} onChange={e => {
-          const v = e.target.value;
+        <SearchableSelect value={d.state} onChange={v => {
           set("state", v);
           // Only relevant for the cross-country list (no country chosen
           // yet) -- once a country's own region list is showing, every
@@ -198,11 +248,7 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
             const inferred = COUNTRY_BY_STATE[v];
             if (inferred) set("country", inferred);
           }
-        }}>
-          <option value="" disabled>{t("onboardingFields.selectState", null, "Select state")}</option>
-          {regions.map(r => <option key={r} value={r}>{r}</option>)}
-          <option value={otherLabel}>{otherLabel}</option>
-        </select>
+        }} options={[...regions, otherLabel]} placeholder={t("onboardingFields.selectState", null, "Select state")} />
       ) : (
         <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
       )}
@@ -218,11 +264,7 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
       {cityLoading ? (
         <input className="fin" disabled value={t("onboardingFields.loadingCities", null, "Loading cities…")} />
       ) : cityOptions.length > 0 ? (
-        <select className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)}>
-          <option value="" disabled>{t("onboardingFields.selectCity", null, "Select city")}</option>
-          {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
-          <option value={otherLabel}>{otherLabel}</option>
-        </select>
+        <SearchableSelect value={d.city} onChange={v => set("city", v)} options={[...cityOptions, otherLabel]} placeholder={t("onboardingFields.selectCity", null, "Select city")} />
       ) : (
         <input className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)} placeholder={t("onboardingFields.cityPlaceholder", null, "Bengaluru")} />
       )}
