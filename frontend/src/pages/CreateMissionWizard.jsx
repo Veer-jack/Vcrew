@@ -1456,16 +1456,6 @@ export default function CreateMissionWizard() {
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
   const participantsOk = builder?.verified || d.reward.participants <= UNVERIFIED_PARTICIPANT_LIMIT;
-  // Mirrors StepReward's own overAudienceCount warning — requesting more
-  // participants than the selected audience can actually supply isn't just
-  // a bad estimate, it's a mission that can never fully fill, so it blocks
-  // the same way rewardAmountOk/participantsOk do rather than staying a
-  // warning-only nudge. Gated on isFetchingCount, not liveCount === 0 — the
-  // latter let a genuinely 0-matching audience through unblocked (0 === 0
-  // reads as "no restriction yet"), publishing a mission nobody could ever
-  // see; only the brief initial-load window should be exempt, not a real
-  // zero-match result.
-  const withinAudienceCount = isFetchingCount || d.reward.participants <= liveCount;
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
     && (step !== 1 || !!d.ptype)
@@ -1480,7 +1470,11 @@ export default function CreateMissionWizard() {
     // filter is actually selected; picking zero filters entirely is still
     // blocked by the separate "select at least one filter" warning.
     && (step !== 3 || Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0))
-    && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount));
+    // Same reasoning as the Step 3 check above -- requesting more participants
+    // than currently match is a live number that can grow as new validators
+    // join, not a permanently broken mission, so it stays StepReward's own
+    // overAudienceCount warning (informational) instead of blocking here too.
+    && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
   // fieldsValid only checks whichever step is CURRENTLY open — the step
   // rail lets a builder jump straight past a step whose requirements broke
@@ -1501,7 +1495,7 @@ export default function CreateMissionWizard() {
   // filters actually selected could still publish, since nothing downstream
   // ever re-checked audience the way info/format/tasks/reward all do.
   const missingAudience = !(Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0));
-  const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount);
+  const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk);
   const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingAudience && !missingReward;
   // missingReward collapses five genuinely different problems into one
   // boolean — this picks out which one actually failed so the builder is
@@ -1517,8 +1511,6 @@ export default function CreateMissionWizard() {
     ? t("createMission.issueRewardParticipants", null, "Enter how many participants you need")
     : !participantsOk
     ? t("createMission.issueRewardUnverifiedCap", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission — verify your website or lower the count`)
-    : !withinAudienceCount
-    ? t("createMission.issueRewardExceedsAudience", null, "This asks for more participants than your current audience can supply — broaden your filters or lower the count")
     : t("createMission.issueReward", null, "Reward setup is incomplete or invalid");
 
   // Mirrors the Review step's own "Can't publish yet" issues list (same
