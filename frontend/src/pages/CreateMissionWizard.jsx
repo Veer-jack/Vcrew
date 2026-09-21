@@ -276,7 +276,14 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
                       onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
                     />
                     <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
-                    <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); setDupOtherError(false); }}>{t("actions.cancel", null, "Cancel")}</button>
+                    <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                      setDraftOther(""); setAddingOther(false); setDupOtherError(false);
+                      // Nothing saved yet -- this Cancel is for the input itself
+                      // (opened via the "+ Add other" trigger), not just this
+                      // draft, so close it back to the trigger chip instead of
+                      // leaving an empty input sitting there with nothing to do.
+                      if (savedOther.length === 0) setOtherOpen(false);
+                    }}>{t("actions.cancel", null, "Cancel")}</button>
                   </div>
                   {dupOtherError && <p className="ferr" style={{ marginTop: 6 }}>{t("createMission.otherDuplicateValue", null, "That value is already added.")}</p>}
                 </div>
