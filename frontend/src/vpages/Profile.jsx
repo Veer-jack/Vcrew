@@ -83,7 +83,15 @@ export default function Profile() {
                       {data.role || t("profile.user", null, "User")}
                     </span>
                   </div>
-                  <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>{data.handle} · {data.occupation || t("profile.unspecified", null, "Unspecified")} · {(data.specialties || []).join(" · ")}</p>
+                  <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>
+                    {data.handle} · {data.occupation || t("profile.unspecified", null, "Unspecified")}{data.industry ? ` · ${data.industry}` : ""}
+                  </p>
+                  {/* Was folded onto the same line as handle/occupation/
+                      industry, crowding it -- its own line, matching how the
+                      edit form already separates Industry from Specialties. */}
+                  {(data.specialties || []).length > 0 && (
+                    <p className="muted" style={{ margin: "3px 0 0", fontSize: 14 }}>{data.specialties.join(" · ")}</p>
+                  )}
                   {data.location && <p className="muted" style={{ margin: "3px 0 0", fontSize: 13 }}><Icon name="mapPin" size={12} /> {data.location}</p>}
                 </div>
               </div>

@@ -39,6 +39,7 @@ import { router as paymentsRouter } from "./routes/payments.js";
 import { router as notificationsRouter } from "./routes/notifications.js";
 import { router as messagesRouter } from "./routes/messages.js";
 import { router as metaRouter } from "./routes/meta.js";
+import { router as geoRouter } from "./routes/geo.js";
 import { router as freshdeskWebhookRouter } from "./routes/freshdeskWebhook.js";
 
 import { router as vAuthRouter, publicValidator } from "./routes/vauth.js";
@@ -231,6 +232,7 @@ app.use("/api/admin", adminRouter);
 app.use("/api/notifications", notificationsRouter);
 app.use("/api/messages", messagesRouter);
 app.use("/api/meta", metaRouter);
+app.use("/api/geo", geoRouter);
 
 app.post("/api/v/auth/login", loginLimiter);
 app.post("/api/v/auth/signup", signupLimiter);

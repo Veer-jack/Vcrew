@@ -116,10 +116,32 @@ export const Field = ({ label, required, hint, info, action, children }) => (
 // empty dropdown. Both levels also carry an "Other" option for anything the
 // list is missing, revealing a plain text field for that custom entry --
 // same pattern PersonalFields above already uses for job title/designation.
-export function CountryStateFields({ d, set, stateFirst = false }) {
+export function CountryStateFields({ d, set, stateFirst = false, withCity = false }) {
   const { t } = useTranslation();
   const otherLabel = t("onboardingFields.other", null, "Other");
   const hasCountry = d.country && d.country !== otherLabel;
+  const hasState = d.state && d.state !== otherLabel;
+  // City options come from the backend (see routes/geo.js) -- a real
+  // per-country-per-state city list is a multi-MB dataset, much bigger than
+  // the country/state lists bundled into the frontend, so it's fetched on
+  // demand instead of shipped to every page load. An empty result (country/
+  // state combo not covered, or a rare name mismatch between this and the
+  // country/state data source) is exactly the signal to fall back to free
+  // text -- same "no data, so it's just an input" pattern State already
+  // uses when a country has no known regions.
+  const [cityOptions, setCityOptions] = useState([]);
+  const [cityLoading, setCityLoading] = useState(false);
+  useEffect(() => {
+    if (!withCity || !hasCountry || !hasState) { setCityOptions([]); return; }
+    let cancelled = false;
+    setCityLoading(true);
+    fetch(`/api/geo/cities?country=${encodeURIComponent(d.country)}&state=${encodeURIComponent(d.state)}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setCityOptions(data.cities || []); })
+      .catch(() => { if (!cancelled) setCityOptions([]); })
+      .finally(() => { if (!cancelled) setCityLoading(false); });
+    return () => { cancelled = true; };
+  }, [withCity, hasCountry, hasState, d.country, d.state]);
   // No country picked yet -- State still gets a real dropdown (the full,
   // cross-country list) rather than falling back to free text, so it can
   // be picked first; selecting one below then resolves Country via
@@ -191,9 +213,29 @@ export function CountryStateFields({ d, set, stateFirst = false }) {
       <input className="fin" value={d.stateOther || ""} onChange={e => set("stateOther", e.target.value)} placeholder={t("onboardingFields.customStatePlaceholder", null, "Type your state")} />
     </Field>
   );
+  const cityField = withCity && (
+    <Field key="city" label={t("onboardingFields.city", null, "City")}>
+      {cityLoading ? (
+        <input className="fin" disabled value={t("onboardingFields.loadingCities", null, "Loading cities…")} />
+      ) : cityOptions.length > 0 ? (
+        <select className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)}>
+          <option value="" disabled>{t("onboardingFields.selectCity", null, "Select city")}</option>
+          {cityOptions.map(c => <option key={c} value={c}>{c}</option>)}
+          <option value={otherLabel}>{otherLabel}</option>
+        </select>
+      ) : (
+        <input className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)} placeholder={t("onboardingFields.cityPlaceholder", null, "Bengaluru")} />
+      )}
+    </Field>
+  );
+  const cityOtherField = withCity && cityOptions.length > 0 && d.city === otherLabel && (
+    <Field key="cityOther" label={t("onboardingFields.customCity", null, "Your city")}>
+      <input className="fin" value={d.cityOther || ""} onChange={e => set("cityOther", e.target.value)} placeholder={t("onboardingFields.customCityPlaceholder", null, "Type your city")} />
+    </Field>
+  );
   return stateFirst
-    ? <>{stateField}{stateOtherField}{countryField}{countryOtherField}</>
-    : <>{countryField}{countryOtherField}{stateField}{stateOtherField}</>;
+    ? <>{stateField}{stateOtherField}{countryField}{countryOtherField}{cityField}{cityOtherField}</>
+    : <>{countryField}{countryOtherField}{stateField}{stateOtherField}{cityField}{cityOtherField}</>;
 }
 
 // Adapts a plain array field (onboarding's `d`/`set` shape) to FilterGroup's
@@ -231,6 +273,7 @@ export function resolveOnboardingOther(data, t) {
   const resolveMulti = (arr) => (arr || []).filter(v => v !== "Other");
   const patch = { country: data.country === otherLabel ? data.countryOther : data.country, state: data.state === otherLabel ? data.stateOther : data.state };
   if ("occupation" in data) patch.occupation = resolveSingle(data.occupation, data.occupationOther);
+  if ("city" in data) patch.city = resolveSingle(data.city, data.cityOther);
   if ("language" in data) patch.language = resolveMulti(data.language);
   if ("industry" in data) patch.industry = resolveMulti(data.industry);
   if ("domains" in data) patch.domains = resolveMulti(data.domains);
