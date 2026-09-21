@@ -6,7 +6,7 @@ import { ScoreRing, StatTile, VAvatar, VStars } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { levelName, levelPerks, badgeLabel, badgeDesc, expertiseLabel } from "../vi18n";
-import { ROLES, INDUSTRIES } from "./VOnboarding";
+import { ROLES, INDUSTRIES, CountryStateFields, resolveOnboardingOther } from "./VOnboarding";
 
 export default function Profile() {
   const { t } = useTranslation();
@@ -17,7 +17,7 @@ export default function Profile() {
   const [occupation, setOccupation] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
-  const [address, setAddress] = useState({ line1: "", line2: "", city: "", state: "", postalCode: "", country: "" });
+  const [address, setAddress] = useState({ line1: "", line2: "", city: "", state: "", stateOther: "", postalCode: "", country: "", countryOther: "" });
   const [bio, setBio] = useState("");
   const [specialties, setSpecialties] = useState([]);
   const [tagInput, setTagInput] = useState("");
@@ -34,7 +34,7 @@ export default function Profile() {
     setOccupation(data.occupation || "");
     setIndustry(data.industry || "");
     setLocation(data.location || "");
-    setAddress({ ...{ line1: "", line2: "", city: "", state: "", postalCode: "", country: "" }, ...(data.address || {}) });
+    setAddress({ ...{ line1: "", line2: "", city: "", state: "", stateOther: "", postalCode: "", country: "", countryOther: "" }, ...(data.address || {}) });
     setBio(data.bio || "");
     setSpecialties([...(data.specialties || [])]);
     setTagInput(""); setError(""); setEditing(true);
@@ -53,7 +53,8 @@ export default function Profile() {
     e.preventDefault();
     setBusy(true); setError("");
     try {
-      const res = await vapi.updateProfile({ name, handle, occupation, industry, location, bio, specialties, address });
+      const resolvedAddress = resolveOnboardingOther(address, t);
+      const res = await vapi.updateProfile({ name, handle, occupation, industry, location, bio, specialties, address: resolvedAddress });
       setData(d => ({ ...d, name: res.name, handle: res.handle, occupation: res.occupation, industry: res.industry, location: res.location, bio: res.bio, specialties: res.specialties, address: res.address }));
       setEditing(false);
     } catch (err) {
@@ -146,13 +147,21 @@ export default function Profile() {
                 <div className="col gap-3" style={{ marginTop: 6 }}>
                   <input className="fin" value={address.line1} onChange={e => setAddress(a => ({ ...a, line1: e.target.value }))} placeholder={t("profile.address1", null, "Address line 1")} />
                   <input className="fin" value={address.line2} onChange={e => setAddress(a => ({ ...a, line2: e.target.value }))} placeholder={t("profile.address2", null, "Address line 2 (optional)")} />
+                  {/* State first, then Country -- picking a state directly
+                      resolves its country automatically; picking a country
+                      first instead scopes the state dropdown to it. City
+                      stays free text (a real per-state city list is a much
+                      bigger dataset than country/state and still needs its
+                      own "Other" escape hatch, so it doesn't save typing
+                      either) -- kept next to Postal code below. */}
+                  <CountryStateFields
+                    stateFirst
+                    d={{ country: address.country, countryOther: address.countryOther, state: address.state, stateOther: address.stateOther }}
+                    set={(key, value) => setAddress(a => ({ ...a, [key]: value }))}
+                  />
                   <div className="row gap-3 wrap">
                     <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.city} onChange={e => setAddress(a => ({ ...a, city: e.target.value }))} placeholder={t("profile.city", null, "City")} />
-                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.state} onChange={e => setAddress(a => ({ ...a, state: e.target.value }))} placeholder={t("profile.state", null, "State")} />
-                  </div>
-                  <div className="row gap-3 wrap">
                     <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.postalCode} onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))} placeholder={t("profile.postalCode", null, "Postal code")} />
-                    <input className="fin" style={{ flex: 1, minWidth: 140 }} value={address.country} onChange={e => setAddress(a => ({ ...a, country: e.target.value }))} placeholder={t("profile.country", null, "Country")} />
                   </div>
                 </div>
               </div>

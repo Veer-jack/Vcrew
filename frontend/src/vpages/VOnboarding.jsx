@@ -15,6 +15,13 @@ import countryRegionData from "country-region-data/data.json";
 
 const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a.localeCompare(b));
 const REGIONS_BY_COUNTRY = Object.fromEntries(countryRegionData.map(c => [c.countryName, c.regions.map(r => r.name)]));
+// Lets State be picked before Country (Profile's address block wants that
+// order) and still resolve which country it belongs to -- first country
+// wins for the rare state/province name that exists in more than one
+// country, since there's no other signal yet to disambiguate.
+const COUNTRY_BY_STATE = {};
+for (const c of countryRegionData) for (const r of c.regions) if (!(r.name in COUNTRY_BY_STATE)) COUNTRY_BY_STATE[r.name] = c.countryName;
+const ALL_STATE_NAMES = Object.keys(COUNTRY_BY_STATE).sort((a, b) => a.localeCompare(b));
 
 function useDraft(key, defaultState) {
   const [val, setVal] = useState(() => {
@@ -109,10 +116,15 @@ export const Field = ({ label, required, hint, info, action, children }) => (
 // empty dropdown. Both levels also carry an "Other" option for anything the
 // list is missing, revealing a plain text field for that custom entry --
 // same pattern PersonalFields above already uses for job title/designation.
-export function CountryStateFields({ d, set }) {
+export function CountryStateFields({ d, set, stateFirst = false }) {
   const { t } = useTranslation();
   const otherLabel = t("onboardingFields.other", null, "Other");
-  const regions = d.country && d.country !== otherLabel ? (REGIONS_BY_COUNTRY[d.country] || []) : [];
+  const hasCountry = d.country && d.country !== otherLabel;
+  // No country picked yet -- State still gets a real dropdown (the full,
+  // cross-country list) rather than falling back to free text, so it can
+  // be picked first; selecting one below then resolves Country via
+  // COUNTRY_BY_STATE instead of leaving it blank.
+  const regions = hasCountry ? (REGIONS_BY_COUNTRY[d.country] || []) : ALL_STATE_NAMES;
   const hasStates = regions.length > 0;
   // Settings loads a validator's already-saved country/state, which (for
   // anyone who picked "Other" during onboarding) is the typed custom text
@@ -137,38 +149,51 @@ export function CountryStateFields({ d, set }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  return (
-    <>
-      <Field label={t("onboardingFields.country", null, "Country")}>
-        <select className="fin" value={d.country || ""} onChange={e => { set("country", e.target.value); set("state", ""); }}>
-          <option value="" disabled>{t("onboardingFields.selectCountry", null, "Select country")}</option>
-          {COUNTRY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+  const countryField = (
+    <Field key="country" label={t("onboardingFields.country", null, "Country")}>
+      <select className="fin" value={d.country || ""} onChange={e => { set("country", e.target.value); set("state", ""); }}>
+        <option value="" disabled>{t("onboardingFields.selectCountry", null, "Select country")}</option>
+        {COUNTRY_NAMES.map(c => <option key={c} value={c}>{c}</option>)}
+        <option value={otherLabel}>{otherLabel}</option>
+      </select>
+    </Field>
+  );
+  const countryOtherField = d.country === otherLabel && (
+    <Field key="countryOther" label={t("onboardingFields.customCountry", null, "Your country")}>
+      <input className="fin" value={d.countryOther || ""} onChange={e => set("countryOther", e.target.value)} placeholder={t("onboardingFields.customCountryPlaceholder", null, "Type your country")} />
+    </Field>
+  );
+  const stateField = (
+    <Field key="state" label={t("onboardingFields.state", null, "State")}>
+      {hasStates ? (
+        <select className="fin" value={d.state || ""} onChange={e => {
+          const v = e.target.value;
+          set("state", v);
+          // Only relevant for the cross-country list (no country chosen
+          // yet) -- once a country's own region list is showing, every
+          // option already belongs to it, nothing to resolve.
+          if (!hasCountry && v !== otherLabel) {
+            const inferred = COUNTRY_BY_STATE[v];
+            if (inferred) set("country", inferred);
+          }
+        }}>
+          <option value="" disabled>{t("onboardingFields.selectState", null, "Select state")}</option>
+          {regions.map(r => <option key={r} value={r}>{r}</option>)}
           <option value={otherLabel}>{otherLabel}</option>
         </select>
-      </Field>
-      {d.country === otherLabel && (
-        <Field label={t("onboardingFields.customCountry", null, "Your country")}>
-          <input className="fin" value={d.countryOther || ""} onChange={e => set("countryOther", e.target.value)} placeholder={t("onboardingFields.customCountryPlaceholder", null, "Type your country")} />
-        </Field>
+      ) : (
+        <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
       )}
-      <Field label={t("onboardingFields.state", null, "State")}>
-        {hasStates ? (
-          <select className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)}>
-            <option value="" disabled>{t("onboardingFields.selectState", null, "Select state")}</option>
-            {regions.map(r => <option key={r} value={r}>{r}</option>)}
-            <option value={otherLabel}>{otherLabel}</option>
-          </select>
-        ) : (
-          <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
-        )}
-      </Field>
-      {hasStates && d.state === otherLabel && (
-        <Field label={t("onboardingFields.customState", null, "Your state")}>
-          <input className="fin" value={d.stateOther || ""} onChange={e => set("stateOther", e.target.value)} placeholder={t("onboardingFields.customStatePlaceholder", null, "Type your state")} />
-        </Field>
-      )}
-    </>
+    </Field>
   );
+  const stateOtherField = hasStates && d.state === otherLabel && (
+    <Field key="stateOther" label={t("onboardingFields.customState", null, "Your state")}>
+      <input className="fin" value={d.stateOther || ""} onChange={e => set("stateOther", e.target.value)} placeholder={t("onboardingFields.customStatePlaceholder", null, "Type your state")} />
+    </Field>
+  );
+  return stateFirst
+    ? <>{stateField}{stateOtherField}{countryField}{countryOtherField}</>
+    : <>{countryField}{countryOtherField}{stateField}{stateOtherField}</>;
 }
 
 // Adapts a plain array field (onboarding's `d`/`set` shape) to FilterGroup's
