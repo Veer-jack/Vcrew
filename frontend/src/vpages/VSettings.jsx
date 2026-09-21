@@ -334,20 +334,11 @@ export default function VSettings() {
       {/* Validator type & status */}
       <div className="card" style={{ padding: 22, marginBottom: 24 }}>
         <div className="eyebrow" style={{ marginBottom: 16 }}>{t("settings.accountType", null, "Account type")}</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.type", null, "Type")}</div>
-            <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
-              {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
-            </div>
+        <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.type", null, "Type")}</div>
+          <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
+            {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
           </div>
-          <span style={{
-            padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-            background: validator?.validator_type === "user" ? "var(--success-weak)" : validator?.validator_type === "tester" ? "var(--warning-weak)" : "var(--accent-weak)",
-            color: validator?.validator_type === "user" ? "var(--success)" : validator?.validator_type === "tester" ? "var(--warning)" : "var(--accent)",
-          }}>
-            {validator?.validator_type === "user" ? t("badge.user", null, "User") : validator?.validator_type === "tester" ? t("badge.tester", null, "Tester") : t("badge.validator", null, "Validator")}
-          </span>
         </div>
 
         {/* Tester status */}
@@ -376,20 +367,24 @@ export default function VSettings() {
         {/* Upgrade options */}
         {validator?.validator_type === "user" && (
           <div style={{ padding: "12px 0" }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{t("settings.upgradeAccount", null, "Upgrade your account")}</div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
-            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>
-              {t("settings.upgradeValidator", null, "Upgrade to Validator →")}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.upgradeAccount", null, "Upgrade your account")}</div>
+              <button className="btn btn-ghost" style={{ fontSize: 13, flexShrink: 0 }} onClick={() => window.location.href = "/validator/onboarding"}>
+                {t("settings.upgradeValidator", null, "Upgrade to Validator →")}
+              </button>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "6px 0 0" }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
           </div>
         )}
         {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
           <div style={{ padding: "12px 0" }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{t("settings.applyTester", null, "Apply for Verified Tester")}</div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
-            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>
-              {t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}
-            </button>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.applyTester", null, "Apply for Verified Tester")}</div>
+              <button className="btn btn-ghost" style={{ fontSize: 13, flexShrink: 0 }} onClick={() => window.location.href = "/validator/onboarding"}>
+                {t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}
+              </button>
+            </div>
+            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "6px 0 0" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
           </div>
         )}
       </div>
