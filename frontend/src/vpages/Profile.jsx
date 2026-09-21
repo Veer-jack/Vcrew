@@ -90,7 +90,10 @@ export default function Profile() {
                       industry, crowding it -- its own line, matching how the
                       edit form already separates Industry from Specialties. */}
                   {(data.specialties || []).length > 0 && (
-                    <p className="muted" style={{ margin: "3px 0 0", fontSize: 14 }}>{data.specialties.join(" · ")}</p>
+                    <p className="muted" style={{ margin: "3px 0 0", fontSize: 14 }}>
+                      {data.specialties.slice(0, 5).join(" · ")}
+                      {data.specialties.length > 5 && <span style={{ color: "var(--accent)" }}> +{data.specialties.length - 5}</span>}
+                    </p>
                   )}
                   {data.location && <p className="muted" style={{ margin: "3px 0 0", fontSize: 13 }}><Icon name="mapPin" size={12} /> {data.location}</p>}
                 </div>
