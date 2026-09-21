@@ -163,13 +163,20 @@ export default function Profile() {
                       blank. City follows, fetched from the backend once
                       both are known (routes/geo.js) -- falls back to free
                       text on its own if that state isn't covered, same as
-                      State does when a country has no known regions. */}
-                  <CountryStateFields
-                    withCity
-                    d={{ country: address.country, countryOther: address.countryOther, state: address.state, stateOther: address.stateOther, city: address.city, cityOther: address.cityOther }}
-                    set={(key, value) => setAddress(a => ({ ...a, [key]: value }))}
-                  />
-                  <input className="fin" value={address.postalCode} onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))} placeholder={t("profile.postalCode", null, "Postal code")} />
+                      State does when a country has no known regions.
+                      Wrapped in a flex-wrap row (.addr-row, see theme.css)
+                      so these pair up 2-per-row like the rest of the form
+                      instead of each stacking full-width. */}
+                  <div className="row gap-3 wrap addr-row">
+                    <CountryStateFields
+                      withCity
+                      d={{ country: address.country, countryOther: address.countryOther, state: address.state, stateOther: address.stateOther, city: address.city, cityOther: address.cityOther }}
+                      set={(key, value) => setAddress(a => ({ ...a, [key]: value }))}
+                    />
+                    <div className="fld" style={{ flex: "1 1 180px", minWidth: 180 }}>
+                      <input className="fin" value={address.postalCode} onChange={e => setAddress(a => ({ ...a, postalCode: e.target.value }))} placeholder={t("profile.postalCode", null, "Postal code")} />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="fld">

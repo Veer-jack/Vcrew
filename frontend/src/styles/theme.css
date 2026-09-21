@@ -389,6 +389,11 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .auth-card h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin: 4px 0 6px; }
 .fld { display: flex; flex-direction: column; gap: 6px; }
 .fld label { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+/* Pairs onboarding's own full-width Field blocks (VOnboarding.jsx) into a
+   compact 2-per-row layout when reused inside a settings-style form -- the
+   option lists they hold (country/state/city names) don't need the full
+   width a standalone onboarding step gives them. */
+.addr-row > .fld { flex: 1 1 180px; min-width: 180px; }
 .fin {
   width: 100%; padding: 11px 14px; font-family: inherit; font-size: 14px;
   color: var(--text); background: var(--panel-inset); border: var(--hairline) solid var(--border);
