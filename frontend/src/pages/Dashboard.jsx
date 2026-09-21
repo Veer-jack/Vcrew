@@ -402,24 +402,17 @@ export default function Dashboard() {
         </div>
 
         <div>
-          {/* Heading now sits outside the card, same as Recent Missions' --
-              it used to live inside (with the card's own padding pushing it
-              down a row further than Recent Missions' heading, plus a "Live"
-              badge and a bottom button instead of a header-level link), which
-              read as visibly misaligned between the two columns. Live badge
-              and "View all activity" now share the header row, matching
-              Recent Missions' heading + action-link layout exactly. */}
+          {/* Heading sits outside the card, matching Recent Missions' --
+              was inside (extra card padding pushed it a row lower), paired
+              with a "Live" badge and a bottom button instead of a header
+              link, which read as visibly misaligned between the columns.
+              "View all activity" now sits in the header, same
+              quiet/arrow-right style as "All missions". */}
           <div className="sec-head" style={{ marginBottom: 12 }}>
             <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
-            <div className="row gap-2" style={{ alignItems: "center" }}>
-              <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--success-weak)", color: "var(--success)" }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
-                {t("dashboard.live", null, "Live")}
-              </span>
-              <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setShowAllActivity(!showAllActivity)}>
-                {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAllActivity", null, "View all activity")}
-              </Btn>
-            </div>
+            <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setShowAllActivity(!showAllActivity)}>
+              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAllActivity", null, "View all activity")}
+            </Btn>
           </div>
           <div className="card" style={{ padding: 18 }}>
             <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
