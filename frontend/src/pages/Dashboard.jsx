@@ -402,22 +402,27 @@ export default function Dashboard() {
         </div>
 
         <div>
-          {/* Heading stays inside this card (unlike Recent Missions') and
-              carries a "Live" badge instead of a header-level toggle --
-              "View all activity" moved to a plain button at the bottom of
-              the card instead, per the reference. */}
-          <div className="card" style={{ padding: 18 }}>
-            <div className="sec-head" style={{ marginBottom: 12 }}>
-              <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
+          {/* Heading now sits outside the card, same as Recent Missions' --
+              it used to live inside (with the card's own padding pushing it
+              down a row further than Recent Missions' heading, plus a "Live"
+              badge and a bottom button instead of a header-level link), which
+              read as visibly misaligned between the two columns. Live badge
+              and "View all activity" now share the header row, matching
+              Recent Missions' heading + action-link layout exactly. */}
+          <div className="sec-head" style={{ marginBottom: 12 }}>
+            <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
+            <div className="row gap-2" style={{ alignItems: "center" }}>
               <span className="tag" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--success-weak)", color: "var(--success)" }}>
                 <span style={{ width: 6, height: 6, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
                 {t("dashboard.live", null, "Live")}
               </span>
+              <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setShowAllActivity(!showAllActivity)}>
+                {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAllActivity", null, "View all activity")}
+              </Btn>
             </div>
+          </div>
+          <div className="card" style={{ padding: 18 }}>
             <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
-            <Btn variant="ghost" block onClick={() => setShowAllActivity(!showAllActivity)} style={{ marginTop: 12 }}>
-              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAllActivity", null, "View all activity")}
-            </Btn>
           </div>
         </div>
       </div>
