@@ -170,9 +170,9 @@ export default function VSettings() {
           </div>
 
           {validator?.validator_type === "user" && (
-            <div style={{ padding: "12px 0" }}>
-              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
-              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
+            <div style={{ padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
+              <button className="btn btn-primary" style={{ fontSize: 13, flexShrink: 0 }} onClick={goReOnboard}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
             </div>
           )}
 
@@ -185,9 +185,9 @@ export default function VSettings() {
           )}
 
           {validator?.validator_type === "validator" && validator?.tester_status === "rejected" && (
-            <div style={{ padding: "12px 0" }}>
-              <div style={{ fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>✗ {t("settings.applicationNotApproved", null, "Application not approved — you can update your profile and reapply")}</div>
-              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
+            <div style={{ padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "var(--danger)" }}>✗ {t("settings.applicationNotApproved", null, "Application not approved — you can update your profile and reapply")}</div>
+              <button className="btn btn-primary" style={{ fontSize: 13, flexShrink: 0 }} onClick={goReOnboard}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
             </div>
           )}
 
@@ -197,9 +197,9 @@ export default function VSettings() {
               validator_type was never bumped to "tester", so the apply
               option doesn't just silently vanish for them. */}
           {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && validator?.tester_status !== "rejected" && (
-            <div style={{ padding: "12px 0" }}>
-              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
-              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
+            <div style={{ padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
+              <button className="btn btn-primary" style={{ fontSize: 13, flexShrink: 0 }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
             </div>
           )}
         </div>
