@@ -151,33 +151,54 @@ export default function VSettings() {
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("settings.title", null, "Settings")}</h1>
       </div>
 
-      {/* Account type/status chips -- top of the page, plain row (no card),
-          so the upgrade/apply action reads like a banner instead of being
-          buried at the bottom of the page. */}
-      <div className="row gap-2 wrap" style={{ marginBottom: 24, maxWidth: 980 }}>
-        <span className="pill">
-          {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
-        </span>
+      {/* Account type card -- top of the page instead of buried at the
+          bottom. Tester is the last role, nothing left to apply for, so the
+          whole card is skipped once approved. tester_status is checked
+          directly here (not gated behind validator_type === "tester" like
+          before) -- an application stays validator_type "validator" with
+          tester_status "pending_review"/"rejected" right up until an admin
+          approves it (see vauth.js), so that old gate never actually
+          matched those two states. */}
+      {validator?.validator_type !== "tester" && (
+        <div className="card" style={{ padding: 22, marginBottom: 24, maxWidth: 980 }}>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>{t("settings.accountType", null, "Account type")}</div>
+          <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.type", null, "Type")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
+              {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : t("settings.validatorPro", null, "Validator — Professional")}
+            </div>
+          </div>
 
-        {validator?.validator_type === "tester" && validator?.tester_status === "pending_review" && (
-          <span className="pill" style={{ color: "var(--warning)" }}>⏳ {t("settings.underReview", null, "Under review")}</span>
-        )}
-        {validator?.validator_type === "tester" && validator?.tester_status === "approved" && (
-          <span className="pill" style={{ color: "var(--success)" }}>✓ {validator?.tester_tier === "senior" ? t("settings.senior", null, "Senior") : t("settings.junior", null, "Junior")} {t("settings.verifiedTag", null, "Verified")}</span>
-        )}
-        {validator?.validator_type === "tester" && validator?.tester_status === "rejected" && (
-          <>
-            <span className="pill" style={{ color: "var(--danger)" }}>✗ {t("settings.notApproved", null, "Not approved")}</span>
-            <button className="pill" style={{ cursor: "pointer" }} onClick={goReOnboard}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
-          </>
-        )}
-        {validator?.validator_type === "user" && (
-          <button className="pill" style={{ cursor: "pointer" }} onClick={goReOnboard}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
-        )}
-        {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
-          <button className="pill" style={{ cursor: "pointer" }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
-        )}
-      </div>
+          {validator?.validator_type === "user" && (
+            <div style={{ padding: "12px 0" }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
+            </div>
+          )}
+
+          {validator?.validator_type === "validator" && validator?.tester_status === "pending_review" && (
+            <div style={{ padding: "12px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--warning)" }}>
+                <span>⏳</span> {t("settings.underReview", null, "Under review — admin will respond within 72 hours")}
+              </div>
+            </div>
+          )}
+
+          {validator?.validator_type === "validator" && validator?.tester_status === "rejected" && (
+            <div style={{ padding: "12px 0" }}>
+              <div style={{ fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>✗ {t("settings.applicationNotApproved", null, "Application not approved — you can update your profile and reapply")}</div>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
+            </div>
+          )}
+
+          {validator?.validator_type === "validator" && !validator?.tester_status && (
+            <div style={{ padding: "12px 0" }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Single vertical stack (was a 2-column grid) -- matches the builder
           side's own Settings layout, one full-width card at a time. */}
