@@ -24,7 +24,13 @@ function StepRail({ steps, currentKey, dirty, onNavigate, onCancel }) {
   const currentIndex = steps.findIndex(([k]) => k === currentKey);
   const prevStep = currentIndex > 0 ? steps[currentIndex - 1] : null;
   return (
-    <aside style={{ background: "var(--panel)", borderRight: "1px solid var(--border)", padding: "28px 20px", display: "flex", flexDirection: "column", width: 260, flexShrink: 0 }}>
+    // position:sticky + height:100vh + align-self:start -- without this the
+    // flex row stretches this aside to match the step content's own height,
+    // which on a field-heavy step (long Industry/Tools lists) pushed
+    // Cancel/Back far down the page, landing at a different scroll depth on
+    // every step instead of staying put. Same fix the builder's own
+    // .wiz-rail already needed (see theme.css) for the identical bug.
+    <aside style={{ background: "var(--panel)", borderRight: "1px solid var(--border)", padding: "28px 20px", display: "flex", flexDirection: "column", width: 260, flexShrink: 0, position: "sticky", top: 0, alignSelf: "flex-start", height: "100vh", overflowY: "auto" }}>
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: ".1em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
       <div style={{ display: "grid", gap: 6, marginBottom: 12 }}>
         {steps.map(([key, fallback], i) => {
