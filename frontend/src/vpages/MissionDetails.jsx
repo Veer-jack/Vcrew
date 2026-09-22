@@ -46,14 +46,17 @@ export default function MissionDetails() {
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
   const pt = task.ptype && ptypes ? ptypes.find(p => p.id === task.ptype) : null;
   const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
-  // Header metadata line -- tagline/company plus the participation format,
-  // which used to sit in its own "Mission requirements" block further down
-  // the page. Filtered + joined so a missing piece (no ptype, no question
-  // count) doesn't leave a stray leading/trailing separator.
+  // Header metadata line -- company plus the participation format, which
+  // used to sit in its own "Mission requirements" block further down the
+  // page. tagline (the mission's description) is deliberately left out --
+  // it's already shown in full in the "About this mission" section below,
+  // and repeating it here just pushed the reward down variable amounts
+  // depending on its length. Filtered + joined so a missing piece (no
+  // ptype, no question count) doesn't leave a stray leading/trailing
+  // separator.
   const headerMeta = [
-    task.tagline,
     task.company,
-    pt && `${t("missions.feedbackFormat", null, "Feedback Format:")} ${pt.label}`,
+    pt && pt.label,
     task.questionCount > 0 && t("missions.questionCount", { count: task.questionCount }, `${task.questionCount} questions`),
   ].filter(Boolean).join(" | ");
 
