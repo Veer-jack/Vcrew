@@ -508,12 +508,16 @@ export default function Discover() {
               way border/background/outline/appearance couldn't fully
               suppress in every real browser (Linux/Chrome widget theming
               specifically) -- a plain button + popover has no native form
-              chrome to fight in the first place. */}
+              chrome to fight in the first place. No inline border/background
+              here -- .pill already sets both, and an inline border would
+              always win over .pill-focus-within:focus-within's own
+              border-color no matter how specific that rule was, silently
+              leaving only the box-shadow ring visible on focus. */}
           <button
             ref={sortBtnRef}
             type="button"
             className="pill pill-focus-within"
-            style={{ gap: 8, cursor: "pointer", border: "1px solid var(--border)", background: "var(--panel)" }}
+            style={{ gap: 8, cursor: "pointer" }}
             onClick={() => {
               // This row (rise-2) and the mission grid below it (rise-3)
               // each get their own stacking context from the entrance
