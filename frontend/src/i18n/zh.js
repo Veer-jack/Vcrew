@@ -2675,7 +2675,7 @@ const zh = {
     searchPlaceholder: "按姓名、角色、技能、城市搜索...",
     loadingMatches: "正在加载完美匹配...",
     noMatchesFound: "没有找到这些过滤器的匹配项。",
-    noAudienceMatch: "目前验证员池中没有人符合此任务的受众——匹配会随着新成员加入实时更新。",
+    noAudienceMatch: "目前验证员池中没有人符合此任务的受众——一旦有匹配的验证者加入，我们会立即通知您。",
     membersSelected: "{{count}} 成员已选定",
     otherMembers: "其他成员",
   },

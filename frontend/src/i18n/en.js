@@ -2674,7 +2674,7 @@ const en = {
     searchPlaceholder: "Search by name, role, skills, city...",
     loadingMatches: "Loading perfect matches...",
     noMatchesFound: "No matches found for these filters.",
-    noAudienceMatch: "No one in the validator pool matches this mission's audience right now — matches update live as new members join.",
+    noAudienceMatch: "No one in the validator pool matches this mission's audience right now — we'll notify you the moment a matching validator joins.",
     membersSelected: "{{count}} members selected",
     otherMembers: "Other members",
   },

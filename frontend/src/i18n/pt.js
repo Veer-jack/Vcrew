@@ -2675,7 +2675,7 @@ const pt = {
     searchPlaceholder: "Pesquise por nome, função, habilidades, cidade...",
     loadingMatches: "Carregando combinações perfeitas...",
     noMatchesFound: "Nenhuma correspondência encontrada para estes filtros.",
-    noAudienceMatch: "Ninguém no grupo de validadores corresponde atualmente ao público desta missão — as correspondências são atualizadas em tempo real conforme novos membros entram.",
+    noAudienceMatch: "Ninguém no grupo de validadores corresponde atualmente ao público desta missão — avisaremos você assim que um validador correspondente entrar.",
     membersSelected: "Membros {{count}} selecionados",
     otherMembers: "Outros membros",
   },

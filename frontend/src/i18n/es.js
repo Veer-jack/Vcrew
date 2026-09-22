@@ -2675,7 +2675,7 @@ const es = {
     searchPlaceholder: "Busca por nombre, rol, habilidades, ciudad...",
     loadingMatches: "Cargando coincidencias perfectas...",
     noMatchesFound: "No se encontraron coincidencias para estos filtros.",
-    noAudienceMatch: "Nadie en el grupo de validadores coincide actualmente con la audiencia de esta misión — las coincidencias se actualizan en vivo a medida que se unen nuevos miembros.",
+    noAudienceMatch: "Nadie en el grupo de validadores coincide actualmente con la audiencia de esta misión — te avisaremos en cuanto se una un validador que coincida.",
     membersSelected: "{{count}} miembros seleccionados",
     otherMembers: "Otros miembros",
   },

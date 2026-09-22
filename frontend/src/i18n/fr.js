@@ -2675,7 +2675,7 @@ const fr = {
     searchPlaceholder: "Recherche par nom, rôle, compétences, ville...",
     loadingMatches: "Chargement des correspondances parfaites...",
     noMatchesFound: "Aucune correspondance trouvée pour ces filtres.",
-    noAudienceMatch: "Personne dans le vivier de validateurs ne correspond actuellement à l'audience de cette mission — les correspondances se mettent à jour en direct à mesure que de nouveaux membres rejoignent.",
+    noAudienceMatch: "Personne dans le vivier de validateurs ne correspond actuellement à l'audience de cette mission — nous vous préviendrons dès qu'un validateur correspondant rejoindra.",
     membersSelected: "Membres {{count}} sélectionnés",
     otherMembers: "Autres membres",
   },

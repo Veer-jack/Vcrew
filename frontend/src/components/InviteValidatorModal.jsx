@@ -454,7 +454,7 @@ export function InviteValidatorModal({ mission, onClose }) {
             // its Audience tab, not from this modal), so the copy points
             // there instead of suggesting a change the builder can't make
             // from this screen.
-            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noAudienceMatch", null, "No one in the validator pool matches this mission's audience right now — matches update live as new members join.")}</div>
+            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noAudienceMatch", null, "No one in the validator pool matches this mission's audience right now — we'll notify you the moment a matching validator joins.")}</div>
           ) : displayList.length === 0 ? (
             <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noMatchesFound", null, "No matches found for these filters.")}</div>
           ) : (
