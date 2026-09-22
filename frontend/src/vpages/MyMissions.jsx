@@ -114,11 +114,16 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
           <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewSubmission", null, "View submission")} <Icon name="arrowRight" /></button>
         )}
         {m.status === "saved" && (
-          <div className="row gap-2">
-            <button className="btn btn-ghost" disabled={unsaving} onClick={async () => {
+          <div className="row gap-2" style={{ alignItems: "center" }}>
+            {/* Icon-only, not a full "Remove" button -- View is the actual
+                primary action on this row, and a whole second labeled
+                button next to it read as more weight than removing a
+                bookmark needs. Same icon-btn pattern used elsewhere
+                (Messages.jsx's attach/open-in-new-tab controls). */}
+            <button className="icon-btn" aria-label={unsaving ? t("actions.removing", null, "Removing…") : t("actions.remove", null, "Remove")} title={t("actions.remove", null, "Remove")} disabled={unsaving} onClick={async () => {
               setUnsaving(true);
               try { await onUnsave(m.taskId); } finally { setUnsaving(false); }
-            }}><Icon name="x" size={14} />{unsaving ? t("actions.removing", null, "Removing…") : t("actions.remove", null, "Remove")}</button>
+            }}><Icon name="x" size={16} /></button>
             <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${m.taskId}`)}>{t("actions.view", null, "View")} <Icon name="arrowRight" /></button>
           </div>
         )}
