@@ -463,6 +463,7 @@ export function InviteValidatorModal({ mission, onClose }) {
                 <div key={v.id}>
                   {i === 0 && recommendedCount > 0 && recommendedCount < displayList.length && (
                     <div className="row ac" style={{ gap: 10, margin: "0 0 10px" }}>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".04em" }}>
                         {t("invite.recommended", null, "Recommended")}
                       </span>
