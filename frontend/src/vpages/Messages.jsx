@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { VAvatar } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
@@ -8,7 +8,6 @@ import { trFilterLabel } from "../data/audienceFilterLabels";
 
 export default function Messages() {
   const { t, dataVersion } = useTranslation();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedThreadId = searchParams.get("thread");
   const [threads, setThreads] = useState([]);
@@ -99,11 +98,13 @@ export default function Messages() {
   };
 
   // Mirrors the builder side's Messages.jsx empty state -- same illustration
-  // built from the existing inbox/send icons, same copy. The button routes
-  // to a validator's own missions instead of opening a composer: threads
-  // require a builder/mission pairing (see backend messages.js POST
-  // /threads), so there's no anyone-to-anyone DM to open here either --
-  // messaging only starts once you're actually on a mission with a builder.
+  // built from the existing inbox/send icons, same copy. No "Start a
+  // conversation" button here (there was one, routing to /validator/missions)
+  // -- threads require a builder/mission pairing (see backend messages.js
+  // POST /threads), so there's no anyone-to-anyone DM to open, and a button
+  // that just lands on Missions with no explanation read as broken rather
+  // than helpful. The tip line below already says how messaging actually
+  // starts.
   if (!threads.length) return (
     <div className="page rise">
       <div className="ph"><div><h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("vMessages.lead", null, "Chat directly with the builders and researchers you're working with.")}</p></div></div>
@@ -119,7 +120,6 @@ export default function Messages() {
         </div>
         <b style={{ fontSize: 17 }}>{t("messages.noConversations", null, "No conversations yet")}</b>
         <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.noConversationsDesc", null, "Once you start working with participants or researchers, your conversations will appear here.")}</p>
-        <button className="btn btn-primary" onClick={() => navigate("/validator/missions")} style={{ marginTop: 10 }}><Icon name="send" size={14} />{t("actions.startConversation", null, "Start a conversation")}</button>
         <p className="faint" style={{ margin: "10px 0 0", fontSize: 12 }}>{t("vMessages.startConversationTip", null, "Tip — you'll be able to message a builder once you're on a mission with them.")}</p>
       </div>
       </div>
