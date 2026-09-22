@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
@@ -323,18 +323,48 @@ function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
   );
 }
 
+// Keys only (labels are translated inline where STATUS_TABS is built,
+// further down) -- just enough to validate a ?tab= value from the URL
+// without needing the translation context this runs before.
+const STATUS_TAB_KEYS = ["all", "open", "pending", "accepted", "submitted", "approved", "rejected", "declined"];
+
 export default function Discover() {
   const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
   const { validator } = useVAuth();
   const { vtypes, typeOrder, rewardBands, sorts, ptypes } = useVMeta();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [types, setTypes] = useState(new Set());
   const [reward, setReward] = useState("any");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minMatch, setMinMatch] = useState(0);
   const [sort, setSort] = useState("match");
-  const [statusTab, setStatusTab] = useState("all");
+  // Seeded from ?tab= so navigating away (a mission's own detail page, the
+  // submission drawer) and back doesn't silently reset this to "all" --
+  // matches My missions' own tab persistence exactly (both this page and
+  // that one had the identical bug reported separately, same root cause).
+  const urlStatusTab = searchParams.get("tab");
+  const [statusTab, setStatusTabState] = useState(
+    STATUS_TAB_KEYS.includes(urlStatusTab) ? urlStatusTab : "all"
+  );
+  const setStatusTab = (k) => {
+    setStatusTabState(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
+  // Re-sync if the URL's tab changes while already mounted here (e.g. a
+  // notification or link that deep-links to a specific tab) -- the useState
+  // above only seeds the initial value on mount.
+  useEffect(() => {
+    if (STATUS_TAB_KEYS.includes(urlStatusTab) && urlStatusTab !== statusTab) {
+      setStatusTabState(urlStatusTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlStatusTab]);
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
