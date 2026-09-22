@@ -45,26 +45,23 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
         <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
 
           <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg)" }}>
+            {/* Who this mission is actually with -- the builder/company
+                reviewing it -- comes first, same identity-row look the
+                builder's own drawer uses for a validator (avatar + name +
+                role line), before the mission's own details below it. */}
             <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{missionName || mission?.name}</div>
-                <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("missionDetail.yourSubmission", null, "Your submission")}</div>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", background: mission?.builderColor || "var(--accent)", color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{mission?.company?.[0]?.toUpperCase() || "?"}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{mission?.company}</div>
+                <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("roles.builder", null, "Builder")}</div>
               </div>
               <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
             </div>
 
-            {/* Who this mission is actually with -- the builder/company
-                reviewing it -- same identity-row look the builder's own
-                drawer uses for a validator (avatar + name + role line). */}
-            {mission && (
-              <div style={{ padding: "14px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: mission.builderColor, color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{mission.company?.[0]?.toUpperCase() || "?"}</div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{mission.company}</div>
-                  <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("roles.builder", null, "Builder")}</div>
-                </div>
-              </div>
-            )}
+            <div style={{ padding: "14px 24px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{missionName || mission?.name}</div>
+              <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("missionDetail.yourSubmission", null, "Your submission")}</div>
+            </div>
 
             {sub && (
               <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12, overflowX: "auto" }}>
