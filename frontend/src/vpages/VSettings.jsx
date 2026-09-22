@@ -27,6 +27,19 @@ function VChipField({ label, values }) {
   );
 }
 
+// Free text (Bio) isn't a value picked from a list like everything else on
+// this page -- a chip pill around a whole sentence read oddly next to real
+// chips (Role, Industry, ...), so this renders it as plain text instead.
+function VTextField({ label, value }) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}</label>
+      <p style={{ margin: "7px 0 0", fontSize: 13.5, lineHeight: 1.5 }}>{value || <span className="faint">{t("settings.notSet", null, "Not set")}</span>}</p>
+    </div>
+  );
+}
+
 // One read-only summary card per settings step -- title, an Edit button
 // into /validator/settings/edit-step/:step (VEditAccountStep.jsx, the real
 // step form), and its saved values as chips. Mirrors the builder Settings
@@ -182,12 +195,17 @@ export default function VSettings() {
               with a card per step -- read-only chips plus an Edit button
               into the real step form (VEditAccountStep.jsx), same pattern
               as the builder side's own Settings page. */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20, alignItems: "start" }}>
+          {/* No alignItems:start here (unlike the builder Settings page this
+              mirrors) -- tester explicitly wanted every card the same
+              size; default stretch makes same-row cards match the
+              tallest one instead of each staying only as tall as its own
+              content. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
             <StepCard title={stepTitle("basicInfo")} stepKey="basicInfo" navigate={navigate}>
               <VChipField label={t("onboardingFields.country", null, "Country")} values={validator?.country ? [validator.country] : []} />
               <VChipField label={t("onboardingFields.stateRegion", null, "State / Region")} values={validator?.state ? [validator.state] : []} />
               <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.languages", null, "Languages")} values={validator?.languages} /></div>
-              {!isUser && <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.shortBio", null, "Short bio")} values={validator?.bio ? [validator.bio] : []} /></div>}
+              {!isUser && <div style={{ gridColumn: "1 / -1" }}><VTextField label={t("vOnboarding.fields.shortBio", null, "Short bio")} value={validator?.bio} /></div>}
             </StepCard>
 
             {isUser ? (
