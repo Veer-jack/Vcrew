@@ -90,12 +90,11 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
             "Paid" was the whole row, with no way to review it afterward.
             Opens the same read-only submission drawer the builder's own
             Participants/Responses view uses (VSubmissionDrawer), instead of
-            navigating away to a separate page. */}
+            navigating away to a separate page. The "Paid" pill that used to
+            sit above this button was dropped -- already shown once as the
+            status tag next to the title/date. */}
         {m.status === "completed" && (
-          <div className="col" style={{ alignItems: "flex-end", gap: 6 }}>
-            <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />{t("status.paid", null, "Paid")}</span>
-            <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={() => onViewResults(m)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" size={13} /></button>
-          </div>
+          <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={() => onViewResults(m)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" size={13} /></button>
         )}
         {m.status === "saved" && (
           <div className="row gap-2">
