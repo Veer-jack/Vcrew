@@ -2030,7 +2030,7 @@ const pt = {
     perParticipant: "por participante",
     numberOfParticipantsLabel: "Número de participantes",
     participantsHint: "Recomendamos 80–150 para feedback estatisticamente útil. Máximo 500 participantes.",
-    participantsExceedAudience: "Apenas {{count}} validadores correspondem a este público agora — isso é atualizado em tempo real conforme novos membros entram.",
+    participantsExceedAudience: "Apenas {{count}} validadores correspondem a este público agora — avisaremos você assim que um validador correspondente entrar.",
     liveCostEstimate: "Estimativa de custo ao vivo",
     perParticipantsBreakdown: "{{per}} × {{n}} participantes",
     sampleFulfilmentBreakdown: "Cumprimento de amostra × {{n}}",

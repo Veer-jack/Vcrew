@@ -2002,7 +2002,7 @@ const en = {
     perParticipant: "per participant",
     numberOfParticipantsLabel: "Number of Participants",
     participantsHint: "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.",
-    participantsExceedAudience: "Only {{count}} validators match this audience right now — this updates live as new members join.",
+    participantsExceedAudience: "Only {{count}} validators match this audience right now — we'll notify you the moment a matching validator joins.",
     liveCostEstimate: "Live cost estimate",
     perParticipantsBreakdown: "{{per}} × {{n}} participants",
     sampleFulfilmentBreakdown: "Sample fulfilment × {{n}}",

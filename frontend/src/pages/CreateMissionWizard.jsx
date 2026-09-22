@@ -591,7 +591,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
           {overAudienceCount && (
             <p className="fhint" style={{ color: "var(--warning)" }}>
               <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience right now — this updates live as new members join.`)}
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience right now — we'll notify you the moment a matching validator joins.`)}
             </p>
           )}
         </div>

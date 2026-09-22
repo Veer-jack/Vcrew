@@ -2030,7 +2030,7 @@ const ar = {
     perParticipant: "لكل مشارك",
     numberOfParticipantsLabel: "عدد المشاركين",
     participantsHint: "نوصي بـ 80-150 للحصول على تعليقات مفيدة إحصائيًا. الحد الأقصى 500 مشارك.",
-    participantsExceedAudience: "يتطابق {{count}} مدققًا فقط مع هذا الجمهور الآن — يتم تحديث هذا العدد مباشرة مع انضمام أعضاء جدد.",
+    participantsExceedAudience: "يتطابق {{count}} مدققًا فقط مع هذا الجمهور الآن — سنخطرك بمجرد انضمام مدقق مطابق.",
     liveCostEstimate: "تقدير التكلفة الحية",
     perParticipantsBreakdown: "المشاركون {{per}} × {{n}}",
     sampleFulfilmentBreakdown: "استيفاء العينة × {{n}}",
