@@ -501,7 +501,13 @@ export default function Discover() {
         <div className="row gap-2">
           <label className="pill" style={{ gap: 8, cursor: "pointer" }}>
             <span className="faint" style={{ fontSize: 12 }}>{t("discover.sort", null, "Sort")}</span>
-            <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
+            {/* The click/focus ring a browser draws on a <select> follows
+                that element's OWN corners, not its parent's -- this had no
+                border-radius of its own (relying entirely on the .pill
+                wrapper for the rounded look), so focusing it drew a sharp
+                rectangular ring sitting oddly inside the rounded pill.
+                Matches .pill's own 20px radius so the ring is rounded too. */}
+            <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", borderRadius: 20, background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
               {sorts.map(s => <option key={s.k} value={s.k}>{sortLabel(t, s.k, s.l)}</option>)}
             </select>
           </label>
