@@ -50,7 +50,6 @@ export default function Earnings() {
   return (
     <div className="page">
       <div className="rise" style={{ marginBottom: 22 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>{t("earnings.title", null, "Earnings & reputation")}</div>
         <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.03em" }}>{t("earnings.lifetime", null, "You've earned")} ₹{(data.lifetime || 0).toLocaleString("en-IN")} {t("earnings.allTime", null, "all-time")}</h2>
       </div>
 

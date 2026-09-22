@@ -229,7 +229,6 @@ export default function MyMissions() {
     <div className="page">
       <div className="row between wrap gap-4 rise" style={{ marginBottom: 20 }}>
         <div>
-          <div className="eyebrow" style={{ marginBottom: 6 }}>{t("missions.yourWork", null, "Your work")}</div>
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("missions.myMissions", null, "My missions")}</h2>
           <p className="muted" style={{ margin: "6px 0 0", fontSize: 15 }}>{t("missions.subtitle", null, "Everything you've applied to, are working on, or have wrapped up.")}</p>
         </div>
