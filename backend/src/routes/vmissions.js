@@ -252,6 +252,7 @@ router.get("/:id/submission", async (req, res) => {
       id: mission.id, name: mission.name,
       company: mission.brand || mission.builder_org || mission.builder_name || "Independent",
       builderName: mission.builder_name, builderColor: mission.builder_color || "#4f46e5",
+      reward: mission.reward_amount, rewardType: mission.reward_type || "fixed",
     },
     submission: {
       status: r.status,

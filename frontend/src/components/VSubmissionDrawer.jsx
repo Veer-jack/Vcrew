@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./Icon";
-import { VStars } from "../vcomponents/vui";
+import { VStars, VReward } from "../vcomponents/vui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
 import useBodyScrollLock from "../hooks/useBodyScrollLock";
@@ -102,6 +102,14 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
                     old post-approval results screen used. */}
                 {rating && (
                   <div className="card" style={{ padding: 16, marginBottom: 20, border: "1px solid var(--border)" }}>
+                    {mission?.reward != null && (
+                      <>
+                        <div className="eyebrow" style={{ marginBottom: 8 }}>{t("missions.youEarned", null, "You Earned")}</div>
+                        <VReward amount={mission.reward} type={mission.rewardType} big />
+                        <div className="faint" style={{ fontSize: 12, marginTop: 4, marginBottom: 16 }}>{t("missions.addedToPendingBalance", null, "Added to your pending balance")}</div>
+                        <hr style={{ margin: "0 0 16px", borderColor: "var(--border-weak)" }} />
+                      </>
+                    )}
                     <div className="eyebrow" style={{ marginBottom: 8 }}>{t("missions.yourRating", null, "Your Rating")}</div>
                     <VStars value={rating} size={20} />
                     {sub.reason && (
@@ -120,6 +128,7 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
                     {expandedTasks.has(i) && (
                       <div style={{ padding: "0 16px 16px", borderTop: "1px solid var(--border)" }}>
                         {b.ans && !b.details?.length && <p style={{ margin: "16px 0 0", fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>{b.ans}</p>}
+                        {!b.ans && !b.details?.length && <p className="faint" style={{ margin: "16px 0 0", fontSize: 13 }}>{t("review.noResponse", null, "No response recorded for this task.")}</p>}
                         {b.details && b.details.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 16, background: "var(--border)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
                             {b.details.map((dt, didx) => (
