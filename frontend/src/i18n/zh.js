@@ -2078,7 +2078,7 @@ const zh = {
     otherGeoPlaceholder: "例如：尼泊尔、斯里兰卡…",
     confirmAudienceHint: "确认您的受众选择以继续",
     noFiltersWarning: "请至少选择一个筛选条件来定义您的受众。",
-    zeroMatchingWarning: "目前没有验证者符合此受众——随着新成员加入，此数据会实时更新。",
+    zeroMatchingWarning: "目前没有验证者符合此受众——一旦有匹配的验证者加入，我们会立即通知您。",
     staleTestCasesToast: "继续使用您之前的测试用例——您可以随时在第 3 步重新生成。",
     fieldsLockedHint: "已锁定，因为已有验证者接受了此任务——仅供参考显示。",
     addAnotherOther: "添加更多",
@@ -2245,6 +2245,7 @@ const zh = {
   missionDetail: {
     newAudienceMatchHint: "有新的验证者符合您的受众",
     yourSubmission: "您的提交",
+    noSubmissionMade: "此任务关闭前您未提交任何内容。",
     thStatus: "状态",
     participationType: "参与类型",
     requiresApprovalNote: "验证员开始前需要您的批准",

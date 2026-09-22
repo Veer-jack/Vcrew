@@ -2078,7 +2078,7 @@ const ar = {
     otherGeoPlaceholder: "مثال: نيبال، سريلانكا…",
     confirmAudienceHint: "أكّد اختيار جمهورك للمتابعة",
     noFiltersWarning: "يرجى اختيار عامل تصفية واحد على الأقل لتحديد جمهورك.",
-    zeroMatchingWarning: "لا يوجد مدققون يطابقون هذا الجمهور الآن — يتم تحديث هذا العدد مباشرة مع انضمام أعضاء جدد.",
+    zeroMatchingWarning: "لا يوجد مدققون يطابقون هذا الجمهور الآن — سنخطرك بمجرد انضمام مدقق مطابق.",
     staleTestCasesToast: "المتابعة بحالات الاختبار السابقة — يمكنك إعادة إنشائها في أي وقت من الخطوة 3.",
     fieldsLockedHint: "مقفل لأن أحد المدققين قد قبل هذه المهمة بالفعل — يُعرض هنا للاطلاع فقط.",
     addAnotherOther: "إضافة المزيد",
@@ -2245,6 +2245,7 @@ const ar = {
   missionDetail: {
     newAudienceMatchHint: "يوجد مدقق جديد يطابق جمهورك",
     yourSubmission: "إرسالك",
+    noSubmissionMade: "لم ترسل أي شيء قبل إغلاق هذه المهمة.",
     thStatus: "الحالة",
     participationType: "نوع المشاركة",
     requiresApprovalNote: "يتطلب موافقتك قبل أن يتمكن المدقق من البدء",

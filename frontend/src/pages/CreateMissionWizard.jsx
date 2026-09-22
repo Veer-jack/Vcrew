@@ -336,7 +336,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           return (
             <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <Icon name="alertTriangle" size={16} />
-              {t("createMission.zeroMatchingWarning", null, "No validators match this audience right now — this updates live as new members join.")}
+              {t("createMission.zeroMatchingWarning", null, "No validators match this audience right now — we'll notify you the moment a matching validator joins.")}
             </div>
           );
         }

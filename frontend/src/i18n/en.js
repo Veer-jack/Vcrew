@@ -2056,7 +2056,7 @@ const en = {
     addOtherTrigger: "Add other",
     confirmAudienceHint: "Confirm your audience selection to continue",
     noFiltersWarning: "Please select at least one filter to define your audience.",
-    zeroMatchingWarning: "No validators match this audience right now — this updates live as new members join.",
+    zeroMatchingWarning: "No validators match this audience right now — we'll notify you the moment a matching validator joins.",
     staleTestCasesToast: "Continuing with your previous test cases — you can regenerate them anytime from Step 3.",
     fieldsLockedHint: "Locked because a validator has already accepted this mission — shown here for reference.",
     addAnotherOther: "Add more",
@@ -2244,6 +2244,7 @@ const en = {
   missionDetail: {
     newAudienceMatchHint: "A new validator matches your audience",
     yourSubmission: "Your submission",
+    noSubmissionMade: "You didn't submit anything before this mission was closed.",
     thStatus: "Status",
     participantMoved: "{{name}} moved to {{stage}}",
     recently: "recently",

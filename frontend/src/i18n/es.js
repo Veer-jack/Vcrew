@@ -2078,7 +2078,7 @@ const es = {
     otherGeoPlaceholder: "p. ej. Nepal, Sri Lanka…",
     confirmAudienceHint: "Confirma tu selección de audiencia para continuar",
     noFiltersWarning: "Selecciona al menos un filtro para definir tu audiencia.",
-    zeroMatchingWarning: "Ningún validador coincide con esta audiencia ahora mismo — esto se actualiza en vivo a medida que se unen nuevos miembros.",
+    zeroMatchingWarning: "Ningún validador coincide con esta audiencia ahora mismo — te avisaremos en cuanto se una un validador que coincida.",
     staleTestCasesToast: "Continuando con tus casos de prueba anteriores — puedes regenerarlos en cualquier momento desde el paso 3.",
     fieldsLockedHint: "Bloqueado porque un validador ya aceptó esta misión — se muestra aquí solo como referencia.",
     addAnotherOther: "Añadir más",
@@ -2245,6 +2245,7 @@ const es = {
   missionDetail: {
     newAudienceMatchHint: "Un nuevo validador coincide con tu audiencia",
     yourSubmission: "Tu envío",
+    noSubmissionMade: "No enviaste nada antes de que se cerrara esta misión.",
     thStatus: "Estado",
     participationType: "Tipo de participación",
     requiresApprovalNote: "Requiere tu aprobación antes de que un validador pueda empezar",
