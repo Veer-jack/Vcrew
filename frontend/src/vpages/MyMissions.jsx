@@ -85,7 +85,6 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
           }}>{undeclining ? t("actions.undoing", null, "Undoing…") : t("actions.undoDecline", null, "Undo")}</button>
         )}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />{t("status.awaiting", null, "Awaiting")}</span>}
-        {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />{t("status.inReview", null, "In review")}</span>}
         {/* Nothing here previously led back to what was actually submitted --
             "Paid" was the whole row, with no way to review it afterward.
             Same destination MissionDetails.jsx's own "View results" button
