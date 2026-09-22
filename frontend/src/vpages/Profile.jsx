@@ -84,10 +84,10 @@ export default function Profile() {
                     </span>
                   </div>
                   <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>
-                    {data.handle} · {data.occupation || t("profile.unspecified", null, "Unspecified")}{data.industry ? ` · ${data.industry}` : ""}
+                    {data.handle} | {data.occupation || t("profile.unspecified", null, "Unspecified")}{data.industry ? ` | ${data.industry}` : ""}
                     {/* Was its own line below Specialties -- moved right after
                         Industry on this same line per tester feedback. */}
-                    {data.location ? <> · <Icon name="mapPin" size={12} style={{ verticalAlign: -1 }} /> {data.location}</> : ""}
+                    {data.location ? <> | <Icon name="mapPin" size={12} style={{ verticalAlign: -1 }} /> {data.location}</> : ""}
                   </p>
                   {/* Was folded onto the same line as handle/occupation/
                       industry, crowding it -- its own line, matching how the
