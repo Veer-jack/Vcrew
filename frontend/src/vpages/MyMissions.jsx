@@ -47,7 +47,11 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
   const vType = vtypes[m.type] || (pt ? { icon: pt.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
   const s = MM_STATUS[m.status];
   return (
-    <div className="card" style={{ padding: "16px 18px", minHeight: 94, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
+    // alignItems:flex-start, not center -- a closed row's extra "why this
+    // closed" line makes its middle column taller than the icon, and
+    // center would then float the icon down into the middle of that
+    // instead of lining up with the title at the top.
+    <div className="card" style={{ padding: "16px 18px", minHeight: 94, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "flex-start" }}>
       <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none",
         background: `color-mix(in srgb, var(${vType.accentVar}) 14%, transparent)`, color: `var(${vType.accentVar})` }}>
         <Icon name={vType.icon} size={22} />
@@ -111,6 +115,15 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
             label from "completed" ("View details", not "View results")
             since there's no result to show yet, only what was sent in. */}
         {m.status === "submitted" && (
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewDetails", null, "View details")} <Icon name="arrowRight" /></button>
+        )}
+        {/* A closed mission previously had nothing to click at all -- just
+            the static "why this closed" line, dead-ending the row. Same
+            drawer as Submitted/Completed: if the validator had already
+            submitted before the builder closed it, this shows exactly what
+            went in; if not, the drawer's own "no submission found" state
+            covers that instead of this button silently doing nothing. */}
+        {m.status === "closed" && (
           <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewDetails", null, "View details")} <Icon name="arrowRight" /></button>
         )}
         {m.status === "saved" && (
