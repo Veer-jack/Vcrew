@@ -1749,7 +1749,7 @@ const en = {
           "1": "Remote / Online only",
         },
         india9Cities: {
-          "0": "Other Indian cities",
+          "0": "India",
           "1": "Bengaluru",
           "2": "Mumbai",
           "3": "Delhi NCR",
