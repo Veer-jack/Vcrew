@@ -2544,6 +2544,7 @@ const zh = {
     frustration: "沮丧：",
     taskResponses: "任务响应",
     proofLabel: "证明（截图/视频）",
+    noResponse: "此任务没有记录的回复。",
     addNotes: "添加审稿人注释...",
     rateSubmission: "评价此提交",
     ratingImpactDesc: "您的评级直接影响验证者的信任分数。",

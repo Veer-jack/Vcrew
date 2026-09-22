@@ -2544,6 +2544,7 @@ const ar = {
     frustration: "الإحباط:",
     taskResponses: "ردود المهام",
     proofLabel: "إثبات (لقطة شاشة / فيديو)",
+    noResponse: "لم يتم تسجيل أي رد لهذه المهمة.",
     addNotes: "إضافة ملاحظات المراجع...",
     rateSubmission: "قيم هذا التقديم",
     ratingImpactDesc: "يؤثر تقييمك بشكل مباشر على نقاط ثقة المدقق.",

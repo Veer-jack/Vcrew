@@ -2544,6 +2544,7 @@ const pt = {
     frustration: "Frustração:",
     taskResponses: "Respostas de tarefas",
     proofLabel: "Prova (captura de tela/vídeo)",
+    noResponse: "Nenhuma resposta registrada para esta tarefa.",
     addNotes: "Adicionar notas do revisor...",
     rateSubmission: "Avalie este envio",
     ratingImpactDesc: "Sua classificação impacta diretamente a pontuação de confiança do validador.",

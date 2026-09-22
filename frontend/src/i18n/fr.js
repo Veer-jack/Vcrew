@@ -2544,6 +2544,7 @@ const fr = {
     frustration: "Frustration :",
     taskResponses: "Réponses aux tâches",
     proofLabel: "Preuve (Capture d'écran / Vidéo)",
+    noResponse: "Aucune réponse enregistrée pour cette tâche.",
     addNotes: "Ajouter des notes de réviseur...",
     rateSubmission: "Notez cette soumission",
     ratingImpactDesc: "Votre note a un impact direct sur le Trust Score du validateur.",

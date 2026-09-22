@@ -2543,6 +2543,7 @@ const en = {
     frustration: "Frustration:",
     taskResponses: "Task responses",
     proofLabel: "Proof (Screenshot / Video)",
+    noResponse: "No response recorded for this task.",
     addNotes: "Add Reviewer Notes...",
     rateSubmission: "Rate this submission",
     ratingImpactDesc: "Your rating directly impacts the validator's Trust Score.",
