@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { LEVELS, BADGES, EXPERTISE, levelForCompleted } from "../vmeta.js";
+import { isValidEmail } from "../validators.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -85,7 +86,7 @@ router.get("/", async (req, res) => {
   `).get(v.id);
 
   res.json({
-    name: v.name, handle: v.handle, level: lvl.n, levelName: lvl.name,
+    id: v.id, name: v.name, handle: v.handle, email: v.email, level: lvl.n, levelName: lvl.name,
     rating: v.rating, ratingCount: v.reviews_count || 0, accuracy: accuracy, streak: streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
     acceptRate: 100, completed: missionsDone, lifetime: earningsAgg?.lifetime || 0,
@@ -109,6 +110,7 @@ router.patch("/", async (req, res) => {
   const v = req.validator;
   const name = String(req.body?.name ?? v.name).trim();
   let handle = req.body?.handle === undefined ? v.handle : String(req.body.handle).trim();
+  let email = req.body?.email === undefined ? v.email : String(req.body.email).toLowerCase().trim();
   let occupation = req.body?.occupation === undefined ? v.occupation : String(req.body.occupation).trim();
   let industry = req.body?.industry === undefined ? v.industry : String(req.body.industry).trim();
   let location = req.body?.location === undefined ? v.location : String(req.body.location).trim();
@@ -123,17 +125,23 @@ router.patch("/", async (req, res) => {
   const addressCountry = addr.country === undefined ? v.address_country : String(addr.country).trim();
 
   if (!name) return res.status(400).json({ error: "Name is required" });
+  if (!isValidEmail(email)) return res.status(400).json({ error: "Enter a valid email address" });
   if (handle && !handle.startsWith("@")) handle = `@${handle}`;
   if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
   specialties = specialties.map(s => String(s).trim()).filter(Boolean);
 
-  await db.prepare(`UPDATE validators SET name = ?, handle = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ?,
+  if (email !== v.email) {
+    const existing = await db.prepare(`SELECT id FROM validators WHERE email = ? AND id != ?`).get(email, v.id);
+    if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+  }
+
+  await db.prepare(`UPDATE validators SET name = ?, handle = ?, email = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ?,
       address_line1 = ?, address_line2 = ?, address_city = ?, address_state = ?, address_postal_code = ?, address_country = ? WHERE id = ?`)
-    .run(name, handle || null, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties),
+    .run(name, handle || null, email, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties),
       addressLine1 || null, addressLine2 || null, addressCity || null, addressState || null, addressPostalCode || null, addressCountry || null, v.id);
 
   res.json({
-    name, handle: handle || null, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties,
+    name, handle: handle || null, email, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties,
     address: { line1: addressLine1 || "", line2: addressLine2 || "", city: addressCity || "", state: addressState || "", postalCode: addressPostalCode || "", country: addressCountry || "" }
   });
 });

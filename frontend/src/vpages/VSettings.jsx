@@ -27,13 +27,6 @@ export default function VSettings() {
     localStorage.removeItem(`VC_V_TYPE_${validator?.id}`);
     window.location.href = "/validator/onboarding";
   };
-  const [name, setName] = useState(validator?.name || "");
-  const [email, setEmail] = useState(validator?.email || "");
-  const [handle, setHandle] = useState(validator?.handle || "");
-  const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
-
   // Everything collected during onboarding, keyed the same way the
   // onboarding draft itself uses (and PATCH /profile expects) -- the
   // camelCase fields below (ageGroup, hasKids, ...) are what publicValidator
@@ -128,23 +121,6 @@ export default function VSettings() {
     }
   };
 
-  const save = async () => {
-    setBusy(true); setError(""); setSaved(false);
-    try {
-      // Same fix as saveDetails below -- vapi.updateProfile() (PATCH
-      // /api/v/profile) doesn't handle email at all, so it was silently
-      // dropped on every save before this. /auth/profile does.
-      await vapi.patch("/auth/profile", { name, email, handle });
-      await refresh();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setError(err.message || t("settings.saveFailed", null, "Couldn't save changes"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="page rise">
       <div className="ph" style={{ marginBottom: 24 }}>
@@ -208,66 +184,10 @@ export default function VSettings() {
       {/* Single vertical stack (was a 2-column grid) -- matches the builder
           side's own Settings layout, one full-width card at a time. */}
       <div className="col gap-5" style={{ maxWidth: 980 }}>
-          {/* Profile Card */}
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="user" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.profileInfo", null, "Profile Information")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.profileDesc", null, "Update your personal details and email address.")}</p>
-              </div>
-            </div>
-            
-            <div className="col gap-4">
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.fullName", null, "Full Name")}</label>
-                <input className="fin" value={name} onChange={e => setName(e.target.value)} />
-              </div>
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.emailAddress", null, "Email Address")}</label>
-                <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-              </div>
-              {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: "4px 0 8px" }}>{error}</p>}
-              {saved && <p style={{ color: "var(--success)", fontSize: 13, margin: "4px 0 8px" }}>✓ {t("settings.changesSaved", null, "Changes saved")}</p>}
-              <div>
-                <Btn variant="primary" onClick={save} disabled={busy}>
-                  {busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save Changes")}
-                </Btn>
-              </div>
-            </div>
-          </div>
-
-          {/* Account Card */}
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="userCheck" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.accountInfo", null, "Account Information")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.accountDesc", null, "View your account details and unique identifiers.")}</p>
-              </div>
-            </div>
-            
-            <div className="col gap-3">
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.validatorId", null, "Validator ID")}</label>
-                <input className="fin" value={`#${validator?.id}`} disabled style={{ background: "var(--surface-1)", cursor: "not-allowed" }} />
-              </div>
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.handle", null, "Handle")}</label>
-                <div className="inw has-pre"><span className="pre">@</span><input className="fin" value={handle} onChange={e => setHandle(e.target.value.toLowerCase().replace(/\s/g, ""))} /></div>
-              </div>
-              <div>
-                <Btn variant="primary" onClick={save} disabled={busy}>
-                  {busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save Changes")}
-                </Btn>
-              </div>
-            </div>
-          </div>
-
+          {/* Profile Information and Account Information cards (Name, Email,
+              Validator ID, Handle) removed -- all duplicated the Profile
+              page, which is now the one place to view/edit them (Email and
+              Validator ID were added there since this was their only home). */}
           {/* Profile Details -- everything collected during onboarding
               (age/gender/income/height/weight/... for a User, bio/role/
               experience/industry/... for a Validator, plus tester-only
@@ -276,7 +196,7 @@ export default function VSettings() {
           <div className="card" style={{ padding: 24 }}>
             <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
               <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="clipboard" size={20} />
+                <Icon name="fileText" size={20} />
               </div>
               <div>
                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.profileDetails", null, "Profile Details")}</h3>

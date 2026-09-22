@@ -14,6 +14,7 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
+  const [email, setEmail] = useState("");
   const [occupation, setOccupation] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
@@ -29,8 +30,9 @@ export default function Profile() {
   if (!data.name && Object.keys(data).length === 0) return <div className="page rise"><div className="muted">{t("profile.loadError", null, "Couldn't load profile. Please refresh.")}</div></div>;
 
   const startEdit = () => {
-    setName(data.name); 
-    setHandle((data.handle || "").replace(/^@/, "")); 
+    setName(data.name);
+    setHandle((data.handle || "").replace(/^@/, ""));
+    setEmail(data.email || "");
     setOccupation(data.occupation || "");
     setIndustry(data.industry || "");
     setLocation(data.location || "");
@@ -54,8 +56,8 @@ export default function Profile() {
     setBusy(true); setError("");
     try {
       const resolvedAddress = resolveOnboardingOther(address, t);
-      const res = await vapi.updateProfile({ name, handle, occupation, industry, location, bio, specialties, address: resolvedAddress });
-      setData(d => ({ ...d, name: res.name, handle: res.handle, occupation: res.occupation, industry: res.industry, location: res.location, bio: res.bio, specialties: res.specialties, address: res.address }));
+      const res = await vapi.updateProfile({ name, handle, email, occupation, industry, location, bio, specialties, address: resolvedAddress });
+      setData(d => ({ ...d, name: res.name, handle: res.handle, email: res.email, occupation: res.occupation, industry: res.industry, location: res.location, bio: res.bio, specialties: res.specialties, address: res.address }));
       setEditing(false);
     } catch (err) {
       setError(err.message || t("profile.saveError", null, "Couldn't save changes"));
@@ -84,7 +86,9 @@ export default function Profile() {
                     </span>
                   </div>
                   <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>
-                    {data.handle} | {data.occupation || t("profile.unspecified", null, "Unspecified")}{data.industry ? ` | ${data.industry}` : ""}
+                    {/* Was only shown in Settings' now-removed Account
+                        Information card -- has no other home on this page. */}
+                    #{data.id} | {data.handle} | {data.occupation || t("profile.unspecified", null, "Unspecified")}{data.industry ? ` | ${data.industry}` : ""}
                     {/* Was its own line below Specialties -- moved right after
                         Industry on this same line per tester feedback. */}
                     {data.location ? <> | <Icon name="mapPin" size={12} style={{ verticalAlign: -1 }} /> {data.location}</> : ""}
@@ -126,6 +130,12 @@ export default function Profile() {
                 <div className="fld" style={{ flex: 1, minWidth: 180 }}>
                   <label>{t("profile.handle", null, "Handle")}</label>
                   <div className="inw has-pre"><span className="pre">@</span><input className="fin" value={handle} onChange={e => setHandle(e.target.value.replace(/^@/, ""))} placeholder={t("profile.yourhandle", null, "yourhandle")} /></div>
+                </div>
+              </div>
+              <div className="row gap-3 wrap">
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t("profile.email", null, "Email Address")}</label>
+                  <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
                 </div>
               </div>
               <div className="row gap-3 wrap">
