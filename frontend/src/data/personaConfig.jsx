@@ -274,12 +274,25 @@ function verifyStepValid(d, region) {
   const taxId = (d.taxId || "").trim();
   return webOk && liOk && taxId.length >= 4 && /\d/.test(taxId);
 }
+// GenericAudience (Founder/Company personas) marks Country, Age, Gender and
+// Occupation required in the UI (Field defaults to required unless passed
+// `optional`; FilterGroup defaults the other way, so each of these passes
+// `required` explicitly) -- this used to only check ageBands, so Save
+// accepted the step with e.g. Occupation cleared entirely despite its own
+// asterisk and Country's own fld-invalid styling never actually firing
+// (showErrors only flips true when isValid is false, and isValid never
+// noticed these were empty).
+function audienceStepValid(d) {
+  const countries = Array.isArray(d.country) ? d.country : (d.country ? [d.country] : []);
+  return (d.ageBands || []).length >= 1 && (d.genders || []).length >= 1 &&
+    (d.occupations || []).length >= 1 && countries.length >= 1;
+}
 function foValid(key, d, region) {
   switch (key) {
     case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
     case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && !!d.stage && (d.industry !== "Other" || !!(d.industryOther && d.industryOther.trim()));
     case "validate": return (d.vTypes || []).length >= 1;
-    case "audience": return (d.ageBands || []).length >= 1;
+    case "audience": return audienceStepValid(d);
     case "verify": return verifyStepValid(d, region);
     default: return true;
   }
@@ -363,7 +376,7 @@ function coValid(key, d, region) {
     case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
     case "company": return !!(d.companyName && d.companyName.trim()) && !!d.industry && !!d.size && (d.industry !== "Other" || !!(d.industryOther && d.industryOther.trim()));
     case "needs": return (d.looking || []).length >= 1 && !!(d.productName && d.productName.trim()) && (!(d.looking || []).includes("other-c") || !!(d.lookingOther && d.lookingOther.trim()));
-    case "audience": return (d.ageBands || []).length >= 1;
+    case "audience": return audienceStepValid(d);
     case "verify": return verifyStepValid(d, region);
     default: return true;
   }
