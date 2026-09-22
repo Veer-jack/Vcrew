@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Avatar, Btn, Empty, KpiCard } from "../components/ui";
@@ -181,6 +182,9 @@ export default function AudienceExplorer() {
   const [citySuggestion, setCitySuggestion] = useState("");
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [sortKey, setSortKey] = useState("match");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef(null);
+  const [sortMenuPos, setSortMenuPos] = useState(null);
 
   useEffect(() => {
     // isLoading already starts true (useState(true) above) and this effect
@@ -493,16 +497,64 @@ export default function AudienceExplorer() {
           <div className="toolbar">
             <div className="seg-search"><Icon name="search" size={16} /><input placeholder={citySuggestion || t("audience.searchPlaceholder", null, "Search by name, role, city…")} value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
             <span className="grow" />
-            <select
-              value={sortKey}
-              onChange={e => setSortKey(e.target.value)}
+            {/* Was a native <select> -- its own OS-drawn control frame
+                showed as a second box on top of any custom border/focus
+                styling in some browsers (Discover's own Sort hit the same
+                thing), and its native focus ring stays visible until the
+                element genuinely loses focus, not just when its options
+                popup closes, so dismissing it by clicking away still left
+                it looking "selected". A plain button + portal-rendered
+                menu sidesteps both: no native chrome to fight, and the
+                highlight is driven directly by sortMenuOpen state instead
+                of DOM focus, so it clears the instant the menu closes.
+                Portaled to document.body rather than positioned locally --
+                the result cards below (.aud-card.rise) get their own
+                stacking context from their entrance animation, and a
+                later sibling stacking context always paints over an
+                earlier one regardless of any z-index set inside it. */}
+            <button
+              ref={sortBtnRef}
+              type="button"
+              onClick={() => {
+                if (!sortMenuOpen) {
+                  const r = sortBtnRef.current.getBoundingClientRect();
+                  setSortMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+                }
+                setSortMenuOpen(o => !o);
+              }}
               aria-label={t("audience.sortBy", null, "Sort by")}
-              style={{ fontSize: 13, fontWeight: 500, marginRight: 16, border: "1px solid var(--border)", borderRadius: 6, padding: "5px 8px", background: "var(--panel)", color: "inherit", cursor: "pointer" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, marginRight: 16, border: `1px solid ${sortMenuOpen ? "var(--accent)" : "var(--border)"}`, boxShadow: sortMenuOpen ? "var(--ring)" : "none", borderRadius: 6, padding: "5px 8px", background: "var(--panel)", color: "inherit", cursor: "pointer" }}
             >
-              <option value="match">{t("audience.sortByMatch", null, "Sort by: Match")}</option>
-              <option value="trust">{t("audience.sortByTrust", null, "Sort by: Trust")}</option>
-              <option value="name">{t("audience.sortByName", null, "Sort by: Name")}</option>
-            </select>
+              {sortKey === "trust" ? t("audience.sortByTrust", null, "Sort by: Trust") : sortKey === "name" ? t("audience.sortByName", null, "Sort by: Name") : t("audience.sortByMatch", null, "Sort by: Match")}
+              <Icon name="chevronDown" size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+            </button>
+            {sortMenuOpen && sortMenuPos && createPortal(
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setSortMenuOpen(false)} />
+                <div role="menu" style={{
+                  position: "fixed", top: sortMenuPos.top, right: sortMenuPos.right, zIndex: 50, minWidth: 170,
+                  background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                  boxShadow: "var(--shadow-md)", padding: 6,
+                }}>
+                  {[{ k: "match", l: t("audience.sortByMatch", null, "Sort by: Match") }, { k: "trust", l: t("audience.sortByTrust", null, "Sort by: Trust") }, { k: "name", l: t("audience.sortByName", null, "Sort by: Name") }].map(s => {
+                    const on = s.k === sortKey;
+                    return (
+                      <button
+                        key={s.k}
+                        role="menuitemradio"
+                        aria-checked={on}
+                        type="button"
+                        onClick={() => { setSortKey(s.k); setSortMenuOpen(false); }}
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                      >
+                        {s.l}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>,
+              document.body
+            )}
             <Btn variant="ghost" size="sm" icon="download" onClick={exportPDF} disabled={results.length === 0}>{t("actions.exportPdf", null, "Export PDF")}</Btn>
           </div>
           <div style={{ transition: "opacity 0.3s ease", opacity: isLoading ? 0.3 : 1, pointerEvents: isLoading ? "none" : "auto" }}>

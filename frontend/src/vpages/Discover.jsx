@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
@@ -340,6 +341,9 @@ export default function Discover() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minMatch, setMinMatch] = useState(0);
   const [sort, setSort] = useState("match");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef(null);
+  const [sortMenuPos, setSortMenuPos] = useState(null);
   // Seeded from ?tab= so navigating away (a mission's own detail page, the
   // submission drawer) and back doesn't silently reset this to "all" --
   // matches My missions' own tab persistence exactly (both this page and
@@ -499,26 +503,71 @@ export default function Discover() {
           <span className="muted mono" style={{ fontSize: 13 }}>{visibleTasks.length}</span>
         </div>
         <div className="row gap-2">
-          <label className="pill pill-focus-within" style={{ gap: 8, cursor: "pointer" }}>
+          {/* A native <select> here kept leaking its own OS-drawn control
+              frame as a second box inside the pill's focus highlight, in a
+              way border/background/outline/appearance couldn't fully
+              suppress in every real browser (Linux/Chrome widget theming
+              specifically) -- a plain button + popover has no native form
+              chrome to fight in the first place. */}
+          <button
+            ref={sortBtnRef}
+            type="button"
+            className="pill pill-focus-within"
+            style={{ gap: 8, cursor: "pointer", border: "1px solid var(--border)", background: "var(--panel)" }}
+            onClick={() => {
+              // This row (rise-2) and the mission grid below it (rise-3)
+              // each get their own stacking context from the entrance
+              // animation's transform keyframes -- a LATER sibling
+              // stacking context always paints over an earlier one
+              // regardless of any z-index set inside it, so a plain
+              // position:absolute popover here was rendering correctly
+              // but was actually unclickable, sitting behind the mission
+              // cards despite looking on top. Portaled straight to
+              // document.body (see below) so it isn't inside either
+              // stacking context in the first place.
+              if (!sortMenuOpen) {
+                const r = sortBtnRef.current.getBoundingClientRect();
+                setSortMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+              }
+              setSortMenuOpen(o => !o);
+            }}
+          >
             <span className="faint" style={{ fontSize: 12 }}>{t("discover.sort", null, "Sort")}</span>
-            {/* Focusing the select on its own drew a ring around just that
-                element, sitting oddly inside the rounded pill and leaving
-                "Sort" looking cut off outside it. outline: none here plus
-                .pill-focus-within (below) moves the highlight onto the
-                whole pill instead, the same border-color/box-shadow every
-                other focused field in the app already uses. appearance:
-                none on top of that -- border/background/outline alone
-                don't fully strip a <select>'s own native OS-drawn control
-                frame in every browser, which still showed as a second,
-                inner box on focus even with all three reset. */}
-            <select value={sort} onChange={e => setSort(e.target.value)} style={{ appearance: "none", WebkitAppearance: "none", MozAppearance: "none", border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
-              {sorts.map(s => <option key={s.k} value={s.k}>{sortLabel(t, s.k, s.l)}</option>)}
-            </select>
-            {/* appearance: none above strips the native dropdown chevron
-                along with the box frame it was trying to remove -- this
-                puts the same affordance back by hand. */}
-            <Icon name="chevronDown" size={14} style={{ marginLeft: -4, flexShrink: 0, color: "var(--text-muted)" }} />
-          </label>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>{sortLabel(t, sort, sorts.find(s => s.k === sort)?.l)}</span>
+            <Icon name="chevronDown" size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+          </button>
+          {sortMenuOpen && sortMenuPos && createPortal(
+            <>
+              {/* :focus-within (the pill's own highlight) only clears once
+                  the button genuinely loses focus -- closing the menu
+                  (state) doesn't do that by itself, so clicking away would
+                  dismiss the menu but leave the pill looking permanently
+                  "focused". Blurring here is what actually resets it. */}
+              <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => { setSortMenuOpen(false); sortBtnRef.current?.blur(); }} />
+              <div role="menu" style={{
+                position: "fixed", top: sortMenuPos.top, right: sortMenuPos.right, zIndex: 50, minWidth: 180,
+                background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                boxShadow: "var(--shadow-md)", padding: 6,
+              }}>
+                {sorts.map(s => {
+                  const on = s.k === sort;
+                  return (
+                    <button
+                      key={s.k}
+                      role="menuitemradio"
+                      aria-checked={on}
+                      type="button"
+                      onClick={() => { setSort(s.k); setSortMenuOpen(false); sortBtnRef.current?.blur(); }}
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                    >
+                      {sortLabel(t, s.k, s.l)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>,
+            document.body
+          )}
         </div>
       </div>
 
