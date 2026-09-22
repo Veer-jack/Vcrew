@@ -85,6 +85,9 @@ export default function Profile() {
                   </div>
                   <p className="muted" style={{ margin: "5px 0 0", fontSize: 14 }}>
                     {data.handle} · {data.occupation || t("profile.unspecified", null, "Unspecified")}{data.industry ? ` · ${data.industry}` : ""}
+                    {/* Was its own line below Specialties -- moved right after
+                        Industry on this same line per tester feedback. */}
+                    {data.location ? <> · <Icon name="mapPin" size={12} style={{ verticalAlign: -1 }} /> {data.location}</> : ""}
                   </p>
                   {/* Was folded onto the same line as handle/occupation/
                       industry, crowding it -- its own line, matching how the
@@ -95,7 +98,6 @@ export default function Profile() {
                       {data.specialties.length > 5 && <span style={{ color: "var(--accent)" }}> +{data.specialties.length - 5}</span>}
                     </p>
                   )}
-                  {data.location && <p className="muted" style={{ margin: "3px 0 0", fontSize: 13 }}><Icon name="mapPin" size={12} /> {data.location}</p>}
                 </div>
               </div>
               <button className="btn btn-ghost" onClick={startEdit}><Icon name="edit" />{t("actions.editProfile", null, "Edit profile")}</button>
