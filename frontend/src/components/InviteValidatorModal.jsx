@@ -16,11 +16,6 @@ const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
           <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
             {v.name}
             {v.verified && <Icon name="checkCircle" size={13} color="var(--success)" />}
-            {v.match >= 80 && (
-              <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--accent)", background: "var(--accent-weak)", padding: "2px 7px", borderRadius: 10, textTransform: "uppercase", letterSpacing: ".02em" }}>
-                {t("invite.recommended", null, "Recommended")}
-              </span>
-            )}
             {/* Flags a validator the builder already turned down (a
                 rejected application) or who already declined -- on this
                 same mission -- so re-inviting is still possible (this is
