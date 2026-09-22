@@ -10,6 +10,7 @@ import { deadlineLabel, deadlineHours, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
 import { vtLabel, rewardBandLabel, sortLabel } from "../vi18n";
 import { TYPES, stepLabelsFor } from "./VOnboarding.jsx";
+import VSubmissionDrawer from "../components/VSubmissionDrawer";
 
 // Mirrors the builder Dashboard's own ProfileCompletionBanner -- Skip (in
 // onboarding's rail) always just saves progress and exits, so this is what
@@ -337,6 +338,10 @@ export default function Discover() {
   const [data, setData] = useState(null);
   const [stats, setStats] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
+  // Opening a completed mission here used to navigate to a separate
+  // celebration page (MissionResults.jsx); now opens the same read-only
+  // submission drawer My missions' own "View details" uses, in place.
+  const [viewingResults, setViewingResults] = useState(null);
   // Which sidebar filter groups are collapsed -- same shape and default
   // (all start open) as Audience Explorer's own filter panel, which this
   // now matches.
@@ -375,7 +380,7 @@ export default function Discover() {
 
   const onOpen = (task) => {
     if (task.myStatus === "completed") {
-      navigate(`/validator/missions/${task.id}/results`);
+      setViewingResults(task);
     } else {
       navigate(`/validator/missions/${task.id}`, { state: { fromDiscover: true } });
     }
@@ -550,6 +555,7 @@ export default function Discover() {
             )}
         </div>
       </div>
+      {viewingResults && <VSubmissionDrawer taskId={viewingResults.id} missionName={viewingResults.product} onClose={() => setViewingResults(null)} />}
     </div>
   );
 }
