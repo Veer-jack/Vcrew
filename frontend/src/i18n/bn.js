@@ -2244,6 +2244,7 @@ const bn = {
   },
   missionDetail: {
     newAudienceMatchHint: "একজন নতুন ভ্যালিডেটর আপনার অডিয়েন্সের সাথে মেলে",
+    yourSubmission: "আপনার জমা",
     thStatus: "অবস্থা",
     participationType: "অংশগ্রহণের ধরন",
     requiresApprovalNote: "ভ্যালিডেটর শুরু করার আগে আপনার অনুমোদন প্রয়োজন",
@@ -2579,6 +2580,7 @@ const bn = {
     organization: "সংগঠন",
     orgDesc: "সম্প্রদায়, নীতি এবং প্রোগ্রাম প্রতিক্রিয়া সংগ্রহ করুন — প্রভাব মূল্যায়ন এবং সচেতনতা অধ্যয়ন।",
     member: "সদস্য",
+    builder: "বিল্ডার",
   },
   support: {
     errRaiseTicket: "টিকিট তুলতে পারিনি",

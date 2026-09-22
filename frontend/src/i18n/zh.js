@@ -2244,6 +2244,7 @@ const zh = {
   },
   missionDetail: {
     newAudienceMatchHint: "有新的验证者符合您的受众",
+    yourSubmission: "您的提交",
     thStatus: "状态",
     participationType: "参与类型",
     requiresApprovalNote: "验证员开始前需要您的批准",
@@ -2579,6 +2580,7 @@ const zh = {
     organization: "组织机构",
     orgDesc: "收集社区、政策和计划反馈——影响评估和意识研究。",
     member: "会员",
+    builder: "建立者",
   },
   support: {
     errRaiseTicket: "无法提票",

@@ -2244,6 +2244,7 @@ const ur = {
   },
   missionDetail: {
     newAudienceMatchHint: "ایک نیا تصدیق کنندہ آپ کی سامعین سے میل کھاتا ہے",
+    yourSubmission: "آپ کی جمع کرائی",
     thStatus: "حیثیت",
     participationType: "شرکت کی قسم",
     requiresApprovalNote: "ویلیڈیٹر کے شروع کرنے سے پہلے آپ کی منظوری درکار ہے",
@@ -2579,6 +2580,7 @@ const ur = {
     organization: "تنظیم",
     orgDesc: "کمیونٹی، پالیسی اور پروگرام کے تاثرات جمع کریں - اثرات کی تشخیص اور آگاہی کے مطالعہ۔",
     member: "ممبر",
+    builder: "بلڈر",
   },
   support: {
     errRaiseTicket: "ٹکٹ نہیں بڑھا سکا",

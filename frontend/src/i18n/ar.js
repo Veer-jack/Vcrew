@@ -2244,6 +2244,7 @@ const ar = {
   },
   missionDetail: {
     newAudienceMatchHint: "يوجد مدقق جديد يطابق جمهورك",
+    yourSubmission: "إرسالك",
     thStatus: "الحالة",
     participationType: "نوع المشاركة",
     requiresApprovalNote: "يتطلب موافقتك قبل أن يتمكن المدقق من البدء",
@@ -2579,6 +2580,7 @@ const ar = {
     organization: "التنظيم",
     orgDesc: "جمع تعليقات المجتمع والسياسات والبرامج - تقييم الأثر ودراسات الوعي.",
     member: "عضو",
+    builder: "منشئ",
   },
   support: {
     errRaiseTicket: "تعذر رفع التذكرة",

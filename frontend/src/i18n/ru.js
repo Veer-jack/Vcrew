@@ -2244,6 +2244,7 @@ const ru = {
   },
   missionDetail: {
     newAudienceMatchHint: "Новый валидатор соответствует вашей аудитории",
+    yourSubmission: "Ваша отправка",
     thStatus: "Статус",
     participationType: "Тип участия",
     requiresApprovalNote: "Требуется ваше одобрение, прежде чем валидатор сможет начать",
@@ -2579,6 +2580,7 @@ const ru = {
     organization: "Организация",
     orgDesc: "Соберите отзывы сообщества, политики и программ — исследования по оценке воздействия и повышению осведомленности.",
     member: "Член",
+    builder: "Билдер",
   },
   support: {
     errRaiseTicket: "Не удалось поднять билет",

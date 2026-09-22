@@ -2244,6 +2244,7 @@ const pt = {
   },
   missionDetail: {
     newAudienceMatchHint: "Um novo validador corresponde ao seu público",
+    yourSubmission: "Seu envio",
     thStatus: "Status",
     participationType: "Tipo de participação",
     requiresApprovalNote: "Requer sua aprovação antes que um validador possa começar",
@@ -2579,6 +2580,7 @@ const pt = {
     organization: "Organização",
     orgDesc: "Reúna feedback da comunidade, das políticas e dos programas — avaliação de impacto e estudos de sensibilização.",
     member: "Membro",
+    builder: "Criador",
   },
   support: {
     errRaiseTicket: "Não foi possível levantar o ticket",

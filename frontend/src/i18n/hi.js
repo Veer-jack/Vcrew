@@ -2244,6 +2244,7 @@ const hi = {
   },
   missionDetail: {
     newAudienceMatchHint: "एक नया वैलिडेटर आपकी ऑडियंस से मेल खाता है",
+    yourSubmission: "आपकी प्रस्तुति",
     thStatus: "स्थिति",
     participationType: "भागीदारी प्रकार",
     requiresApprovalNote: "वैलिडेटर के शुरू करने से पहले आपकी स्वीकृति आवश्यक है",
@@ -2579,6 +2580,7 @@ const hi = {
     organization: "संगठन",
     orgDesc: "समुदाय, नीति और कार्यक्रम प्रतिक्रिया इकट्ठा करें - प्रभाव मूल्यांकन और जागरूकता अध्ययन।",
     member: "सदस्य",
+    builder: "बिल्डर",
   },
   support: {
     errRaiseTicket: "टिकट नहीं जुटा सका",

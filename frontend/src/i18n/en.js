@@ -2243,6 +2243,7 @@ const en = {
   },
   missionDetail: {
     newAudienceMatchHint: "A new validator matches your audience",
+    yourSubmission: "Your submission",
     thStatus: "Status",
     participantMoved: "{{name}} moved to {{stage}}",
     recently: "recently",
@@ -2578,6 +2579,7 @@ const en = {
     organization: "Organization",
     orgDesc: "Gather community, policy and programme feedback — impact assessment and awareness studies.",
     member: "Member",
+    builder: "Builder",
   },
   support: {
     errRaiseTicket: "Couldn't raise ticket",
