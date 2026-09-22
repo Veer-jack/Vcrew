@@ -307,6 +307,17 @@ CREATE TABLE IF NOT EXISTS admin_notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- De-dup record for the "notify the builder when a new validator matches a
+-- 0-match mission" feature (see notificationsHelper.js's
+-- notifyBuilderOfNewMatch) -- prevents the same validator re-saving their
+-- profile from re-firing the same "new match" notification every time.
+CREATE TABLE IF NOT EXISTS mission_match_notified (
+  mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
+  notified_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (mission_id, validator_id)
+);
+
 CREATE TABLE IF NOT EXISTS threads (
   id SERIAL PRIMARY KEY,
   builder_id INTEGER REFERENCES builders(id) ON DELETE CASCADE,

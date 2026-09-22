@@ -2237,6 +2237,7 @@ const zh = {
     messageName: "消息 {{name}} …",
   },
   missionDetail: {
+    newAudienceMatchHint: "有新的验证者符合您的受众",
     thStatus: "状态",
     participationType: "参与类型",
     requiresApprovalNote: "验证员开始前需要您的批准",

@@ -70,7 +70,7 @@ export const db = {
     run: async (...params) => {
       const isInsert = /^\s*INSERT/i.test(sql);
       // Only append RETURNING id for tables that have a serial id column
-      const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens/i.test(sql);
+      const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified/i.test(sql);
       const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(sql) ? `${sql} RETURNING id` : sql;
       const { rows, rowCount } = await query(finalSql, flat(params));
       return { changes: rowCount, lastInsertRowid: rows[0]?.id ?? null };
@@ -90,7 +90,7 @@ export const db = {
           run: async (...params) => {
             const pgSql = toPostgres(sql);
             const isInsert = /^\s*INSERT/i.test(sql);
-            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens/i.test(sql);
+            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified/i.test(sql);
             const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(pgSql) ? `${pgSql} RETURNING id` : pgSql;
             const r = await client.query(finalSql, flat(params));
             return { changes: r.rowCount, lastInsertRowid: r.rows[0]?.id ?? null };
@@ -354,6 +354,21 @@ export async function initDb() {
     if (!fgpColNames.includes('is_restart')) {
       await client.query(`ALTER TABLE focus_group_polls ADD COLUMN is_restart BOOLEAN DEFAULT FALSE`);
     }
+
+    // De-dup record for the "notify the builder when a new validator matches
+    // a 0-match mission" feature (see notificationsHelper.js's
+    // notifyBuilderOfNewMatch) -- without this, the same validator re-saving
+    // their profile (any Settings edit, not just onboarding) would re-fire
+    // the same "new match" notification every time, since they'd still be
+    // the sole match on re-check.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mission_match_notified (
+        mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+        validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
+        notified_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (mission_id, validator_id)
+      )
+    `);
 
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {

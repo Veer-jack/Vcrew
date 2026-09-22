@@ -2237,6 +2237,7 @@ const ru = {
     messageName: "Сообщение {{name}} …",
   },
   missionDetail: {
+    newAudienceMatchHint: "Новый валидатор соответствует вашей аудитории",
     thStatus: "Статус",
     participationType: "Тип участия",
     requiresApprovalNote: "Требуется ваше одобрение, прежде чем валидатор сможет начать",

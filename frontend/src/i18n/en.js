@@ -2236,6 +2236,7 @@ const en = {
     messageName: "Message {{name}}…",
   },
   missionDetail: {
+    newAudienceMatchHint: "A new validator matches your audience",
     thStatus: "Status",
     participantMoved: "{{name}} moved to {{stage}}",
     recently: "recently",

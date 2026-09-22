@@ -2237,6 +2237,7 @@ const pt = {
     messageName: "Mensagem {{name}}…",
   },
   missionDetail: {
+    newAudienceMatchHint: "Um novo validador corresponde ao seu público",
     thStatus: "Status",
     participationType: "Tipo de participação",
     requiresApprovalNote: "Requer sua aprovação antes que um validador possa começar",

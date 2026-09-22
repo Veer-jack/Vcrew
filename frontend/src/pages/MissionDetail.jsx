@@ -1920,6 +1920,21 @@ export default function MissionDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, missionNotifs]);
 
+  // A new audience match isn't answered by any of the 6 tabs (Audience just
+  // shows filters, not candidates) -- the actual next step is opening
+  // Invite, so it gets its own dot on that button instead of a tab badge,
+  // and clears the same way a tab's badge does: opening the thing that
+  // answers it (here, the Invite modal) is what marks it read.
+  const hasNewAudienceMatch = missionNotifs.some(n => n.unread && n.type === "audience_match");
+  useEffect(() => {
+    if (!showInviteModal) return;
+    const ids = missionNotifs.filter(n => n.unread && n.type === "audience_match").map(n => n.id);
+    if (!ids.length) return;
+    setMissionNotifs(prev => prev.map(n => ids.includes(n.id) ? { ...n, unread: false } : n));
+    ids.forEach(nid => api.markRead(nid).catch(() => {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInviteModal]);
+
   const showToast = (message, type = "success") => {
     setToast({ message, type });
     // Toast component handles its own timeout and exit animations now!
@@ -2202,7 +2217,12 @@ export default function MissionDetail() {
             )}
           </div>
           )}
-          {mission.status === "active" && <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>{t("actions.invite", null, "Invite")}</Btn>}
+          {mission.status === "active" && (
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>{t("actions.invite", null, "Invite")}</Btn>
+              {hasNewAudienceMatch && <span className="bell-unread-dot blink" title={t("missionDetail.newAudienceMatchHint", null, "A new validator matches your audience")} />}
+            </div>
+          )}
         </div>
       </div>
 

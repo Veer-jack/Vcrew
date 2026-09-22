@@ -2237,6 +2237,7 @@ const bn = {
     messageName: "বার্তা {{name}} …",
   },
   missionDetail: {
+    newAudienceMatchHint: "একজন নতুন ভ্যালিডেটর আপনার অডিয়েন্সের সাথে মেলে",
     thStatus: "অবস্থা",
     participationType: "অংশগ্রহণের ধরন",
     requiresApprovalNote: "ভ্যালিডেটর শুরু করার আগে আপনার অনুমোদন প্রয়োজন",

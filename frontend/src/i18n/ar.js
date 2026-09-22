@@ -2237,6 +2237,7 @@ const ar = {
     messageName: "رسالة {{name}} ...",
   },
   missionDetail: {
+    newAudienceMatchHint: "يوجد مدقق جديد يطابق جمهورك",
     thStatus: "الحالة",
     participationType: "نوع المشاركة",
     requiresApprovalNote: "يتطلب موافقتك قبل أن يتمكن المدقق من البدء",

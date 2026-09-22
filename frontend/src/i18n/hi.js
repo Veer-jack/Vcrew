@@ -2237,6 +2237,7 @@ const hi = {
     messageName: "संदेश {{name}}…",
   },
   missionDetail: {
+    newAudienceMatchHint: "एक नया वैलिडेटर आपकी ऑडियंस से मेल खाता है",
     thStatus: "स्थिति",
     participationType: "भागीदारी प्रकार",
     requiresApprovalNote: "वैलिडेटर के शुरू करने से पहले आपकी स्वीकृति आवश्यक है",

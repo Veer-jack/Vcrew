@@ -2237,6 +2237,7 @@ const ur = {
     messageName: "پیغام {{name}} …",
   },
   missionDetail: {
+    newAudienceMatchHint: "ایک نیا تصدیق کنندہ آپ کی سامعین سے میل کھاتا ہے",
     thStatus: "حیثیت",
     participationType: "شرکت کی قسم",
     requiresApprovalNote: "ویلیڈیٹر کے شروع کرنے سے پہلے آپ کی منظوری درکار ہے",

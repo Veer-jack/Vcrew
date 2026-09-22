@@ -4,6 +4,7 @@ import { hashPassword, comparePassword, createValidatorSession, destroyValidator
 import { sendValidatorWelcome } from "../email.js";
 import { isValidEmail, isValidPassword } from "../validators.js";
 import { levelForCompleted } from "../vmeta.js";
+import { notifyBuilderOfNewMatch } from "../notificationsHelper.js";
 import multer from "multer";
 import { makeCloudinaryStorage } from "../upload.js";
 
@@ -312,6 +313,11 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
     await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('application', 'tester_application', 'star', 'accent', 'New Tester Application', ?, 'Just now', 1)`)
       .run(`${b.name || 'A validator'} has applied for Verified Tester status. Review within 72 hours.`).catch(() => {});
   }
+
+  // Not awaited -- this route is a hot path (every onboarding step and every
+  // Settings save hits it), and scanning active missions for a new match
+  // has no business adding latency to that response.
+  notifyBuilderOfNewMatch(req.validator.id).catch(() => {});
 
   const v = await db.prepare(`SELECT * FROM validators WHERE id = $1`).get(req.validator.id);
   res.json({ validator: v });

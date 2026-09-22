@@ -58,6 +58,65 @@ export async function notifyMatchingValidators(missionId) {
 }
 
 /**
+ * Fires (fire-and-forget, never awaited by its caller) after a validator
+ * saves their profile -- onboarding completion or any later Settings edit.
+ * The reverse direction of notifyMatchingValidators: instead of one
+ * published mission telling every matching validator, one validator's
+ * updated attributes may now newly satisfy a mission's audience filters,
+ * and the builder who's been stuck at 0 matches deserves to know.
+ *
+ * Deliberately NOT every mission this validator matches -- only ones that
+ * were genuinely stuck (this validator is the sole match right now, a
+ * decent proxy for "just went from 0 to 1" without needing to track a
+ * live count per mission). A validator joining an already-healthy, broadly-
+ * matching audience isn't news to that builder.
+ *
+ * ponytail: loops active missions in JS, ~3 small indexed queries each.
+ * Fine at current scale (bounded active-mission counts); if that ever
+ * grows large, batch the per-mission point-checks into one query instead.
+ */
+export async function notifyBuilderOfNewMatch(validatorId) {
+  try {
+    const missions = await db.prepare(`
+      SELECT id, builder_id, audience_json, ptype
+      FROM missions
+      WHERE status = 'active' AND joined < target
+    `).all();
+
+    for (const mission of missions) {
+      const already = await db.prepare(`SELECT 1 FROM mission_match_notified WHERE mission_id = ? AND validator_id = ?`).get(mission.id, validatorId);
+      if (already) continue;
+
+      let audience = {};
+      try { audience = JSON.parse(mission.audience_json || "{}"); } catch (e) {}
+      const { clauses, params } = buildAudienceClauses(audience);
+      const whereClause = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+      // Array-typed params (bound to = ANY(?)) must go in as a single
+      // wrapped params array, not spread -- same convention getRealMatchCount
+      // uses just above in this same file's audience.js. Spreading here
+      // double-unwraps a nested array param and sends Postgres a bare
+      // string where it expects an array literal.
+      const matchesThisValidator = await db.prepare(`SELECT id FROM validators WHERE id = ? ${clauses.length ? `AND ${clauses.join(" AND ")}` : ""}`).get([validatorId, ...params]);
+      if (!matchesThisValidator) continue;
+
+      const totalMatches = await db.prepare(`SELECT COUNT(*) AS c FROM validators ${whereClause}`).get(params);
+      if (parseInt(totalMatches.c, 10) > 1) continue;
+
+      await db.prepare(`INSERT INTO mission_match_notified (mission_id, validator_id) VALUES (?, ?) ON CONFLICT (mission_id, validator_id) DO NOTHING`).run(mission.id, validatorId);
+
+      const ptypeLabel = ptypeOf(mission.ptype)?.label || "your";
+      await db.prepare(`
+        INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+        VALUES (?, 'mission', 'audience_match', 'users', 'success', ?, ?, 'Just now', 1, ?)
+      `).run(mission.builder_id, "New audience match", `A validator matching your ${ptypeLabel} mission's audience just joined — invite them now.`, mission.id);
+    }
+  } catch (error) {
+    console.error("notifyBuilderOfNewMatch error:", error);
+  }
+}
+
+/**
  * Fires asynchronously when slots_filled is reduced.
  * Alerts validators who saved the mission that a slot is now open.
  */
