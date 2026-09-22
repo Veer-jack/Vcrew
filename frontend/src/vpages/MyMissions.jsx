@@ -53,10 +53,13 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
         <Icon name={vType.icon} size={22} />
       </span>
       <div style={{ minWidth: 0 }}>
-        <div className="row gap-2" style={{ alignItems: "baseline" }}>
-          <b style={{ fontSize: 16, letterSpacing: "-.01em" }}>{m.product}</b>
-          <span className="muted" style={{ fontSize: 13.5 }}>· {m.tagline}</span>
-        </div>
+        {/* Title on its own single line (truncated, not wrapped) and the
+            description below it, clamped to 2 lines with an ellipsis --
+            an unbounded tagline (a long/repeated one) used to sit inline
+            next to the title with no limit at all, sometimes wrapping the
+            whole row many lines tall. */}
+        <b style={{ fontSize: 16, letterSpacing: "-.01em", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.product}</b>
+        {m.tagline && <p className="muted" style={{ margin: "2px 0 0", fontSize: 13.5, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{m.tagline}</p>}
         <div className="row gap-3 wrap faint" style={{ fontSize: 12.5, marginTop: 5 }}>
           <span className="tag" style={{ background: s.bg, color: s.tone }}>{t(s.labelKey, null, s.label)}</span>
           <span className="row gap-2"><Icon name="clock" size={13} />{m.deadline}</span>
@@ -66,7 +69,10 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
         {(m.status === "active" || m.status === "revision") && <div className="lvl-meter" style={{ marginTop: 10, maxWidth: 320 }}><i style={{ width: m.progress + "%" }} /></div>}
         {m.reason && <p className="faint" style={{ margin: "7px 0 0", fontSize: 12.5 }}>{m.reason}</p>}
       </div>
-      <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
+      {/* Reward and the row's action side by side (reward first, then
+          button) instead of stacked -- per tester feedback, for every
+          status, not just some. */}
+      <div className="row" style={{ alignItems: "center", gap: 16 }}>
         <div style={{ textAlign: "right" }}><VReward amount={m.reward} type={m.rewardType} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
         {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => {
           const dest = (m.type === "trial") ? "checkin"
@@ -92,9 +98,20 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
             Participants/Responses view uses (VSubmissionDrawer), instead of
             navigating away to a separate page. The "Paid" pill that used to
             sit above this button was dropped -- already shown once as the
-            status tag next to the title/date. */}
+            status tag next to the title/date. Same primary-button styling
+            as Resume, per feedback that this button read as secondary/ghost
+            when it's just as much a primary action on this row. */}
         {m.status === "completed" && (
-          <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={() => onViewResults(m)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" size={13} /></button>
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" /></button>
+        )}
+        {/* Same drawer, before a verdict exists yet -- the endpoint reads
+            whatever's in `responses` for this mission/validator regardless
+            of status, so a still-pending submission renders identically,
+            just without a rating/reward outcome underneath it. Separate
+            label from "completed" ("View submission", not "View results")
+            since there's no result to show yet, only what was sent in. */}
+        {m.status === "submitted" && (
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewSubmission", null, "View submission")} <Icon name="arrowRight" /></button>
         )}
         {m.status === "saved" && (
           <div className="row gap-2">
