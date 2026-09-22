@@ -256,6 +256,12 @@ a { color: inherit; text-decoration: none; }
   background: var(--panel); white-space: nowrap;
 }
 .pill svg { width: 14px; height: 14px; }
+/* For a .pill that wraps a focusable control (e.g. Discover's Sort select)
+   -- same border-color/box-shadow every other focused field already uses
+   (.fin:focus, textarea.field:focus, .otp-box:focus), applied to the whole
+   pill via :focus-within instead of the control's own focus ring, which
+   only ever outlines itself, not the label/text sitting next to it. */
+.pill-focus-within:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
 
 .stat-num { font-family: var(--mono); font-weight: 600; letter-spacing: -.02em; }
 

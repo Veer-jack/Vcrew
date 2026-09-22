@@ -499,15 +499,15 @@ export default function Discover() {
           <span className="muted mono" style={{ fontSize: 13 }}>{visibleTasks.length}</span>
         </div>
         <div className="row gap-2">
-          <label className="pill" style={{ gap: 8, cursor: "pointer" }}>
+          <label className="pill pill-focus-within" style={{ gap: 8, cursor: "pointer" }}>
             <span className="faint" style={{ fontSize: 12 }}>{t("discover.sort", null, "Sort")}</span>
-            {/* The click/focus ring a browser draws on a <select> follows
-                that element's OWN corners, not its parent's -- this had no
-                border-radius of its own (relying entirely on the .pill
-                wrapper for the rounded look), so focusing it drew a sharp
-                rectangular ring sitting oddly inside the rounded pill.
-                Matches .pill's own 20px radius so the ring is rounded too. */}
-            <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", borderRadius: 20, background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
+            {/* Focusing the select on its own drew a ring around just that
+                element, sitting oddly inside the rounded pill and leaving
+                "Sort" looking cut off outside it. outline: none here plus
+                .pill-focus-within (below) moves the highlight onto the
+                whole pill instead, the same border-color/box-shadow every
+                other focused field in the app already uses. */}
+            <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
               {sorts.map(s => <option key={s.k} value={s.k}>{sortLabel(t, s.k, s.l)}</option>)}
             </select>
           </label>
