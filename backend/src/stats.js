@@ -59,10 +59,23 @@ export async function recalcMissionStats(missionId, optionalTx) {
 
   // Fire once, exactly at the crossing point — not on every recalc, so builders
   // aren't re-notified on subsequent revision/reject churn once already full.
+  // The crossing check itself has to be the thing that's atomic, not just
+  // guarded in memory: this function runs with no locking (dashboard.js
+  // calls it for every active mission on every single dashboard load, with
+  // no transaction), so two overlapping calls for the same mission (two
+  // tabs, a fast refresh, anything landing close together) both read the
+  // same pre-update `m.submitted`, both see "not yet crossed", and both
+  // insert the notification. The UPDATE...WHERE below is what actually
+  // serializes this: only the call that flips full_submissions_notified
+  // 0->1 gets a non-zero changes count, so only one of any number of
+  // concurrent callers ever inserts.
   if ((m.submitted || 0) < target && submitted >= target) {
-    // cat 'application' (not 'mission') — NotificationsSidebar's tabs have
-    // no 'mission' category, so this would only ever show under "All".
-    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'mission_full_submissions', 'checkCircle', 'success', 'All responses are in', ?, 'Just now', 1, ?)`)
-      .run(m.builder_id, `All ${target} response(s) for "${m.name}" are in — head to Review to approve or reject them.`, missionId);
+    const claimed = await tx.prepare(`UPDATE missions SET full_submissions_notified = 1 WHERE id = ? AND full_submissions_notified = 0`).run(missionId);
+    if (claimed.changes > 0) {
+      // cat 'application' (not 'mission') — NotificationsSidebar's tabs have
+      // no 'mission' category, so this would only ever show under "All".
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'mission_full_submissions', 'checkCircle', 'success', 'All responses are in', ?, 'Just now', 1, ?)`)
+        .run(m.builder_id, `All ${target} response(s) for "${m.name}" are in — head to Review to approve or reject them.`, missionId);
+    }
   }
 }

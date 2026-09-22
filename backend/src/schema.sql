@@ -173,7 +173,8 @@ CREATE TABLE IF NOT EXISTS missions (
   closed_at TIMESTAMPTZ,
   archived_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ,
-  require_approval INTEGER DEFAULT 0
+  require_approval INTEGER DEFAULT 0,
+  full_submissions_notified INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS participants (

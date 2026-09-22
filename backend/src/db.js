@@ -370,6 +370,12 @@ export async function initDb() {
       )
     `);
 
+    const mCols2 = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='missions'");
+    const mColNames2 = mCols2.rows.map(r => r.column_name);
+    if (!mColNames2.includes('full_submissions_notified')) {
+      await client.query(`ALTER TABLE missions ADD COLUMN full_submissions_notified INTEGER DEFAULT 0`);
+    }
+
     console.log("✅ PostgreSQL connected + schema applied");
   } finally {
     client.release();
