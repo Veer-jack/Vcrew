@@ -242,15 +242,16 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
         {task.builderName && <div className="faint" style={{ fontSize: 11.5, marginTop: 1 }}>{t("discover.postedBy", null, "Posted by")} {task.builderName}{task.builderDesignation ? `, ${task.builderDesignation}` : ""}</div>}
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
+      {/* Absorbs whatever leftover height the grid row's stretch gives this
+          card (see .mkt-grid) beyond this card's own natural content, so
+          the spots/deadline row, progress bar, and reward/View footer all
+          sit together flush at the bottom instead of drifting up on cards
+          with a shorter brief. */}
+      <div style={{ flex: 1 }} />
       <div className="row gap-3 wrap faint" style={{ fontSize: 12 }}>
         <span className="row gap-2"><Icon name="users" size={13} />{task.spotsLeft} {t("discover.spotsLeft", null, "left")}</span>
         <span className="row gap-2" style={{ color: urgent ? "var(--danger)" : "inherit", fontWeight: urgent ? 700 : 400 }}><Icon name="clock" size={13} />{deadlineLabel(task.deadline)}</span>
       </div>
-      {/* Absorbs whatever leftover height the grid row's stretch gives this
-          card (see .mkt-grid) beyond this card's own natural content, so
-          the progress bar and reward/View footer always sit flush at the
-          bottom instead of drifting up on cards with a shorter brief. */}
-      <div style={{ flex: 1 }} />
       <div style={{ height: 5, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}>
         <i style={{ display: "block", height: "100%", width: (100 - spotPct) + "%", borderRadius: 20, background: spotPct < 25 ? "var(--danger)" : `var(${vt.accentVar})` }} />
       </div>
