@@ -131,7 +131,11 @@ export default function Messages() {
     : threads;
 
   return (
-    <div className="page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
+    // .page's own bottom padding (32px) is invisible on a normal scrolling
+    // page, but here it left a dead gray strip below the chat card instead
+    // of the card reaching the bottom of the viewport -- paddingBottom:0
+    // lets the card's flex:1 claim that space instead.
+    <div className="page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", paddingBottom: 0 }}>
       <div className="ph" style={{ flex: "none" }}>
         <div><h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("vMessages.lead", null, "Chat directly with the builders and researchers you're working with.")}</p></div>
       </div>
