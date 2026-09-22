@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
+import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD, audienceStepIssue } from "../data/personaConfig";
 import { PersonalFields } from "../components/OnboardingFields";
 import { isValidMobile } from "../data/onboarding";
 import { api } from "../api/client";
@@ -171,7 +171,12 @@ export default function EditAccountStep() {
   const handleSave = async () => {
     const isValid = persona ? persona.validate(stepKey, d, REGION) : genericPersonalValid(d);
     if (!isValid) {
-      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      // Names the specific missing field on the Audience step (Age/Gender/
+      // Country/Occupation) instead of a generic "fill in the required
+      // fields" -- the other steps don't have a per-field breakdown like
+      // this yet, so they keep the generic message.
+      const specificIssue = stepKey === "audience" ? audienceStepIssue(d, t) : null;
+      setError(specificIssue || t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
       setShowErrors(true);
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;

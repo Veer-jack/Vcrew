@@ -287,6 +287,19 @@ function audienceStepValid(d) {
   return (d.ageBands || []).length >= 1 && (d.genders || []).length >= 1 &&
     (d.occupations || []).length >= 1 && countries.length >= 1;
 }
+// Names the specific missing field instead of a generic "fill in the
+// required fields" -- checked in the same top-to-bottom order the fields
+// appear on the page, so the first thing actually wrong is what gets
+// reported (same convention CreateMissionWizard's rewardIssueDetail uses).
+// Returns null once everything required is present.
+export function audienceStepIssue(d, t) {
+  const countries = Array.isArray(d.country) ? d.country : (d.country ? [d.country] : []);
+  if (!(d.ageBands || []).length) return t("onboarding.issueAudienceAge", null, "Select at least one age group to continue.");
+  if (!(d.genders || []).length) return t("onboarding.issueAudienceGender", null, "Select at least one gender to continue.");
+  if (!countries.length) return t("onboarding.issueAudienceCountry", null, "Select at least one country to continue.");
+  if (!(d.occupations || []).length) return t("onboarding.issueAudienceOccupation", null, "Select at least one occupation to continue.");
+  return null;
+}
 function foValid(key, d, region) {
   switch (key) {
     case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
