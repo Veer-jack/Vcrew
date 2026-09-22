@@ -336,7 +336,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           return (
             <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <Icon name="alertTriangle" size={16} />
-              {t("createMission.zeroMatchingWarning", null, "No matching audience found with your current filters. Try adjusting your filters or expanding the location to reach more people.")}
+              {t("createMission.zeroMatchingWarning", null, "No validators match this audience right now — this updates live as new members join.")}
             </div>
           );
         }
@@ -589,9 +589,9 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
               : t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}
           </p>
           {overAudienceCount && (
-            <p className="fhint" style={{ color: "var(--danger)" }}>
+            <p className="fhint" style={{ color: "var(--warning)" }}>
               <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience — widen your filters in step 4.`)}
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience right now — this updates live as new members join.`)}
             </p>
           )}
         </div>
