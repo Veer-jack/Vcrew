@@ -506,10 +506,18 @@ export default function Discover() {
                 "Sort" looking cut off outside it. outline: none here plus
                 .pill-focus-within (below) moves the highlight onto the
                 whole pill instead, the same border-color/box-shadow every
-                other focused field in the app already uses. */}
-            <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
+                other focused field in the app already uses. appearance:
+                none on top of that -- border/background/outline alone
+                don't fully strip a <select>'s own native OS-drawn control
+                frame in every browser, which still showed as a second,
+                inner box on focus even with all three reset. */}
+            <select value={sort} onChange={e => setSort(e.target.value)} style={{ appearance: "none", WebkitAppearance: "none", MozAppearance: "none", border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
               {sorts.map(s => <option key={s.k} value={s.k}>{sortLabel(t, s.k, s.l)}</option>)}
             </select>
+            {/* appearance: none above strips the native dropdown chevron
+                along with the box frame it was trying to remove -- this
+                puts the same affordance back by hand. */}
+            <Icon name="chevronDown" size={14} style={{ marginLeft: -4, flexShrink: 0, color: "var(--text-muted)" }} />
           </label>
         </div>
       </div>
