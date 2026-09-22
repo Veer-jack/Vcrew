@@ -154,7 +154,12 @@ export default function Messages() {
     // scroll behavior -- flex:1/minHeight:0 on the grid below just fills
     // whatever height the header doesn't use, instead of a hardcoded
     // "100vh minus header px" guess that drifts if the header ever wraps.
-    <div className="page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)" }}>
+    // .page's own bottom padding (32px) is invisible on a normal scrolling
+    // page, but here it left a dead gray strip below the chat card instead
+    // of the card reaching the bottom of the viewport -- paddingBottom:0
+    // lets the card's flex:1 claim that space instead. Same fix as the
+    // validator side's own Messages.jsx.
+    <div className="page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", paddingBottom: 0 }}>
       <div className="ph" style={{ flex: "none" }}>
         <div><h1 style={{ margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("messages.lead", null, "Chat directly with your validators and researchers.")}</p></div>
       </div>
