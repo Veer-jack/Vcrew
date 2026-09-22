@@ -2104,10 +2104,15 @@ export default function MissionDetail() {
           opened from a specific status tab at all — e.g. a Dashboard widget
           or notification link — where there's no originating tab to honor. */}
       <div className="crumbs"><a onClick={() => navigate(location.state?.fromTab ? `/missions?tab=${location.state.fromTab}` : "/missions")} style={{ cursor: "pointer" }}>{t("missionDetail.missionsLink", null, "Missions")}</a><Icon name="chevronRight" size={13} /><span>{mission.name}</span></div>
-      <div className="ph" style={{ marginBottom: 18 }}>
-        <div className="row gap-3" style={{ alignItems: "flex-start" }}>
+      {/* flexWrap nowrap override -- .ph wraps its two children (title block
+          and actions) onto separate rows once their combined width doesn't
+          fit; the transient "Updating..." badge was just wide enough to tip
+          that over on this page, dropping Edit/More/Invite to their own row
+          below the title while a refetch was in flight. */}
+      <div className="ph" style={{ marginBottom: 18, flexWrap: "nowrap" }}>
+        <div className="row gap-3" style={{ alignItems: "flex-start", flex: 1, minWidth: 0 }}>
           <MissionLogo name={mission.name} cat={mission.category} size={54} />
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="row gap-2 wrap" style={{ marginBottom: 7 }}><h1 style={{ fontSize: 23, margin: 0 }}>{mission.name}</h1><StatusTag status={mission.status} /></div>
             <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
               <TypeTag cat={mission.category} categories={categories} />
