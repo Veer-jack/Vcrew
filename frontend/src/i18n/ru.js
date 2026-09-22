@@ -269,6 +269,7 @@ const ru = {
     saved: "Сохранено",
     viewResults: "Посмотреть результаты",
     viewSubmission: "Посмотреть отправку",
+    viewDetails: "Посмотреть подробности",
     resume: "Резюме",
     viewReason: "Посмотреть причину",
     resumeMission: "Возобновить миссию",

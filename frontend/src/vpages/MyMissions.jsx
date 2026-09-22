@@ -108,10 +108,10 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
             whatever's in `responses` for this mission/validator regardless
             of status, so a still-pending submission renders identically,
             just without a rating/reward outcome underneath it. Separate
-            label from "completed" ("View submission", not "View results")
+            label from "completed" ("View details", not "View results")
             since there's no result to show yet, only what was sent in. */}
         {m.status === "submitted" && (
-          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewSubmission", null, "View submission")} <Icon name="arrowRight" /></button>
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewDetails", null, "View details")} <Icon name="arrowRight" /></button>
         )}
         {m.status === "saved" && (
           <div className="row gap-2" style={{ alignItems: "center" }}>

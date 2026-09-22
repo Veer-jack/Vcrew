@@ -269,6 +269,7 @@ const en = {
     saved: "Saved",
     viewResults: "View results",
     viewSubmission: "View submission",
+    viewDetails: "View details",
     resume: "Resume",
     viewReason: "View reason",
     resumeMission: "Resume mission",

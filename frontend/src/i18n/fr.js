@@ -269,6 +269,7 @@ const fr = {
     saved: "Enregistré",
     viewResults: "Afficher les résultats",
     viewSubmission: "Voir la soumission",
+    viewDetails: "Voir les détails",
     resume: "CV",
     viewReason: "Afficher la raison",
     resumeMission: "Reprendre la mission",

@@ -269,6 +269,7 @@ const ar = {
     saved: "تم الحفظ",
     viewResults: "عرض النتائج",
     viewSubmission: "عرض التقديم",
+    viewDetails: "عرض التفاصيل",
     resume: "استئناف",
     viewReason: "عرض السبب",
     resumeMission: "استئناف المهمة",

@@ -269,6 +269,7 @@ const ur = {
     saved: "محفوظ کیا گیا۔",
     viewResults: "نتائج دیکھیں",
     viewSubmission: "جمع کرانے کو دیکھیں",
+    viewDetails: "تفصیلات دیکھیں",
     resume: "دوبارہ شروع کریں۔",
     viewReason: "وجہ دیکھیں",
     resumeMission: "مشن دوبارہ شروع کریں۔",

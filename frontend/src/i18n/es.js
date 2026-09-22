@@ -269,6 +269,7 @@ const es = {
     saved: "Guardado",
     viewResults: "Ver resultados",
     viewSubmission: "Ver envío",
+    viewDetails: "Ver detalles",
     resume: "Currículum",
     viewReason: "Ver motivo",
     resumeMission: "Reanudar misión",

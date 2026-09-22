@@ -269,6 +269,7 @@ const pt = {
     saved: "Salvo",
     viewResults: "Ver resultados",
     viewSubmission: "Ver envio",
+    viewDetails: "Ver detalhes",
     resume: "Currículo",
     viewReason: "Ver motivo",
     resumeMission: "Retomar missão",

@@ -269,6 +269,7 @@ const hi = {
     saved: "सहेजा गया",
     viewResults: "परिणाम देखें",
     viewSubmission: "सबमिशन देखें",
+    viewDetails: "विवरण देखें",
     resume: "बायोडाटा",
     viewReason: "कारण देखें",
     resumeMission: "मिशन फिर से शुरू करें",
