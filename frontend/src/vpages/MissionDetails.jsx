@@ -6,6 +6,7 @@ import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { deadlineLabel, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
+import VSubmissionDrawer from "../components/VSubmissionDrawer";
 
 export default function MissionDetails() {
   const { t, dataVersion } = useTranslation();
@@ -14,6 +15,7 @@ export default function MissionDetails() {
   const { vtypes, ptypes, categories } = useVMeta();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [viewingResults, setViewingResults] = useState(null);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -311,9 +313,12 @@ export default function MissionDetails() {
           <span className="pill" style={{ fontSize: 13, padding: "10px 16px", color: "var(--text-faint)" }}><Icon name="x" size={14} />{t("missions.notSelectedThisTime", null, "Not selected this time")}</span>
         ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" ? (
           <button className="btn btn-primary" onClick={() => {
+              if (task.myStatus === "completed" || task.myStatus === "submitted") {
+                setViewingResults(task);
+                return;
+              }
               const inProgress = task.myStatus === "active";
-              const dest = task.myStatus === "completed" ? "results"
-                : (task.ptype === "trial" && inProgress) ? "checkin"
+              const dest = (task.ptype === "trial" && inProgress) ? "checkin"
                 : (task.category === "sample" && inProgress) ? "shipment"
                 : (task.ptype === "interview" && inProgress) ? "schedule"
                 : (task.ptype === "focus" && inProgress) ? "poll"
@@ -350,6 +355,8 @@ export default function MissionDetails() {
           </div>
         </div>
       )}
+
+      {viewingResults && <VSubmissionDrawer taskId={viewingResults.id} missionName={viewingResults.product} onClose={() => setViewingResults(null)} />}
     </div>
   );
 }
