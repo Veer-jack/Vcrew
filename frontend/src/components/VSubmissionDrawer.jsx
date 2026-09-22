@@ -32,6 +32,11 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
   const toggleTask = (i) => setExpandedTasks(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
 
   const sub = data?.submission;
+  const mission = data?.mission;
+  // score is written as rating*20 (a 1-5 star rating on a 20-100 scale) --
+  // see routes/missions.js's approve handler -- only once a builder's
+  // actually approved the submission; null/0 on anything still pending.
+  const rating = sub?.score ? Math.max(1, Math.min(5, Math.round(sub.score / 20))) : null;
 
   return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex" }}>
@@ -42,11 +47,24 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
           <div style={{ position: "sticky", top: 0, zIndex: 2, background: "var(--bg)" }}>
             <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>{missionName || data?.mission?.name}</div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>{missionName || mission?.name}</div>
                 <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("missionDetail.yourSubmission", null, "Your submission")}</div>
               </div>
               <button className="btn btn-ghost" style={{ padding: 8 }} onClick={onClose}><Icon name="x" size={16} /></button>
             </div>
+
+            {/* Who this mission is actually with -- the builder/company
+                reviewing it -- same identity-row look the builder's own
+                drawer uses for a validator (avatar + name + role line). */}
+            {mission && (
+              <div style={{ padding: "14px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: mission.builderColor, color: "#fff", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{mission.company?.[0]?.toUpperCase() || "?"}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{mission.company}</div>
+                  <div style={{ fontSize: 12, color: "var(--text-faint)" }}>{t("roles.builder", null, "Builder")}</div>
+                </div>
+              </div>
+            )}
 
             {sub && (
               <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", display: "flex", gap: 12, overflowX: "auto" }}>
@@ -81,6 +99,19 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
               <div className="muted">{t("actions.loading", null, "Loading…")}</div>
             ) : (
               <>
+                {/* Only once the builder's actually rated it -- a still-
+                    pending or rejected-without-a-score submission has
+                    nothing to show here. Same star scale and layout the
+                    old post-approval results screen used. */}
+                {rating && (
+                  <div className="card" style={{ padding: 16, marginBottom: 20, border: "1px solid var(--border)" }}>
+                    <div className="eyebrow" style={{ marginBottom: 8 }}>{t("missions.yourRating", null, "Your Rating")}</div>
+                    <VStars value={rating} size={20} />
+                    {sub.reason && (
+                      <p style={{ margin: "12px 0 0", fontSize: 13.5, lineHeight: 1.5, color: "var(--text-muted)" }}>"{sub.reason}"</p>
+                    )}
+                  </div>
+                )}
                 <div className="eyebrow" style={{ marginBottom: 14 }}>{t("review.taskResponses", null, "Task responses")}</div>
                 {(sub.breakdown || []).map((b, i) => (
                   <div key={i} className="card rise" style={{ marginBottom: 12, overflow: "hidden", border: "1px solid var(--border)" }}>

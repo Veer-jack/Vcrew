@@ -224,11 +224,22 @@ router.get("/:taskId", async (req, res) => {
 // "View results" open a read-only drawer here instead of navigating to a
 // separate page just to show a reward/rating summary.
 router.get("/:id/submission", async (req, res) => {
-  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  const mission = await db.prepare(`
+    SELECT m.*, b.name AS builder_name, b.org AS builder_org, b.color AS builder_color
+    FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
+    WHERE m.id = ?
+  `).get(req.params.id);
   if (!mission) return res.status(404).json({ error: "Mission not found" });
 
   const r = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? AND validator_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(mission.id, req.validator.id);
   if (!r) return res.status(404).json({ error: "No submission found for this mission" });
+
+  // Score/reason live on the validator's own v_my_missions row, not on
+  // `responses` -- that's where the builder's approve/reject/revise action
+  // (routes/missions.js) actually writes the rating and feedback text once
+  // a verdict exists. null on anything still pending, same as the reward
+  // itself hasn't cleared yet.
+  const mm = await db.prepare(`SELECT score, reason FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, mission.id);
 
   let missionTasks = [];
   try { missionTasks = mission.tasks_json ? JSON.parse(mission.tasks_json) : []; } catch {}
@@ -237,13 +248,23 @@ router.get("/:id/submission", async (req, res) => {
   const breakdown = buildResponseBreakdown(data, missionTasks);
 
   res.json({
-    mission: { id: mission.id, name: mission.name },
+    mission: {
+      id: mission.id, name: mission.name,
+      company: mission.brand || mission.builder_org || mission.builder_name || "Independent",
+      builderName: mission.builder_name, builderColor: mission.builder_color || "#4f46e5",
+    },
     submission: {
       status: r.status,
       date: new Date(r.submitted_at).toLocaleDateString(),
       mins: r.active_seconds != null ? Math.max(1, Math.round(r.active_seconds / 60)) : null,
       tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
       revisionRequestedAt: r.revision_requested_at ? new Date(r.revision_requested_at).toLocaleDateString() : null,
+      // A rating of exactly 0 (the column's own default) reads the same as
+      // "no verdict yet" here -- only approved/rejected missions ever get a
+      // real score written, so this can't collide with a genuine 0-star
+      // rating that doesn't exist in this app's 1-5 scale.
+      score: mm?.score || null,
+      reason: mm?.reason || null,
       breakdown,
     },
   });
