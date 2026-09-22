@@ -5,6 +5,7 @@ import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import VSubmissionDrawer from "../components/VSubmissionDrawer";
 
 const MM_STATUS = {
   applied:   { label: "Applied", labelKey: "status.applied", tone: "var(--warning)", bg: "var(--warning-weak)" },
@@ -38,7 +39,7 @@ const TABS = [
   { k: "closed", l: "Closed", lKey: "status.closed" },
 ];
 
-function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
+function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onViewResults }) {
   const { t } = useTranslation();
   const [undeclining, setUndeclining] = useState(false);
   const [unsaving, setUnsaving] = useState(false);
@@ -46,7 +47,7 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
   const vType = vtypes[m.type] || (pt ? { icon: pt.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
   const s = MM_STATUS[m.status];
   return (
-    <div className="card" style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
+    <div className="card" style={{ padding: "16px 18px", minHeight: 94, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
       <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none",
         background: `color-mix(in srgb, var(${vType.accentVar}) 14%, transparent)`, color: `var(${vType.accentVar})` }}>
         <Icon name={vType.icon} size={22} />
@@ -87,12 +88,13 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />{t("status.awaiting", null, "Awaiting")}</span>}
         {/* Nothing here previously led back to what was actually submitted --
             "Paid" was the whole row, with no way to review it afterward.
-            Same destination MissionDetails.jsx's own "View results" button
-            already uses for a completed mission. */}
+            Opens the same read-only submission drawer the builder's own
+            Participants/Responses view uses (VSubmissionDrawer), instead of
+            navigating away to a separate page. */}
         {m.status === "completed" && (
           <div className="col" style={{ alignItems: "flex-end", gap: 6 }}>
             <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />{t("status.paid", null, "Paid")}</span>
-            <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={() => navigate(`/validator/missions/${m.taskId}/results`)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" size={13} /></button>
+            <button className="btn btn-ghost" style={{ padding: "6px 10px", fontSize: 12.5 }} onClick={() => onViewResults(m)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" size={13} /></button>
           </div>
         )}
         {m.status === "saved" && (
@@ -118,7 +120,7 @@ function InvitedMissionRow({ inv, ptypes, navigate, onAccept, onDecline }) {
   const [busy, setBusy] = useState(false);
   const pt = ptypes?.find(p => p.id === inv.ptype);
   return (
-    <div className="card" style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
+    <div className="card" style={{ padding: "16px 18px", minHeight: 94, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
       <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none",
         background: "color-mix(in srgb, var(--accent) 14%, transparent)", color: "var(--accent)" }}>
         <Icon name={pt?.icon || "mail"} size={22} />
@@ -158,6 +160,7 @@ export default function MyMissions() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [viewingResults, setViewingResults] = useState(null);
 
   // Re-sync when the URL's tab param changes while already mounted here
   // (e.g. clicking a notification that deep-links to a tab on this same page) —
@@ -252,7 +255,7 @@ export default function MyMissions() {
             <div className="rise-3" style={{ display: "grid", gap: 12 }}>
               {tab === "invited"
                 ? data.missions.slice(0, visibleCount).map(inv => <InvitedMissionRow key={inv.invite_id} inv={inv} ptypes={ptypes} navigate={navigate} onAccept={acceptInvite} onDecline={declineInvite} />)
-                : data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id ?? `saved-${m.taskId}`} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} onUndecline={undecline} onUnsave={unsave} />)}
+                : data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id ?? `saved-${m.taskId}`} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} onUndecline={undecline} onUnsave={unsave} onViewResults={setViewingResults} />)}
               {visibleCount < data.missions.length && (
                 <div style={{ textAlign: "center", marginTop: 12, paddingBottom: 24 }}>
                   <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreMissions", null, "Load more missions")}</button>
@@ -260,6 +263,7 @@ export default function MyMissions() {
               )}
             </div>
           )}
+      {viewingResults && <VSubmissionDrawer taskId={viewingResults.taskId} missionName={viewingResults.product} onClose={() => setViewingResults(null)} />}
     </div>
   );
 }

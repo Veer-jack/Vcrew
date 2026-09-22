@@ -7,6 +7,7 @@ import { cloudinary, makeCloudinaryStorage } from "../upload.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
 import { translateBatch } from "../translate.js";
+import { buildResponseBreakdown, parseResponseData } from "../responseBreakdown.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -213,6 +214,38 @@ router.get("/:taskId", async (req, res) => {
       flags: mm.flags_json ? JSON.parse(mm.flags_json) : [],
       notes: mm.notes || "",
     } : null,
+  });
+});
+
+// GET /api/v/missions/:id/submission — the validator's own submitted
+// answers for a real mission, formatted the same way the builder's
+// Responses/Participants drawer shows them (see routes/missions.js's GET
+// /:id/submissions and responseBreakdown.js, which this shares) -- lets
+// "View results" open a read-only drawer here instead of navigating to a
+// separate page just to show a reward/rating summary.
+router.get("/:id/submission", async (req, res) => {
+  const mission = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const r = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? AND validator_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(mission.id, req.validator.id);
+  if (!r) return res.status(404).json({ error: "No submission found for this mission" });
+
+  let missionTasks = [];
+  try { missionTasks = mission.tasks_json ? JSON.parse(mission.tasks_json) : []; } catch {}
+
+  const data = parseResponseData(r.data_json);
+  const breakdown = buildResponseBreakdown(data, missionTasks);
+
+  res.json({
+    mission: { id: mission.id, name: mission.name },
+    submission: {
+      status: r.status,
+      date: new Date(r.submitted_at).toLocaleDateString(),
+      mins: r.active_seconds != null ? Math.max(1, Math.round(r.active_seconds / 60)) : null,
+      tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
+      revisionRequestedAt: r.revision_requested_at ? new Date(r.revision_requested_at).toLocaleDateString() : null,
+      breakdown,
+    },
   });
 });
 
