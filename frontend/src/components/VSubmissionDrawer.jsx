@@ -18,6 +18,10 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
   const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  // A 404 here just means the validator never actually submitted before the
+  // mission closed -- an expected, everyday state (not a load failure), so it
+  // gets its own neutral empty view instead of sharing the red error banner.
+  const [noSubmission, setNoSubmission] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState(new Set([0]));
   useBodyScrollLock();
 
@@ -25,7 +29,11 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
     let cancelled = false;
     vapi.get(`/missions/${taskId}/submission`)
       .then(d => { if (!cancelled) setData(d); })
-      .catch(err => { if (!cancelled) setError(err.message || t("missions.loadingResultsFailed", null, "Couldn't load this submission.")); });
+      .catch(err => {
+        if (cancelled) return;
+        if (err.status === 404) setNoSubmission(true);
+        else setError(err.message || t("missions.loadingResultsFailed", null, "Couldn't load this submission."));
+      });
     return () => { cancelled = true; };
   }, [taskId, t]);
 
@@ -92,6 +100,11 @@ export default function VSubmissionDrawer({ taskId, missionName, onClose }) {
           <div style={{ padding: "16px 24px", flex: 1 }}>
             {error ? (
               <div className="err-banner">{error}</div>
+            ) : noSubmission ? (
+              <div className="muted" style={{ padding: "24px 0", textAlign: "center" }}>
+                <Icon name="inbox" size={28} style={{ color: "var(--text-faint)", marginBottom: 10 }} />
+                <p style={{ margin: 0 }}>{t("missionDetail.noSubmissionMade", null, "You didn't submit anything before this mission was closed.")}</p>
+              </div>
             ) : !data ? (
               <div className="muted">{t("actions.loading", null, "Loading…")}</div>
             ) : (
