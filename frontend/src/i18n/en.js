@@ -270,6 +270,7 @@ const en = {
     viewResults: "View results",
     viewSubmission: "View submission",
     viewDetails: "View details",
+    viewReward: "View reward",
     resume: "Resume",
     viewReason: "View reason",
     resumeMission: "Resume mission",

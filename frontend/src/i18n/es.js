@@ -270,6 +270,7 @@ const es = {
     viewResults: "Ver resultados",
     viewSubmission: "Ver envío",
     viewDetails: "Ver detalles",
+    viewReward: "Ver recompensa",
     resume: "Currículum",
     viewReason: "Ver motivo",
     resumeMission: "Reanudar misión",

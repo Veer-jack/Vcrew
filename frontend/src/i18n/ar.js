@@ -270,6 +270,7 @@ const ar = {
     viewResults: "عرض النتائج",
     viewSubmission: "عرض التقديم",
     viewDetails: "عرض التفاصيل",
+    viewReward: "عرض المكافأة",
     resume: "استئناف",
     viewReason: "عرض السبب",
     resumeMission: "استئناف المهمة",

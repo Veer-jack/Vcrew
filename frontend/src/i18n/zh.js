@@ -270,6 +270,7 @@ const zh = {
     viewResults: "查看结果",
     viewSubmission: "查看提交内容",
     viewDetails: "查看详情",
+    viewReward: "查看奖励",
     resume: "简历",
     viewReason: "查看原因",
     resumeMission: "恢复任务",

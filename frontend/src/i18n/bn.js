@@ -270,6 +270,7 @@ const bn = {
     viewResults: "ফলাফল দেখুন",
     viewSubmission: "জমা দেখুন",
     viewDetails: "বিস্তারিত দেখুন",
+    viewReward: "পুরস্কার দেখুন",
     resume: "পুনরায় শুরু করুন",
     viewReason: "কারণ দেখুন",
     resumeMission: "মিশন পুনরায় শুরু করুন",

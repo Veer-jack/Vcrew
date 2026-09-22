@@ -270,6 +270,7 @@ const hi = {
     viewResults: "परिणाम देखें",
     viewSubmission: "सबमिशन देखें",
     viewDetails: "विवरण देखें",
+    viewReward: "इनाम देखें",
     resume: "बायोडाटा",
     viewReason: "कारण देखें",
     resumeMission: "मिशन फिर से शुरू करें",

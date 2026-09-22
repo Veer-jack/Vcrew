@@ -270,6 +270,7 @@ const pt = {
     viewResults: "Ver resultados",
     viewSubmission: "Ver envio",
     viewDetails: "Ver detalhes",
+    viewReward: "Ver recompensa",
     resume: "Currículo",
     viewReason: "Ver motivo",
     resumeMission: "Retomar missão",

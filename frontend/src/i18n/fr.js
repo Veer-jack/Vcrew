@@ -270,6 +270,7 @@ const fr = {
     viewResults: "Afficher les résultats",
     viewSubmission: "Voir la soumission",
     viewDetails: "Voir les détails",
+    viewReward: "Voir la récompense",
     resume: "CV",
     viewReason: "Afficher la raison",
     resumeMission: "Reprendre la mission",

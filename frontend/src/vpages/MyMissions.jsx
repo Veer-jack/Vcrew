@@ -124,7 +124,7 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onVi
             went in; if not, the drawer's own "no submission found" state
             covers that instead of this button silently doing nothing. */}
         {m.status === "closed" && (
-          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewDetails", null, "View details")} <Icon name="arrowRight" /></button>
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewReward", null, "View reward")} <Icon name="arrowRight" /></button>
         )}
         {m.status === "saved" && (
           <div className="row gap-2" style={{ alignItems: "center" }}>

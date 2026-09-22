@@ -270,6 +270,7 @@ const ru = {
     viewResults: "Посмотреть результаты",
     viewSubmission: "Посмотреть отправку",
     viewDetails: "Посмотреть подробности",
+    viewReward: "Посмотреть награду",
     resume: "Резюме",
     viewReason: "Посмотреть причину",
     resumeMission: "Возобновить миссию",

@@ -270,6 +270,7 @@ const ur = {
     viewResults: "نتائج دیکھیں",
     viewSubmission: "جمع کرانے کو دیکھیں",
     viewDetails: "تفصیلات دیکھیں",
+    viewReward: "انعام دیکھیں",
     resume: "دوبارہ شروع کریں۔",
     viewReason: "وجہ دیکھیں",
     resumeMission: "مشن دوبارہ شروع کریں۔",
