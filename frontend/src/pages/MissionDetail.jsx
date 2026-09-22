@@ -506,7 +506,7 @@ function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
   );
 }
 
-function ParticipantKanban({ mission, participants, setParticipants, onInvite, navigate, showToast }) {
+function ParticipantKanban({ mission, participants, setParticipants, navigate, showToast }) {
   const { t } = useTranslation();
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
@@ -614,11 +614,6 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
 
   return (
     <div>
-      {mission.status === "active" && (
-        <div className="row" style={{ justifyContent: "flex-end", marginBottom: 14 }}>
-          <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
-        </div>
-      )}
       <div className="kanban">
         {STAGES.filter(st => st.id !== "rejected").map(st => {
           // A validator auto-failed for missing check-ins gets stage 'failed',
@@ -2269,24 +2264,32 @@ export default function MissionDetail() {
         <KpiCard label={t("metrics.spend", null, "Spend")} value={inrK(mission.spend)} icon="wallet" />
       </div>
 
-      <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => (
-        <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)} style={{ position: "relative" }}>
-          <Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}
-          {/* Unread notifications about this mission, resolved to whichever
-              tab actually answers them (see NOTIF_TYPE_TAB) -- a small red
-              badge, same "something new happened here" signal as the bell
-              icon's own dot, cleared the moment this tab is opened. */}
-          {unreadCountByTab[t.k] > 0 && (
-            <span style={{ position: "absolute", top: 2, right: 2, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 8, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", lineHeight: 1 }}>
-              {unreadCountByTab[t.k]}
-            </span>
-          )}
-        </button>
-      ))}</div>
+      <div className="row sec" style={{ alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: "var(--hairline) solid var(--border)" }}>
+        <div className="utabs" ref={tabBarRef} style={{ borderBottom: "none" }}>{tabs.map(t => (
+          <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)} style={{ position: "relative" }}>
+            <Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}
+            {/* Unread notifications about this mission, resolved to whichever
+                tab actually answers them (see NOTIF_TYPE_TAB) -- a small red
+                badge, same "something new happened here" signal as the bell
+                icon's own dot, cleared the moment this tab is opened. */}
+            {unreadCountByTab[t.k] > 0 && (
+              <span style={{ position: "absolute", top: 2, right: 2, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 8, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", lineHeight: 1 }}>
+                {unreadCountByTab[t.k]}
+              </span>
+            )}
+          </button>
+        ))}</div>
+        {/* Lives on the tab row itself (not a separate row inside the Kanban
+            panel) so the board content starts right under the tabs instead
+            of leaving an extra row of vertical space above it. */}
+        {tab === "participants" && mission.status === "active" && (
+          <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setShowInviteModal(true)} style={{ flexShrink: 0 }}>{t("actions.inviteMore", null, "Invite more")}</Btn>
+        )}
+      </div>
 
       {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} ptypes={ptypes} />}
       {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={mission.status === "archived" ? null : () => navigate(`/missions/${id}/edit?step=3`)} />}
-      {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
+      {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} navigate={navigate} showToast={showToast} />}
       {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} setParticipants={setParticipants} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
