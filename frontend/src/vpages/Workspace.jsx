@@ -389,7 +389,15 @@ export default function Workspace() {
             </button>
             <div className="row gap-2" style={{ alignItems: "center" }}>
               <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={exitWorkspace}>{t("createMission.cancel", null, "Cancel")}</button>
-              <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>{t("createMission.back", null, "Back")}</button>
+              {/* Was always rendered, just disabled on the first task -- a
+                  single-task mission (no previous step to go back to at all)
+                  showed a permanently dead Back button next to Cancel for no
+                  reason. Same fix as the Settings edit-step and mission
+                  wizard rails: only render it once there's actually
+                  somewhere to go back to. */}
+              {curIdx > 0 && (
+                <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={() => { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); }}>{t("createMission.back", null, "Back")}</button>
+              )}
             </div>
           </div>
         )}
