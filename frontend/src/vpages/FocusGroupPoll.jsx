@@ -5,6 +5,7 @@ import { Btn } from "../components/ui";
 import { toast } from "react-hot-toast";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 export default function FocusGroupPoll() {
   const { t } = useTranslation();
@@ -149,7 +150,7 @@ export default function FocusGroupPoll() {
           </>
         )}
 
-        <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+        <Btn variant="ghost" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
       </div>
     </div>
   );

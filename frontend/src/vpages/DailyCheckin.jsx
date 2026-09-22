@@ -4,6 +4,7 @@ import Icon from "../components/Icon";
 import { Btn, inr } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 export default function DailyCheckin() {
   const { t } = useTranslation();
@@ -94,7 +95,7 @@ export default function DailyCheckin() {
         ) : (
           <>
             <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>{t("missions.comeBackTomorrow", { nextDay: currentDay + 1 }, `Come back tomorrow for Day ${currentDay + 1}.`)}</p>
-            <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+            <Btn variant="ghost" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
           </>
         )}
       </div>
@@ -109,7 +110,7 @@ export default function DailyCheckin() {
           scrolled away with the page, unlike the normal dashboard's. */}
       <div style={{ position: "sticky", top: 0, zIndex: 30, height: 64, background: "#fff", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button className="btn btn-quiet" style={{ padding: 8 }} onClick={() => navigate("/validator/missions")}><Icon name="arrowLeft" size={18} /></button>
+          <button className="btn btn-quiet" style={{ padding: 8 }} onClick={() => navigate(backToMyMissionsUrl())}><Icon name="arrowLeft" size={18} /></button>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--panel-2)", display: "grid", placeItems: "center" }}>
               <Icon name="flask" size={16} style={{ color: "var(--accent)" }} />
@@ -253,7 +254,7 @@ export default function DailyCheckin() {
               </div>
               <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>{t("missions.missionFailed", null, "Mission Failed")}</h3>
               <p style={{ margin: "0 auto 24px", maxWidth: 400, color: "var(--text-muted)" }}>{t("missions.missionLockedOut", null, "You exceeded the maximum number of extra days. This mission is now locked and cannot be completed.")}</p>
-              <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+              <Btn variant="ghost" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
             </div>
           ) : !canSubmitToday ? (
             <div className="card rise" style={{ padding: 40, textAlign: "center", background: "#fff" }}>

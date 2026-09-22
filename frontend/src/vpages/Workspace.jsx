@@ -6,6 +6,7 @@ import { Modal } from "../components/Modal";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 function RatingQ({ ans, setAns, readOnly }) {
   return (
@@ -208,7 +209,7 @@ export default function Workspace() {
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
       <h2 style={{ fontSize: 20, marginBottom: 8 }}>{loadError ? t("missions.cantOpenHere", null, "Can't open this mission here") : t("missions.noTasksFound", null, "No tasks found")}</h2>
       <p style={{ color: "var(--text-muted)" }}>{loadError || t("missions.noTasksDesc", null, "This mission does not have any tasks generated yet.")}</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/validator/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
@@ -274,7 +275,7 @@ export default function Workspace() {
     window.scrollTo(0, 0);
     saveDraft(0, false, { answers: clearedAnswers, proofUploaded: clearedProof });
   };
-  const exitWorkspace = async () => { await saveDraft(curIdx); navigate("/validator/missions"); };
+  const exitWorkspace = async () => { await saveDraft(curIdx); navigate(backToMyMissionsUrl()); };
 
   const goNext = async () => {
     if (curIdx === tasks.length - 1) {
@@ -322,7 +323,7 @@ export default function Workspace() {
             </div>
           ))}
         </div>
-        <Btn variant="primary" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+        <Btn variant="primary" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
       </div>
     </div>
   );
@@ -522,7 +523,7 @@ export default function Workspace() {
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate("/validator/missions") : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
+          <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate(backToMyMissionsUrl()) : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
             {isReadOnly ? (curIdx === tasks.length - 1 ? t("actions.backToMissions", null, "Back to Missions") : t("actions.nextTask", null, "Next task")) : (submitting ? t("actions.submitting", null, "Submitting…") : curIdx === tasks.length - 1 ? t("actions.submitAllResponses", null, "Submit all responses") : t("actions.nextTask", null, "Next task"))}
             {curIdx < tasks.length - 1 && <Icon name="arrowRight" size={16} />}
           </Btn>

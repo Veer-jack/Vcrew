@@ -7,6 +7,7 @@ import { useVMeta } from "../vcontext/VMetaContext";
 import { VTypeTag } from "../vcomponents/vui";
 import { useTranslation } from "../i18n/index.jsx";
 import { blockInvalidNumberKeys } from "../utils/numberInput";
+import { backToMyMissionsUrl } from "../vutil";
 
 // A marketplace (vtasks) listing has no per-task steps/questions/proof flow —
 // it's "go use the product, come back and rate it against the type's rubric."
@@ -88,13 +89,13 @@ export default function VtaskReview() {
       </div>
       <h1 style={{ fontSize: 28, fontWeight: 800, margin: "0 0 8px" }}>{t("vtaskReview.submitted", null, "Review submitted!")}</h1>
       <p className="muted" style={{ fontSize: 15, marginBottom: 28 }}>{t("vtaskReview.submittedDesc", { reward: task.reward }, `₹${task.reward} will clear to your pending balance once the builder reviews it.`)}</p>
-      <Btn variant="primary" size="lg" onClick={() => navigate("/validator/missions")}>{t("actions.myMissions", null, "My missions")}</Btn>
+      <Btn variant="primary" size="lg" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.myMissions", null, "My missions")}</Btn>
     </div>
   );
 
   return (
     <div className="page" style={{ maxWidth: 720, margin: "0 auto" }}>
-      <button className="btn btn-quiet rise" onClick={() => navigate("/validator/missions")} style={{ marginBottom: 16, marginLeft: -8 }}>
+      <button className="btn btn-quiet rise" onClick={() => navigate(backToMyMissionsUrl())} style={{ marginBottom: 16, marginLeft: -8 }}>
         <Icon name="arrowLeft" />{t("actions.myMissions", null, "My missions")}
       </button>
 

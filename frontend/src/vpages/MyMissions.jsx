@@ -205,6 +205,19 @@ export default function MyMissions() {
     }
   }, [urlTab]);
 
+  // A handful of pages several hops deep (Workspace, Daily Check-in, Mission
+  // Brief, Shipment Status, Task Review, Mission Results, Focus Group Poll)
+  // have their own "Back to My Missions" link, landing here with no way to
+  // know which tab the validator actually started from -- threading that
+  // through router state would mean every intermediate navigate() call on
+  // the way there re-passing it along, easy to drop on any one hop.
+  // sessionStorage instead: written here on every real tab value (including
+  // the URL-driven resync above), read back by BACK_TO_MISSIONS_URL()
+  // regardless of how many pages deep the validator ended up.
+  useEffect(() => {
+    try { sessionStorage.setItem("vc_my_missions_tab", tab); } catch { /* ignore */ }
+  }, [tab]);
+
   useEffect(() => {
     let active = true;
     setLoading(true);

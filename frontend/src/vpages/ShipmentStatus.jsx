@@ -4,6 +4,7 @@ import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 const getStatusCopy = (t) => ({
   awaiting_shipment: { title: t("missions.waitingForShipment", null, "Waiting for the builder to ship"), desc: t("missions.notifiedWhenShipped", null, "You'll be notified here once your sample is on its way.") },
@@ -83,7 +84,7 @@ export default function ShipmentStatus() {
             {confirming ? t("actions.confirming", null, "Confirming…") : t("actions.receivedStartReviewing", null, "I've received it — start reviewing")}
           </Btn>
         ) : (
-          <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+          <Btn variant="ghost" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
         )}
       </div>
     </div>

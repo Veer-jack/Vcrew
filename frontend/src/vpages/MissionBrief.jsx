@@ -4,6 +4,7 @@ import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 export default function MissionBrief() {
   const { t } = useTranslation();
@@ -37,7 +38,7 @@ export default function MissionBrief() {
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
       <h2 style={{ fontSize: 20, marginBottom: 8 }}>{t("missions.missionNotFound", null, "Mission not found")}</h2>
       <p style={{ color: "var(--text-muted)" }}>{t("missions.missionNotFoundDesc", null, "This mission may have been deleted or is unavailable.")}</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/validator/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
