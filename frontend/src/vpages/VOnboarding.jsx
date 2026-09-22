@@ -99,6 +99,25 @@ const STEP_DEFS = {
 };
 export const stepLabelsFor = (t, type) => (STEP_DEFS[type] || []).map(([k, fb]) => t(`vOnboarding.steps.${k}`, null, fb));
 
+// Settings' own step grouping for editing an already-onboarded profile --
+// deliberately not just STEP_DEFS reused as-is: tester's onboarding steps
+// "Proof"/"Declaration" are a one-time submission flow (resume upload,
+// admin-review agreement checkbox), not something that makes sense to
+// re-render as an editable step afterwards. A tester (or a validator whose
+// tester application is pending/rejected -- validator_type stays
+// "validator" until approved, see vauth.js) instead gets one extra
+// "Verification" step here for the testing-domains/certifications/links
+// fields that only exist once tester_status is set, appended onto the
+// validator step set rather than replacing "Proof"/"Declaration" 1:1.
+const SETTINGS_STEP_DEFS = {
+  user: [["basicInfo", "Basic info"], ["demographics", "Demographics"], ["physicalProfile", "Physical profile"], ["lifestyle", "Lifestyle"]],
+  validator: [["basicInfo", "Basic info"], ["professional", "Professional"], ["expertise", "Expertise"], ["availability", "Availability"]],
+};
+export const settingsStepsFor = (type, hasTesterFields) => {
+  const base = SETTINGS_STEP_DEFS[type === "user" ? "user" : "validator"];
+  return hasTesterFields ? [...base, ["verification", "Verification"]] : base;
+};
+
 export const optLabel = (t, ns) => (o, i) => t(`vOnboarding.options.${ns}.${i}`, null, o);
 
 export const Chips = ({ options, value, onChange, multi = true, getLabel }) => (

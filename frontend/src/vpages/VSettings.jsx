@@ -1,20 +1,56 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 import { Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
 import { useTranslation } from "../i18n/index.jsx";
-import {
-  Chips, Field, optLabel, AGE_GROUPS, GENDERS, INCOME, HEIGHT, WEIGHT, SKIN_TONE, HAIR_TYPE, HAIR_LENGTH, BODY_TYPE,
-  OCCUPATIONS, FOOD_PREF, LIFESTYLE, DEVICES, HOURS, ROLES, EXP, INDUSTRIES, PRODUCT_TYPES, TECH_TOOLS, TESTER_DOMAINS, CERT,
-  LANGUAGES, CountryStateFields, filterGroupAdapter, resolveOnboardingOther,
-} from "./VOnboarding.jsx";
-import { SelectAllToggle } from "../components/OnboardingFields.jsx";
-import { FilterGroup } from "../pages/CreateMissionWizard";
+import { settingsStepsFor } from "./VOnboarding.jsx";
+
+// Bare label + chips, no card-inside-a-card nesting -- matches the builder
+// Settings page's own ChipField (pages/Settings.jsx), just without its
+// dropdown/"show all" truncation, since nothing here runs anywhere near
+// that Country-with-115-selected scale.
+function VChipField({ label, values }) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}</label>
+      {values?.length ? (
+        <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
+          {values.map(v => <span key={v} className="mtag accent">{v}</span>)}
+        </div>
+      ) : (
+        <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
+      )}
+    </div>
+  );
+}
+
+// One read-only summary card per settings step -- title, an Edit button
+// into /validator/settings/edit-step/:step (VEditAccountStep.jsx, the real
+// step form), and its saved values as chips. Mirrors the builder Settings
+// page's own card-per-step pattern (tester's explicit ask), instead of the
+// single long scrolling "answer everything at once" card this replaced.
+function StepCard({ title, stepKey, navigate, children }) {
+  const { t } = useTranslation();
+  return (
+    <div className="card" style={{ padding: "var(--pad-card)" }}>
+      <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, margin: 0 }}>{title}</h2>
+        <Btn variant="ghost" icon="edit" onClick={() => navigate(`/validator/settings/edit-step/${stepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function VSettings() {
   const { t } = useTranslation();
-  const { validator, refresh, setValidator } = useVAuth();
+  const { validator, refresh } = useVAuth();
+  const navigate = useNavigate();
   // The onboarding wizard's own role picker is skipped whenever a draft
   // type is already sitting in localStorage (VC_V_TYPE_<id>), which is
   // exactly what's left behind by an earlier onboarding attempt that never
@@ -27,57 +63,16 @@ export default function VSettings() {
     localStorage.removeItem(`VC_V_TYPE_${validator?.id}`);
     window.location.href = "/validator/onboarding";
   };
-  // Everything collected during onboarding, keyed the same way the
-  // onboarding draft itself uses (and PATCH /profile expects) -- the
-  // camelCase fields below (ageGroup, hasKids, ...) are what publicValidator
-  // actually returns, so this is the one place converting between the two.
-  // A saved custom value (someone picked "Other" during onboarding) is
-  // just its own typed text in the DB, not the "Other" sentinel + a
-  // separate *Other field -- reconstruct that shape here once, on load,
-  // the same way CountryStateFields normalizes country/state itself,
-  // otherwise the saved value doesn't match any known chip/checkbox and
-  // silently renders as if nothing were ever set.
-  const savedOccupation = validator?.occupation || "";
-  const isCustomOccupation = savedOccupation && !OCCUPATIONS.includes(savedOccupation) && !ROLES.includes(savedOccupation);
-  const [pd, setPd] = useState({
-    country: validator?.country || "", countryOther: "", state: validator?.state || "", stateOther: "",
-    language: validator?.languages || [], languageOther: (validator?.languages || []).filter(v => !LANGUAGES.includes(v)),
-    age_group: validator?.ageGroup || "", gender: validator?.gender || "", marital: validator?.marital || "",
-    has_kids: validator?.hasKids || "", income: validator?.income || "", height: validator?.height || "",
-    weight: validator?.weight || "", skin_tone: validator?.skinTone || "", hair_type: validator?.hairType || "",
-    hair_length: validator?.hairLength || "", body_type: validator?.bodyType || "",
-    occupation: isCustomOccupation ? "Other" : savedOccupation, occupationOther: isCustomOccupation ? savedOccupation : "",
-    food_pref: validator?.foodPref || "", lifestyle: validator?.lifestyle || [], devices: validator?.devices || [],
-    hours: validator?.hours || "", bio: validator?.bio || "", experience: validator?.experience || "",
-    industry: validator?.industry || [], industryOther: (validator?.industry || []).filter(v => !INDUSTRIES.includes(v)),
-    company: validator?.company || "", product_types: validator?.productTypes || [],
-    tech_tools: validator?.techTools || [],
-    domains: validator?.testingDomains || [], domainsOther: (validator?.testingDomains || []).filter(v => !TESTER_DOMAINS.includes(v)),
-    certifications: validator?.certifications || [], certificationsOther: (validator?.certifications || []).filter(v => !CERT.includes(v)),
-    linkedin_url: validator?.linkedinUrl || "", portfolio_url: validator?.portfolioUrl || "", testing_bio: validator?.testingBio || "",
-  });
-  const setF = (k, v) => setPd(p => ({ ...p, [k]: v }));
-  const [detailsBusy, setDetailsBusy] = useState(false);
-  const [detailsSaved, setDetailsSaved] = useState(false);
-  const [detailsError, setDetailsError] = useState("");
-  const saveDetails = async () => {
-    setDetailsBusy(true); setDetailsError(""); setDetailsSaved(false);
-    try {
-      // vapi.updateProfile() hits PATCH /api/v/profile (vprofile.js), a much
-      // older, narrower route that only knows about name/handle/occupation/
-      // industry/location/bio/specialties/address -- none of these onboarding
-      // fields. /auth/profile (vauth.js) is the route the onboarding wizard
-      // itself saves to and is the one that actually persists all of these.
-      await vapi.patch("/auth/profile", resolveOnboardingOther(pd, t));
-      await refresh();
-      setDetailsSaved(true);
-      setTimeout(() => setDetailsSaved(false), 3000);
-    } catch (err) {
-      setDetailsError(err.message || t("settings.saveFailed", null, "Couldn't save changes"));
-    } finally {
-      setDetailsBusy(false);
-    }
-  };
+
+  const isUser = validator?.validator_type === "user";
+  // tester_status defaults to the literal string "none" in the DB (see
+  // schema.sql), not null/empty -- a plain truthy check treats "none" as
+  // "has applied", showing the Verification card/step for every validator
+  // who never actually applied.
+  const hasTesterFields = !!validator?.tester_status && validator.tester_status !== "none";
+  const steps = settingsStepsFor(validator?.validator_type, hasTesterFields);
+  const stepLabel = (key, fallback) => t(`vOnboarding.steps.${key}`, null, fallback);
+  const stepTitle = (key) => { const s = steps.find(([k]) => k === key); return s ? stepLabel(s[0], s[1]) : ""; };
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
@@ -181,85 +176,74 @@ export default function VSettings() {
         </div>
       )}
 
-      {/* Single vertical stack (was a 2-column grid) -- matches the builder
-          side's own Settings layout, one full-width card at a time. */}
       <div className="col gap-5" style={{ maxWidth: 980 }}>
-          {/* Profile Information and Account Information cards (Name, Email,
-              Validator ID, Handle) removed -- all duplicated the Profile
-              page, which is now the one place to view/edit them (Email and
-              Validator ID were added there since this was their only home). */}
-          {/* Profile Details -- everything collected during onboarding
-              (age/gender/income/height/weight/... for a User, bio/role/
-              experience/industry/... for a Validator, plus tester-only
-              fields once tester_status is set) -- was collected but never
-              shown or editable anywhere in Settings. */}
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="fileText" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.profileDetails", null, "Profile Details")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.profileDetailsDesc", null, "Everything you shared while setting up your account.")}</p>
-              </div>
-            </div>
+          {/* Profile Details' one giant scrolling card (every onboarding
+              field, answered inline, one Save at the very bottom) replaced
+              with a card per step -- read-only chips plus an Edit button
+              into the real step form (VEditAccountStep.jsx), same pattern
+              as the builder side's own Settings page. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20, alignItems: "start" }}>
+            <StepCard title={stepTitle("basicInfo")} stepKey="basicInfo" navigate={navigate}>
+              <VChipField label={t("onboardingFields.country", null, "Country")} values={validator?.country ? [validator.country] : []} />
+              <VChipField label={t("onboardingFields.stateRegion", null, "State / Region")} values={validator?.state ? [validator.state] : []} />
+              <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.languages", null, "Languages")} values={validator?.languages} /></div>
+              {!isUser && <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.shortBio", null, "Short bio")} values={validator?.bio ? [validator.bio] : []} /></div>}
+            </StepCard>
 
-            <CountryStateFields d={pd} set={setF} />
-            <FilterGroup title={t("vOnboarding.fields.languages", null, "Languages")} options={LANGUAGES.filter(o => o !== "Other")} {...filterGroupAdapter(pd.language, "language", setF)} otherEntries={pd.languageOther} trFilterLabel={(_, v) => optLabel(t, "languages")(v, LANGUAGES.indexOf(v))} initialExpanded />
-            <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.language, "language", setF)} otherEntries={pd.languageOther} onOtherEntriesChange={v => setF("languageOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "language" }, "Add your own language value")} trFilterLabel={(_, v) => v} initialExpanded />
-
-            {validator?.validator_type === "user" ? (
+            {isUser ? (
               <>
-                <Field label={t("vOnboarding.fields.ageGroup", null, "Age group")}><Chips options={AGE_GROUPS} value={pd.age_group} onChange={v => setF("age_group", v)} multi={false} getLabel={optLabel(t, "ageGroups")} /></Field>
-                <Field label={t("vOnboarding.fields.gender", null, "Gender")}><Chips options={GENDERS} value={pd.gender} onChange={v => setF("gender", v)} multi={false} getLabel={optLabel(t, "genders")} /></Field>
-                <Field label={t("vOnboarding.fields.maritalStatus", null, "Marital status")}><Chips options={["Single", "Married", "Divorced", "Widowed", "In a relationship"]} value={pd.marital} onChange={v => setF("marital", v)} multi={false} getLabel={optLabel(t, "marital")} /></Field>
-                <Field label={t("vOnboarding.fields.kids", null, "Kids?")}><Chips options={["Yes", "No", "Prefer not to say"]} value={pd.has_kids} onChange={v => setF("has_kids", v)} multi={false} getLabel={optLabel(t, "kids")} /></Field>
-                <Field label={t("vOnboarding.fields.income", null, "Income")}><Chips options={INCOME} value={pd.income} onChange={v => setF("income", v)} multi={false} getLabel={optLabel(t, "income")} /></Field>
-                <Field label={t("vOnboarding.fields.height", null, "Height")}><Chips options={HEIGHT} value={pd.height} onChange={v => setF("height", v)} multi={false} getLabel={optLabel(t, "height")} /></Field>
-                <Field label={t("vOnboarding.fields.weight", null, "Weight")}><Chips options={WEIGHT} value={pd.weight} onChange={v => setF("weight", v)} multi={false} getLabel={optLabel(t, "weight")} /></Field>
-                <Field label={t("vOnboarding.fields.skinTone", null, "Skin tone")}><Chips options={SKIN_TONE} value={pd.skin_tone} onChange={v => setF("skin_tone", v)} multi={false} getLabel={optLabel(t, "skinTone")} /></Field>
-                <Field label={t("vOnboarding.fields.hairType", null, "Hair type")}><Chips options={HAIR_TYPE} value={pd.hair_type} onChange={v => setF("hair_type", v)} multi={false} getLabel={optLabel(t, "hairType")} /></Field>
-                <Field label={t("vOnboarding.fields.hairLength", null, "Hair length")}><Chips options={HAIR_LENGTH} value={pd.hair_length} onChange={v => setF("hair_length", v)} multi={false} getLabel={optLabel(t, "hairLength")} /></Field>
-                <Field label={t("vOnboarding.fields.bodyType", null, "Body type")}><Chips options={BODY_TYPE} value={pd.body_type} onChange={v => setF("body_type", v)} multi={false} getLabel={optLabel(t, "bodyType")} /></Field>
-                <Field label={t("vOnboarding.fields.occupation", null, "Occupation")}><Chips options={OCCUPATIONS} value={pd.occupation} onChange={v => setF("occupation", v)} multi={false} getLabel={optLabel(t, "occupations")} /></Field>
-                {pd.occupation === "Other" && <Field label={t("onboardingFields.occupationOtherLabel", null, "Please specify occupation")}><input className="fin" value={pd.occupationOther || ""} onChange={e => setF("occupationOther", e.target.value)} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} /></Field>}
-                <Field label={t("vOnboarding.fields.foodPreference", null, "Food preference")}><Chips options={FOOD_PREF} value={pd.food_pref} onChange={v => setF("food_pref", v)} multi={false} getLabel={optLabel(t, "foodPref")} /></Field>
-                <Field label={t("vOnboarding.fields.lifestyleInterests", null, "Lifestyle interests")} action={<SelectAllToggle options={LIFESTYLE} value={pd.lifestyle} onChange={v => setF("lifestyle", v)} />}><Chips options={LIFESTYLE} value={pd.lifestyle} onChange={v => setF("lifestyle", v)} getLabel={optLabel(t, "lifestyle")} /></Field>
-                <Field label={t("vOnboarding.fields.devices", null, "Devices")} action={<SelectAllToggle options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} />}><Chips options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} getLabel={optLabel(t, "devices")} /></Field>
-                <Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")}><Chips options={HOURS} value={pd.hours} onChange={v => setF("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field>
+                <StepCard title={stepTitle("demographics")} stepKey="demographics" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.ageGroup", null, "Age group")} values={validator?.ageGroup ? [validator.ageGroup] : []} />
+                  <VChipField label={t("vOnboarding.fields.gender", null, "Gender")} values={validator?.gender ? [validator.gender] : []} />
+                  <VChipField label={t("vOnboarding.fields.maritalStatus", null, "Marital status")} values={validator?.marital ? [validator.marital] : []} />
+                  <VChipField label={t("vOnboarding.fields.kids", null, "Kids?")} values={validator?.hasKids ? [validator.hasKids] : []} />
+                  <VChipField label={t("vOnboarding.fields.income", null, "Income")} values={validator?.income ? [validator.income] : []} />
+                </StepCard>
+                <StepCard title={stepTitle("physicalProfile")} stepKey="physicalProfile" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.height", null, "Height")} values={validator?.height ? [validator.height] : []} />
+                  <VChipField label={t("vOnboarding.fields.weight", null, "Weight")} values={validator?.weight ? [validator.weight] : []} />
+                  <VChipField label={t("vOnboarding.fields.skinTone", null, "Skin tone")} values={validator?.skinTone ? [validator.skinTone] : []} />
+                  <VChipField label={t("vOnboarding.fields.hairType", null, "Hair type")} values={validator?.hairType ? [validator.hairType] : []} />
+                  <VChipField label={t("vOnboarding.fields.hairLength", null, "Hair length")} values={validator?.hairLength ? [validator.hairLength] : []} />
+                  <VChipField label={t("vOnboarding.fields.bodyType", null, "Body type")} values={validator?.bodyType ? [validator.bodyType] : []} />
+                </StepCard>
+                <StepCard title={stepTitle("lifestyle")} stepKey="lifestyle" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.occupation", null, "Occupation")} values={validator?.occupation ? [validator.occupation] : []} />
+                  <VChipField label={t("vOnboarding.fields.foodPreference", null, "Food preference")} values={validator?.foodPref ? [validator.foodPref] : []} />
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.lifestyleInterests", null, "Lifestyle interests")} values={validator?.lifestyle} /></div>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.devices", null, "Devices")} values={validator?.devices} /></div>
+                  <VChipField label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} values={validator?.hours ? [validator.hours] : []} />
+                </StepCard>
               </>
             ) : (
               <>
-                <Field label={t("vOnboarding.fields.shortBio", null, "Short bio")}><textarea className="fin" rows={3} value={pd.bio} onChange={e => setF("bio", e.target.value)} /></Field>
-                <Field label={t("vOnboarding.fields.role", null, "Role")}><Chips options={ROLES} value={pd.occupation} onChange={v => setF("occupation", v)} multi={false} getLabel={optLabel(t, "roles")} /></Field>
-                {pd.occupation === "Other" && <Field label={t("onboardingFields.customRole", null, "Your role")}><input className="fin" value={pd.occupationOther || ""} onChange={e => setF("occupationOther", e.target.value)} placeholder={t("onboardingFields.customRolePlaceholder", null, "Type your role")} /></Field>}
-                <Field label={t("vOnboarding.fields.experience", null, "Experience")}><Chips options={EXP} value={pd.experience} onChange={v => setF("experience", v)} multi={false} getLabel={optLabel(t, "experience")} /></Field>
-                <FilterGroup title={t("vOnboarding.fields.industry", null, "Industry")} options={INDUSTRIES.filter(o => o !== "Other")} {...filterGroupAdapter(pd.industry, "industry", setF)} otherEntries={pd.industryOther} trFilterLabel={(_, v) => optLabel(t, "industries")(v, INDUSTRIES.indexOf(v))} initialExpanded />
-                <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.industry, "industry", setF)} otherEntries={pd.industryOther} onOtherEntriesChange={v => setF("industryOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "industry" }, "Add your own industry value")} trFilterLabel={(_, v) => v} initialExpanded />
-                <Field label={t("vOnboarding.fields.company", null, "Company")}><input className="fin" value={pd.company} onChange={e => setF("company", e.target.value)} /></Field>
-                <Field label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} action={<SelectAllToggle options={PRODUCT_TYPES} value={pd.product_types} onChange={v => setF("product_types", v)} />}><Chips options={PRODUCT_TYPES} value={pd.product_types} onChange={v => setF("product_types", v)} getLabel={optLabel(t, "productTypes")} /></Field>
-                <Field label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")} action={<SelectAllToggle options={TECH_TOOLS} value={pd.tech_tools} onChange={v => setF("tech_tools", v)} />}><Chips options={TECH_TOOLS} value={pd.tech_tools} onChange={v => setF("tech_tools", v)} getLabel={optLabel(t, "techTools")} /></Field>
-                <Field label={t("vOnboarding.fields.devices", null, "Devices")} action={<SelectAllToggle options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} />}><Chips options={DEVICES} value={pd.devices} onChange={v => setF("devices", v)} getLabel={optLabel(t, "devices")} /></Field>
-                <Field label={t("vOnboarding.fields.timePerWeek", null, "Time per week")}><Chips options={HOURS} value={pd.hours} onChange={v => setF("hours", v)} multi={false} getLabel={optLabel(t, "hours")} /></Field>
-                {validator?.tester_status && (
-                  <>
-                    <FilterGroup title={t("vOnboarding.fields.testingDomains", null, "Testing domains")} options={TESTER_DOMAINS.filter(o => o !== "Other")} {...filterGroupAdapter(pd.domains, "domains", setF)} otherEntries={pd.domainsOther} trFilterLabel={(_, v) => optLabel(t, "testerDomains")(v, TESTER_DOMAINS.indexOf(v))} initialExpanded />
-                    <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.domains, "domains", setF)} otherEntries={pd.domainsOther} onOtherEntriesChange={v => setF("domainsOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "testing domain" }, "Add your own testing domain value")} trFilterLabel={(_, v) => v} initialExpanded />
-                    <FilterGroup title={t("vOnboarding.fields.certifications", null, "Certifications")} options={CERT.filter(o => o !== "Other")} {...filterGroupAdapter(pd.certifications, "certifications", setF)} otherEntries={pd.certificationsOther} trFilterLabel={(_, v) => optLabel(t, "certifications")(v, CERT.indexOf(v))} initialExpanded />
-                    <FilterGroup title={t("onboardingFields.other", null, "Other")} options={["Other"]} {...filterGroupAdapter(pd.certifications, "certifications", setF)} otherEntries={pd.certificationsOther} onOtherEntriesChange={v => setF("certificationsOther", v)} otherValue="Other" otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: "certification" }, "Add your own certification value")} trFilterLabel={(_, v) => v} initialExpanded />
-                    <Field label={t("vOnboarding.fields.linkedinUrl", null, "LinkedIn URL")}><input className="fin" value={pd.linkedin_url} onChange={e => setF("linkedin_url", e.target.value)} /></Field>
-                    <Field label={t("vOnboarding.fields.portfolioGithub", null, "Portfolio / GitHub")}><input className="fin" value={pd.portfolio_url} onChange={e => setF("portfolio_url", e.target.value)} /></Field>
-                    <Field label={t("vOnboarding.fields.describeTestingExperience", null, "Describe your testing experience")}><textarea className="fin" rows={4} value={pd.testing_bio} onChange={e => setF("testing_bio", e.target.value)} /></Field>
-                  </>
+                <StepCard title={stepTitle("professional")} stepKey="professional" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.role", null, "Role")} values={validator?.occupation ? [validator.occupation] : []} />
+                  <VChipField label={t("vOnboarding.fields.experience", null, "Experience")} values={validator?.experience ? [validator.experience] : []} />
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.industry", null, "Industry")} values={validator?.industry} /></div>
+                  <VChipField label={t("vOnboarding.fields.company", null, "Company")} values={validator?.company ? [validator.company] : []} />
+                </StepCard>
+                <StepCard title={stepTitle("expertise")} stepKey="expertise" navigate={navigate}>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} values={validator?.productTypes} /></div>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")} values={validator?.techTools} /></div>
+                </StepCard>
+                <StepCard title={stepTitle("availability")} stepKey="availability" navigate={navigate}>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.devices", null, "Devices")} values={validator?.devices} /></div>
+                  <VChipField label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} values={validator?.hours ? [validator.hours] : []} />
+                </StepCard>
+                {hasTesterFields && (
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <StepCard title={stepTitle("verification")} stepKey="verification" navigate={navigate}>
+                      <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.testingDomains", null, "Testing domains")} values={validator?.testingDomains} /></div>
+                      <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.certifications", null, "Certifications")} values={validator?.certifications} /></div>
+                      <VChipField label={t("vOnboarding.fields.linkedinUrl", null, "LinkedIn URL")} values={validator?.linkedinUrl ? [validator.linkedinUrl] : []} />
+                      <VChipField label={t("vOnboarding.fields.portfolioGithub", null, "Portfolio / GitHub")} values={validator?.portfolioUrl ? [validator.portfolioUrl] : []} />
+                      <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.describeTestingExperience", null, "Describe your testing experience")} values={validator?.testingBio ? [validator.testingBio] : []} /></div>
+                    </StepCard>
+                  </div>
                 )}
               </>
             )}
-
-            {detailsError && <p style={{ color: "var(--danger)", fontSize: 13, margin: "4px 0 8px" }}>{detailsError}</p>}
-            {detailsSaved && <p style={{ color: "var(--success)", fontSize: 13, margin: "4px 0 8px" }}>✓ {t("settings.changesSaved", null, "Changes saved")}</p>}
-            <Btn variant="primary" onClick={saveDetails} disabled={detailsBusy}>
-              {detailsBusy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save Changes")}
-            </Btn>
           </div>
 
           {/* Security Card */}

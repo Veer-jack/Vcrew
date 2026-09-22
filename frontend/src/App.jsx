@@ -35,6 +35,7 @@ import VLogin from "./vpages/VLogin";
 import VOAuthCallback from "./vpages/OAuthCallback";
 import VOnboarding from "./vpages/VOnboarding";
 import VSettings from "./vpages/VSettings";
+import VEditAccountStep from "./vpages/VEditAccountStep";
 import MissionBrief from "./vpages/MissionBrief";
 import DailyCheckin from "./vpages/DailyCheckin";
 import ShipmentStatus from "./vpages/ShipmentStatus";
@@ -181,13 +182,20 @@ function RequireVAuth({ children }) {
 }
 
 function ValidatorRoutes() {
-  const { loading } = useVAuth();
+  const { loading, validator } = useVAuth();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
     <Routes>
       <Route path="login" element={<VLogin />} />
         <Route path="onboarding" element={<RequireVAuth><VOnboarding /></RequireVAuth>} />
+      {/* Standalone, outside VLayout -- same full-screen wizard treatment as
+          the onboarding wizard itself and the builder side's own
+          /settings/edit-step/:step. key={validator?.id} only (not the path,
+          which contains :step) so navigating between steps here doesn't
+          remount and wipe the in-progress draft -- same fix App.jsx's
+          builder route already needed for the identical bug. */}
+      <Route path="settings/edit-step/:step" element={<RequireVAuth><VEditAccountStep key={validator?.id} /></RequireVAuth>} />
 
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
