@@ -30,10 +30,12 @@ export default function Messages() {
       setActiveId(prev => {
         if (requested) return requested.id;
         if (prev && d.threads.some(t => t.id === prev)) return prev;
-        // Deliberately not defaulting to threads[0] — WhatsApp Web doesn't
-        // open a chat until you pick one, and neither should this, unless a
-        // notification link or an explicit click asked for a specific one.
-        return null;
+        // Used to deliberately stay unselected here (WhatsApp Web doesn't
+        // open a chat until you pick one) -- tester feedback was that an
+        // empty right pane on first load just reads as broken, not as a
+        // deliberate blank state, so the first (most recent) thread opens
+        // automatically now instead.
+        return d.threads[0]?.id ?? null;
       });
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
