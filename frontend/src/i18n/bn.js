@@ -596,6 +596,7 @@ const bn = {
     triedBriefly: "সংক্ষেপে চেষ্টা করেছি",
     whatDidYouDo: "আপনি আজ অ্যাপে কি করলেন?",
     whatDidYouDoPlaceholder: "যেমন ক্যাটালগ ব্রাউজ করেছেন, কার্টে 2টি আইটেম যোগ করেছেন, চেকআউট করার চেষ্টা করেছেন...",
+    whatDidYouDoMin: "সর্বনিম্ন ১০টি অক্ষর",
     anyFrustrations: "আজ কোন হতাশা?",
     whatWasFrustrating: "কি হতাশাজনক ছিল? সুনির্দিষ্ট হতে…",
     openAgainTomorrow: "আপনি কি আগামীকাল আবার খুলবেন?",

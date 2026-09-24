@@ -596,6 +596,7 @@ const hi = {
     triedBriefly: "संक्षेप में प्रयास किया",
     whatDidYouDo: "आज आपने ऐप में क्या किया?",
     whatDidYouDoPlaceholder: "जैसे कैटलॉग ब्राउज़ किया, कार्ट में 2 आइटम जोड़े, चेकआउट करने का प्रयास किया...",
+    whatDidYouDoMin: "न्यूनतम 10 अक्षर",
     anyFrustrations: "आज कोई निराशा?",
     whatWasFrustrating: "क्या निराशाजनक था? विशिष्ट बनें...",
     openAgainTomorrow: "क्या आप इसे कल फिर से खोलेंगे?",

@@ -596,6 +596,7 @@ const ur = {
     triedBriefly: "مختصراً کوشش کی۔",
     whatDidYouDo: "آج آپ نے ایپ میں کیا کیا؟",
     whatDidYouDoPlaceholder: "جیسے کیٹلاگ کو براؤز کیا، کارٹ میں 2 آئٹمز شامل کیے، چیک آؤٹ کرنے کی کوشش کی…",
+    whatDidYouDoMin: "کم از کم 10 حروف",
     anyFrustrations: "آج کوئی مایوسی؟",
     whatWasFrustrating: "مایوس کن کیا تھا؟ مخصوص ہو…",
     openAgainTomorrow: "کیا آپ اسے کل دوبارہ کھولیں گے؟",

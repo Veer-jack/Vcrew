@@ -596,6 +596,7 @@ const ar = {
     triedBriefly: "حاولت لفترة وجيزة",
     whatDidYouDo: "ماذا فعلت في التطبيق اليوم؟",
     whatDidYouDoPlaceholder: "على سبيل المثال تصفحت الكتالوج، وأضفت عنصرين إلى سلة التسوق، وحاولت الدفع...",
+    whatDidYouDoMin: "الحد الأدنى 10 أحرف",
     anyFrustrations: "هل هناك أي إحباطات اليوم؟",
     whatWasFrustrating: "ما الذي كان محبطًا؟ كن محددًا…",
     openAgainTomorrow: "هل ستفتحه مرة أخرى غدًا؟",

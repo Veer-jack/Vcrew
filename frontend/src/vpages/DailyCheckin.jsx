@@ -268,7 +268,7 @@ export default function DailyCheckin() {
             <div className="card rise" style={{ padding: 32, background: "#fff" }}>
               {/* Form elements remain unchanged in logic, updated styles to match mockup */}
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.didYouUseItToday", null, "Did you use it today?")}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.didYouUseItToday", null, "Did you use it today?")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 <div style={{ display: "flex", gap: 16 }}>
                   {[t("missions.yesActively", null, "Yes, actively"), t("missions.triedBriefly", null, "Tried briefly"), t("missions.no", null, "No")].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, used: v }))} style={{
@@ -282,9 +282,18 @@ export default function DailyCheckin() {
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.whatDidYouDo", null, "What did you do in the app today?")}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.whatDidYouDo", null, "What did you do in the app today?")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 <textarea className="fin" placeholder={t("missions.whatDidYouDoPlaceholder", null, "e.g. Browsed the catalogue, added 2 items to cart, tried checkout…")} rows={4} value={answers.what} onChange={e => setAnswers(a => ({ ...a, what: e.target.value }))} style={{ fontSize: 14, padding: 16, background: "var(--panel)" }} />
-                <div style={{ textAlign: "right", fontSize: 12, color: "var(--text-faint)", marginTop: 8 }}>{answers.what.length}/500</div>
+                {/* This field disabling Submit was invisible -- unlike the
+                    chip questions above (pick one, visibly "done") or the
+                    screenshot's own asterisk below, there was nothing here
+                    saying 10 characters was a hard minimum, just a passive
+                    length counter. Same red/asterisk treatment as the
+                    screenshot requirement, and swaps to a plain counter
+                    once actually satisfied so it doesn't nag once it's done. */}
+                <div style={{ textAlign: "right", fontSize: 12, marginTop: 8, color: answers.what.trim().length > 10 ? "var(--text-faint)" : "var(--danger)" }}>
+                  {answers.what.trim().length > 10 ? `${answers.what.length}/500` : t("missions.whatDidYouDoMin", null, "Minimum 10 characters")}
+                </div>
               </div>
 
               <div style={{ marginBottom: 32 }}>
@@ -305,7 +314,7 @@ export default function DailyCheckin() {
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.openAgainTomorrow", null, "Would you open it again tomorrow?")}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.openAgainTomorrow", null, "Would you open it again tomorrow?")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 <div style={{ display: "flex", gap: 16 }}>
                   {[t("missions.definitely", null, "Definitely"), t("missions.maybe", null, "Maybe"), t("missions.no", null, "No")].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, comeback: v }))} style={{

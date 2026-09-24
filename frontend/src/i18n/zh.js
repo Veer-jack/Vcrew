@@ -596,6 +596,7 @@ const zh = {
     triedBriefly: "短暂尝试过",
     whatDidYouDo: "您今天在应用程序中做了什么？",
     whatDidYouDoPlaceholder: "例如浏览了目录，将 2 件商品添加到购物车，尝试结帐...",
+    whatDidYouDoMin: "至少需要 10 个字符",
     anyFrustrations: "今天有什么郁闷的事吗？",
     whatWasFrustrating: "什么令人沮丧？具体一点……",
     openAgainTomorrow: "明天再打开可以吗？",

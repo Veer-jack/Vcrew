@@ -596,6 +596,7 @@ const ru = {
     triedBriefly: "Попробовал кратко",
     whatDidYouDo: "Что вы делали сегодня в приложении?",
     whatDidYouDoPlaceholder: "например Просмотрел каталог, добавил 2 товара в корзину, попробовал оформить заказ…",
+    whatDidYouDoMin: "Минимум 10 символов",
     anyFrustrations: "Есть ли сегодня разочарования?",
     whatWasFrustrating: "Что расстраивало? Будьте конкретны…",
     openAgainTomorrow: "Вы бы открыли его завтра?",

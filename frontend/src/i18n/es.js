@@ -596,6 +596,7 @@ const es = {
     triedBriefly: "Probado brevemente",
     whatDidYouDo: "¿Qué hiciste hoy en la aplicación?",
     whatDidYouDoPlaceholder: "p.ej. Examiné el catálogo, agregué 2 artículos al carrito, intenté pagar...",
+    whatDidYouDoMin: "Mínimo 10 caracteres",
     anyFrustrations: "¿Alguna frustración hoy?",
     whatWasFrustrating: "¿Qué fue frustrante? Sea específico…",
     openAgainTomorrow: "¿Lo abrirías de nuevo mañana?",
