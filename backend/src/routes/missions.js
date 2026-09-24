@@ -108,7 +108,11 @@ router.use(authMiddleware);
 // costs nothing. Once anyone accepts, those fields lock (but stay visible).
 async function missionCanFullyEdit(missionId, status) {
   if (status === "draft") return true;
-  const row = await db.prepare(`SELECT 1 FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'pending', 'declined', 'not_selected') LIMIT 1`).get(missionId);
+  // Same "did anyone actually join" definition as `real_joined` below --
+  // a rejected submission or an auto-failed check-in streak isn't someone
+  // still committed to the mission's current terms, so it shouldn't
+  // permanently lock the reward out from under a mission nobody's on.
+  const row = await db.prepare(`SELECT 1 FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed') LIMIT 1`).get(missionId);
   return !row;
 }
 
@@ -161,7 +165,7 @@ router.get("/", async (req, res) => {
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
       (SELECT AVG(score/20.0) FROM v_my_missions v WHERE v.mission_id = m.id AND v.score > 0) as real_rating,
       (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) as real_joined,
-      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected'))) as no_committed_participants,
+      (SELECT NOT EXISTS(SELECT 1 FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed'))) as no_committed_participants,
       -- A require-approval application sits in 'pending' waiting on the
       -- builder specifically -- surfaced here so the list itself can flag
       -- it, instead of the only sign being buried in the Participants tab
@@ -461,7 +465,7 @@ router.get("/:id", async (req, res) => {
   // since we already have the full row set here, derive the true count from
   // it instead of trusting the stale column, same as `real_submitted` above.
   m.real_joined = participants.filter(p => !["invited", "pending", "declined", "not_selected", "rejected", "failed"].includes(p.stage)).length;
-  const mission = serializeMission(m, m.status === "draft" || !participants.some(p => !["invited", "pending", "declined", "not_selected"].includes(p.stage)));
+  const mission = serializeMission(m, m.status === "draft" || !participants.some(p => !["invited", "pending", "declined", "not_selected", "rejected", "failed"].includes(p.stage)));
   const lang = req.builder.preferred_language;
   if (lang && lang !== "en") {
     const translated = await translateBatch([
