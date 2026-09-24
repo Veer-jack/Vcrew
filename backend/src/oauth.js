@@ -150,5 +150,13 @@ export function isConfigured(provider) {
 }
 
 export function frontendUrl() {
-  return (process.env.FRONTEND_URL || APP_URL).replace(/\/$/, "");
+  let url = (process.env.FRONTEND_URL || APP_URL).replace(/\/$/, "");
+  // A bare domain (env var set without a scheme) is invalid wherever this
+  // is used -- Cashfree's return_url validation rejects it outright, and
+  // it'd resolve as a relative path rather than an absolute redirect
+  // everywhere else. Defaulting to https is safe (Railway and every real
+  // deploy target here serve over TLS); local dev already sets APP_URL to
+  // a full http://localhost URL, so this never fires there.
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  return url;
 }
