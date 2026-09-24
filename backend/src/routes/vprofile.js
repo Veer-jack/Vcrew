@@ -14,9 +14,6 @@ router.get("/", async (req, res) => {
   const nextLvl = LEVELS.find(l => l.n === lvl.n + 1) || null;
   const lvlPct = nextLvl ? Math.min(100, Math.round(((missionsDone - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
-  // Role Promotion Logic (User -> Tester -> Validator)
-  let calcRole = "User";
-  
   const statsRow = await db.prepare(`
     SELECT
       COUNT(*) as total_graded,
@@ -30,12 +27,19 @@ router.get("/", async (req, res) => {
     accuracy = Math.round((Number(statsRow.total_approved) / Number(statsRow.total_graded)) * 100);
   }
   const streak = v.streak || 0;
-  
-  if (missionsDone >= 5 && accuracy >= 90) calcRole = "Tester";
-  if (v.verified && v.occupation) calcRole = "Validator";
-  // Admin-approved Tester status is a permanent lock — checked last so it can't be
-  // silently overwritten by the auto-promotion rules above on a later profile fetch.
-  if (v.tester_status === "approved") calcRole = "Tester";
+
+  // `role` always mirrors the real account tier (validator_type) -- the
+  // same field Settings and the Onboarding "current role" screen already
+  // treat as authoritative. This used to be computed independently from
+  // mission count + accuracy ("perform well enough and get silently
+  // relabeled Tester"), which let a validator's audience-targeting bucket
+  // flip on its own with no account change, no admin approval, and no way
+  // for anyone to see why (buildAudienceClauses' "ValidationCrew Role"
+  // filter reads this exact column). A validator only ever becomes a real
+  // Tester via /admin/tester-applications approval, which already sets
+  // validator_type to 'tester' -- this just stops a second, disagreeing
+  // definition of the same label from existing alongside it.
+  const calcRole = v.validator_type === "tester" ? "Tester" : v.validator_type === "validator" ? "Validator" : "User";
 
   if (calcRole !== v.role) {
     await db.prepare(`UPDATE validators SET role = ? WHERE id = ?`).run(calcRole, v.id);
