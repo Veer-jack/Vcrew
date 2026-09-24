@@ -174,11 +174,14 @@ export default function Messages() {
           <div className="row gap-3" style={{ padding: "13px var(--pad-page)", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <VAvatar name={active.name} size={40} />
             <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)}</div></div>
-            {active.mission && <span className="pill" style={{ fontSize: 12 }}><Icon name="layers" size={13} />{active.mission}</span>}
-            {active.missionId && (
-              <button className="icon-btn" aria-label={t("vMessages.openInNewTab", null, "Open mission in new tab")} onClick={() => window.open(`/validator/missions/${active.missionId}`, "_blank", "noopener")}>
-                <Icon name="external" size={17} />
-              </button>
+            {active.mission && (
+              active.missionId ? (
+                <button className="pill" style={{ fontSize: 12, cursor: "pointer" }} onClick={() => window.open(`/validator/missions/${active.missionId}`, "_blank", "noopener")}>
+                  <Icon name="layers" size={13} />{active.mission}
+                </button>
+              ) : (
+                <span className="pill" style={{ fontSize: 12 }}><Icon name="layers" size={13} />{active.mission}</span>
+              )
             )}
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "var(--pad-page)", display: "flex", flexDirection: "column", gap: 12, background: "var(--bg)" }}>
