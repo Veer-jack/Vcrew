@@ -89,6 +89,46 @@ export default function Wallet() {
   }, [dataVersion]);
   useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
 
+  const finalizePayment = async (orderId) => {
+    try {
+      await api.verifyPayment({ orderId });
+      setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
+      setAdding(false);
+      await Promise.all([load(), refreshBuilder()]);
+    } catch (err) {
+      setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Card payments that need OTP/3D-Secure can't stay inside the _modal
+  // overlay (the issuing bank's page usually can't be framed) -- Cashfree
+  // breaks out to a full-page redirect for that step and sends the browser
+  // back here with ?order_id=... once it's done (see cashfreeClient.js's
+  // order_meta.return_url). Without this, that whole payment path had no
+  // way to ever call verify -- the money flow simply dead-ended on
+  // Cashfree's own hosted page.
+  useEffect(() => {
+    // The URL is read again inside the deferred callback, not captured here
+    // -- StrictMode's dev-mode mount/cleanup/re-mount cycle runs entirely
+    // synchronously, so an earlier mount stripping the query string before
+    // its own deferred timer gets cancelled would leave the surviving
+    // (second) mount with nothing left to find. Reading it fresh inside the
+    // timer means only whichever mount's timer actually survives to fire
+    // ever touches the URL, in dev or prod alike.
+    const timer = setTimeout(() => {
+      const orderId = new URLSearchParams(window.location.search).get("order_id");
+      if (!orderId) return;
+      window.history.replaceState({}, "", window.location.pathname);
+      setAdding(true);
+      setBusy(true);
+      finalizePayment(orderId);
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (loadError) return (
     <div className="page rise">
       <div className="err-banner" style={{ marginBottom: 12 }}>{loadError}</div>
@@ -121,19 +161,7 @@ export default function Wallet() {
         return;
       }
 
-      try {
-        await api.verifyPayment({
-          orderId: order.orderId,
-          amount: order.amount,
-        });
-        setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
-        setAdding(false);
-        await Promise.all([load(), refreshBuilder()]);
-      } catch (err) {
-        setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
-      } finally {
-        setBusy(false);
-      }
+      await finalizePayment(order.orderId);
     } catch (err) {
       setError(err.message || t("wallet.errStartCheckout", null, "Couldn't start checkout"));
       setBusy(false);

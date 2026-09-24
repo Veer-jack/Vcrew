@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { frontendUrl } from "./oauth.js";
 // Server-side Cashfree integration — replaces razorpayClient.js.
 // Two separate Cashfree products, same as before (Razorpay + RazorpayX):
 //   1. Payment Gateway (PG)  — Builder wallet top-ups (collections)
@@ -61,6 +62,15 @@ export async function createOrder(amountRupees, receipt, customer = {}) {
         customer_name: customer.name || "ValidationCrew Builder",
         customer_email: customer.email || "no-reply@validationcrew.com",
         customer_phone: customer.phone || "9999999999",
+      },
+      // Required for any payment method that has to break out of the
+      // _modal overlay into a full-page redirect (card OTP/3D-Secure is
+      // the common case) -- without this, Cashfree has nowhere to send
+      // the browser back to once that redirect-based step finishes, and
+      // strands the user on its own hosted "thank you" page forever.
+      // {order_id} is Cashfree's own placeholder, substituted server-side.
+      order_meta: {
+        return_url: `${frontendUrl()}/wallet?order_id={order_id}`,
       },
     }),
   });
