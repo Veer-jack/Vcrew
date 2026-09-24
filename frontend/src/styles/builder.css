@@ -123,6 +123,12 @@ html[data-direction="signal"] .feed-ic.accent { color: var(--accent-2); }
 /* ============ DATA TABLE ============ */
 .tbl-wrap { background: var(--panel); border: var(--hairline) solid var(--border); border-radius: var(--radius);
   box-shadow: var(--shadow-sm); overflow-x: auto; overflow-y: hidden; }
+/* Missions table specifically: columns are sized generously enough that a
+   narrow viewport can still need to scroll horizontally, but the visible
+   scrollbar bar itself is unwanted there — this keeps the scroll fully
+   functional (trackpad, shift+wheel) while just not drawing the bar. */
+.missions-tbl-wrap { scrollbar-width: none; -ms-overflow-style: none; }
+.missions-tbl-wrap::-webkit-scrollbar { display: none; }
 .tbl { width: 100%; border-collapse: collapse; }
 .tbl thead th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-faint); padding: 12px 16px; border-bottom: var(--hairline) solid var(--border); white-space: nowrap; }
@@ -151,12 +157,14 @@ html[data-direction="mono"] .tabs { border-radius: 6px; }
 html[data-direction="mono"] .tabs button { border-radius: 4px; }
 .tabs button svg { width: 14px; height: 14px; }
 .tabs button .cnt { font-family: var(--mono); font-size: 11px; padding: 0 6px; border-radius: 20px; background: var(--panel); color: var(--text-faint); }
-.tabs button.on { background: var(--panel); color: var(--text); box-shadow: var(--shadow-sm); }
+.tabs button.on { background: var(--accent-2); color: var(--accent-text); box-shadow: var(--shadow-sm); }
+.tabs button.on .cnt { background: rgba(255,255,255,.25); color: var(--accent-text); }
 html[data-direction="mono"] .tabs button.on { background: var(--text); color: #fff; }
 html[data-direction="mono"] .tabs button.on .cnt { background: rgba(255,255,255,.2); color: #fff; }
 
 /* underline tabs (detail screens) */
-.utabs { display: flex; gap: 4px; border-bottom: var(--hairline) solid var(--border); overflow-x: auto; }
+.utabs { display: flex; gap: 4px; border-bottom: var(--hairline) solid var(--border); overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.utabs::-webkit-scrollbar { display: none; }
 .utabs button { position: relative; padding: 12px 14px; border: none; background: transparent; font-weight: 700; font-size: 14px;
   color: var(--text-muted); white-space: nowrap; transition: color .14s; display: inline-flex; align-items: center; gap: 7px; }
 .utabs button svg { width: 15px; height: 15px; }
@@ -171,8 +179,11 @@ html[data-direction="mono"] .utabs button.on::after { background: var(--text); }
 
 /* ============ FORM PRIMITIVES (wizard) ============ */
 .fld { margin-bottom: 0; }
-.fld > label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
-.fld > label .opt { font-weight: 600; color: var(--text-faint); font-size: 12px; }
+/* Descendant, not direct-child -- Field's optional `action` slot (a
+   "Select all" toggle) wraps the label in its own row div, so the label is
+   no longer .fld's direct child everywhere this component is used. */
+.fld label { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.fld label .opt { font-weight: 600; color: var(--text-faint); font-size: 12px; }
 .fin { width: 100%; padding: 11px 14px; font-family: inherit; font-size: 14.5px; color: var(--text);
   background-color: var(--panel-inset); border: var(--hairline) solid var(--border); border-radius: var(--radius-sm);
   outline: none; transition: border-color .14s, box-shadow .14s, background-color .14s; }
@@ -395,8 +406,19 @@ html[data-direction="signal"] .reach .r-ic { color: var(--accent-2); }
 .aud-tags { display: flex; flex-wrap: wrap; gap: 6px; }
 .mtag { font-size: 11px; font-weight: 700; color: var(--text-muted); background: var(--panel-inset); border: var(--hairline) solid var(--border); padding: 3px 9px; border-radius: 20px; }
 html[data-direction="mono"] .mtag { border-radius: 4px; }
+/* Blue variant matching the Audience Explorer filter-chip look (.afilter-chip)
+   -- Settings' step-summary cards use this so entered values read the same
+   way as the "applied filter" chips builders already recognise elsewhere. */
+.mtag.accent { color: var(--accent); background: var(--accent-weak); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
 .aud-trust-row { display: flex; }
-.aud-card-actions { display: flex; gap: 8px; margin-top: 4px; }
+/* margin-top: auto anchors this to the bottom of .aud-card's own flex
+   column -- .aud-card is a CSS Grid item in .aud-grid, which stretches
+   every card in a row to match its tallest sibling by default, so a
+   card with less content (shorter bio, fewer chips) had genuinely extra
+   space at its bottom. Without this, that space sat below the buttons
+   instead of above them, so the button row landed at a different height
+   on every card instead of lining up across the row. */
+.aud-card-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 4px; }
 .aud-card-actions .btn { flex: 1; }
 
 /* match ring */
@@ -408,8 +430,13 @@ html[data-direction="signal"] .ring { background: conic-gradient(var(--accent-2)
 html[data-direction="signal"] .ring span { color: var(--accent-2); }
 .ring span i { font-style: normal; font-size: 8px; }
 
+.menu-item:hover { background: var(--panel-inset); }
+
+.mtbl-del-btn:hover { background: var(--danger-weak); }
+
 /* ============ KANBAN ============ */
-.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: 264px; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: start; }
+.kanban { display: grid; grid-auto-flow: column; grid-auto-columns: 264px; gap: 14px; overflow-x: auto; padding-bottom: 12px; align-items: start; scrollbar-width: none; -ms-overflow-style: none; }
+.kanban::-webkit-scrollbar { display: none; }
 .kcol { background: var(--panel); border: var(--hairline) solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 240px; box-shadow: 0 4px 14px rgba(0,0,0,0.03); }
 .kcol.dragover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .kcol-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: var(--hairline) solid var(--border); }
@@ -531,6 +558,13 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   border-radius: var(--radius-sm); color: var(--text-faint); min-width: 220px; flex: 1; max-width: 320px; }
 .seg-search input { border: none; background: none; outline: none; color: var(--text); font-family: inherit; font-size: 13.5px; width: 100%; }
 .seg-search svg { width: 16px; height: 16px; flex: none; }
+/* Same fix as the topbar .search box: the global :focus-visible rule
+   (accent-colored ring, !important) still wins by default -- this keeps the
+   keyboard-focus visibility that rule exists for (WCAG 2.4.7), just as a
+   plain border on the box itself instead of a bright ring, on every page's
+   local search (Missions, Support, Invitations, Wallet, Analytics, ...). */
+.seg-search input:focus-visible { outline: none !important; }
+.seg-search:focus-within { border-color: var(--border-strong); }
 .split { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
 .sticky-side { position: sticky; top: 84px; }
 .tc-split { display: grid; grid-template-columns: 360px minmax(0,1fr); gap: 32px; align-items: start; }
@@ -622,7 +656,6 @@ html[data-direction="mono"] .empty-ill { background: var(--panel-inset); color: 
   .app.mob-open .side { transform: none; }
   .app.mob-open .mob-scrim { display: block; position: fixed; inset: 0; z-index: 70; background: rgba(8,10,18,.4); backdrop-filter: blur(2px); animation: fade .2s ease; }
   .mob-burger { display: inline-grid; }
-  .topbar h1 { font-size: 18px; }
   .topbar .search { display: none; }
   .topbar .tabs[title="Design direction"] { display: none; }
   .page { padding: 22px 18px 60px; }

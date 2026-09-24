@@ -14,7 +14,7 @@ import NotificationsSidebar from "./NotificationsSidebar";
 const NAV_GROUPS = [
   { label: "Workspace", items: [
     { to: "/", label: "Dashboard", icon: "home", end: true },
-    { to: "/missions", label: "Missions", icon: "layers" },
+    { to: "/missions?tab=all", label: "Missions", icon: "layers" },
     { to: "/invitations", label: "Invitations", icon: "send" },
     { to: "/audience", label: "Audience", icon: "compass" },
     { to: "/messages", label: "Messages", icon: "inbox" },
@@ -90,17 +90,6 @@ function Sidebar({ closeMobile, builder, collapsed, onToggleCollapsed, messageUn
   );
 }
 
-const TITLES = {
-  "/": "Dashboard", "/missions": "Missions", "/audience": "Audience Explorer",
-  "/analytics": "Analytics", "/wallet": "Wallet", "/messages": "Messages",
-};
-function pageTitle(pathname) {
-  if (TITLES[pathname]) return TITLES[pathname];
-  if (pathname.startsWith("/missions/new")) return "Create Mission";
-  if (pathname.startsWith("/missions/")) return "Mission";
-  return "ValidationCrew";
-}
-
 export default function AppLayout() {
   const { t, dataVersion } = useTranslation();
   const { builder, logout } = useAuth();
@@ -151,9 +140,15 @@ export default function AppLayout() {
       <div className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("appLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          <h1>{t("nav." + pageTitle(location.pathname).toLowerCase(), null, pageTitle(location.pathname))}</h1>
-          {location.pathname !== "/audience" && (
-            <div className="search" style={{ marginLeft: 18 }}>
+          {/* Dashboard-only now, as a "jump to Missions" shortcut -- it's the
+              one page with no searchable list of its own. Every other page
+              either already has its own dedicated, page-relevant search
+              (Missions, Support, Audience Explorer, Messages, Invitations,
+              Wallet) or has nothing listable to search at all (Analytics,
+              Settings), so showing this same generic "always means Missions"
+              box there too would just be redundant or actively misleading. */}
+          {location.pathname === "/" && (
+            <div className="search">
               <Icon name="search" size={16} />
               <input
                 placeholder={t("actions.search", null, "Search missions…")}

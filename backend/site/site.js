@@ -76,7 +76,21 @@
   const countIO = new IntersectionObserver((entries) => {
     entries.forEach(e => { if (e.isIntersecting) { animateCount(e.target); countIO.unobserve(e.target); } });
   }, { threshold: 0.5 });
-  $$("[data-count]").forEach(el => countIO.observe(el));
+  /* A handful of stat numbers (data-live-stat="<key>") should show the real,
+     current count from the platform, not a fixed number baked into the
+     HTML — this fetches it once, patches data-count with the real value,
+     then starts observing every counter (live and static alike) so
+     animateCount always reads the correct final number whenever it fires.
+     A failed request just leaves the markup's own fallback value in place —
+     the page still works, it just isn't live that one time. */
+  fetch("/api/public/stats").then(r => r.json()).then(data => {
+    $$("[data-live-stat]").forEach(el => {
+      const v = data && data[el.dataset.liveStat];
+      if (v != null) el.dataset.count = v;
+    });
+  }).catch(() => {}).finally(() => {
+    $$("[data-count]").forEach(el => countIO.observe(el));
+  });
 
   /* FAQ accordion */
   $$(".faq-item").forEach(item => {

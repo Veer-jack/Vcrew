@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import jsPDF from "jspdf";
 import Icon from "../components/Icon";
 import StepUpModal from "../components/StepUpModal";
@@ -8,6 +9,8 @@ import { useAuth } from "../context/AuthContext";
 import { api } from "../api/client";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
+import { hasResumableDraft } from "../utils/missionDraft";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 // TABS defined in component
 
@@ -53,11 +56,26 @@ export default function Wallet() {
   const [loadError, setLoadError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
   const [refetching, setRefetching] = useState(false);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     const t = setTimeout(() => setVisibleCount(20), 0);
     return () => clearTimeout(t);
   }, [tab]);
+
+  // "Add funds" on the Create Mission wizard's low-balance banner lands here
+  // — same backnav flag Dashboard/Missions already check when leaving an
+  // in-progress mission draft any other way, this is just another page that
+  // can be the very next one loaded after that happens.
+  useEffect(() => {
+    let flagged = false;
+    try { flagged = sessionStorage.getItem("vcrew_mission_draft_backnav") === "1"; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_draft_backnav"); } catch { /* ignore */ }
+    if (hasResumableDraft(builder?.id)) {
+      toast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
+    }
+  }, [builder?.id, t]);
 
   const load = () => {
     setLoadError("");
@@ -70,6 +88,46 @@ export default function Wallet() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataVersion]);
   useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
+
+  const finalizePayment = async (orderId) => {
+    try {
+      await api.verifyPayment({ orderId });
+      setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
+      setAdding(false);
+      await Promise.all([load(), refreshBuilder()]);
+    } catch (err) {
+      setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Card payments that need OTP/3D-Secure can't stay inside the _modal
+  // overlay (the issuing bank's page usually can't be framed) -- Cashfree
+  // breaks out to a full-page redirect for that step and sends the browser
+  // back here with ?order_id=... once it's done (see cashfreeClient.js's
+  // order_meta.return_url). Without this, that whole payment path had no
+  // way to ever call verify -- the money flow simply dead-ended on
+  // Cashfree's own hosted page.
+  useEffect(() => {
+    // The URL is read again inside the deferred callback, not captured here
+    // -- StrictMode's dev-mode mount/cleanup/re-mount cycle runs entirely
+    // synchronously, so an earlier mount stripping the query string before
+    // its own deferred timer gets cancelled would leave the surviving
+    // (second) mount with nothing left to find. Reading it fresh inside the
+    // timer means only whichever mount's timer actually survives to fire
+    // ever touches the URL, in dev or prod alike.
+    const timer = setTimeout(() => {
+      const orderId = new URLSearchParams(window.location.search).get("order_id");
+      if (!orderId) return;
+      window.history.replaceState({}, "", window.location.pathname);
+      setAdding(true);
+      setBusy(true);
+      finalizePayment(orderId);
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loadError) return (
     <div className="page rise">
@@ -103,19 +161,7 @@ export default function Wallet() {
         return;
       }
 
-      try {
-        await api.verifyPayment({
-          orderId: order.orderId,
-          amount: order.amount,
-        });
-        setInfo(t("wallet.paymentReceived", null, "Payment received — your wallet has been topped up."));
-        setAdding(false);
-        await Promise.all([load(), refreshBuilder()]);
-      } catch (err) {
-        setError(err.message || t("wallet.errVerifyPayment", null, "Couldn't verify payment"));
-      } finally {
-        setBusy(false);
-      }
+      await finalizePayment(order.orderId);
     } catch (err) {
       setError(err.message || t("wallet.errStartCheckout", null, "Couldn't start checkout"));
       setBusy(false);
@@ -173,7 +219,7 @@ export default function Wallet() {
   return (
     <div className="page rise">
       <div className="ph">
-        <div><span className="eyebrow">{t("wallet.walletAndBilling", null, "Wallet & billing")}</span><h1>{t("wallet.title", null, "Wallet")}</h1><p className="lead">{t("wallet.lead", { org: builder?.org }, `Top up, track mission spend and manage how ${builder?.org} pays.`)}</p></div>
+        <div><h1>{t("wallet.title", null, "Wallet")}</h1><p className="lead">{t("wallet.lead", { org: builder?.org }, `Top up, track mission spend and manage how ${builder?.org} pays.`)}</p></div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="ghost" icon="download" onClick={exportStatement}>{t("actions.statement", null, "Statement")}</Btn><Btn variant="primary" icon="plus" onClick={() => setAdding(true)}>{t("actions.addFunds", null, "Add funds")}</Btn></div>
       </div>
 
@@ -193,7 +239,7 @@ export default function Wallet() {
           <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
             <div className="fld" style={{ flex: 1, minWidth: 180 }}>
               <label>{t("wallet.amountToAdd", null, "Amount to add")}</label>
-              <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} /></div>
+              <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={blockInvalidNumberKeys} /></div>
             </div>
             {cardsReady ? (
               <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? t("actions.opening", null, "Opening…") : t("actions.payWithCardUpi", null, "Pay with card / UPI")}</Btn>
@@ -226,15 +272,36 @@ export default function Wallet() {
       </div>
 
       <div className="utabs sec">
-        {TABS.map(tab => <button key={tab.k} className={tab === tab.k ? "on" : ""} onClick={() => setTab(tab.k)}><Icon name={tab.ic} size={15} />{tab.l}</button>)}
+        {/* Named `tb`, not `tab` -- shadowing the outer `tab` state here used
+            to make `tab === tab.k` compare the mapped object to its own key,
+            which is never true, so the selected pill highlight (.utabs
+            button.on, otherwise identical to the Missions page's tabs) never
+            actually applied. */}
+        {TABS.map(tb => <button key={tb.k} className={tab === tb.k ? "on" : ""} onClick={() => setTab(tb.k)}><Icon name={tb.ic} size={15} />{tb.l}</button>)}
       </div>
 
-      {tab === "transactions" && (
+      {tab === "transactions" && (() => {
+        // Matches the description or credit/debit type -- either is a
+        // reasonable thing to be hunting a past transaction by.
+        const filteredTxns = q.trim()
+          ? data.transactions.filter(txn =>
+              txn.description?.toLowerCase().includes(q.trim().toLowerCase()) ||
+              (txn.type === "credit" ? t("wallet.credit", null, "Credit") : t("wallet.debit", null, "Debit")).toLowerCase().includes(q.trim().toLowerCase()))
+          : data.transactions;
+        return (
+        <>
+          <div className="seg-search" style={{ marginBottom: 16, maxWidth: 360 }}>
+            <Icon name="search" size={16} />
+            <input placeholder={t("wallet.searchPlaceholder", null, "Search transactions…")} value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          {filteredTxns.length === 0 ? (
+            <div className="muted" style={{ padding: 24 }}>{t("wallet.noneMatch", null, "No transactions match")} "{q}".</div>
+          ) : (
         <div className="tbl-wrap">
           <table className="tbl">
             <thead><tr><th>{t("wallet.thDate", null, "Date")}</th><th>{t("wallet.thDescription", null, "Description")}</th><th>{t("wallet.thType", null, "Type")}</th><th style={{ textAlign: "right" }}>{t("wallet.thAmount", null, "Amount")}</th></tr></thead>
             <tbody>
-              {data.transactions.slice(0, visibleCount).map((txn) => (
+              {filteredTxns.slice(0, visibleCount).map((txn) => (
                 <tr key={txn.id} className={txn.missionId ? "click" : ""} onClick={() => txn.missionId && navigate(`/missions/${txn.missionId}`)}>
                   <td className="mono" style={{ color: "var(--text-muted)", fontSize: 12.5 }}>{txn.date}</td>
                   <td style={{ fontWeight: 600 }}>{txn.description}</td>
@@ -244,13 +311,16 @@ export default function Wallet() {
               ))}
             </tbody>
           </table>
-          {visibleCount < data.transactions.length && (
+          {visibleCount < filteredTxns.length && (
             <div style={{ textAlign: "center", padding: 16 }}>
               <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreTransactions", null, "Load more transactions")}</Btn>
             </div>
           )}
         </div>
-      )}
+          )}
+        </>
+        );
+      })()}
 
       {tab === "invoices" && (
         <div className="tbl-wrap">

@@ -10,7 +10,11 @@ import { friendlyAuthError } from "./auth/AuthSplitScreen";
 // come from the current user. `onClearPrefill` (optional) persists "forget this
 // onboarding-collected number" server-side — without it, prefillPhone comes
 // right back on the next reload/tab-switch since nothing local survives that.
-export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill }) {
+// `bare` skips the outer .card wrapper so a caller can fold this into an
+// existing card (Settings merges it under the profile-identity block below,
+// since both come from the same "Your details" onboarding step and the
+// tester flagged them as needlessly split into two separate cards).
+export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill, bare }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
   // Once the user says "use a different number" we must stop re-offering the
@@ -73,6 +77,13 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       const idToken = await cred.user.getIdToken();
       const res = await client.phoneLink(idToken);
       onUpdate?.(res.phone);
+      // A real verified number now supersedes whatever onboarding-time
+      // number was sitting in the prefill (whether this is that same
+      // number now confirmed, or a different one typed via Edit Number) --
+      // clearing it here, on actual success, means a later Remove falls
+      // back to a plain "Add phone" instead of resurrecting a now-stale
+      // suggestion.
+      await onClearPrefill?.();
       reset();
     } catch (err) {
       setError(friendlyAuthError(err, t, t("auth.couldntVerifyCode", null, "Couldn't verify code")));
@@ -96,62 +107,64 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     } finally { setBusy(false); }
   };
 
-  // Explicit "forget this number" — clears whatever's in the field and, like
-  // Remove, stops the onboarding number from being re-suggested afterwards,
-  // for real this time (server-side), not just for this page visit.
-  const deleteEntry = async () => {
-    setPrefillDismissed(true);
-    reset();
-    await onClearPrefill?.();
-  };
-
-  const useDifferentNumber = async () => {
-    setPrefillDismissed(true);
-    // Goes straight to a blank entry form instead of collapsing back to the
-    // "Add phone" button — the user just said they want to type a different
-    // number, so making them click Add phone again to get there is a wasted
-    // extra step.
+  const useDifferentNumber = () => {
+    // Just opens the form blank -- doesn't touch the prefill at all. It used
+    // to clear it server-side immediately on this click, before any actual
+    // edit happened: open the form to look, then Cancel with nothing typed,
+    // and the onboarding number was already gone with no way back. Now that
+    // only happens once a new number is actually verified (see verifyCode);
+    // Cancel from here behaves exactly like Cancel from Verify -- the old
+    // number is untouched and the card goes right back to showing it.
     setPhoneInput("");
     setEditing(true);
-    await onClearPrefill?.();
   };
 
   // Buttons show regardless of firebaseReady — if this environment's Firebase
   // genuinely isn't configured, sendCode's own error handling below already
   // surfaces a friendly message when Send code is actually clicked, so the
-  // rest of the flow (Delete, no-stale-prefill, etc.) stays fully testable
+  // rest of the flow (no-stale-prefill, etc.) stays fully testable
   // without gating it behind infra that isn't set up here yet.
   const showPending = !phoneVerified && !editing && !prefillDismissed && prefillPhone;
   const showAdd = !phoneVerified && !editing && (prefillDismissed || !prefillPhone);
 
   return (
-    <div className="card" style={{ padding: "var(--pad-card)" }}>
-      <div className="row between" style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
-          <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
-            {phoneVerified
-              ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
-              : showPending
-                ? t("auth.verifyPhoneDesc", null, "We found this number on your profile — verify it to enable login via SMS code and extra verification for withdrawals.")
-                : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
-          </p>
+    <div className={bare ? undefined : "card"} style={bare ? undefined : { padding: "var(--pad-card)" }}>
+      <div style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
+        {/* showPending crams a longer description alongside a pill and two
+            buttons on one line -- looked cluttered at normal card widths.
+            Its own row below (title/description stay full-width) fixes
+            that; the other two states stay as a single row since they're
+            just one short line each. */}
+        <div className="row between" style={{ alignItems: "center" }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
+            {!showPending && (
+              <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
+                {phoneVerified
+                  ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
+                  : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
+              </p>
+            )}
+          </div>
+          {phoneVerified && !editing && (
+            <div className="row gap-2">
+              <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}><Icon name="check" size={12} />{phone}</span>
+              <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
+            </div>
+          )}
+          {showAdd && (
+            <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
+          )}
         </div>
-        {phoneVerified && !editing && (
-          <div className="row gap-2">
-            <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}><Icon name="check" size={12} />{phone}</span>
-            <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
-          </div>
-        )}
         {showPending && (
-          <div className="row gap-2">
-            <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
-            <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
-            <button className="btn btn-quiet" onClick={useDifferentNumber}>{t("actions.useDifferentNumber", null, "Use a different number")}</button>
-          </div>
-        )}
-        {showAdd && (
-          <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
+          <>
+            <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>{t("auth.verifyPhoneDesc", null, "Verify this number to enable SMS login and extra security.")}</p>
+            <div className="row gap-2" style={{ marginTop: 12, flexWrap: "wrap" }}>
+              <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
+              <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
+              <button className="btn btn-ghost" onClick={useDifferentNumber}><Icon name="edit" size={15} />{t("actions.editNumber", null, "Edit Number")}</button>
+            </div>
+          </>
         )}
       </div>
 
@@ -167,12 +180,17 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
                   <select className="cc-select fin" value={ccIdx} onChange={(e) => setCcIdx(Number(e.target.value))} style={{ width: "120px", flexShrink: 0 }}>
                     {COUNTRIES.map((c, i) => <option key={c[2]} value={i}>{c[0]} {c[1]}</option>)}
                   </select>
-                  <input className="fin" type="tel" placeholder="98765 43210" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} required style={{ flex: 1 }} />
+                  {/* Country code is its own dropdown to the left, so this
+                      only ever needs the local digits -- letters/symbols
+                      typed here (or pasted) get stripped immediately rather
+                      than accepted and only caught by sendCode's \D strip
+                      on submit. A space stays allowed for grouping, matching
+                      the placeholder's "98765 43210" format. */}
+                  <input className="fin" type="tel" placeholder="98765 43210" value={phoneInput} onChange={e => setPhoneInput(e.target.value.replace(/[^\d\s]/g, ""))} required style={{ flex: 1 }} />
                 </div>
               </div>
               <button className="btn btn-primary" disabled={busy} type="submit">{busy ? t("actions.sending", null, "Sending…") : t("actions.sendCode", null, "Send code")}</button>
               <button className="btn btn-quiet" type="button" onClick={reset}>{t("actions.cancel", null, "Cancel")}</button>
-              <button className="btn btn-quiet" type="button" style={{ color: "var(--danger)" }} disabled={busy} onClick={deleteEntry}>{t("actions.delete", null, "Delete")}</button>
             </form>
           ) : (
             <form onSubmit={verifyCode} className="row gap-2" style={{ alignItems: "flex-end" }}>

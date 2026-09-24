@@ -1,9 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+// Aliased — this file already has its own local `toast` state (the page's
+// own dismiss-with-X notification, used for every other showToast call
+// here). This one's for the single "changes saved" case below, which
+// deliberately matches the plain, centered, auto-dismissing style used for
+// the same event on Missions/Dashboard instead.
+import { toast as hotToast } from "react-hot-toast";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
-import { useMeta } from "../context/MetaContext";
+import { Avatar, Btn, Donut, KpiCard, MissionLogo, StatusTag, Stars, TypeTag, UpdatingBadge, inr, inrK } from "../components/ui";
+import { useMeta, ptypeOf } from "../context/MetaContext";
+import { ptypeLabel, rewardLabel, rewardDesc } from "../bi18n";
 import { api } from "../api/client";
 import { InviteValidatorModal } from "../components/InviteValidatorModal";
 import { Modal } from "../components/Modal";
@@ -11,15 +18,64 @@ import { STAGES, FILE_KIND } from "../constants";
 import { exportCSV } from "../exportUtils";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
+import { ValidatorProfileDrawer } from "../components/ValidatorProfileDrawer";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
+
+// Kanban cards in these stages open the validator's profile on click (same
+// drawer as the Audience Explorer's "View Profile") -- Submitted/Rewarded
+// stay on openSubmission instead, since those already have a real
+// submission to review, not just a profile to look at. Pending/Rejected/
+// Failed keep their existing dedicated affordances (inline Accept/Reject,
+// or nothing) rather than gaining a second, competing click behavior.
+// "pending" also opens the drawer (with Accept/Reject in its footer instead
+// of the usual Close/Invite) -- clicking anywhere on the card, not just the
+// two small inline buttons, is the same "click to act on this" affordance
+// every other stage here already has.
+const PROFILE_VIEW_STAGES = new Set(["invited", "declined", "not_selected", "accepted", "started", "pending"]);
+
+// Shared by every row in the mission header's "More" menu.
+const menuItemStyle = {
+  display: "flex", alignItems: "center", gap: 10, width: "100%",
+  padding: "9px 14px", background: "none", border: "none", cursor: "pointer",
+  textAlign: "left", color: "var(--text)", fontSize: 13.5, fontFamily: "inherit",
+};
+
+// Confirmation copy for the mission header's status-change actions -- each
+// is a real, final transition (see the More menu), shown in the same
+// in-app Modal every other confirmation here uses, not the browser's
+// native confirm().
+function statusChangeCopy(t, status, name) {
+  if (status === "completed") return {
+    title: t("missionDetail.confirmCompleteTitle", null, "Mark this mission as complete?"),
+    body: t("missionDetail.confirmCompleteBody", { name }, `This marks "${name}" as complete. Anyone still mid-task will be notified the mission has wrapped. This can't be undone.`),
+    confirmLabel: t("actions.complete", null, "Mark as complete"),
+  };
+  if (status === "closed") return {
+    title: t("missionDetail.confirmCloseTitle", null, "Close this mission?"),
+    body: t("missionDetail.confirmCloseBody", { name }, `This closes "${name}" early. Anyone still mid-task will be notified and won't be able to continue. This can't be undone.`),
+    confirmLabel: t("actions.close", null, "Close"),
+  };
+  return {
+    title: t("missionDetail.confirmArchiveTitle", null, "Archive this mission?"),
+    body: t("missionDetail.confirmArchiveBody", { name }, `This moves "${name}" out of your everyday lists into Archived. You can still find it there.`),
+    confirmLabel: t("actions.archive", null, "Archive"),
+  };
+}
 
 // "YYYY-MM-DDTHH:mm" for the current moment in local time — the format
 // datetime-local inputs use for their own value/min, so passing this as
 // `min` blocks past dates AND past times on today's date in one shot
 // (native browser behavior for datetime-local's min boundary).
-function nowLocalDatetimeString() {
-  const d = new Date();
+function toLocalDatetimeString(d) {
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function nowLocalDatetimeString() {
+  return toLocalDatetimeString(new Date());
+}
+function fmtShortDate(d) {
+  return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 // Native date/datetime-local inputs only open the picker when you click the
@@ -50,13 +106,39 @@ function timeAgo(t, dateString) {
   return Math.floor(seconds) + ' ' + t("missionDetail.timeUnit.seconds", null, "seconds");
 }
 
-// "Joined X ago" / "Joined just now" / "Joined <time_label>" composed from timeAgo() above
+// The word this Kanban card's date caption should lead with — "Joined X ago"
+// read the same on every card regardless of which column it sat in, even
+// though joined_at only ever reflects when the row was first created (i.e.
+// invited/applied), not whatever stage it's since moved to.
+function stageVerb(t, stage) {
+  const byStage = {
+    invited: () => t("status.invited", null, "Invited"),
+    pending: () => t("status.applied", null, "Applied"),
+    declined: () => t("status.declined", null, "Declined"),
+    not_selected: () => t("status.notSelected", null, "Not selected"),
+    accepted: () => t("status.accepted", null, "Accepted"),
+    started: () => t("status.started", null, "Started"),
+    submitted: () => t("status.submitted", null, "Submitted"),
+    rewarded: () => t("status.rewarded", null, "Rewarded"),
+    rejected: () => t("status.rejected", null, "Rejected"),
+    failed: () => t("status.failedShort", null, "Failed"),
+  };
+  return (byStage[stage] || byStage.invited)();
+}
+
+// "<Verb> X ago" / "<Verb> just now" / "<Verb> <time_label>" — <Verb> matches
+// whichever column the card is actually in (Invited/Declined/Accepted/
+// Started/Submitted/etc.), paired with stage_changed_at (stamped every time
+// participants.stage changes — see backend/src/db.js) rather than joined_at,
+// which only ever reflects the original invite/apply time.
 function joinedLabel(t, p) {
-  if (!p.joined_at) return t("missionDetail.joinedTime", { time: p.time_label || t("missionDetail.recently", null, "recently") }, "Joined {{time}}");
-  const ago = timeAgo(t, p.joined_at);
+  const verb = stageVerb(t, p.stage);
+  const timestamp = p.stage_changed_at || p.joined_at;
+  if (!timestamp) return t("missionDetail.stageTime", { verb, time: p.time_label || t("missionDetail.recently", null, "recently") }, "{{verb}} {{time}}");
+  const ago = timeAgo(t, timestamp);
   return ago === t("missionDetail.justNow", null, "just now")
-    ? t("missionDetail.joinedTime", { time: ago }, "Joined {{time}}")
-    : t("missionDetail.joinedTimeAgo", { time: ago }, "Joined {{time}} ago");
+    ? t("missionDetail.stageTime", { verb, time: ago }, "{{verb}} {{time}}")
+    : t("missionDetail.stageTimeAgo", { verb, time: ago }, "{{verb}} {{time}} ago");
 }
 
 const TABS = [
@@ -67,6 +149,24 @@ const TABS = [
   { k: "files", lk: "missionDetail.tabs.files", l: "Files", ic: "fileText" },
   { k: "payments", lk: "missionDetail.tabs.payments", l: "Payments", ic: "wallet" },
 ];
+
+// Which tab a given notification type is "about" -- lets an unread
+// notification for this mission surface as a red badge on the one tab
+// that actually answers it, same idea as the unread chip Missions.jsx
+// already shows per row, just resolved down to a specific tab once
+// you're actually inside the mission.
+const NOTIF_TYPE_TAB = {
+  participant_joined: "participants",
+  application_received: "participants",
+  invite_declined: "participants",
+  user_minus: "participants",
+  schedule_accepted: "participants",
+  schedule_declined: "participants",
+  mission_failed: "participants",
+  shipment_received: "participants",
+  submission: "responses",
+  checkin: "responses",
+};
 
 const TC_SEV = {
   crit: { l: "Critical", color: "var(--danger)", bg: "var(--danger-weak)" },
@@ -143,25 +243,44 @@ function TaskOverviewCard({ task, idx, expanded, onToggle }) {
               </div>
             </div>
           )}
-          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 4, fontSize: 12.5, color: "var(--text-muted)" }}>
-            <span>{t("testCases.minTimeMin", null, "Min time (min)")}: <b style={{ color: "var(--text)" }}>{Math.ceil((task.min_time_seconds || 120) / 60)}</b></span>
-            {task.proof === "screenshot" && <span className="row gap-1" style={{ alignItems: "center" }}><Icon name="image" size={13} />{t("testCases.requireProof", null, "Require screenshot or video proof")}</span>}
-          </div>
+          {task.proof === "screenshot" && (
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 14, marginTop: 4, fontSize: 12.5, color: "var(--text-muted)" }}>
+              <span className="row gap-1" style={{ alignItems: "center" }}><Icon name="image" size={13} />{t("testCases.requireProof", null, "Require screenshot or video proof")}</span>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function MissionOverview({ mission, participants, setTab, navigate }) {
+function MissionOverview({ mission, participants, setTab, navigate, ptypes }) {
   const { t } = useTranslation();
   const pipeline = STAGES.map(s => ({ ...s, n: participants.filter(p => p.stage === s.id).length }));
   const maxN = Math.max(...pipeline.map(p => p.n), 1);
   const [expandedTasks, setExpandedTasks] = useState(() => new Set());
   const toggleTask = (i) => setExpandedTasks(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const pt = ptypeOf(ptypes || [], mission.ptype);
   return (
     <div className="split rise">
       <div className="col gap-5">
+        <div className="card" style={{ padding: 20 }}>
+          <span className="eyebrow">{t("missionDetail.participationType", null, "Participation type")}</span>
+          <div className="row gap-2" style={{ marginTop: 10, alignItems: "center" }}>
+            <Icon name={pt.icon} size={18} style={{ color: "var(--accent)" }} />
+            <b style={{ fontSize: 15 }}>{ptypeLabel(t, pt)}</b>
+            {pt.id === "trial" && mission.durationDays && <span className="faint" style={{ fontSize: 13 }}>· {t("createMission.durationDaysSuffix", { days: mission.durationDays }, `${mission.durationDays} days`)}</span>}
+          </div>
+          {/* No visible sign of this setting existed anywhere outside the edit
+              wizard's own checkbox -- a builder had no way to confirm what a
+              published mission actually has stored without re-opening Edit. */}
+          {mission.requireApproval && (
+            <div className="row gap-2" style={{ marginTop: 10, alignItems: "center" }}>
+              <Icon name="userCheck" size={15} style={{ color: "var(--accent)" }} />
+              <span className="faint" style={{ fontSize: 13 }}>{t("missionDetail.requiresApprovalNote", null, "Requires your approval before a validator can start")}</span>
+            </div>
+          )}
+        </div>
         <div className="card" style={{ padding: 20 }}>
           <span className="eyebrow">{t("missionDetail.theBrief", null, "The brief")}</span>
           <p style={{ fontSize: 15, lineHeight: 1.65, margin: "10px 0 0", overflowWrap: "anywhere", wordBreak: "break-word" }}>{mission.description || t("missionDetail.noDescription", null, "No description provided yet.")}</p>
@@ -256,7 +375,138 @@ function Toast({ message, type, onClose }) {
   );
 }
 
-function ParticipantKanban({ mission, participants, setParticipants, onInvite, navigate, showToast }) {
+// Reopening is its own small, focused action (deadline + optionally reward/
+// target) rather than routing back through the full wizard — matches how
+// "Mark as complete" is already its own confirm-dialog, not a generic
+// status-field edit. `target` here means the mission's lifetime total,
+// not "how many more this round" — participants.joined already counts
+// everyone ever rewarded on this mission, so that's the floor and the
+// number this field starts from.
+function ReopenMissionModal({ mission, rewards, platformFeePct, onClose }) {
+  const { t } = useTranslation();
+  const [deadline, setDeadline] = useState("");
+  const [rewardType, setRewardType] = useState(mission.reward.type);
+  const [amount, setAmount] = useState(mission.reward.amount || "");
+  const [target, setTarget] = useState(mission.participants.target);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const [liveCount, setLiveCount] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api.audienceMatchCount(mission.audience || {}).then(res => { if (!cancelled) setLiveCount(res.count); }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mission.id]);
+
+  const rw = rewards.find(r => r.id === rewardType);
+  const needsAmt = rw?.needsAmt;
+  const alreadyJoined = mission.participants.joined;
+  const perSlotAmount = needsAmt ? (Number(amount) || 0) : 0;
+  const perSlotFee = Math.round(perSlotAmount * (platformFeePct || 0));
+  const perSlotCost = perSlotAmount + perSlotFee;
+  const newSlots = Math.max(0, (Number(target) || 0) - alreadyJoined);
+  const subtotal = perSlotAmount * newSlots;
+  const feeTotal = perSlotFee * newSlots;
+  const costDelta = perSlotCost * newSlots;
+  // Same rule as the create wizard's overAudienceCount block — a target the
+  // audience can't fill is a mission that can never complete, not just a
+  // rough estimate, so it blocks the same way there instead of only warning.
+  const overAudienceCount = liveCount !== null && (Number(target) || 0) > liveCount;
+
+  const submit = async () => {
+    if (!deadline) { setError(t("missionDetail.reopenPickDeadline", null, "Pick a deadline.")); return; }
+    if (Number(target) < alreadyJoined) {
+      setError(t("missionDetail.reopenBelowJoined", { count: alreadyJoined }, `Can't go below ${alreadyJoined} — that many have already joined across this mission's history.`));
+      return;
+    }
+    if (overAudienceCount) {
+      setError(t("missionDetail.reopenExceedsAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this mission's audience — lower the target or widen the audience from Edit.`));
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const { mission: updated } = await api.reopenMission(mission.id, {
+        deadline, reward: { type: rewardType, amount: Number(amount) || 0 }, target: Number(target),
+      });
+      onClose(!!updated);
+    } catch (err) {
+      setError(err.message || t("missionDetail.reopenFailed", null, "Couldn't reopen this mission — try again."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={t("missionDetail.reopenMissionTitle", null, "Reopen mission")} onClose={() => onClose(false)} width={520}>
+      <div style={{ padding: "0 20px 20px" }}>
+        <p className="muted" style={{ fontSize: 13.5, marginTop: 0 }}>
+          {t("missionDetail.reopenMissionDesc", null, "Pick a new deadline to start another round. You can also adjust the reward and how many participants this mission targets in total.")}
+        </p>
+
+        <div className="fld">
+          <label>{t("createMission.deadlineLabel", null, "Deadline")} <span className="req-star" aria-hidden="true">*</span></label>
+          <input className="fin" type="date" min={new Date().toISOString().slice(0, 10)} value={deadline} onChange={e => setDeadline(e.target.value)} onClick={e => e.currentTarget.showPicker?.()} />
+        </div>
+
+        <div className="fld" style={{ marginTop: 16 }}>
+          <label>{t("createMission.rewardTypeLabel", null, "Reward Type")}</label>
+          <div className="optcards c2" style={{ gridTemplateColumns: "repeat(2,1fr)" }}>
+            {rewards.map(r => (
+              <button key={r.id} type="button" className={`optcard ${rewardType === r.id ? "on" : ""}`} onClick={() => setRewardType(r.id)}>
+                <span className="oc-tick"><Icon name="check" size={12} /></span>
+                <b>{rewardLabel(t, r)}</b><p>{rewardDesc(t, r)}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {needsAmt && (
+          <div className="fld" style={{ marginTop: 16 }}>
+            <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
+            <div className="inw has-pre">
+              <span className="pre">₹</span>
+              <input className="fin" type="number" min="1" value={amount} onChange={e => setAmount(e.target.value === "" ? "" : +e.target.value)} onKeyDown={blockInvalidNumberKeys} />
+            </div>
+          </div>
+        )}
+
+        <div className="fld" style={{ marginTop: 16 }}>
+          <label>{t("createMission.numberOfParticipantsLabel", null, "Number of Participants")}</label>
+          <input className="fin" type="number" min={alreadyJoined || 1} value={target} onChange={e => setTarget(e.target.value === "" ? "" : +e.target.value)} onKeyDown={blockInvalidNumberKeys} />
+          <p className="fhint">{t("missionDetail.reopenTargetHint", { count: alreadyJoined }, `${alreadyJoined} have already joined across this mission's history — this is the new lifetime total, not additional slots.`)}</p>
+          {liveCount !== null && (
+            <p className="fhint" style={overAudienceCount ? { color: "var(--danger)" } : undefined}>
+              {overAudienceCount && <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />}
+              {overAudienceCount
+                ? t("missionDetail.reopenExceedsAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this mission's audience — lower the target or widen the audience from Edit.`)
+                : t("missionDetail.reopenAudienceCount", { count: liveCount }, `${liveCount.toLocaleString("en-IN")} validators match this mission's audience.`)}
+            </p>
+          )}
+        </div>
+
+        {costDelta > 0 && (
+          <div className="card" style={{ marginTop: 16, padding: 14, background: "var(--panel-inset)" }}>
+            <div className="row between"><span className="muted" style={{ fontSize: 13 }}>{t("createMission.perParticipantsBreakdown", { per: inr(perSlotAmount), n: newSlots }, `${inr(perSlotAmount)} × ${newSlots} participants`)}</span><span>{inr(subtotal)}</span></div>
+            <div className="row between" style={{ marginTop: 6 }}><span className="muted" style={{ fontSize: 13 }}>{t("createMission.platformFeeBreakdown", { pct: Math.round((platformFeePct || 0) * 100) }, `Platform fee (${Math.round((platformFeePct || 0) * 100)}%)`)}</span><span>{inr(feeTotal)}</span></div>
+            <div className="row between" style={{ marginTop: 8, paddingTop: 8, borderTop: "1px dashed var(--border)" }}><b style={{ fontSize: 13 }}>{t("missionDetail.reopenNewSlotsCost", { n: newSlots }, `Escrow for ${newSlots} new slot(s)`)}</b><b>{inr(costDelta)}</b></div>
+          </div>
+        )}
+
+        {error && <div className="err-banner" style={{ marginTop: 16 }}>{error}</div>}
+
+        <div className="row gap-2" style={{ marginTop: 20, justifyContent: "flex-end" }}>
+          <button className="btn" onClick={() => onClose(false)}>{t("actions.cancel", null, "Cancel")}</button>
+          <button className="btn btn-primary" disabled={busy || overAudienceCount} onClick={submit}>{busy ? t("actions.working", null, "Working…") : t("actions.reopenMission", null, "Reopen mission")}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function ParticipantKanban({ mission, participants, setParticipants, navigate, showToast }) {
   const { t } = useTranslation();
   const [drag, setDrag] = useState(null);
   const [over, setOver] = useState(null);
@@ -268,6 +518,12 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
   // parent just to avoid it.
   const [openSub, setOpenSub] = useState(null);
   const [loadingSubId, setLoadingSubId] = useState(null);
+  const [reviewingId, setReviewingId] = useState(null);
+  // Invited/Declined/Accepted/Started cards open the same profile drawer the
+  // Audience Explorer's "View Profile" uses — Submitted/Rewarded stay on
+  // openSubmission above instead, since those already have a real submission
+  // to review, not just a profile to look at.
+  const [viewingProfile, setViewingProfile] = useState(null);
 
   const openSubmission = async (p) => {
     if (loadingSubId) return;
@@ -311,6 +567,29 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
     setOpenSub(null);
   };
 
+  // Applications ("require approval" missions) don't move by drag — Accept/
+  // Reject are the only two valid outcomes from 'pending', so a dedicated
+  // action (mirroring the Accept Invitation flow) reads clearer here than
+  // treating it as just another Kanban drag target.
+  const reviewApplication = async (p, decision) => {
+    setReviewingId(p.id);
+    const newStage = decision === "accept" ? "accepted" : "not_selected";
+    try {
+      await api.reviewApplication(mission.id, p.id, decision);
+      setParticipants(ps => ps.map(pp => pp.id === p.id ? { ...pp, stage: newStage } : pp));
+      hotToast.success(
+        decision === "accept"
+          ? t("missionDetail.applicationAccepted", { name: p.name }, `${p.name} accepted — they can start now.`)
+          : t("missionDetail.applicationNotSelected", { name: p.name }, `${p.name} was not selected.`),
+        { position: "top-center" }
+      );
+    } catch (err) {
+      showToast(err.message || t("missionDetail.reviewApplicationFailed", null, "Couldn't update this application — try again."), "error");
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
   const move = async (id, stage) => {
     let prevStage;
     const target = participants.find(p => p.id === id);
@@ -326,7 +605,7 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
       // validator's own status view now updates from the same call too (see the
       // backend's manual stage-move handler).
       const stageLabel = STAGES.find(s => s.id === stage)?.label || stage;
-      showToast(t("missionDetail.participantMoved", { name: target?.name || "Participant", stage: stageLabel }, `${target?.name || "Participant"} moved to ${stageLabel} — they'll see this update too.`));
+      hotToast.success(t("missionDetail.participantMoved", { name: target?.name || "Participant", stage: stageLabel }, `${target?.name || "Participant"} moved to ${stageLabel}`), { position: "top-center" });
     } catch {
       // Roll back the optimistic move — e.g. the backend rejected a stage it doesn't allow.
       setParticipants(ps => ps.map(p => p.id === id ? { ...p, stage: prevStage } : p));
@@ -335,12 +614,8 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
 
   return (
     <div>
-      <div className="row between" style={{ marginBottom: 14 }}>
-        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("missionDetail.dragParticipants", null, "Drag a card into a different column to update that participant's stage — they'll see the change on their end too.")} {participants.length} {t("missionDetail.totalInMission", null, "total in this mission.")}</p>
-        <Btn variant="ghost" size="sm" icon="userplus" onClick={onInvite}>{t("actions.inviteMore", null, "Invite more")}</Btn>
-      </div>
       <div className="kanban">
-        {STAGES.map(st => {
+        {STAGES.filter(st => st.id !== "rejected").map(st => {
           // A validator auto-failed for missing check-ins gets stage 'failed',
           // not one of the six real Kanban stages — no column for it means no
           // separate 7th column (would just add more horizontal scroll to an
@@ -348,10 +623,15 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
           // rather than silently vanishing. Folds into Rejected, the other
           // locked/terminal-and-unsuccessful column, with its own distinct tag
           // on the card so it doesn't read as the builder having rejected them.
+          // An application the builder didn't accept ('not_selected') folds
+          // into Declined the same way — same "didn't make it in" outcome as
+          // an invite someone turned down, just the other party's call.
           const col = st.id === "rejected"
             ? participants.filter(p => p.stage === "rejected" || p.stage === "failed")
+            : st.id === "declined"
+            ? participants.filter(p => p.stage === "declined" || p.stage === "not_selected")
             : participants.filter(p => p.stage === st.id);
-          const droppable = st.id !== "rewarded" && st.id !== "rejected";
+          const droppable = st.id !== "rewarded" && st.id !== "rejected" && st.id !== "declined" && st.id !== "pending";
           return (
             <div key={st.id} className={`kcol ${over === st.id ? "dragover" : ""} ${drag && !droppable ? "kcol-locked" : ""}`}
               onDragOver={e => { e.preventDefault(); if (droppable) setOver(st.id); }}
@@ -372,25 +652,34 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                   <span className="kdot" style={{ background: st.color }} />
                   <b>{t(`status.${st.id}`, null, st.label)}</b>
                   {drag && !droppable && <Icon name="lock" size={13} style={{ color: "var(--warning)" }} title="Review submission to reward" />}
+                  {/* Pending applications are waiting on the builder, not
+                      just informational like every other column's count --
+                      a tester flagged that nothing here signaled that until
+                      actually opening the mission. */}
+                  {st.id === "pending" && col.length > 0 && <Icon name="alertTriangle" size={13} style={{ color: "var(--danger)" }} />}
                 </div>
-                <span className="cnt">{col.length}</span>
+                <span className="cnt" style={st.id === "pending" && col.length > 0 ? { background: "var(--danger)", color: "#fff" } : undefined}>{col.length}</span>
               </div>
               <div className="kcol-body">
                 {col.map(p => (
-                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed"}
+                  <div key={p.id} className={`kcard ${drag === p.id ? "dragging" : ""} ${(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected") ? "kcard-locked" : ""}`} draggable={p.stage !== "rewarded" && p.stage !== "rejected" && p.stage !== "failed" && p.stage !== "declined" && p.stage !== "not_selected" && p.stage !== "pending"}
                     onDragStart={(e) => {
-                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed") {
+                      if (p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected" || p.stage === "pending") {
                         e.preventDefault();
                         return;
                       }
                       setDrag(p.id);
                     }}
                     onDragEnd={() => { setDrag(null); setOver(null); }}
-                    onClick={() => { if (p.stage === "submitted") openSubmission(p); }}
-                    title={p.stage === "submitted" ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : undefined}
+                    onClick={() => {
+                      if (p.stage === "submitted" || p.stage === "rewarded") openSubmission(p);
+                      else if (PROFILE_VIEW_STAGES.has(p.stage)) setViewingProfile(p);
+                    }}
+                    title={(p.stage === "submitted" || p.stage === "rewarded") ? t("missionDetail.viewSubmissionHint", null, "Click to review their submission") : PROFILE_VIEW_STAGES.has(p.stage) ? t("missionDetail.viewProfileHint", null, "Click to view their profile") : undefined}
                     style={{
-                      ...(p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" ? { cursor: "default", opacity: 0.85 } : {}),
-                      ...(p.stage === "submitted" ? { cursor: "pointer", opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
+                      ...((p.stage === "rewarded" || p.stage === "rejected" || p.stage === "failed" || p.stage === "declined" || p.stage === "not_selected") ? { opacity: 0.85 } : {}),
+                      ...((p.stage === "submitted" || p.stage === "rewarded" || PROFILE_VIEW_STAGES.has(p.stage)) ? { cursor: "pointer" } : { cursor: "default" }),
+                      ...(p.stage === "submitted" ? { opacity: loadingSubId === p.id ? 0.6 : 1 } : {}),
                     }}>
                     <div className="kcard-top">
                       <Avatar name={p.name} size={32} />
@@ -403,6 +692,12 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                           {st.id === "rewarded" && <span className="st st-completed" style={{ fontSize: 9, padding: "2px 6px" }}>{t("status.rewarded", null, "Rewarded")}</span>}
                           {p.stage === "rejected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.rejected", null, "Rejected")}</span>}
                           {p.stage === "failed" && <span title={t("status.failedHint", null, "Auto-failed by the system for missing daily check-ins — not a builder rejection.")} style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600, cursor: "help" }}>{t("status.failed", null, "Failed — missed check-ins")}</span>}
+                          {p.stage === "not_selected" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--text-faint, #8b94a6)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.notSelected", null, "Not selected")}</span>}
+                          {/* Still sits in the Submitted column (they haven't
+                              resubmitted yet) — this is the only thing that
+                              tells this apart from a normal, never-reviewed
+                              submission. */}
+                          {p.stage === "submitted" && p.response_status === "revision" && <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--warning, #c2710c)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>{t("status.revisionReq", null, "Revision Req")}</span>}
                         </div>
                       </div>
                     </div>
@@ -413,15 +708,27 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
                       </div>
                       <span className="kreward" style={{ fontSize: 13, color: "var(--text)" }}>{inr(p.reward || mission.reward.amount)}</span>
                     </div>
+                    {p.stage === "pending" && (
+                      <div className="row gap-2" style={{ marginTop: 10 }} onClick={e => e.stopPropagation()}>
+                        <button className="btn" style={{ flex: 1, justifyContent: "center", padding: "6px 0", fontSize: 12.5, color: "var(--danger)" }}
+                          disabled={reviewingId === p.id} onClick={() => reviewApplication(p, "reject")}>
+                          {t("actions.reject", null, "Reject")}
+                        </button>
+                        <button className="btn btn-primary" style={{ flex: 1, justifyContent: "center", padding: "6px 0", fontSize: 12.5 }}
+                          disabled={reviewingId === p.id} onClick={() => reviewApplication(p, "accept")}>
+                          {reviewingId === p.id ? t("actions.working", null, "Working…") : t("actions.accept", null, "Accept")}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
                 {col.length === 0 && (
                   <div className="empty-kcol">
                     <div className="ec-ic" style={{ color: st.color, background: `color-mix(in srgb, ${st.color} 10%, transparent)` }}>
-                      <Icon name={st.id === "invited" ? "mail" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
+                      <Icon name={st.id === "invited" ? "mail" : st.id === "pending" ? "clock" : st.id === "declined" ? "xCircle" : st.id === "accepted" ? "userCheck" : st.id === "started" ? "rocket" : (st.id === "rewarded" || st.id === "rejected") ? "lock" : "fileText"} size={20} />
                     </div>
-                    <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
-                    <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
+                    <b>{st.id === "rewarded" ? t("missionDetail.reviewToReward", null, "Review to reward") : st.id === "rejected" ? t("missionDetail.noRejectedParticipants", null, "No rejected participants") : st.id === "pending" ? t("missionDetail.noPendingApplications", null, "No applications waiting") : st.id === "declined" ? t("missionDetail.noDeclinedParticipants", null, "No declined invites") : t("missionDetail.noParticipantsYet", null, "No participants yet")}</b>
+                    <p>{st.id === "invited" ? t("missionDetail.emptyInvited", null, "Invite users to grow your pipeline.") : st.id === "pending" ? t("missionDetail.emptyPending", null, "Open applications waiting on your decision will appear here.") : st.id === "declined" ? t("missionDetail.emptyDeclined", null, "Invites that get declined and applications you don't accept will appear here.") : st.id === "accepted" ? t("missionDetail.emptyAccepted", null, "Participants who accept will appear here.") : st.id === "started" ? t("missionDetail.emptyStarted", null, "Participants who start will appear here.") : st.id === "rewarded" ? t("missionDetail.emptyRewarded", null, "Approve submissions to move participants here and pay them.") : st.id === "rejected" ? t("missionDetail.emptyRejected", null, "Participants whose submissions are rejected will appear here.") : t("missionDetail.emptySubmitted", null, "Submitted participants will appear here.")}</p>
                   </div>
                 )}
               </div>
@@ -429,12 +736,20 @@ function ParticipantKanban({ mission, participants, setParticipants, onInvite, n
           );
         })}
       </div>
-      <div className="faint" style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 24, padding: "12px 16px", background: "var(--accent-weak)", borderRadius: "var(--radius)", color: "var(--accent)" }}>
-        <div style={{ background: "var(--accent)", color: "#fff", borderRadius: "50%", padding: 4, display: 'flex' }}><Icon name="bolt" size={12} /></div>
-        <b>{t("missionDetail.tip", null, "Tip:")}</b> {t("missionDetail.dragAndDropTip", null, "Drag and drop participants between stages to update their progress.")}
-        <a href="#" style={{ marginLeft: 'auto', fontWeight: 600, color: "var(--accent)" }}>{t("missionDetail.learnMorePipeline", null, "Learn more about participant pipeline")} <Icon name="externalLink" size={12} style={{ verticalAlign: -2 }} /></a>
-      </div>
       {openSub && <SlideOver sub={openSub} onClose={() => setOpenSub(null)} onAction={handleSubAction} />}
+      {viewingProfile && (
+        <ValidatorProfileDrawer
+          validator={{ id: viewingProfile.validator_id, name: viewingProfile.name, city: viewingProfile.city, role: viewingProfile.role, trust: viewingProfile.trust }}
+          stageCaption={joinedLabel(t, viewingProfile)}
+          t={t}
+          onClose={() => setViewingProfile(null)}
+          {...(viewingProfile.stage === "pending" ? {
+            reviewing: reviewingId === viewingProfile.id,
+            onAccept: async () => { await reviewApplication(viewingProfile, "accept"); setViewingProfile(null); },
+            onReject: async () => { await reviewApplication(viewingProfile, "reject"); setViewingProfile(null); },
+          } : {})}
+        />
+      )}
     </div>
   );
 }
@@ -464,6 +779,7 @@ function SlideOver({ sub, onClose, onAction }) {
   const [view, setView] = useState("review"); // review | reject | revise | approve
   const [expandedTasks, setExpandedTasks] = useState(new Set([0]));
   const [isProcessing, setIsProcessing] = useState(false);
+  useBodyScrollLock();
 
   const toggleTask = (i) => setExpandedTasks(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
 
@@ -518,10 +834,21 @@ function SlideOver({ sub, onClose, onAction }) {
             <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="checkCircle" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.tasks", null, "Tasks")}</div>
             <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.tasks}</div>
           </div>
-          <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
-            <div><QualityBadge quality={sub.quality} /></div>
-          </div>
+          {sub.quality === "flagged" && (
+            <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="shield" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.quality", null, "Quality")}</div>
+              <div><QualityBadge quality="flagged" /></div>
+            </div>
+          )}
+          {/* Tester ask: revision_count alone said how many times a revision
+              was requested, not when -- this stamps the date the same way
+              Submitted/Time Taken/Tasks already do. */}
+          {sub.revisionRequestedAt && (
+            <div style={{ flex: 1, minWidth: 100, padding: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--panel)", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase" }}><Icon name="edit" size={12} style={{ color: "var(--accent)" }} /> {t("metrics.revisionRequested", null, "Revision Requested")}</div>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>{sub.revisionRequestedAt}</div>
+            </div>
+          )}
         </div>
         </div>
 
@@ -570,8 +897,14 @@ function SlideOver({ sub, onClose, onAction }) {
                             <Icon name="info" size={14} style={{ color: "var(--accent)", flexShrink: 0, marginTop: 2 }} />
                             <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-muted)", lineHeight: 1.4 }}>{dt.label}</div>
                           </div>
-                          <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word" }}>
-                            {dt.value}
+                          <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text)", lineHeight: 1.5, background: "var(--bg)", wordBreak: "break-word", display: "flex", alignItems: "center", gap: 8 }}>
+                            {/* Rating questions stored/displayed the raw 1-5
+                                number ("5") -- shown as stars, matching the
+                                same star icon the validator actually tapped
+                                to answer (Workspace.jsx's RatingQ). */}
+                            {dt.isRating && !isNaN(parseInt(dt.value, 10))
+                              ? <><Stars value={parseInt(dt.value, 10)} size={14} /><span className="faint">{dt.value}/5</span></>
+                              : dt.value}
                           </div>
                         </div>
                       ))}
@@ -616,16 +949,9 @@ function SlideOver({ sub, onClose, onAction }) {
 
         {view === "review" && sub.status === "pending" && (
           <div style={{ background: "var(--panel)", borderTop: "1px solid var(--border)", padding: "16px 24px", display: "flex", gap: 12, alignItems: "center" }}>
-            {/* One revision cycle only — once this submission has already
-                been sent back once, the only real outcomes left are Approve
-                or Reject, not another round-trip with no resolution. The
-                backend enforces this too (see the /revision route); this
-                just keeps a dead-end action off the screen. */}
-            {(sub.revisionCount || 0) < 1 && (
-              <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
-                <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
-              </button>
-            )}
+            <button className="btn btn-ghost" style={{ padding: "8px 12px", color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("revise")}>
+              <Icon name="message" size={14} /> {t("review.addNotes", null, "Add Reviewer Notes...")}
+            </button>
             <div style={{ flex: 1 }} />
             <button className="btn" style={{ padding: "8px 24px", color: "var(--danger)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", background: "transparent", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setView("reject")}>
               <Icon name="x" size={14} /> {t("actions.reject", null, "Reject")}
@@ -672,7 +998,7 @@ function SlideOver({ sub, onClose, onAction }) {
             <textarea className="fin" placeholder={t("review.explainRejection", null, "Explain why this submission doesn't meet the requirements…")} rows={3} value={rejectReason} onChange={e => setRejectReason(e.target.value)} style={{ marginBottom: 10 }} />
             <div style={{ display: "flex", gap: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setView("review")} disabled={isProcessing}>{t("actions.cancel", null, "Cancel")}</button>
-              <button className="btn btn-danger" style={{ flex: 1, opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
+              <button className="btn" style={{ flex: 1, justifyContent: "center", color: "var(--danger)", background: "var(--danger-weak)", border: "1px solid color-mix(in srgb,var(--danger) 40%,transparent)", opacity: isProcessing ? 0.7 : 1 }} onClick={() => handleActionSubmit("rejected", rejectReason, 1)} disabled={isProcessing || !rejectReason.trim()}>
                 {isProcessing ? t("actions.rejecting", null, "Rejecting...") : t("actions.rejectSubmission", null, "Reject submission")}
               </button>
             </div>
@@ -710,7 +1036,7 @@ const RESPONSE_REVIEW_TABS = (t) => [
 // same KPI cards, status tabs, and review drawer, now in-place on the
 // Responses tab instead of a full navigation away. Reply/Flag (unique to
 // this tab before) are kept as row-level quick actions.
-function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
+function ResponseReview({ missionId, navigate, showToast, tabBarRef, setParticipants }) {
   const { t } = useTranslation();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -750,7 +1076,8 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
   const avgMins = subs.length ? Math.round(subs.reduce((a, s) => a + (s.mins || 0), 0) / subs.length) : 0;
 
   const handleAction = async (subId, action, reason, rating) => {
-    const subName = subs.find(s => s.id === subId)?.name || t("review.validatorFallbackName", null, "Validator");
+    const sub = subs.find(s => s.id === subId);
+    const subName = sub?.name || t("review.validatorFallbackName", null, "Validator");
     try {
       if (action === "approved") {
         await api.post(`/missions/${missionId}/submissions/${subId}/approved`, { rating });
@@ -767,6 +1094,18 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
       return;
     }
     setSubs(prev => prev.map(s => s.id === subId ? { ...s, status: action === "approved" ? "approved" : action === "rejected" ? "rejected" : "revision" } : s));
+    // The Participants Kanban (a sibling tab, not this component) reads from
+    // the same lifted `participants` state — without this, acting here left
+    // it stale until the whole mission was refetched (a reload, or leaving
+    // and coming back to the page), since nothing else was telling it a
+    // stage/response actually changed.
+    if (sub?.validatorId && setParticipants) {
+      setParticipants(ps => ps.map(pp => pp.validator_id !== sub.validatorId ? pp : {
+        ...pp,
+        stage: action === "approved" ? "rewarded" : action === "rejected" ? "rejected" : pp.stage,
+        response_status: action === "revision" ? "revision" : pp.response_status,
+      }));
+    }
     setSelected(null);
   };
 
@@ -826,15 +1165,15 @@ function ResponseReview({ missionId, navigate, showToast, tabBarRef }) {
                         <span className="mono" style={{ fontSize: 11, padding: "2px 7px", borderRadius: 20, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 800 }}>★ {(sub.trust / 10).toFixed(1)}</span>
                       </div>
                       <div className="row gap-3 faint" style={{ fontSize: 12.5, marginTop: 4 }}>
-                        <span>{sub.date}</span><span>{sub.mins} {t("metrics.min", null, "min")}</span><span>{sub.tasks} {t("metrics.tasks", null, "tasks")}</span>
-                        <QualityBadge quality={sub.flagged ? "flagged" : sub.quality} />
+                        <span>{t("review.joinedOn", null, "Joined on")}: {sub.joinedAt || "—"}</span>
+                        <span>{t("review.submittedOn", null, "Submitted on")}: {sub.date}</span>
+                        <span>{t("review.completionTime", null, "Completion time")}: {sub.mins} {t("metrics.min", null, "min")}</span>
+                        {sub.quality === "flagged" && <QualityBadge quality="flagged" />}
                       </div>
                     </div>
                   </div>
                   <div className="row gap-2" onClick={e => e.stopPropagation()}>
-                    {sub.status === "approved" && <span style={{ color: "var(--success)", fontWeight: 700, fontSize: 13 }}>✓ {t("status.approved", null, "Approved")}</span>}
-                    {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>✕ {t("status.rejected", null, "Rejected")}</span>}
-                    {sub.status === "revision" && <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 13 }}>✎ {t("status.revisionReq", null, "Revision Req")}</span>}
+                    {sub.status === "rejected" && <span style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13 }}>{t("status.rejected", null, "Rejected")}</span>}
                     <Btn variant="ghost" size="sm" icon="message" disabled={replyingId === sub.id} onClick={() => reply(sub)}>{replyingId === sub.id ? t("actions.opening", null, "Opening…") : t("actions.reply", null, "Reply")}</Btn>
                     <Btn variant={sub.flagged ? "primary" : "quiet"} size="sm" icon="flag" onClick={() => onFlag(sub, !sub.flagged)}>{sub.flagged ? t("actions.unflag", null, "Unflag") : t("actions.flag", null, "Flag")}</Btn>
                     {sub.status === "pending" && <Btn variant="primary" size="sm" icon="check" onClick={() => setSelected(sub.id)}>{t("actions.review", null, "Review")}</Btn>}
@@ -855,7 +1194,7 @@ function MissionAudienceTab({ audience, onEdit }) {
     <div className="split rise">
       <div className="col gap-5">
         <div className="card" style={{ padding: 20 }}>
-          <div className="sec-head"><h3 className="h-md">{t("missionDetail.audienceDef", null, "Audience definition")}</h3><Btn variant="ghost" size="sm" icon="edit" onClick={onEdit}>{t("actions.edit", null, "Edit")}</Btn></div>
+          <div className="sec-head"><h3 className="h-md">{t("missionDetail.audienceDef", null, "Audience definition")}</h3>{onEdit && <Btn variant="ghost" size="sm" icon="edit" onClick={onEdit}>{t("actions.edit", null, "Edit")}</Btn>}</div>
           {audience.defn.length === 0
             ? <p className="muted" style={{ margin: "6px 0 0", fontSize: 14 }}>{t("missionDetail.noAudienceFilters", null, "No audience filters were set")} {t("missionDetail.openToAllEligibleNote", null, "for this mission — it's open to all eligible members.")}</p>
             : (
@@ -902,7 +1241,7 @@ function FileCard({ f, onDelete }) {
       </div>
       <div className="row gap-2">
         {f.filename && (
-          <a href={`/api/uploads/${f.filename}`} download={f.name}
+          <a href={f.filename.startsWith("http") ? f.filename : `/api/uploads/${f.filename}`} download={f.name}
             className="btn btn-ghost" style={{ fontSize: 12, flex: 1, justifyContent: "center" }}>
             <Icon name="download" size={13} /> {t("actions.download", null, "Download")}
           </a>
@@ -1033,20 +1372,24 @@ function MissionPaymentsTab({ payments, navigate, missionId }) {
 function MissionShipmentsTab({ missionId }) {
   const { t } = useTranslation();
   const [shipments, setShipments] = useState(null);
+  // loadError replaces the tab; error is an inline banner for a failed
+  // "mark as shipped" so it doesn't wipe the shipment rows.
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [trackingInputs, setTrackingInputs] = useState({});
 
   useEffect(() => {
-    api.missionShipments(missionId).then(d => setShipments(d.shipments)).catch(err => setError(err.message));
+    api.missionShipments(missionId).then(d => setShipments(d.shipments)).catch(err => setLoadError(err.message));
   }, [missionId]);
 
-  if (error) return <div className="muted">{error}</div>;
+  if (loadError) return <div className="muted">{loadError}</div>;
   if (!shipments) return <div className="muted">{t("missionDetail.loadingShipments", null, "Loading shipments…")}</div>;
   if (shipments.length === 0) return <div className="muted">{t("missionDetail.noValidatorsAccepted", null, "No validators have accepted this mission yet.")}</div>;
 
   const markShipped = async (validatorId) => {
     setBusyId(validatorId);
+    setError("");
     try {
       const input = trackingInputs[validatorId] || {};
       await api.markShipmentShipped(missionId, validatorId, { trackingNumber: input.trackingNumber || "", carrier: input.carrier || "" });
@@ -1060,6 +1403,7 @@ function MissionShipmentsTab({ missionId }) {
 
   return (
     <div className="col gap-3 sec">
+      {error && <div className="err-banner">{error}</div>}
       {shipments.map(s => (
         <div key={s.validatorId} className="card" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
@@ -1092,26 +1436,48 @@ function MissionShipmentsTab({ missionId }) {
 function MissionInterviewsTab({ missionId }) {
   const { t } = useTranslation();
   const [schedules, setSchedules] = useState(null);
+  // loadError = the schedule fetch itself failed, nothing to show → replace
+  // the tab. error = a propose/complete action was rejected (missing link,
+  // past time, ...) → an inline banner; it must NOT wipe the row the way a
+  // shared `error` + early-return did (that's the "the whole row vanished
+  // and only came back on a tab switch" bug).
+  const [loadError, setLoadError] = useState("");
   const [error, setError] = useState("");
   const [busyId, setBusyId] = useState(null);
   const [proposeInputs, setProposeInputs] = useState({});
+  // Which row is currently being re-opened for editing — only relevant for
+  // an already-"proposed" (still awaiting response) schedule; the empty/
+  // declined cases always show the input form, so they don't need this.
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-    api.missionSchedules(missionId).then(d => setSchedules(d.schedules)).catch(err => setError(err.message));
+    api.missionSchedules(missionId).then(d => setSchedules(d.schedules)).catch(err => setLoadError(err.message));
   }, [missionId]);
 
-  if (error) return <div className="muted">{error}</div>;
+  if (loadError) return <div className="muted">{loadError}</div>;
   if (!schedules) return <div className="muted">{t("missionDetail.loadingSchedules", null, "Loading schedules…")}</div>;
   if (schedules.length === 0) return <div className="muted">{t("missionDetail.noValidatorsAccepted", null, "No validators have accepted this mission yet.")}</div>;
 
+  const startEdit = (s) => {
+    setProposeInputs(t => ({ ...t, [s.validatorId]: { scheduledAt: s.scheduled_at, meetingLink: s.meeting_link || "" } }));
+    setEditingId(s.validatorId);
+  };
+  const cancelEdit = (validatorId) => {
+    setEditingId(null);
+    setProposeInputs(t => { const c = { ...t }; delete c[validatorId]; return c; });
+  };
+
   const propose = async (validatorId) => {
     setBusyId(validatorId);
+    setError("");
     try {
       const input = proposeInputs[validatorId] || {};
       if (!input.scheduledAt) throw new Error(t("missionDetail.pickDateTimeFirst", null, "Pick a date and time first"));
       if (new Date(input.scheduledAt) < new Date()) throw new Error(t("missionDetail.candidateTimeInPast", null, "Candidate times can't be in the past"));
-      await api.proposeInterviewTime(missionId, validatorId, { scheduledAt: input.scheduledAt, meetingLink: input.meetingLink || "" });
-      setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "proposed", scheduled_at: input.scheduledAt, meeting_link: input.meetingLink || null } : sc));
+      if (!input.meetingLink?.trim()) throw new Error(t("missionDetail.meetingLinkRequired", null, "Add a meeting link first"));
+      await api.proposeInterviewTime(missionId, validatorId, { scheduledAt: input.scheduledAt, meetingLink: input.meetingLink.trim() });
+      setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "proposed", scheduled_at: input.scheduledAt, meeting_link: input.meetingLink.trim() } : sc));
+      setEditingId(null);
     } catch (err) {
       setError(err.message || t("missionDetail.couldntProposeTime", null, "Couldn't propose a time"));
     } finally {
@@ -1121,6 +1487,7 @@ function MissionInterviewsTab({ missionId }) {
 
   const complete = async (validatorId) => {
     setBusyId(validatorId);
+    setError("");
     try {
       await api.markInterviewCompleted(missionId, validatorId);
       setSchedules(s => s.map(sc => sc.validatorId === validatorId ? { ...sc, status: "completed" } : sc));
@@ -1133,6 +1500,7 @@ function MissionInterviewsTab({ missionId }) {
 
   return (
     <div className="col gap-3 sec">
+      {error && <div className="err-banner">{error}</div>}
       {schedules.map(s => (
         <div key={s.validatorId} className="card" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
@@ -1146,16 +1514,28 @@ function MissionInterviewsTab({ missionId }) {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {(!s.status || s.status === "declined") && (
+            {(!s.status || s.status === "declined" || editingId === s.validatorId) && (
               <>
-                <input className="fin" type="datetime-local" style={{ width: 200 }} min={nowLocalDatetimeString()} onClick={openPickerOnClick} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
-                <input className="fin" style={{ width: 200 }} placeholder={t("missionDetail.meetingLink", null, "Meeting link")} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], meetingLink: e.target.value } }))} />
+                <input className="fin" type="datetime-local" style={{ width: 200 }} min={nowLocalDatetimeString()}
+                  defaultValue={proposeInputs[s.validatorId]?.scheduledAt ? toLocalDatetimeString(new Date(proposeInputs[s.validatorId].scheduledAt)) : undefined}
+                  onClick={openPickerOnClick} onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : "" } }))} />
+                <input className="fin" style={{ width: 200 }} placeholder={t("missionDetail.meetingLink", null, "Meeting link")}
+                  defaultValue={proposeInputs[s.validatorId]?.meetingLink}
+                  onChange={e => setProposeInputs(t => ({ ...t, [s.validatorId]: { ...t[s.validatorId], meetingLink: e.target.value } }))} />
                 <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => propose(s.validatorId)}>
-                  {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : s.status === "declined" ? t("actions.proposeNewTime", null, "Propose new time") : t("actions.proposeTime", null, "Propose time")}
+                  {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : editingId === s.validatorId ? t("actions.saveChanges", null, "Save changes") : s.status === "declined" ? t("actions.proposeNewTime", null, "Propose new time") : t("actions.proposeTime", null, "Propose time")}
                 </button>
+                {editingId === s.validatorId && (
+                  <button className="btn" disabled={busyId === s.validatorId} onClick={() => cancelEdit(s.validatorId)}>{t("actions.cancel", null, "Cancel")}</button>
+                )}
               </>
             )}
-            {s.status === "proposed" && <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("missionDetail.awaitingResponse", null, "Awaiting response")}</span>}
+            {s.status === "proposed" && editingId !== s.validatorId && (
+              <>
+                <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}>{t("missionDetail.awaitingResponse", null, "Awaiting response")}</span>
+                <Btn variant="ghost" size="sm" icon="edit" onClick={() => startEdit(s)}>{t("actions.edit", null, "Edit")}</Btn>
+              </>
+            )}
             {s.status === "accepted" && (
               <button className="btn btn-primary" disabled={busyId === s.validatorId} onClick={() => complete(s.validatorId)}>
                 {busyId === s.validatorId ? t("actions.saving", null, "Saving…") : t("actions.markSessionCompleted", null, "Mark session completed")}
@@ -1226,12 +1606,13 @@ function MissionFocusGroupTab({ mission, missionId, onParticipantRemoved, showTo
     setBusy(true);
     setError("");
     try {
+      if (!meetingLink.trim()) throw new Error(t("missionDetail.meetingLinkRequired", null, "Add a meeting link first"));
       const slots = slotInputs.filter(Boolean).map(s => new Date(s).toISOString());
       if (slots.length < 2) throw new Error(t("missionDetail.enterAtLeast2Times", null, "Enter at least 2 candidate times"));
       // The datetime-local input's `min` only constrains its native picker widget —
       // typing a value directly bypasses it, so this is the actual enforcement.
       if (slots.some(s => new Date(s) < new Date())) throw new Error(t("missionDetail.candidateTimeInPast", null, "Candidate times can't be in the past"));
-      await api.createMissionPoll(missionId, { meetingLink, slots });
+      await api.createMissionPoll(missionId, { meetingLink: meetingLink.trim(), slots });
       localStorage.removeItem(POLL_DRAFT_KEY);
       load();
     } catch (err) {
@@ -1479,7 +1860,7 @@ export default function MissionDetail() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { categories } = useMeta();
+  const { categories, ptypes, rewards, platformFeePct } = useMeta();
   const [tab, setTab] = useState(() => searchParams.get("tab") || "overview");
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
@@ -1490,9 +1871,64 @@ export default function MissionDetail() {
   const [checkinsData, setCheckinsData] = useState([]);
   const [error, setError] = useState("");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showReopenModal, setShowReopenModal] = useState(false);
   const [waitlist, setWaitlist] = useState([]);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [toast, setToast] = useState(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  // Which status change (if any) is awaiting confirmation in the modal
+  // below -- null means no confirm modal is open.
+  const [pendingStatus, setPendingStatus] = useState(null);
+  const [changingStatus, setChangingStatus] = useState(false);
+  const [missionNotifs, setMissionNotifs] = useState([]);
+
+  // Same 10s poll cadence as AppLayout's own bell badge and the Missions
+  // list chip, scoped down to just this mission's notifications.
+  useEffect(() => {
+    const fetchNotifs = () => api.notifications().then(d => {
+      setMissionNotifs((d.notifications || []).filter(n => String(n.missionId) === String(id)));
+    }).catch(() => {});
+    fetchNotifs();
+    const interval = setInterval(fetchNotifs, 10000);
+    return () => clearInterval(interval);
+  }, [id, dataVersion]);
+
+  const unreadCountByTab = {};
+  for (const n of missionNotifs) {
+    if (!n.unread) continue;
+    const tabKey = NOTIF_TYPE_TAB[n.type];
+    if (tabKey) unreadCountByTab[tabKey] = (unreadCountByTab[tabKey] || 0) + 1;
+  }
+
+  // Opening a tab is what actually answers whatever its unread
+  // notifications were about -- mark them read the same way clicking one
+  // in the bell itself would, instead of leaving the badge stuck until
+  // the builder happens to open the bell separately.
+  // Runs on the initial tab too (not just switches), since landing
+  // directly on e.g. ?tab=participants from a notification link should
+  // clear that badge just as much as clicking the tab would.
+  useEffect(() => {
+    const ids = missionNotifs.filter(n => n.unread && NOTIF_TYPE_TAB[n.type] === tab).map(n => n.id);
+    if (!ids.length) return;
+    setMissionNotifs(prev => prev.map(n => ids.includes(n.id) ? { ...n, unread: false } : n));
+    ids.forEach(nid => api.markRead(nid).catch(() => {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, missionNotifs]);
+
+  // A new audience match isn't answered by any of the 6 tabs (Audience just
+  // shows filters, not candidates) -- the actual next step is opening
+  // Invite, so it gets its own dot on that button instead of a tab badge,
+  // and clears the same way a tab's badge does: opening the thing that
+  // answers it (here, the Invite modal) is what marks it read.
+  const hasNewAudienceMatch = missionNotifs.some(n => n.unread && n.type === "audience_match");
+  useEffect(() => {
+    if (!showInviteModal) return;
+    const ids = missionNotifs.filter(n => n.unread && n.type === "audience_match").map(n => n.id);
+    if (!ids.length) return;
+    setMissionNotifs(prev => prev.map(n => ids.includes(n.id) ? { ...n, unread: false } : n));
+    ids.forEach(nid => api.markRead(nid).catch(() => {}));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showInviteModal]);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -1515,16 +1951,39 @@ export default function MissionDetail() {
     }
   };
 
+  // Confirmation itself now happens in the Modal rendered below (see
+  // pendingStatus) -- this just performs the change once the builder has
+  // actually confirmed it.
   const handleStatusChange = async (newStatus) => {
-    if (!window.confirm(t("missionDetail.confirmStatusChange", { status: newStatus }, "Are you sure you want to change the status to {{status}}?"))) return;
+    setChangingStatus(true);
     try {
       const { mission: updated } = await api.updateMission(id, { status: newStatus });
       setData(d => ({ ...d, mission: updated }));
-      showToast(t("missionDetail.missionMarkedAs", { status: newStatus }, "Mission marked as {{status}}"));
+      hotToast.success(t("missionDetail.missionMarkedAs", { status: newStatus }, "Mission marked as {{status}}"), { position: "top-center" });
+      setPendingStatus(null);
     } catch (err) {
       showToast(err.message, "error");
+    } finally {
+      setChangingStatus(false);
     }
   };
+
+  // Leaving an in-progress edit of THIS already-live mission (e.g. swipe-back
+  // before ever clicking "Save changes") flags its id here — see
+  // CreateMissionWizard's wasActive handling. Nothing about the mission
+  // itself changed; this only confirms the in-progress edit is still sitting
+  // there locally, waiting to be resumed. Scoped to `id` so landing here
+  // right after leaving a *different* mission's edit doesn't show a
+  // misleading toast — that case is instead caught generically by Missions/
+  // Dashboard, whichever page is actually landed on.
+  useEffect(() => {
+    let flagged = null;
+    try { flagged = sessionStorage.getItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    if (flagged !== id) return;
+    try { sessionStorage.removeItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    hotToast.success(t("createMission.liveEditSaved", null, "Changes are saved"), { position: "top-center" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   useEffect(() => {
     setTimeout(() => setData(null), 0);
@@ -1575,11 +2034,16 @@ export default function MissionDetail() {
 
   const selectTab = (k) => {
     setTab(k);
+    // setSearchParams drops the current history entry's state unless told
+    // to keep it -- without this, switching sub-tabs here silently wiped
+    // location.state.fromTab, so the "Missions" breadcrumb (which reads it)
+    // fell back to the All tab instead of wherever this mission was
+    // actually opened from, the moment you touched a sub-tab.
     setSearchParams(prev => {
       const p = new URLSearchParams(prev);
       p.set("tab", k);
       return p;
-    }, { replace: true });
+    }, { replace: true, state: location.state });
     // Overview is meant to be read top-down from the mission header; every
     // other tab is a utility view (data list, review queue, files) where
     // making the user manually scroll past the header + KPIs on every
@@ -1595,7 +2059,28 @@ export default function MissionDetail() {
   if (!data) return <div className="page rise"><div className="muted">{t("missionDetail.loading", null, "Loading…")}</div></div>;
 
   const { mission } = data;
-  const baseTabs = TABS.map(tb => ({ ...tb, l: t(tb.lk, null, tb.l), c: tb.k === "participants" ? participants.length : tb.k === "responses" ? responses.length : null }));
+  // Header geography summary: mission.region is a flat string baked once
+  // at save time (CreateMissionWizard joins the Geography audience filter
+  // into one comma string), so there's no array left to truncate here.
+  // data.audience.defn still carries the real per-group values (same data
+  // the Audience tab renders), so pull the live "Geography" list from
+  // there instead and truncate that -- falling back to the old flat
+  // string for missions saved before audience_json existed.
+  const GEO_PRIORITY = ["Worldwide", "Remote / Online only"];
+  const GEO_VISIBLE = 2;
+  const geoValues = ((data.audience?.defn || []).find(d => d.group === "Geography")?.values || [])
+    .filter(v => v.toLowerCase() !== "other");
+  const geoOrdered = [...geoValues].sort((a, b) => GEO_PRIORITY.includes(b) - GEO_PRIORITY.includes(a));
+  const geoShown = geoOrdered.slice(0, GEO_VISIBLE).map(v => trFilterLabel(t, v));
+  const geoRest = geoOrdered.slice(GEO_VISIBLE).map(v => trFilterLabel(t, v));
+  // Matches the KPI card's own "real joined" definition (backend's
+  // real_joined query) -- someone who's only been invited and hasn't
+  // accepted yet isn't a participant in any meaningful sense (hasn't
+  // joined, can't be reached in the Kanban stages that matter). Without
+  // this, the tab badge and the KPI card show two different numbers for
+  // the same word "Participants" on the same page.
+  const realParticipantsCount = participants.filter(p => !["invited", "pending", "declined", "not_selected", "rejected", "failed"].includes(p.stage)).length;
+  const baseTabs = TABS.map(tb => ({ ...tb, l: t(tb.lk, null, tb.l), c: tb.k === "participants" ? realParticipantsCount : tb.k === "responses" ? responses.length : null }));
 
   let tabs = mission.category === "sample" ? [...baseTabs.slice(0, 3), { k: "shipments", l: t("missionDetail.tabs.shipments", null, "Shipments"), ic: "box", c: participants.length }, ...baseTabs.slice(3)] : baseTabs;
 
@@ -1615,29 +2100,167 @@ export default function MissionDetail() {
   return (
     <div className="page rise">
       <Toast message={toast?.message} type={toast?.type} onClose={() => setToast(null)} />
-      <div className="crumbs"><a onClick={() => navigate("/missions")} style={{ cursor: "pointer" }}>{t("missionDetail.missionsLink", null, "Missions")}</a><Icon name="chevronRight" size={13} /><span>{mission.name}</span></div>
-      <div className="ph" style={{ marginBottom: 18 }}>
-        <div className="row gap-3" style={{ alignItems: "flex-start" }}>
+      {/* Falls back to the plain (All-tab) list when this mission wasn't
+          opened from a specific status tab at all — e.g. a Dashboard widget
+          or notification link — where there's no originating tab to honor. */}
+      <div className="crumbs"><a onClick={() => navigate(location.state?.fromTab ? `/missions?tab=${location.state.fromTab}` : "/missions")} style={{ cursor: "pointer" }}>{t("missionDetail.missionsLink", null, "Missions")}</a><Icon name="chevronRight" size={13} /><span>{mission.name}</span></div>
+      {/* flexWrap nowrap override -- .ph wraps its two children (title block
+          and actions) onto separate rows once their combined width doesn't
+          fit; the transient "Updating..." badge was just wide enough to tip
+          that over on this page, dropping Edit/More/Invite to their own row
+          below the title while a refetch was in flight. */}
+      <div className="ph" style={{ marginBottom: 18, flexWrap: "nowrap" }}>
+        <div className="row gap-3" style={{ alignItems: "flex-start", flex: 1, minWidth: 0 }}>
           <MissionLogo name={mission.name} cat={mission.category} size={54} />
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div className="row gap-2 wrap" style={{ marginBottom: 7 }}><h1 style={{ fontSize: 23, margin: 0 }}>{mission.name}</h1><StatusTag status={mission.status} /></div>
-            <div className="row gap-3 wrap"><TypeTag cat={mission.category} categories={categories} /><span className="muted" style={{ fontSize: 13 }}><Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} /> {mission.region}</span><span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {t("missionDetail.closes", null, "Closes")} {mission.deadline ? new Date(mission.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : t("missionDetail.closesSoon", null, "Soon")}</span></div>
+            <div className="row gap-2 wrap" style={{ alignItems: "center" }}>
+              <TypeTag cat={mission.category} categories={categories} />
+              <span className="faint">|</span>
+              <span className="muted" style={{ fontSize: 13 }}><Icon name="calendar" size={13} style={{ verticalAlign: -2 }} /> {mission.status === "completed" && mission.completedAt
+                ? `${t("missionDetail.completedOn", null, "Completed on")} ${fmtShortDate(mission.completedAt)}`
+                : mission.status === "archived" && mission.archivedAt
+                ? `${t("missionDetail.archivedOn", null, "Archived on")} ${fmtShortDate(mission.archivedAt)}`
+                : `${t("missionDetail.closes", null, "Closes")} ${mission.deadline ? fmtShortDate(mission.deadline) : t("missionDetail.closesSoon", null, "Soon")}`
+              }</span>
+              {mission.region && (
+                <>
+                  <span className="faint">|</span>
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    <Icon name="mapPin" size={13} style={{ verticalAlign: -2 }} />{" "}
+                    {geoShown.length
+                      ? <>{geoShown.join(", ")}{geoRest.length > 0 && <>, <span title={geoRest.join(", ")} style={{ textDecoration: "underline dotted", textUnderlineOffset: 2, cursor: "default" }}>+{geoRest.length}</span></>}</>
+                      : mission.region}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
         </div>
         <div className="ph-actions" style={{ flexWrap: "wrap", alignItems: "center" }}>
           <UpdatingBadge show={refetching} />
-          {mission.status === "active" && <Btn variant="ghost" icon="xCircle" onClick={() => handleStatusChange("closed")}>{t("actions.close", null, "Close")}</Btn>}
-          {mission.status === "closed" && <Btn variant="ghost" icon="checkCircle" onClick={() => handleStatusChange("completed")}>{t("actions.complete", null, "Complete")}</Btn>}
-          {(mission.status === "completed" || mission.status === "draft") && <Btn variant="ghost" icon="archive" onClick={() => handleStatusChange("archived")}>{t("actions.archive", null, "Archive")}</Btn>}
-          <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>
-          <Btn variant="ghost" icon="download" onClick={() => exportCSV(
-            `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
-            [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
-            participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
-          )}>{t("actions.export", null, "Export")}</Btn>
-          {mission.status === "active" && <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>{t("actions.invite", null, "Invite")}</Btn>}
+          {mission.status !== "archived" && <Btn variant="ghost" icon="edit" onClick={() => navigate(`/missions/${mission.id}/edit`)}>{t("actions.edit", null, "Edit")}</Btn>}
+          {/* Archived is terminal with no further action offered anywhere
+              else on this page -- Export is the only thing the More menu
+              would ever contain for it (Complete/Close only apply to
+              active, Archive only to closed/completed), so it's just its
+              own button instead of a dropdown with one item in it. */}
+          {mission.status === "archived" ? (
+            <Btn variant="ghost" icon="download" onClick={() => exportCSV(
+              `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
+              [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
+              participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
+            )}>{t("actions.export", null, "Export")}</Btn>
+          ) : (
+          <div style={{ position: "relative" }}>
+            <Btn variant="ghost" iconRight="chevronDown" onClick={() => setMoreOpen(o => !o)}>{t("actions.more", null, "More")}</Btn>
+            {moreOpen && (
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setMoreOpen(false)} />
+                <div role="menu" style={{
+                  // Anchored to the button's right edge, not its left -- when
+                  // there's no Invite button to its right (closed/completed
+                  // missions), More sits at the far right of the header and a
+                  // left-anchored menu ran straight off the viewport edge.
+                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50,
+                  background: "var(--bg)", border: "1px solid var(--border)",
+                  borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
+                  minWidth: 190, padding: "6px 0",
+                }}>
+                  {/* Close and Complete are two separate, independent endings
+                      for an active mission -- not sequential steps -- so both
+                      are offered directly from "active" rather than gating
+                      Complete behind Close first. A closed mission can still
+                      be marked complete afterwards (tester request) -- e.g.
+                      it was closed early with only some submissions in, and
+                      the builder later decides that's good enough to call
+                      done rather than just abandoned; the backend's own
+                      terminal-state handling already treats this safely (no
+                      double refund, blocked if a submission is still awaiting
+                      review). Archive is a housekeeping action for a mission
+                      that's already terminal one way or the other (closed or
+                      completed), not something offered mid-flight or for a
+                      draft that already has its own Delete action in the
+                      Missions table. */}
+                  {(mission.status === "active" || mission.status === "closed") && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("completed"); }} style={menuItemStyle}>
+                      <Icon name="checkCircle" size={15} /> {t("actions.complete", null, "Mark as complete")}
+                    </button>
+                  )}
+                  {mission.status === "active" && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("closed"); }} style={menuItemStyle}>
+                      <Icon name="xCircle" size={15} /> {t("actions.close", null, "Close")}
+                    </button>
+                  )}
+                  {mission.status === "completed" && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setShowReopenModal(true); }} style={menuItemStyle}>
+                      <Icon name="rocket" size={15} /> {t("actions.reopen", null, "Reopen")}
+                    </button>
+                  )}
+                  {(mission.status === "closed" || mission.status === "completed") && (
+                    <button role="menuitem" className="menu-item" onClick={() => { setMoreOpen(false); setPendingStatus("archived"); }} style={menuItemStyle}>
+                      <Icon name="archive" size={15} /> {t("actions.archive", null, "Archive")}
+                    </button>
+                  )}
+                  <button role="menuitem" className="menu-item" onClick={() => {
+                    setMoreOpen(false);
+                    exportCSV(
+                      `${mission.name.replace(/[^a-z0-9]+/gi, "_")}_participants.csv`,
+                      [t("missionDetail.thName", null, "Name"), t("missionDetail.thRole", null, "Role"), t("missionDetail.thCity", null, "City"), t("missionDetail.thStage", null, "Stage"), t("missionDetail.thTrust", null, "Trust"), t("missionDetail.thReward", null, "Reward")],
+                      participants.map(p => [p.name, p.role, p.city, p.stage, p.trust, p.reward])
+                    );
+                  }} style={menuItemStyle}>
+                    <Icon name="download" size={15} /> {t("actions.export", null, "Export")}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          )}
+          {mission.status === "active" && (
+            <div style={{ position: "relative", display: "inline-block" }}>
+              <Btn variant="primary" icon="userplus" onClick={() => setShowInviteModal(true)}>{t("actions.invite", null, "Invite")}</Btn>
+              {hasNewAudienceMatch && <span className="bell-unread-dot blink" title={t("missionDetail.newAudienceMatchHint", null, "A new validator matches your audience")} />}
+            </div>
+          )}
         </div>
       </div>
+
+      {mission.status === "active" && mission.deadline && (() => {
+        // Compare calendar days, not raw timestamps — deadline is stored as
+        // UTC midnight of the deadline day, so comparing Date objects
+        // directly flagged it "passed" hours into the deadline day itself
+        // (e.g. from 5:30am IST onward) instead of once that whole day had
+        // elapsed. The deadline day stays valid through 23:59; "passed"
+        // starts only once the next day begins.
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const deadlineStr = new Date(mission.deadline).toISOString().slice(0, 10);
+        if (todayStr > deadlineStr) {
+          return (
+            <div className="card" style={{ marginBottom: 18, borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)", flexWrap: "wrap" }}>
+              <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)", minWidth: 240 }}>
+                {t("missionDetail.deadlinePassedWarning", null, "Mission deadline has passed. Update the deadline to continue, or mark the mission as completed or closed.")}
+              </p>
+              <div className="row gap-2" style={{ flexShrink: 0 }}>
+                <button className="btn" style={{ border: "1.5px solid var(--danger)", color: "var(--danger)", background: "transparent" }} onClick={() => setPendingStatus("closed")}>{t("actions.close", null, "Close")}</button>
+                <Btn variant="primary" size="sm" onClick={() => setPendingStatus("completed")}>{t("actions.complete", null, "Mark as complete")}</Btn>
+              </div>
+            </div>
+          );
+        }
+        if (todayStr === deadlineStr) {
+          return (
+            <div className="card" style={{ marginBottom: 18, borderRadius: "var(--radius)", border: "1px solid var(--warning)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "var(--warning-weak)", boxShadow: "var(--shadow-sm)", flexWrap: "wrap" }}>
+              <Icon name="alertTriangle" size={16} style={{ color: "var(--warning)", flexShrink: 0 }} />
+              <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)", minWidth: 240 }}>
+                {t("missionDetail.deadlineTodayWarning", null, "Today is the last day for this mission — the deadline ends tonight.")}
+              </p>
+            </div>
+          );
+        }
+        return null;
+      })()}
 
       <div className="kpis sec">
         <KpiCard label={t("metrics.participants", null, "Participants")} value={mission.participants.joined} unit={` / ${mission.participants.target}`} icon="users" />
@@ -1646,12 +2269,33 @@ export default function MissionDetail() {
         <KpiCard label={t("metrics.spend", null, "Spend")} value={inrK(mission.spend)} icon="wallet" />
       </div>
 
-      <div className="utabs sec" ref={tabBarRef}>{tabs.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}><Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}</button>)}</div>
+      <div className="row sec" style={{ alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: "var(--hairline) solid var(--border)" }}>
+        <div className="utabs" ref={tabBarRef} style={{ borderBottom: "none" }}>{tabs.map(t => (
+          <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)} style={{ position: "relative" }}>
+            <Icon name={t.ic} size={15} />{t.l}{t.c != null && <span className="cnt">{t.c}</span>}
+            {/* Unread notifications about this mission, resolved to whichever
+                tab actually answers them (see NOTIF_TYPE_TAB) -- a small red
+                badge, same "something new happened here" signal as the bell
+                icon's own dot, cleared the moment this tab is opened. */}
+            {unreadCountByTab[t.k] > 0 && (
+              <span style={{ position: "absolute", top: 2, right: 2, minWidth: 15, height: 15, padding: "0 3px", borderRadius: 8, background: "var(--danger)", color: "#fff", fontSize: 10, fontWeight: 700, display: "grid", placeItems: "center", lineHeight: 1 }}>
+                {unreadCountByTab[t.k]}
+              </span>
+            )}
+          </button>
+        ))}</div>
+        {/* Lives on the tab row itself (not a separate row inside the Kanban
+            panel) so the board content starts right under the tabs instead
+            of leaving an extra row of vertical space above it. */}
+        {tab === "participants" && mission.status === "active" && (
+          <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setShowInviteModal(true)} style={{ flexShrink: 0 }}>{t("actions.inviteMore", null, "Invite more")}</Btn>
+        )}
+      </div>
 
-      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} />}
-      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={() => navigate(`/missions/${id}/edit?step=3`)} />}
-      {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} onInvite={() => setShowInviteModal(true)} navigate={navigate} showToast={showToast} />}
-      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} />}
+      {tab === "overview" && <MissionOverview mission={mission} participants={participants} setTab={selectTab} navigate={navigate} ptypes={ptypes} />}
+      {tab === "audience" && <MissionAudienceTab audience={data.audience} onEdit={mission.status === "archived" ? null : () => navigate(`/missions/${id}/edit?step=3`)} />}
+      {tab === "participants" && <ParticipantKanban mission={mission} participants={participants} setParticipants={setParticipants} navigate={navigate} showToast={showToast} />}
+      {tab === "responses" && <ResponseReview missionId={id} navigate={navigate} showToast={showToast} tabBarRef={tabBarRef} setParticipants={setParticipants} />}
       {tab === "shipments" && <MissionShipmentsTab missionId={id} />}
       {tab === "interviews" && <MissionInterviewsTab missionId={id} />}
       {tab === "focusgroup" && <MissionFocusGroupTab mission={mission} missionId={id} onParticipantRemoved={handleParticipantRemoved} showToast={showToast} />}
@@ -1670,9 +2314,40 @@ export default function MissionDetail() {
           }
         }} />
       )}
+      {showReopenModal && mission && (
+        <ReopenMissionModal mission={mission} rewards={rewards} platformFeePct={platformFeePct} onClose={(reopened) => {
+          setShowReopenModal(false);
+          if (reopened) {
+            hotToast.success(t("missionDetail.missionReopened", null, "Mission reopened"), { position: "top-center" });
+            api.mission(id).then(d => {
+              setData(d);
+              setParticipants(d?.participants?.map(p => ({ ...p })) || []);
+            });
+          }
+        }} />
+      )}
       {showWaitlistModal && mission && waitlist.length > 0 && (
         <WaitlistInviteModal mission={mission} waitlist={waitlist} onClose={() => setShowWaitlistModal(false)} showToast={showToast} />
       )}
+      {pendingStatus && mission && (() => {
+        const copy = statusChangeCopy(t, pendingStatus, mission.name);
+        return (
+          <Modal title={copy.title} onClose={() => { if (!changingStatus) setPendingStatus(null); }} width={420} hideCloseIcon dismissible={false}>
+            <div style={{ padding: 20 }}>
+              <p style={{ margin: "0 0 14px", fontSize: 14 }}>{copy.body}</p>
+              <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+                <button className="btn" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }}
+                  disabled={changingStatus} onClick={() => setPendingStatus(null)}>
+                  {t("actions.cancel", null, "Cancel")}
+                </button>
+                <button className="btn btn-primary" disabled={changingStatus} onClick={() => handleStatusChange(pendingStatus)}>
+                  {changingStatus ? t("actions.saving", null, "Saving…") : copy.confirmLabel}
+                </button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }

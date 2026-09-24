@@ -1,18 +1,25 @@
 import { db } from "./db.js";
 
 // The `participants.stage` values that represent someone currently occupying
-// a slot toward a mission's target. `invited` never filled one; `rejected`
-// and `failed` explicitly free the one they held (see the reject-submission
-// and checkin-lockout routes) — everything else (accepted/started/submitted/
-// rewarded) still counts. Single definition reused by every place that needs
-// the *real* joined count instead of `missions.joined`, a hand-incremented
-// counter that drifts from this whenever a write path forgets to update it
-// (confirmed: the participants backfill script, and the checkin-lockout path
-// above, both leave it stale).
+// a slot toward a mission's target. `invited` never filled one; `pending`
+// (an open application still awaiting the builder's decision — see the
+// require-approval apply path) doesn't either, on purpose: it lets more
+// people apply than there are slots so the builder has candidates to choose
+// from, and only actually reserves a slot once accepted. `declined` (an
+// invitee who said no), `not_selected` (an application the builder passed
+// on), `rejected` and `failed` explicitly free the one they held (see the
+// decline, review-application, reject-submission and checkin-lockout
+// routes) — everything else (accepted/started/submitted/rewarded) still
+// counts. Single definition reused by every place that needs the *real*
+// joined count instead of `missions.joined`, a hand-incremented counter that
+// drifts from this whenever a write path forgets to update it (confirmed:
+// the participants backfill script, and the checkin-lockout path above,
+// both leave it stale). The excluded stages must stay in sync with the
+// builder-side dashboard/mission queries, which already exclude the same set.
 export async function getRealJoinedCount(missionId, optionalTx) {
   const tx = optionalTx || db;
   const row = await tx.prepare(
-    `SELECT COUNT(*) as c FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'rejected', 'failed')`
+    `SELECT COUNT(*) as c FROM participants WHERE mission_id = ? AND stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')`
   ).get(missionId);
   return parseInt(row?.c || 0, 10);
 }
@@ -52,10 +59,23 @@ export async function recalcMissionStats(missionId, optionalTx) {
 
   // Fire once, exactly at the crossing point — not on every recalc, so builders
   // aren't re-notified on subsequent revision/reject churn once already full.
+  // The crossing check itself has to be the thing that's atomic, not just
+  // guarded in memory: this function runs with no locking (dashboard.js
+  // calls it for every active mission on every single dashboard load, with
+  // no transaction), so two overlapping calls for the same mission (two
+  // tabs, a fast refresh, anything landing close together) both read the
+  // same pre-update `m.submitted`, both see "not yet crossed", and both
+  // insert the notification. The UPDATE...WHERE below is what actually
+  // serializes this: only the call that flips full_submissions_notified
+  // 0->1 gets a non-zero changes count, so only one of any number of
+  // concurrent callers ever inserts.
   if ((m.submitted || 0) < target && submitted >= target) {
-    // cat 'application' (not 'mission') — NotificationsSidebar's tabs have
-    // no 'mission' category, so this would only ever show under "All".
-    await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'mission_full_submissions', 'checkCircle', 'success', 'All responses are in', ?, 'Just now', 1, ?)`)
-      .run(m.builder_id, `All ${target} response(s) for "${m.name}" are in — head to Review to approve or reject them.`, missionId);
+    const claimed = await tx.prepare(`UPDATE missions SET full_submissions_notified = 1 WHERE id = ? AND full_submissions_notified = 0`).run(missionId);
+    if (claimed.changes > 0) {
+      // cat 'application' (not 'mission') — NotificationsSidebar's tabs have
+      // no 'mission' category, so this would only ever show under "All".
+      await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'mission_full_submissions', 'checkCircle', 'success', 'All responses are in', ?, 'Just now', 1, ?)`)
+        .run(m.builder_id, `All ${target} response(s) for "${m.name}" are in — head to Review to approve or reject them.`, missionId);
+    }
   }
 }

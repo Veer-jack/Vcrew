@@ -30,10 +30,12 @@ export default function Messages() {
       setActiveId(prev => {
         if (requested) return requested.id;
         if (prev && d.threads.some(t => t.id === prev)) return prev;
-        // Deliberately not defaulting to threads[0] — WhatsApp Web doesn't
-        // open a chat until you pick one, and neither should this, unless a
-        // notification link or an explicit click asked for a specific one.
-        return null;
+        // Used to deliberately stay unselected here (WhatsApp Web doesn't
+        // open a chat until you pick one) -- tester feedback was that an
+        // empty right pane on first load just reads as broken, not as a
+        // deliberate blank state, so the first (most recent) thread opens
+        // automatically now instead.
+        return d.threads[0]?.id ?? null;
       });
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,14 +99,49 @@ export default function Messages() {
     }
   };
 
-  if (!threads.length) return <div className="page rise"><div className="muted">{t("messages.noConversations", null, "No conversations yet.")}</div></div>;
+  // Mirrors the builder side's Messages.jsx empty state -- same illustration
+  // built from the existing inbox/send icons, same copy. No "Start a
+  // conversation" button here (there was one, routing to /validator/missions)
+  // -- threads require a builder/mission pairing (see backend messages.js
+  // POST /threads), so there's no anyone-to-anyone DM to open, and a button
+  // that just lands on Missions with no explanation read as broken rather
+  // than helpful. The tip line below already says how messaging actually
+  // starts.
+  if (!threads.length) return (
+    <div className="page rise">
+      <div className="ph"><div><h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("vMessages.lead", null, "Chat directly with the builders and researchers you're working with.")}</p></div></div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "50vh" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 6, maxWidth: 380 }}>
+        <div style={{ position: "relative", width: 84, height: 84, marginBottom: 8 }}>
+          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "var(--accent-weak)", display: "grid", placeItems: "center" }}>
+            <Icon name="inbox" size={34} style={{ color: "var(--accent)" }} />
+          </div>
+          <div style={{ position: "absolute", top: -6, right: -6, width: 34, height: 34, borderRadius: "50%", background: "var(--accent)", display: "grid", placeItems: "center", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="send" size={15} style={{ color: "#fff" }} />
+          </div>
+        </div>
+        <b style={{ fontSize: 17 }}>{t("messages.noConversations", null, "No conversations yet")}</b>
+        <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.noConversationsDesc", null, "Once you start working with participants or researchers, your conversations will appear here.")}</p>
+        <p className="faint" style={{ margin: "10px 0 0", fontSize: 12 }}>{t("vMessages.startConversationTip", null, "Tip — you'll be able to message a builder once you're on a mission with them.")}</p>
+      </div>
+      </div>
+    </div>
+  );
 
   const visibleThreads = q.trim()
     ? threads.filter(t => (t.name + " " + (t.mission || "")).toLowerCase().includes(q.trim().toLowerCase()))
     : threads;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", height: "calc(100vh - 64px)" }} className="msg-wrap">
+    // .page's own bottom padding (32px) is invisible on a normal scrolling
+    // page, but here it left a dead gray strip below the chat card instead
+    // of the card reaching the bottom of the viewport -- paddingBottom:0
+    // lets the card's flex:1 claim that space instead.
+    <div className="page" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", paddingBottom: 0 }}>
+      <div className="ph" style={{ flex: "none" }}>
+        <div><h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("messages.title", null, "Messages")}</h1><p className="lead">{t("vMessages.lead", null, "Chat directly with the builders and researchers you're working with.")}</p></div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "320px minmax(0,1fr)", flex: 1, minHeight: 0, overflow: "hidden" }} className="msg-wrap card">
       <div style={{ borderRight: "var(--hairline) solid var(--border)", display: "flex", flexDirection: "column", background: "var(--panel)", minWidth: 0, minHeight: 0 }}>
         <div style={{ padding: "16px var(--pad-card) 12px", borderBottom: "var(--hairline) solid var(--border)" }}>
           <div className="search"><Icon name="search" size={16} /><input placeholder={t("messages.searchMessages", null, "Search messages…")} value={q} onChange={e => setQ(e.target.value)} /></div>
@@ -136,11 +173,18 @@ export default function Messages() {
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <div className="row gap-3" style={{ padding: "13px var(--pad-page)", borderBottom: "var(--hairline) solid var(--border)", background: "var(--panel)" }}>
             <VAvatar name={active.name} size={40} />
-            <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)} · {active.mission}</div></div>
-            <button className="icon-btn" aria-label={t("vMessages.openInNewTab", null, "Open in new tab")}><Icon name="external" size={17} /></button>
+            <div style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 15 }}>{active.name}</b><div className="faint" style={{ fontSize: 12.5 }}>{trFilterLabel(t, active.role)}</div></div>
+            {active.mission && (
+              active.missionId ? (
+                <button className="pill" style={{ fontSize: 12, cursor: "pointer" }} onClick={() => window.open(`/validator/missions/${active.missionId}`, "_blank", "noopener")}>
+                  <Icon name="layers" size={13} />{active.mission}
+                </button>
+              ) : (
+                <span className="pill" style={{ fontSize: 12 }}><Icon name="layers" size={13} />{active.mission}</span>
+              )
+            )}
           </div>
           <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "var(--pad-page)", display: "flex", flexDirection: "column", gap: 12, background: "var(--bg)" }}>
-            <div style={{ textAlign: "center", margin: "4px 0 8px" }}><span className="pill" style={{ fontSize: 11.5 }}>{active.mission}</span></div>
             {visibleMessagesCount < active.messages.length && (
               <div style={{ textAlign: "center" }}>
                 <button className="btn btn-outline" style={{ fontSize: 12, padding: "4px 12px" }} onClick={() => setVisibleMessagesCount(c => c + 50)}>{t("actions.loadPrevious", null, "Load previous")}</button>
@@ -154,7 +198,7 @@ export default function Messages() {
                     border: m.from === "me" ? "none" : "var(--hairline) solid var(--border)",
                     borderBottomRightRadius: m.from === "me" ? 4 : 14, borderBottomLeftRadius: m.from === "me" ? 14 : 4 }}>
                     {m.attachment
-                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6 }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
+                      ? <a href={m.attachment.url} target="_blank" rel="noreferrer" style={{ color: "inherit", display: "flex", alignItems: "center", gap: 6, textDecoration: "underline" }}><Icon name="paperclip" size={14} />{m.attachment.name}</a>
                       : m.text}
                   </div>
                   <div className="feed-time" style={{ textAlign: m.from === "me" ? "right" : "left", marginTop: 4, padding: "0 4px" }}>{m.time}</div>
@@ -177,6 +221,7 @@ export default function Messages() {
           <p className="muted" style={{ margin: 0, fontSize: 13.5 }}>{t("messages.selectConversationHint", null, "Choose someone from the list on the left to view your messages.")}</p>
         </div>
       )}
+      </div>
     </div>
   );
 }

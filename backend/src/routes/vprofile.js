@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { LEVELS, BADGES, EXPERTISE, levelForCompleted } from "../vmeta.js";
+import { isValidEmail } from "../validators.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
@@ -13,9 +14,6 @@ router.get("/", async (req, res) => {
   const nextLvl = LEVELS.find(l => l.n === lvl.n + 1) || null;
   const lvlPct = nextLvl ? Math.min(100, Math.round(((missionsDone - lvl.min) / (nextLvl.min - lvl.min)) * 100)) : 100;
 
-  // Role Promotion Logic (User -> Tester -> Validator)
-  let calcRole = "User";
-  
   const statsRow = await db.prepare(`
     SELECT
       COUNT(*) as total_graded,
@@ -29,12 +27,19 @@ router.get("/", async (req, res) => {
     accuracy = Math.round((Number(statsRow.total_approved) / Number(statsRow.total_graded)) * 100);
   }
   const streak = v.streak || 0;
-  
-  if (missionsDone >= 5 && accuracy >= 90) calcRole = "Tester";
-  if (v.verified && v.occupation) calcRole = "Validator";
-  // Admin-approved Tester status is a permanent lock — checked last so it can't be
-  // silently overwritten by the auto-promotion rules above on a later profile fetch.
-  if (v.tester_status === "approved") calcRole = "Tester";
+
+  // `role` always mirrors the real account tier (validator_type) -- the
+  // same field Settings and the Onboarding "current role" screen already
+  // treat as authoritative. This used to be computed independently from
+  // mission count + accuracy ("perform well enough and get silently
+  // relabeled Tester"), which let a validator's audience-targeting bucket
+  // flip on its own with no account change, no admin approval, and no way
+  // for anyone to see why (buildAudienceClauses' "ValidationCrew Role"
+  // filter reads this exact column). A validator only ever becomes a real
+  // Tester via /admin/tester-applications approval, which already sets
+  // validator_type to 'tester' -- this just stops a second, disagreeing
+  // definition of the same label from existing alongside it.
+  const calcRole = v.validator_type === "tester" ? "Tester" : v.validator_type === "validator" ? "Validator" : "User";
 
   if (calcRole !== v.role) {
     await db.prepare(`UPDATE validators SET role = ? WHERE id = ?`).run(calcRole, v.id);
@@ -85,7 +90,7 @@ router.get("/", async (req, res) => {
   `).get(v.id);
 
   res.json({
-    name: v.name, handle: v.handle, level: lvl.n, levelName: lvl.name,
+    id: v.id, name: v.name, handle: v.handle, email: v.email, level: lvl.n, levelName: lvl.name,
     rating: v.rating, ratingCount: v.reviews_count || 0, accuracy: accuracy, streak: streak,
     specialties: JSON.parse(v.specialties_json || "[]"),
     acceptRate: 100, completed: missionsDone, lifetime: earningsAgg?.lifetime || 0,
@@ -109,6 +114,7 @@ router.patch("/", async (req, res) => {
   const v = req.validator;
   const name = String(req.body?.name ?? v.name).trim();
   let handle = req.body?.handle === undefined ? v.handle : String(req.body.handle).trim();
+  let email = req.body?.email === undefined ? v.email : String(req.body.email).toLowerCase().trim();
   let occupation = req.body?.occupation === undefined ? v.occupation : String(req.body.occupation).trim();
   let industry = req.body?.industry === undefined ? v.industry : String(req.body.industry).trim();
   let location = req.body?.location === undefined ? v.location : String(req.body.location).trim();
@@ -123,17 +129,23 @@ router.patch("/", async (req, res) => {
   const addressCountry = addr.country === undefined ? v.address_country : String(addr.country).trim();
 
   if (!name) return res.status(400).json({ error: "Name is required" });
+  if (!isValidEmail(email)) return res.status(400).json({ error: "Enter a valid email address" });
   if (handle && !handle.startsWith("@")) handle = `@${handle}`;
   if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
-  specialties = specialties.map(s => String(s).trim()).filter(Boolean).slice(0, 6);
+  specialties = [...new Set(specialties.map(s => String(s).trim()).filter(Boolean))];
 
-  await db.prepare(`UPDATE validators SET name = ?, handle = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ?,
+  if (email !== v.email) {
+    const existing = await db.prepare(`SELECT id FROM validators WHERE email = ? AND id != ?`).get(email, v.id);
+    if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+  }
+
+  await db.prepare(`UPDATE validators SET name = ?, handle = ?, email = ?, occupation = ?, industry = ?, location = ?, bio = ?, specialties_json = ?,
       address_line1 = ?, address_line2 = ?, address_city = ?, address_state = ?, address_postal_code = ?, address_country = ? WHERE id = ?`)
-    .run(name, handle || null, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties),
+    .run(name, handle || null, email, occupation || null, industry || null, location || null, bio || null, JSON.stringify(specialties),
       addressLine1 || null, addressLine2 || null, addressCity || null, addressState || null, addressPostalCode || null, addressCountry || null, v.id);
 
   res.json({
-    name, handle: handle || null, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties,
+    name, handle: handle || null, email, occupation: occupation || null, industry: industry || null, location: location || null, bio: bio || null, specialties,
     address: { line1: addressLine1 || "", line2: addressLine2 || "", city: addressCity || "", state: addressState || "", postalCode: addressPostalCode || "", country: addressCountry || "" }
   });
 });

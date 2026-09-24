@@ -44,7 +44,7 @@ router.get("/", async (req, res) => {
       COALESCE(SUM(spend), 0) AS total_spend,
       COALESCE(AVG(CASE WHEN status = 'active' THEN completion ELSE NULL END), 0) AS avg_completion
     FROM (
-      SELECT m.*, (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined
+      SELECT m.*, (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) as real_joined
       FROM missions m WHERE builder_id = ?
     ) missions
   `).get(bId);
@@ -126,10 +126,12 @@ router.get("/", async (req, res) => {
     };
   });
 
+  // Any status, most recent 6 -- confirmed against the actual reference
+  // mockup (mixed Active/Draft rows), not the earlier active-only reading.
   const recentRaw = await db.prepare(`
     SELECT m.*,
       (SELECT COUNT(*) FROM responses r WHERE r.mission_id = m.id AND r.status NOT IN ('rejected', 'draft')) as real_submitted,
-      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'rejected', 'failed')) as real_joined
+      (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) as real_joined
     FROM missions m WHERE builder_id = ? ORDER BY created_at DESC LIMIT 6
   `).all(bId);
 

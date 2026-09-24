@@ -4,7 +4,8 @@ function localTicketShape(row) {
   return {
     id: row.freshdesk_id ? "TKT-" + row.freshdesk_id : "TKT-L" + row.id,
     subject: row.subject,
-    cat: "Support",
+    description: row.description || "",
+    cat: row.category || "Other",
     status: row.status === "open" ? "open" : "closed",
     priority: "normal",
     updated_label: new Date(row.updated_at).toLocaleDateString(),
@@ -35,10 +36,16 @@ export async function getTickets(email) {
     }
 
     const data = await res.json();
+    // Freshdesk has no field for our category picker, so the local row --
+    // always written first in createTicket(), synced or not -- is the only
+    // place it's ever recorded. Matched by freshdesk_id since that's the
+    // only id a synced ticket and its local row have in common.
+    const localByFreshdeskId = new Map(localRows.filter(r => r.freshdesk_id).map(r => [r.freshdesk_id, r]));
     const remote = data.map(t => ({
       id: "TKT-" + t.id,
       subject: t.subject,
-      cat: "Support",
+      description: localByFreshdeskId.get(String(t.id))?.description || t.description_text || "",
+      cat: localByFreshdeskId.get(String(t.id))?.category || "Other",
       status: t.status === 2 || t.status === 3 ? "open" : "closed", // 2=Open, 3=Pending, 4=Resolved, 5=Closed
       priority: t.priority === 4 ? "urgent" : "normal",
       updated_label: new Date(t.updated_at).toLocaleDateString(),
@@ -55,11 +62,13 @@ export async function getTickets(email) {
   }
 }
 
-export async function createTicket({ email, name, subject, description, isValidator }) {
+export async function createTicket({ email, name, subject, description, category, isValidator }) {
   const role = isValidator ? "validator" : "builder";
+  const cat = category || "Other";
+  const desc = description || "";
   const localRes = await db.prepare(
-    `INSERT INTO support_tickets (role, email, name, subject, description, status) VALUES (?, ?, ?, ?, ?, 'open')`
-  ).run(role, email, name, subject, description || "");
+    `INSERT INTO support_tickets (role, email, name, subject, description, category, status) VALUES (?, ?, ?, ?, ?, ?, 'open')`
+  ).run(role, email, name, subject, desc, cat);
   const localId = localRes.lastInsertRowid;
 
   const domain = process.env.FRESHDESK_DOMAIN;
@@ -67,7 +76,7 @@ export async function createTicket({ email, name, subject, description, isValida
 
   if (!domain || !apiKey) {
     // Not configured — the local row is the ticket, and it stays visible via getTickets().
-    return { id: "TKT-L" + localId, subject, cat: "Support", status: "open", priority: "normal", updated: "Just now" };
+    return { id: "TKT-L" + localId, subject, description: desc, cat, status: "open", priority: "normal", updated: "Just now" };
   }
 
   try {
@@ -93,14 +102,14 @@ export async function createTicket({ email, name, subject, description, isValida
     } else {
       const t = await res.json();
       await db.prepare(`UPDATE support_tickets SET freshdesk_id = ? WHERE id = ?`).run(String(t.id), localId);
-      return { id: "TKT-" + t.id, subject: t.subject, cat: "Support", status: "open", priority: "normal", updated: "Just now" };
+      return { id: "TKT-" + t.id, subject: t.subject, description: desc, cat, status: "open", priority: "normal", updated: "Just now" };
     }
   } catch (err) {
     console.error("Freshdesk create error:", err);
     // Fall through to the local-only ticket below rather than losing it.
   }
 
-  return { id: "TKT-L" + localId, subject, cat: "Support", status: "open", priority: "normal", updated: "Just now" };
+  return { id: "TKT-L" + localId, subject, description: desc, cat, status: "open", priority: "normal", updated: "Just now" };
 }
 
 export async function getTicketConversations(ticketId) {

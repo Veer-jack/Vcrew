@@ -17,7 +17,9 @@ import {
 } from "../utils/missionDraft";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { resolveActivePersonaKey } from "../data/personaConfig";
 import { categoryLabel, categoryDesc, ptypeLabel, ptypeDesc, rewardLabel, rewardDesc } from "../bi18n";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 function wzSteps(t) {
   return [
@@ -70,7 +72,17 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
       {locked && <LockedHint />}
       <div className="optcards" style={locked ? { opacity: 0.6, pointerEvents: "none" } : undefined}>
         {categories.map(c => (
-          <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} disabled={locked} onClick={() => set({ cat: c.id })}>
+          <button key={c.id} className={`optcard ${d.cat === c.id ? "on" : ""}`} style={{ "--tc": `var(--t-${c.id})` }} disabled={locked} onClick={() => set({
+            cat: c.id,
+            // Category "Focus Group" and participation type "Moderated Group
+            // Session" share the same internal id ("focus") but read as two
+            // completely different things — a builder picking this category
+            // has every reason to assume that alone sets up a focus group,
+            // not realizing Step 2 needs the (differently-worded) matching
+            // choice too. Only fills it in if ptype is still untouched, so a
+            // deliberate different choice on Step 2 is never overwritten.
+            ptype: (c.id === "focus" && !d.ptype) ? "focus" : d.ptype,
+          })}>
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={c.icon} size={20} /></span>
             <b>{categoryLabel(t, c)}</b><p>{categoryDesc(t, c)}</p>
@@ -81,14 +93,20 @@ function StepInfo({ d, set, categories, showErrors, locked }) {
   );
 }
 
-export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded = true, externalQuery, otherValue = "Other" }) {
+export function FilterGroup({ title, options, sel, toggle, otherEntries, onOtherEntriesChange, onSelectAll, initialExpanded, externalQuery, otherValue = "Other", otherPlaceholder, required }) {
   const { t } = useTranslation();
   const [q, setQ] = React.useState("");
-  const [expanded, setExpanded] = React.useState(initialExpanded);
+  // No caller-specified initialExpanded -- default it off the option count
+  // instead of a flat `true`, so any group over 10 options (the country
+  // list being the extreme case at ~195) opens collapsed, behind its own
+  // "N selected" summary and search box, instead of dumping the whole list
+  // open by default. A caller can still force either state explicitly.
+  const [expanded, setExpanded] = React.useState(initialExpanded ?? options.length <= 10);
   // Uncommitted text for a new "Other" entry — separate from the saved
   // otherEntries array below, so typing doesn't add a filter until Save.
   const [draftOther, setDraftOther] = React.useState("");
   const [addingOther, setAddingOther] = React.useState(false);
+  const [dupOtherError, setDupOtherError] = React.useState(false);
   // A caller-driven search (e.g. a modal-wide search bar) takes over this
   // group's own filtering instead of running alongside it — two active
   // queries at once would be confusing and the caller already decided
@@ -115,6 +133,16 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   const saveOther = () => {
     const v = draftOther.trim();
     if (!v) return;
+    // Case-insensitive, and checked against this section's own real options
+    // too, not just past custom entries — "India"/"india" are the same
+    // real-world value, and so is typing "UK" here when UK is already a
+    // normal checkbox above it; either way the same thing would end up
+    // selected twice, once as a checkbox and once as a custom entry.
+    const vLower = v.toLowerCase();
+    if (savedOther.some(e => e.toLowerCase() === vLower) || realOptions.some(o => o.toLowerCase() === vLower)) {
+      setDupOtherError(true);
+      return;
+    }
     onOtherEntriesChange([...savedOther, v]);
     // Keep "Other" a real (if derived) Set member so the existing
     // payload/resume-draft logic elsewhere keeps working unchanged — it just
@@ -123,6 +151,7 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
     toggle(title, v);
     setDraftOther("");
     setAddingOther(false);
+    setDupOtherError(false);
   };
   const removeOther = (val, i) => {
     const next = savedOther.filter((_, j) => j !== i);
@@ -139,11 +168,13 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
   // A checked custom entry is a real selection just like any predefined
   // option, so it counts toward this subgroup's total too.
   const ownSelectedCount = realOptions.reduce((n, o) => n + (sel.has(o) ? 1 : 0), 0) + savedOther.reduce((n, v) => n + (sel.has(v) ? 1 : 0), 0);
-  // A standalone "Other" section (no predefined options besides the
-  // trigger) has nothing else to bulk-select, so "Select all"/"Clear all"
-  // operates on its saved entries instead — same one control, same result
-  // the user gets from the other sections.
-  const bulkTargets = realOptions.length > 0 ? realOptions : savedOther;
+  // Includes this section's saved custom entries alongside its predefined
+  // options — a standalone "Other" section (no predefined options besides
+  // the trigger) naturally falls back to just its saved entries here, since
+  // realOptions is empty for it. Selecting/clearing everything for a
+  // category from its main "Select all" should also cover whatever's been
+  // typed into that category's own Other box, not just the checkboxes.
+  const bulkTargets = [...realOptions, ...savedOther];
   const allSelected = bulkTargets.length > 0 && bulkTargets.every(o => sel.has(o));
   return (
     <div className="fsec" style={{ display: "block", margin: "22px 0 10px" }}>
@@ -151,11 +182,20 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
         <div className="row gap-2" style={{ alignItems: "center" }}>
           <Icon name={isOpen ? "chevronDown" : "chevronRight"} size={14} style={{ color: "var(--text-faint)" }} />
           <b style={{ fontSize: 12.5 }}>{trFilterLabel(t, title)}</b>
+          {required && <span className="req-star" aria-hidden="true"> *</span>}
         </div>
         <div className="row gap-3" style={{ alignItems: "center" }}>
           {ownSelectedCount > 0 && <span className="cnt mono" style={{ color: "var(--accent)" }}>{t("createMission.selectedCount", { count: ownSelectedCount }, `${ownSelectedCount} selected`)}</span>}
           {onSelectAll && (
-            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => { e.stopPropagation(); onSelectAll(bulkTargets, isGenericOther ? otherValue : undefined); }}>
+            <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={e => {
+              e.stopPropagation();
+              // A standalone "Other" section with nothing saved yet has
+              // nothing for bulk-select to act on — opening the custom-entry
+              // input instead gives "Select all" something to actually do
+              // here, rather than silently no-op-ing on an empty array.
+              if (bulkTargets.length === 0 && isGenericOther) { setOtherOpen(true); return; }
+              onSelectAll(bulkTargets, isGenericOther ? otherValue : undefined);
+            }}>
               {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
             </button>
           )}
@@ -175,15 +215,33 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
           <div className="chips">
             {filtered.map(o => {
               const isTrigger = isGenericOther && o === otherValue;
-              const isOn = isTrigger ? showOtherInput : sel.has(o);
+              // The section this renders in is already titled "Other" — a
+              // chip that also just says "Other" and has to be clicked
+              // before the real input even appears was a redundant extra
+              // step. A "+ Add other" action says what it does and skips
+              // straight to the input; it hides once that input is open so
+              // it isn't sitting there doing nothing next to it.
+              if (isTrigger) {
+                if (showOtherInput) return null;
+                return (
+                  <button key={o} type="button" className="chip" style={{ borderStyle: "dashed" }} onClick={() => setOtherOpen(true)}>
+                    <Icon name="plus" size={12} style={{ marginRight: 4 }} />{t("createMission.addOtherTrigger", null, "Add other")}
+                  </button>
+                );
+              }
+              const isOn = sel.has(o);
               return (
-                <button key={o} className={`chip ${isOn ? "on" : ""}`}
-                  onClick={() => isTrigger ? setOtherOpen(v => !v) : toggle(title, o)}>
+                <button key={o} className={`chip ${isOn ? "on" : ""}`} onClick={() => toggle(title, o)}>
                   <span className="ck"><Icon name="check" size={10} /></span>{trFilterLabel(t, o)}
                 </button>
               );
             })}
-            {filtered.length === 0 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
+            {/* Guarded on options.length > 1 — a standalone "Other"-only
+                section (a single-item list, no search box even rendered)
+                has nothing to search and should never be able to reach this
+                empty state at all; it was showing regardless once a stray
+                query value leaked in from elsewhere. */}
+            {filtered.length === 0 && options.length > 1 && <span className="muted" style={{ fontSize: 12 }}>{t("createMission.noMatchesFor", { q: activeQuery }, `No matches for "${activeQuery}"`)}</span>}
           </div>
           {showOtherInput && (
             <div style={{ marginTop: 10 }}>
@@ -207,17 +265,27 @@ export function FilterGroup({ title, options, sel, toggle, otherEntries, onOther
                 </div>
               )}
               {(savedOther.length === 0 || addingOther) ? (
-                <div className="row gap-2" style={{ alignItems: "center" }}>
-                  <input
-                    className="fin"
-                    style={{ fontSize: 13, maxWidth: 220 }}
-                    placeholder={t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
-                    value={draftOther}
-                    onChange={e => setDraftOther(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
-                  />
-                  <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
-                  <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => { setDraftOther(""); setAddingOther(false); }}>{t("actions.cancel", null, "Cancel")}</button>
+                <div>
+                  <div className="row gap-2" style={{ alignItems: "center" }}>
+                    <input
+                      className="fin"
+                      style={{ fontSize: 13, maxWidth: 220 }}
+                      placeholder={otherPlaceholder || t("createMission.otherGeoPlaceholder", null, "e.g. Nepal, Sri Lanka…")}
+                      value={draftOther}
+                      onChange={e => { setDraftOther(e.target.value); setDupOtherError(false); }}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveOther(); } }}
+                    />
+                    <button type="button" className="btn btn-primary" style={{ padding: "7px 14px", fontSize: 13 }} disabled={!draftOther.trim()} onClick={saveOther}>{t("actions.save", null, "Save")}</button>
+                    <button type="button" className="btn outline" style={{ padding: "7px 14px", fontSize: 13 }} onClick={() => {
+                      setDraftOther(""); setAddingOther(false); setDupOtherError(false);
+                      // Nothing saved yet -- this Cancel is for the input itself
+                      // (opened via the "+ Add other" trigger), not just this
+                      // draft, so close it back to the trigger chip instead of
+                      // leaving an empty input sitting there with nothing to do.
+                      if (savedOther.length === 0) setOtherOpen(false);
+                    }}>{t("actions.cancel", null, "Cancel")}</button>
+                  </div>
+                  {dupOtherError && <p className="ferr" style={{ marginTop: 6 }}>{t("createMission.otherDuplicateValue", null, "That value is already added.")}</p>}
                 </div>
               ) : null}
             </div>
@@ -268,7 +336,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
           return (
             <div style={{ padding: "10px 14px", background: "var(--warning-weak)", color: "var(--warning)", borderRadius: "var(--radius-sm)", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
               <Icon name="alertTriangle" size={16} />
-              {t("createMission.zeroMatchingWarning", null, "No matching audience found with your current filters. Try adjusting your filters or expanding the location to reach more people.")}
+              {t("createMission.zeroMatchingWarning", null, "No validators match this audience right now — we'll notify you the moment a matching validator joins.")}
             </div>
           );
         }
@@ -280,16 +348,27 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
         // (Geography, Interests) — previously only grouped categories had the
         // wrapper, so flat ones looked like loose, unrelated sections by contrast.
         <div key={g} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "22px 0" }}>
-          {!Array.isArray(opts) && (
-            <div className="row between" style={{ marginBottom: 2 }}>
-              <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
-              {d.filters[g].size > 0 && (
-                <span className="cnt mono" style={{ color: "var(--accent)" }}>
-                  {t("createMission.selectedCount", { count: d.filters[g].size }, `${d.filters[g].size} selected`)}
-                </span>
-              )}
-            </div>
-          )}
+          {!Array.isArray(opts) && (() => {
+            // The literal "Other" marker is a derived flag (kept in the Set
+            // only so existing payload/resume-draft logic elsewhere keeps
+            // working — see FilterGroup's saveOther), not a real selection.
+            // Unchecking a subgroup's only custom entry removes that value
+            // but leaves the marker behind, since it's shared across every
+            // sibling subgroup's own Other box — counting it here made the
+            // category header read "1 selected" with nothing actually
+            // checked anywhere underneath.
+            const realSelectedCount = [...d.filters[g]].filter(v => v !== "Other").length;
+            return (
+              <div className="row between" style={{ marginBottom: 2 }}>
+                <b style={{ fontSize: 13.5 }}>{trFilterLabel(t, g)}</b>
+                {realSelectedCount > 0 && (
+                  <span className="cnt mono" style={{ color: "var(--accent)" }}>
+                    {t("createMission.selectedCount", { count: realSelectedCount }, `${realSelectedCount} selected`)}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           {Array.isArray(opts) ? (() => {
             // A literal "Other" in the list gets its own trailing section
             // instead of sitting inline among the real options — it isn't a
@@ -303,7 +382,12 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
             return (
               <>
                 <FilterGroup title={g} options={mainOpts} sel={d.filters[g]} toggle={toggle}
-                  onSelectAll={(o, catchAll) => selectAllInGroup(g, o, undefined, catchAll)}
+                  // Read-only here (no onOtherEntriesChange) — this doesn't
+                  // grow an "add other" UI of its own, it just lets this
+                  // group's own "Select all" / selected-count also account
+                  // for whatever's saved in the sibling Other section below.
+                  otherEntries={hasOther ? d.otherEntries?.[otherKey] : undefined}
+                  onSelectAll={(o, catchAll) => selectAllInGroup(g, o, hasOther ? otherKey : undefined, catchAll)}
                 />
                 {hasOther && (
                   <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
@@ -311,6 +395,12 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
                     onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
                     onSelectAll={(o, catchAll) => selectAllInGroup(g, o, otherKey, catchAll)}
                     otherValue="Other"
+                    // Geography keeps the concrete place-name examples — a
+                    // real hint there. Every other category (Professional,
+                    // ValidationCrew Role, ...) got that same geography-
+                    // flavored placeholder before, which read as nonsense
+                    // when the section had nothing to do with location.
+                    otherPlaceholder={g === GEO_GROUP ? undefined : t("createMission.otherGenericPlaceholder", { section: g.toLowerCase() }, `Add your own ${g.toLowerCase()} value`)}
                   />
                 )}
               </>
@@ -336,18 +426,27 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
               const mainOpts = hasGenericOther ? subOpts.filter(o => o !== "Other") : subOpts;
               return (
                 <React.Fragment key={g + sub}>
-                  <FilterGroup title={sub} options={mainOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
-                    otherEntries={!hasGenericOther && otherKey ? d.otherEntries?.[otherKey] : undefined}
-                    onOtherEntriesChange={!hasGenericOther && otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
-                    otherValue={subOther || "Other"}
-                    onSelectAll={(so, catchAll) => selectAllInGroup(g, so, hasGenericOther ? undefined : otherKey, catchAll)}
-                  />
+                  {/* A subgroup made up of nothing but the literal "Other"
+                      marker (Geography's own "Other" region, whose entire
+                      option list is just ["Other"]) has zero real options
+                      left once that marker is filtered out — rendering it
+                      here too was showing an empty, pointless second "Other"
+                      section right next to the real one below. */}
+                  {mainOpts.length > 0 && (
+                    <FilterGroup title={sub} options={mainOpts} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
+                      otherEntries={otherKey ? d.otherEntries?.[otherKey] : undefined}
+                      onOtherEntriesChange={!hasGenericOther && otherKey ? (entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } }) : undefined}
+                      otherValue={subOther || "Other"}
+                      onSelectAll={(so, catchAll) => selectAllInGroup(g, so, otherKey, catchAll)}
+                    />
+                  )}
                   {hasGenericOther && (
                     <FilterGroup title="Other" options={["Other"]} sel={d.filters[g]} toggle={(_, o) => toggle(g, o)}
                       otherEntries={d.otherEntries?.[otherKey]}
                       onOtherEntriesChange={(entries) => set({ otherEntries: { ...d.otherEntries, [otherKey]: entries } })}
                       onSelectAll={(o, catchAll) => selectAllInGroup(g, o, otherKey, catchAll)}
                       otherValue="Other"
+                      otherPlaceholder={t("createMission.otherGenericPlaceholder", { section: sub.toLowerCase() }, `Add your own ${sub.toLowerCase()} value`)}
                     />
                   )}
                 </React.Fragment>
@@ -363,6 +462,7 @@ function StepAudience({ d, set, toggle, selectAllInGroup, filters, liveCount, is
 function StepParticipation({ d, set, ptypes, locked }) {
   const { t } = useTranslation();
   const trialFieldRef = useRef(null);
+  const approvalFieldRef = useRef(null);
   const prevPtype = useRef(d.ptype);
   useEffect(() => {
     // The duration field only appears once "Multi-Day Diary Study" is
@@ -371,6 +471,10 @@ function StepParticipation({ d, set, ptypes, locked }) {
     // render while it's already selected.
     if (d.ptype === "trial" && prevPtype.current !== "trial") {
       trialFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (prevPtype.current !== d.ptype) {
+      // Any card pick can push the "require approval" checkbox off-screen
+      // below the grid — nudge it into view so it's not missed.
+      approvalFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     prevPtype.current = d.ptype;
   }, [d.ptype]);
@@ -383,7 +487,7 @@ function StepParticipation({ d, set, ptypes, locked }) {
             <span className="oc-tick"><Icon name="check" size={12} /></span>
             <span className="oc-ic"><Icon name={p.icon} size={20} /></span>
             <b>{ptypeLabel(t, p)}</b><p>{ptypeDesc(t, p)}</p>
-            <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{p.id === "trial" ? t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`) : p.est}</span>
+            {p.id === "trial" && <span className="mtag" style={{ alignSelf: "flex-start", marginTop: 6 }}><Icon name="clock" size={11} style={{ marginRight: 4, verticalAlign: "-2px" }} />{t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`)}</span>}
           </button>
         ))}
       </div>
@@ -399,17 +503,26 @@ function StepParticipation({ d, set, ptypes, locked }) {
             value={d.durationDays}
             onChange={e => { const v = e.target.value; set({ durationDays: v === "" ? "" : Number(v) }); }}
             onBlur={() => set({ durationDays: Math.min(30, Math.max(3, Number(d.durationDays) || 7)) })}
+            onKeyDown={blockInvalidNumberKeys}
           />
           <p className="fhint">{t("createMission.trialDurationHint", null, "Validators check in once per day, then submit their final review at the end. Choose between 3 and 30 days.")}</p>
         </div>
       )}
+      <label ref={approvalFieldRef} className="row gap-2" style={{ marginTop: 24, alignItems: "flex-start", cursor: locked ? "default" : "pointer", maxWidth: 480 }}>
+        <input type="checkbox" checked={!!d.requireApproval} disabled={locked} style={{ marginTop: 3, cursor: locked ? "default" : "pointer" }}
+          onChange={e => set({ requireApproval: e.target.checked })} />
+        <span>
+          <b style={{ display: "block", fontSize: 14 }}>{t("createMission.requireApprovalLabel", null, "Require my approval before validators can start")}</b>
+          <span className="fhint" style={{ display: "block", marginTop: 2 }}>{t("createMission.requireApprovalHint", null, "Validators apply and wait for you to review their profile and accept them. Off by default — anyone who applies starts immediately.")}</span>
+        </span>
+      </label>
     </div>
   );
 }
 
 const UNVERIFIED_PARTICIPANT_LIMIT = 25;
 
-function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchingCount, locked }) {
+function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchingCount, locked, platformFeePct }) {
   const { t } = useTranslation();
   const rw = rewards.find(r => r.id === d.reward.type);
   const needsAmt = rw?.needsAmt;
@@ -439,7 +552,7 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
             <label>{t("createMission.rewardAmountLabel", null, "Reward Amount")} <span className="req-star" aria-hidden="true">*</span> <span className="opt">{t("createMission.perParticipant", null, "per participant")}</span></label>
             <div className="inw has-pre">
               <span className="pre">₹</span>
-              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: e.target.value === "" ? "" : +e.target.value } })} />
+              <input className="fin" type="number" min="1" disabled={locked} value={d.reward.amount} onChange={e => set({ reward: { ...d.reward, amount: e.target.value === "" ? "" : +e.target.value } })} onKeyDown={blockInvalidNumberKeys} />
             </div>
           </div>
         )}
@@ -468,16 +581,17 @@ function StepReward({ d, set, rewards, showErrors, builder, liveCount, isFetchin
               }
               set({ reward: { ...d.reward, participants: e.target.value === "" ? "" : Math.min(500, Math.max(1, +e.target.value)) } });
             }}
-            onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }} />
+            onBlur={e => { if (e.target.value === "" || +e.target.value < 1) set({ reward: { ...d.reward, participants: 1 } }); }}
+            onKeyDown={blockInvalidNumberKeys} />
           <p className="fhint">
             {!builder?.verified
               ? t("createMission.participantsHintUnverified", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission. Verify your website to unlock up to 500.`)
               : t("createMission.participantsHint", null, "We recommend 80–150 for statistically useful feedback. Maximum 500 participants.")}
           </p>
           {overAudienceCount && (
-            <p className="fhint" style={{ color: "var(--danger)" }}>
+            <p className="fhint" style={{ color: "var(--warning)" }}>
               <Icon name="alertTriangle" size={12} style={{ verticalAlign: -1, marginRight: 4 }} />
-              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience — widen your filters in step 4.`)}
+              {t("createMission.participantsExceedAudience", { count: liveCount }, `Only ${liveCount.toLocaleString("en-IN")} validators match this audience right now — we'll notify you the moment a matching validator joins.`)}
             </p>
           )}
         </div>
@@ -524,7 +638,7 @@ function ReviewRow({ icon, color = "--accent", label, children, onEdit }) {
     </div>
   );
 }
-function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingFormat, missingTasks, missingReward }) {
+function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, missingInfo, missingFormat, missingTasks, missingAudience, missingReward, rewardIssueDetail }) {
   const { t } = useTranslation();
   const [descExpanded, setDescExpanded] = React.useState(false);
   const cat = categories.find(c => c.id === d.cat) || categories[0];
@@ -543,7 +657,8 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
     missingInfo && { label: t("createMission.issueInfo", null, "Mission info is incomplete"), step: 0, cta: t("createMission.goToStep1", null, "Go to Step 1") },
     missingFormat && { label: t("createMission.issueFormat", null, "Feedback format not selected"), step: 1, cta: t("createMission.goToStep2", null, "Go to Step 2") },
     missingTasks && { label: t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"), step: 2, cta: t("createMission.goToStep3", null, "Go to Step 3") },
-    missingReward && { label: t("createMission.issueReward", null, "Reward setup is incomplete or invalid"), step: 4, cta: t("createMission.goToStep5", null, "Go to Step 5") },
+    missingAudience && { label: t("createMission.issueAudience", null, "No audience filters selected"), step: 3, cta: t("createMission.goToStep4", null, "Go to Step 4") },
+    missingReward && { label: rewardIssueDetail, step: 4, cta: t("createMission.goToStep5", null, "Go to Step 5") },
   ].filter(Boolean);
   return (
     <div className="rise">
@@ -567,10 +682,20 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
       )}
       <div className="card" style={{ padding: "4px 20px 14px" }}>
         <ReviewRow icon="edit" color="--accent-2" label={t("createMission.missionTitleReviewLabel", null, "Mission title")} onEdit={() => onEditStep(0)}>{d.title || <span className="faint">{t("createMission.untitledMission", null, "Untitled mission")}</span>}</ReviewRow>
+        {d.desc && (
+          <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
+            <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
+            {descLong && <button className="backlink" style={{ margin: "4px 0 0", fontSize: 12.5 }} onClick={() => setDescExpanded(v => !v)}>{descExpanded ? t("actions.showLess", null, "Show less") : t("actions.readMore", null, "Read more")}</button>}
+          </ReviewRow>
+        )}
+        <ReviewRow icon="calendar" color="--accent" label={t("createMission.deadlineReviewLabel", null, "Deadline")} onEdit={() => onEditStep(0)}>
+          {d.deadline ? new Date(d.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : <span className="faint">{t("settings.notSet", null, "Not set")}</span>}
+        </ReviewRow>
         <ReviewRow icon={cat?.icon || "layers"} color="--warning" label={t("createMission.categoryLabel", null, "Category")} onEdit={() => onEditStep(0)}>{cat && categoryLabel(t, cat)}</ReviewRow>
-        <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)} · ~{pt?.est}</ReviewRow>
-        <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
-        <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
+        <ReviewRow icon={pt?.icon || "list"} color="--success" label={t("createMission.participationTypeLabel", null, "Participation type")} onEdit={() => onEditStep(1)}>{pt && ptypeLabel(t, pt)}{pt?.id === "trial" ? ` · ${t("createMission.durationDaysSuffix", { days: d.durationDays }, `${d.durationDays} days`)}` : ""}</ReviewRow>
+        {d.requireApproval && (
+          <ReviewRow icon="userCheck" color="--accent" label={t("createMission.approvalReviewLabel", null, "Applicants")} onEdit={() => onEditStep(1)}>{t("createMission.requireApprovalOn", null, "You'll review and accept each applicant")}</ReviewRow>
+        )}
         {d.tasks?.length > 0 && (
           <ReviewRow icon="checkCircle" color="--success" label={t("createMission.testCasesEyebrow", { count: d.tasks.length }, `Test cases (${d.tasks.length})`)} onEdit={() => onEditStep(2)}>
             <div className="col gap-1" style={{ marginTop: 2 }}>
@@ -583,17 +708,13 @@ function StepReview({ d, categories, ptypes, rewards, liveCount, onEditStep, mis
             </div>
           </ReviewRow>
         )}
-        {d.desc && (
-          <ReviewRow icon="fileText" color="--warning" label={t("createMission.descriptionEyebrow", null, "Description")} onEdit={() => onEditStep(0)}>
-            <span style={!descExpanded && descLong ? { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } : undefined}>{d.desc}</span>
-            {descLong && <button className="backlink" style={{ margin: "4px 0 0", fontSize: 12.5 }} onClick={() => setDescExpanded(v => !v)}>{descExpanded ? t("actions.showLess", null, "Show less") : t("actions.readMore", null, "Read more")}</button>}
-          </ReviewRow>
-        )}
+        <ReviewRow icon="users" color="--accent-2" label={t("createMission.audienceLabel", null, "Audience")} onEdit={() => onEditStep(3)}>{count.toLocaleString("en-IN")} {t("createMission.audienceFiltersSummary", { count: allFilters.length || "no" }, `matching members · ${allFilters.length || "no"} filters`)}</ReviewRow>
         {allFilters.length > 0 && (
           <ReviewRow icon="filter" color="--accent" label={t("createMission.audienceFiltersEyebrow", null, "Audience filters")} onEdit={() => onEditStep(3)}>
             <div className="chips" style={{ marginTop: 4 }}>{allFilters.map(f => <span key={f} className="chip on" style={{ pointerEvents: "none" }}>{f}</span>)}</div>
           </ReviewRow>
         )}
+        <ReviewRow icon={rw?.icon || "coins"} color="--danger" label={t("createMission.rewardLabel", null, "Reward")} onEdit={() => onEditStep(4)}>{rw?.needsAmt ? t("createMission.amountEach", { amount: inr(d.reward.amount) }, `${inr(d.reward.amount)} each`) : (rw && rewardLabel(t, rw))} · {t("createMission.participantsSuffix", { n: d.reward.participants }, `${d.reward.participants} participants`)}</ReviewRow>
       </div>
     </div>
   );
@@ -629,6 +750,18 @@ function buildAudiencePayload(d) {
   return audience;
 }
 
+// A Multiple Choice question with no (or all-empty) answer options is
+// missing the one thing that actually makes it multiple choice — every
+// other question type is complete once its text is filled in, but this one
+// needs at least 2 real options too, same minimum StepTestCases' own "Add
+// option" UI naturally builds toward. Shared by both the step-Continue gate
+// and the Review page's issue check below, so they can't drift apart.
+function isQuestionComplete(q) {
+  if (!q.text?.trim()) return false;
+  if (q.type !== "multiple_choice") return true;
+  return (q.options || []).filter(o => o.trim()).length >= 2;
+}
+
 function computeCost(d, rewards, platformFeePct) {
   const rw = rewards.find(r => r.id === d.reward.type);
   const n = +d.reward.participants || 0;
@@ -651,17 +784,31 @@ function missionToDraft(mission, filters, categories, ptypes) {
   const draft = {
     title: mission.name || "",
     desc: mission.description || "",
-    cat: mission.category || categories[0]?.id || "feedback",
-    ptype: mission.ptype || ptypes[0]?.id || "ptest",
+    // Same reasoning as reward/participants above (see missionToDraft's
+    // reward block) — "" mirrors freshDraft()'s own untouched shape. This
+    // used to fall back to the first real category/ptype option, which made
+    // a draft that never actually visited Step 1/2 look like it had already
+    // chosen one on resume — retroactively unlocking calcMax past those
+    // steps and landing the resume on the wrong step (BUG-071/079).
+    cat: mission.category || "",
+    ptype: mission.ptype || "",
+    // Falling back to a real option ("fixed"/1 participant) here used to make
+    // a draft that never reached the Reward step look, on resume, exactly
+    // like one where Reward genuinely was filled in — which then made the
+    // step-resume calculation below (calcMax) think it could skip straight
+    // to Review. "" mirrors freshDraft()'s own untouched shape, so a
+    // genuinely-empty reward stays visibly empty when resumed instead of
+    // silently becoming Free / 1 participant.
     reward: {
-      type: mission.reward?.type || "fixed",
+      type: mission.reward?.type || "",
       amount: mission.reward?.amount || 0,
-      participants: mission.participants?.target || 1,
+      participants: mission.participants?.target || "",
     },
     filters: emptyF,
     testCaseForm: mission.testCaseForm?.form || null,
     genFor: mission.testCaseForm?.genFor || null,
     durationDays: mission.durationDays || 7,
+    requireApproval: !!mission.requireApproval,
     deadline: mission.deadline ? mission.deadline.slice(0, 10) : "",
     tasks: mission.tasks || [],
   };
@@ -696,7 +843,17 @@ function missionToDraft(mission, filters, categories, ptypes) {
         otherEntries[bucketKey] = entries;
       }
     } else {
-      draft.filters[g] = new Set(vals);
+      // No "Other" catch-all here (ValidationCrew Role, Demographics), so
+      // there's no free-text bucket to route unrecognized values into like
+      // the branch above — but a saved value that no longer matches any of
+      // the group's current options (e.g. one that existed under an older
+      // taxonomy) still needs to be dropped rather than kept. Silently
+      // trusting it as-is used to leave it sitting in the Set with no
+      // checkbox anywhere to render it checked, invisibly filtering the real
+      // audience down to whoever coincidentally still matches that stale
+      // string — sometimes zero.
+      const known = new Set(flatOpts);
+      draft.filters[g] = new Set(vals.filter(v => known.has(v)));
     }
   }
   draft.otherEntries = otherEntries;
@@ -717,6 +874,21 @@ function plainToDraft(data, emptyF) {
   for (const k in (data.filters || {})) out.filters[k] = new Set(data.filters[k] || []);
   return out;
 }
+// The subset of fields that actually matter to an already-joined
+// participant — same scope the backend's own PATCH-route diff uses (see its
+// `_notify` handling) to decide what to mention in the "Mission Updated"
+// notification. Used here only to decide whether the end-of-session "done
+// editing" checkpoint (see notifyLiveEditIfChanged) is worth sending at all
+// — category/ptype/audience/target changes don't move this key, same as
+// they don't move the backend's own notification either.
+function liveEditCompareKey(d) {
+  return JSON.stringify({
+    name: d.title, description: d.desc, deadline: d.deadline,
+    rewardType: d.reward?.type, rewardAmount: d.reward?.amount,
+    tasks: JSON.stringify(d.tasks || []),
+    durationDays: d.durationDays,
+  });
+}
 
 export default function CreateMissionWizard() {
   const { t } = useTranslation();
@@ -732,6 +904,22 @@ export default function CreateMissionWizard() {
   // Scoped per-builder so switching accounts on the same browser never shows
   // one builder's in-progress mission draft to another.
   const builderId = builder?.id;
+
+  // The unverified-account active-mission cap used to only ever surface as a
+  // 400 from the Publish button on the last step — a builder who filled in
+  // 5 steps of a mission had no way to know they were already at the limit
+  // until that final click failed. Fetched once per mount (skipped entirely
+  // for a verified builder, since the cap doesn't apply) so every step can
+  // show the same warning the create/publish routes actually enforce,
+  // instead of only finding out after the fact.
+  const [activeMissionsCount, setActiveMissionsCount] = useState(0);
+  useEffect(() => {
+    if (!builder || builder.verified) return;
+    api.missions({ status: "active" }).then(res => setActiveMissionsCount((res.missions || []).length)).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builder?.id, builder?.verified]);
+  const UNVERIFIED_MISSION_LIMIT = 3;
+  const overMissionCap = !builder?.verified && activeMissionsCount >= UNVERIFIED_MISSION_LIMIT;
 
   // True only when this exact page load was reached by clicking a specific
   // draft row in a list (Missions → Draft tab, or Dashboard's recent-
@@ -781,7 +969,6 @@ export default function CreateMissionWizard() {
   const [showExitWarning, setShowExitWarning] = useState(false);
   const [deletingDraft, setDeletingDraft] = useState(false);
   const [showStartFreshWarning, setShowStartFreshWarning] = useState(false);
-  const [showClearFieldsWarning, setShowClearFieldsWarning] = useState(false);
   const [showStaleWarning, setShowStaleWarning] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   // Always starts true — even the fresh-wizard path needs one round trip
@@ -799,6 +986,12 @@ export default function CreateMissionWizard() {
   // from "resuming an unpublished draft", for the Step 6 button/toast copy.
   const [canFullyEdit, setCanFullyEdit] = useState(true);
   const [wasActive, setWasActive] = useState(false);
+  // The exact status (active/completed/closed) this mission already had when
+  // the wizard opened — wasActive alone can't tell those apart, which used to
+  // mean every save on a completed/closed mission silently forced it back to
+  // "active" (see the two buildMissionPayload(...) call sites below that used
+  // to hardcode "active" instead of reading this).
+  const [liveStatus, setLiveStatus] = useState("active");
   // Set once this brand-new mission's scratch draft has been silently
   // promoted to a real backend draft (see the auto-promote effect below).
   // Only ever relevant for the no-missionId ("/missions/new") case — once a
@@ -888,6 +1081,31 @@ export default function CreateMissionWizard() {
   // stale one from whenever the component first rendered.
   const promotedIdRef = useRef(null);
   useEffect(() => { promotedIdRef.current = promotedId; }, [promotedId]);
+  // Same stale-closure problem as promotedIdRef, for wasActive — needed by
+  // the true-unmount cleanup below to tell "leaving a live mission's edit"
+  // apart from "leaving a draft", so each case sets its own backnav flag.
+  const wasActiveRef = useRef(false);
+  useEffect(() => { wasActiveRef.current = wasActive; }, [wasActive]);
+  // Same stale-closure problem, for liveStatus — notifyLiveEditIfChanged is
+  // called from that same true-unmount closure and must send the mission's
+  // real original status, not a stale/default "active".
+  const liveStatusRef = useRef("active");
+  useEffect(() => { liveStatusRef.current = liveStatus; }, [liveStatus]);
+  // Whether the one-time "notify participants + confirmation email" call
+  // (see notifyLiveEditIfChanged below) has already fired for this editing
+  // session — it can be triggered two ways (the true-unmount cleanup, or an
+  // explicit Done click that then navigates away, itself triggering that
+  // same unmount) and must only ever actually notify once.
+  const liveEditNotifiedRef = useRef(false);
+  // The server's own field state at the moment a live mission finished
+  // loading — notifyLiveEditIfChanged (below) compares `d` against this at
+  // the end of the editing session to know exactly which fields actually
+  // changed, so the "Mission Updated" notification can name them instead of
+  // a generic "something changed". Every keystroke in between autosaves
+  // straight to the live record already (see the debounced update effect
+  // further down) — this baseline is only ever used for that one summary,
+  // never for the save itself.
+  const liveEditBaselineRef = useRef(null);
   // Reflects the real autosave effects below, not a cosmetic timer — "idle"
   // means nothing worth saving yet, "saving" while a create/update request
   // for the backend draft is actually in flight, "saved" once it lands.
@@ -901,6 +1119,7 @@ export default function CreateMissionWizard() {
     reward: { type: "", amount: "", participants: "" },
     genFor: null,
     durationDays: 7,
+    requireApproval: false,
     deadline: "",
   });
 
@@ -925,7 +1144,14 @@ export default function CreateMissionWizard() {
 
   useEffect(() => {
     return () => {
-      if (!publishedRef.current && contentRef.current) {
+      if (publishedRef.current) return;
+      // wasActive has its own end-of-session checkpoint (notifyLiveEditIfChanged,
+      // called from the pendingSaveRef-flush effect further down) which sets
+      // its own backnav flag — a live mission always hasContent(d) (there's
+      // a mission here, whether or not anything actually changed), so this
+      // flag would otherwise fire on every single visit regardless of edits.
+      if (wasActiveRef.current) return;
+      if (contentRef.current) {
         try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
       }
     };
@@ -941,6 +1167,7 @@ export default function CreateMissionWizard() {
         setCanFullyEdit(!!mission.canFullyEdit);
         const active = mission.status !== "draft";
         setWasActive(active);
+        if (active) setLiveStatus(mission.status);
         // A live mission was never a "recent draft" — only point the resume
         // pointer at genuine drafts, however this one was opened (a fresh
         // auto-promote elsewhere, the Dashboard banner, or a direct Draft
@@ -950,6 +1177,13 @@ export default function CreateMissionWizard() {
 
         const newD = missionToDraft(mission, filters, categories, ptypes);
         setD(newD);
+        // Snapshot of the participant-relevant fields at the moment this
+        // live mission finished loading — every further edit autosaves
+        // straight to the server already (see the debounced update effect
+        // below), so this is only ever used at the end of the session (see
+        // notifyLiveEditIfChanged) to know which of them actually changed.
+        liveEditBaselineRef.current = active ? liveEditCompareKey(newD) : null;
+        liveEditNotifiedRef.current = false;
 
         // Mirrors each step's own actual completion criteria (same fields
         // fieldsValid/missingX check elsewhere in this file) rather than
@@ -1022,6 +1256,14 @@ export default function CreateMissionWizard() {
   }, []);
 
   useEffect(() => {
+    // While editing an existing mission, `d` starts as an empty placeholder
+    // draft for one render until the real mission loads and replaces it
+    // (see the api.mission(missionId) effect below) — firing this against
+    // that placeholder briefly shows a broad, near-unfiltered count (nearly
+    // everyone matches empty filters) right before the real, narrower count
+    // replaces it a moment later. Wait for the real draft to land instead of
+    // showing that flash.
+    if (loadingMission) return;
     setTimeout(() => setIsFetchingCount(true), 0);
     const audience = buildAudiencePayload(d);
     api.audienceMatchCount(audience)
@@ -1029,7 +1271,7 @@ export default function CreateMissionWizard() {
       .catch(() => {})
       .finally(() => setIsFetchingCount(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d.filters, d.otherEntries]);
+  }, [d.filters, d.otherEntries, loadingMission]);
 
   // Pre-promotion scratch safety net — the only local write that happens
   // before a real DB draft exists, and only once there's real content worth
@@ -1072,11 +1314,16 @@ export default function CreateMissionWizard() {
   useEffect(() => {
     if (published) return;
     const handlePopState = () => {
+      // notifyLiveEditIfChanged is idempotent (see liveEditNotifiedRef) — a
+      // genuine back-navigation also triggers the true-unmount effect below
+      // moments later, so whichever of the two actually fires the request,
+      // this is a harmless no-op the second time.
+      if (wasActive) { notifyLiveEditIfChanged(missionId, dRef.current); return; }
       try { sessionStorage.setItem("vcrew_mission_draft_backnav", "1"); } catch { /* ignore */ }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [published]);
+  }, [published, wasActive, missionId]);
 
   const startFresh = () => setShowStartFreshWarning(true);
   // "Start fresh" walks away from whatever draft is currently open without
@@ -1107,23 +1354,6 @@ export default function CreateMissionWizard() {
     setStep(0);
     setMaxReached(0);
     if (missionId) navigate("/missions/new", { replace: true, state: { skipDraftPicker: true, cameFromDraftTab: openedFromDraftTab } });
-  };
-
-  // Non-destructive alternative to Start Fresh, only offered for an
-  // already-live mission nobody has committed to yet (canFullyEdit — see
-  // the sidebar button above). Purely local: blanks the form in place, same
-  // mission id, same route, no API call at all. Nothing on the server
-  // changes until "Save changes" is explicitly clicked afterward — same as
-  // any other unsaved edit to a live mission, per the existing no-autosave-
-  // while-wasActive rule. maxReached is deliberately left untouched: it's
-  // pinned to the last step for any active mission regardless (see the
-  // mission-fetch effect), so every rail step already stays freely
-  // reachable, unlike a genuine in-progress draft.
-  const clearAllFields = () => setShowClearFieldsWarning(true);
-  const doClearAllFields = () => {
-    setShowClearFieldsWarning(false);
-    setD(freshDraft());
-    setStep(0);
   };
 
   // The two choices on the "Create Mission" draft picker (see draftPicker
@@ -1159,17 +1389,30 @@ export default function CreateMissionWizard() {
   // Trade-off accepted knowingly: while expanded, the backend matches an
   // explicit place-name list instead of true "no restriction", which can
   // match slightly fewer validators than a bare Worldwide marker would.
-  const applyWorldwideTransition = (prevSet, naiveNext) => {
+  // Every custom place typed into any of Geography's own Other boxes —
+  // "Worldwide" means no restriction at all, which should cover a
+  // builder's own typed-in region just as much as the predefined list.
+  // These live in otherEntries (keyed "Geography:<subgroup>:<trigger>"),
+  // entirely separate from the static `filters` taxonomy flatOptions()
+  // reads, so Worldwide's cascade needs to pull them in explicitly.
+  const geoOtherValues = (otherEntries) => {
+    const out = [];
+    for (const [key, vals] of Object.entries(otherEntries || {})) {
+      if (key.startsWith(`${GEO_GROUP}:`)) out.push(...(vals || []));
+    }
+    return out;
+  };
+  const applyWorldwideTransition = (prevSet, naiveNext, otherEntries) => {
     const prevHasW = prevSet.has(WORLDWIDE);
     const nextHasW = naiveNext.has(WORLDWIDE);
-    if (!prevHasW && nextHasW) return { s: new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE]), snapshot: [...prevSet] };
+    if (!prevHasW && nextHasW) return { s: new Set([...flatOptions(filters[GEO_GROUP]), WORLDWIDE, ...geoOtherValues(otherEntries)]), snapshot: [...prevSet] };
     if (prevHasW && !nextHasW) return { s: new Set(), snapshot: undefined, restore: true };
     return { s: naiveNext };
   };
   const toggle = (group, opt) => setD(p => {
     const s = new Set(p.filters[group]); s.has(opt) ? s.delete(opt) : s.add(opt);
     if (group !== GEO_GROUP) return { ...p, filters: { ...p.filters, [group]: s } };
-    const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s);
+    const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s, p.otherEntries);
     const finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
     return { ...p, filters: { ...p.filters, [GEO_GROUP]: finalSet }, geoBeforeWorldwide: restore ? null : (snapshot ?? p.geoBeforeWorldwide) };
   });
@@ -1196,7 +1439,7 @@ export default function CreateMissionWizard() {
     let geoBeforeWorldwide = p.geoBeforeWorldwide;
     let finalSet = s;
     if (group === GEO_GROUP) {
-      const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s);
+      const { s: geoSet, snapshot, restore } = applyWorldwideTransition(p.filters[GEO_GROUP], s, p.otherEntries);
       finalSet = restore ? (p.geoBeforeWorldwide ? new Set(p.geoBeforeWorldwide) : new Set()) : geoSet;
       geoBeforeWorldwide = restore ? null : (snapshot ?? p.geoBeforeWorldwide);
     }
@@ -1213,22 +1456,12 @@ export default function CreateMissionWizard() {
   const selectedReward = rewards.find(r => r.id === d.reward.type);
   const rewardAmountOk = !selectedReward?.needsAmt || d.reward.amount > 0;
   const participantsOk = builder?.verified || d.reward.participants <= UNVERIFIED_PARTICIPANT_LIMIT;
-  // Mirrors StepReward's own overAudienceCount warning — requesting more
-  // participants than the selected audience can actually supply isn't just
-  // a bad estimate, it's a mission that can never fully fill, so it blocks
-  // the same way rewardAmountOk/participantsOk do rather than staying a
-  // warning-only nudge. Gated on isFetchingCount, not liveCount === 0 — the
-  // latter let a genuinely 0-matching audience through unblocked (0 === 0
-  // reads as "no restriction yet"), publishing a mission nobody could ever
-  // see; only the brief initial-load window should be exempt, not a real
-  // zero-match result.
-  const withinAudienceCount = isFetchingCount || d.reward.participants <= liveCount;
   const todayStr = new Date().toISOString().slice(0, 10);
   const fieldsValid = (step !== 0 || (d.title.trim() && d.desc.trim() && d.cat && d.deadline && d.deadline >= todayStr))
     && (step !== 1 || !!d.ptype)
     && (step !== 2 || (d.tasks && d.tasks.length > 0 && d.tasks.every(tk =>
       tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
-      tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+      tk.questions?.length > 0 && tk.questions.every(isQuestionComplete)
     )))
     // A 0-match result still shows its own warning right on this step (see
     // StepAudience), but doesn't block Continue — the audience match count is
@@ -1237,7 +1470,11 @@ export default function CreateMissionWizard() {
     // filter is actually selected; picking zero filters entirely is still
     // blocked by the separate "select at least one filter" warning.
     && (step !== 3 || Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0))
-    && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount));
+    // Same reasoning as the Step 3 check above -- requesting more participants
+    // than currently match is a live number that can grow as new validators
+    // join, not a permanently broken mission, so it stays StepReward's own
+    // overAudienceCount warning (informational) instead of blocking here too.
+    && (step !== 4 || (!!d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk));
   const canNext = fieldsValid && !insufficientFunds;
   // fieldsValid only checks whichever step is CURRENTLY open — the step
   // rail lets a builder jump straight past a step whose requirements broke
@@ -1250,20 +1487,40 @@ export default function CreateMissionWizard() {
   const missingFormat = !d.ptype;
   const missingTasks = !d.tasks || d.tasks.length === 0 || !d.tasks.every(tk =>
     tk.steps?.length > 0 && tk.steps.every(s => s.trim()) &&
-    tk.questions?.length > 0 && tk.questions.every(q => q.text?.trim())
+    tk.questions?.length > 0 && tk.questions.every(isQuestionComplete)
   );
-  const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk && withinAudienceCount);
-  const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingReward;
+  // Mirrors fieldsValid's own step-3 check — previously had no holistic
+  // equivalent at all, so a mission reached via the step rail (which only
+  // checks i <= maxReached, not real completeness) with zero audience
+  // filters actually selected could still publish, since nothing downstream
+  // ever re-checked audience the way info/format/tasks/reward all do.
+  const missingAudience = !(Object.values(d.filters).some(s => s.size > 0) || Object.values(d.otherEntries || {}).some(e => e?.length > 0));
+  const missingReward = !(d.reward.type && d.reward.participants > 0 && rewardAmountOk && participantsOk);
+  const readyToPublish = !missingInfo && !missingFormat && !missingTasks && !missingAudience && !missingReward;
+  // missingReward collapses five genuinely different problems into one
+  // boolean — this picks out which one actually failed so the builder is
+  // told the real reason (e.g. "unverified accounts are capped at 25") instead
+  // of a generic "incomplete or invalid" that doesn't say what to fix. Checked
+  // in the same order the fields appear on the step, so the first thing
+  // that's actually wrong is what gets reported.
+  const rewardIssueDetail = !d.reward.type
+    ? t("createMission.issueRewardType", null, "Select a reward type")
+    : !rewardAmountOk
+    ? t("createMission.issueRewardAmount", null, "Enter a reward amount")
+    : !(d.reward.participants > 0)
+    ? t("createMission.issueRewardParticipants", null, "Enter how many participants you need")
+    : !participantsOk
+    ? t("createMission.issueRewardUnverifiedCap", { limit: UNVERIFIED_PARTICIPANT_LIMIT }, `Unverified accounts are limited to ${UNVERIFIED_PARTICIPANT_LIMIT} participants per mission — verify your website or lower the count`)
+    : t("createMission.issueReward", null, "Reward setup is incomplete or invalid");
 
   // Mirrors the Review step's own "Can't publish yet" issues list (same
   // flags) so a step that was already completed once and then broke (e.g.
   // deleting every test case on Step 3, then revisiting it via the rail)
   // flags itself both in the rail (a danger-colored badge instead of the
   // usual checkmark) and inline on the step's own page — not just when the
-  // builder eventually reaches Review. Indexed by step; Audience has no
-  // equivalent "missing" flag today, and Review already shows the full
-  // issues card itself, so both stay false.
-  const stepHasIssue = [missingInfo, missingFormat, missingTasks, false, missingReward, false];
+  // builder eventually reaches Review. Indexed by step; Review itself
+  // already shows the full issues card, so that last slot stays false.
+  const stepHasIssue = [missingInfo, missingFormat, missingTasks, missingAudience, missingReward, false];
   // Gated on i < maxReached — a step being filled in for the very first time
   // hasn't "broken" anything yet, so it stays on the existing field-level
   // (showErrors) validation instead of also flagging itself as an issue.
@@ -1273,7 +1530,7 @@ export default function CreateMissionWizard() {
     missingFormat && t("createMission.issueFormat", null, "Feedback format not selected"),
     missingTasks && t("createMission.issueTasks", null, "No test cases — every task needs at least 1 step and 1 question"),
     null,
-    missingReward && t("createMission.issueReward", null, "Reward setup is incomplete or invalid"),
+    missingReward && rewardIssueDetail,
     null,
   ][step];
   const showStepIssue = railIssueAt(step);
@@ -1291,7 +1548,11 @@ export default function CreateMissionWizard() {
   // Fresh), or the Dashboard otherwise.
   const emptyLeaveTarget = (openedFromDraftTab || cameFromDraftTab) ? "/missions?tab=draft" : "/";
   const handleCancelClick = () => {
-    if (!wasActive && !saveWorthy) { navigate(emptyLeaveTarget); return; }
+    // wasActive has nothing left to warn about — every edit already
+    // autosaved as it was typed (see the debounced update effect above), so
+    // "Cancel" here is just "go back", not "discard unsaved work".
+    if (wasActive) { navigate(-1); return; }
+    if (!saveWorthy) { navigate(emptyLeaveTarget); return; }
     setShowExitWarning(true);
   };
 
@@ -1310,11 +1571,18 @@ export default function CreateMissionWizard() {
       status,
       target: dArg.reward.participants,
       reward: { type: dArg.reward.type, amount: dArg.reward.amount },
-      region: geo.length ? geo.join(", ") : "Worldwide",
+      // Empty, not a fabricated "Worldwide" -- geo.length === 0 means the
+      // builder never picked any Geography filter at all (they may still
+      // have picked something in a different filter group), not that they
+      // explicitly chose worldwide reach. region is a pure display string
+      // (confirmed unused by any audience-matching/count logic), so an
+      // honest empty value here doesn't affect who the mission matches.
+      region: geo.length ? geo.join(", ") : "",
       audience,
       tasks: dArg.tasks,
       testCaseForm: (dArg.testCaseForm || dArg.genFor) ? { form: dArg.testCaseForm || null, genFor: dArg.genFor || null } : null,
       durationDays: dArg.durationDays,
+      requireApproval: !!dArg.requireApproval,
       deadline: dArg.deadline || null,
     };
   };
@@ -1351,21 +1619,43 @@ export default function CreateMissionWizard() {
     }
   };
 
-  // Autosave while resuming an existing draft, or once a new mission has been
-  // auto-promoted above: edits are already backed by a real row that nobody
-  // else can see or is acting on yet, so there's no separate "Save as Draft"
-  // click to hang them on — debounce and PATCH the draft in place instead.
-  // Silently ignored on failure, same as any other autosave; the next
-  // successful edit/publish will catch it up.
+  // The one-time "done editing" checkpoint for a live mission — every
+  // keystroke already autosaved straight to the server (see the debounced
+  // update effect below), so this isn't what actually saves anything. Its
+  // only job is telling the backend the editing session is genuinely over,
+  // so it can notify participants of whatever changed (see the PATCH
+  // route's `_notify` gate) instead of on every intermediate autosave tick.
+  // Takes id/dArg explicitly rather than reading missionId/d from closure so
+  // it works correctly both from a normal click handler and from the
+  // true-unmount effect's empty-deps closure (which only ever sees refs).
+  const notifyLiveEditIfChanged = (id, dArg) => {
+    if (!id || liveEditNotifiedRef.current) return;
+    const base = liveEditBaselineRef.current;
+    if (base === null || liveEditCompareKey(dArg) === base) return;
+    liveEditNotifiedRef.current = true;
+    api.updateMission(id, { ...buildMissionPayload(liveStatusRef.current, dArg), _notify: true }).catch(() => {});
+    // Reused by MissionDetail/Missions/Dashboard to show a "changes saved"
+    // toast wherever the builder lands next — see those pages' matching
+    // effect. Genuinely accurate now (unlike when this cache was
+    // local-only): the backend call above really did just persist this.
+    try { sessionStorage.setItem("vcrew_mission_live_edit_backnav", id); } catch { /* ignore */ }
+  };
+
+  // Autosave while resuming an existing draft, once a new mission has been
+  // auto-promoted above, OR editing an already-live mission (wasActive):
+  // edits are already backed by a real row, so there's no separate "Save"
+  // click to hang them on — debounce and PATCH it in place instead. Silently
+  // ignored on failure, same as any other autosave; the next successful
+  // edit/checkpoint will catch it up.
   //
-  // Critical: must NOT run at all when wasActive is true. This same effect
-  // also covers editing an already-live mission (missionId set, no
-  // promotedId), and a live mission is a different situation entirely —
-  // validators may already be matched to it or working on it, so nothing
-  // should reach the real record until the builder explicitly clicks "Save
-  // changes". This used to autosave every field (not just status) to the
-  // live row on every keystroke with zero confirmation, so background-typing
-  // an edit and navigating away without saving still silently overwrote it.
+  // wasActive used to be excluded here entirely — a live mission already has
+  // real participants relying on it, so this once autosaved every keystroke
+  // straight to the live row with zero confirmation, and background-typing
+  // an edit and navigating away without saving silently overwrote it. Full
+  // autosave for a live mission too was a deliberate, later product call —
+  // see the PATCH route's `_notify` gate and notifyLiveEditIfChanged below,
+  // which is what keeps this safe now: participants get told exactly what
+  // changed, and only once per real editing session, not once per keystroke.
   useEffect(() => {
     const id = missionId || promotedId;
     // No id yet at all — this is still the pre-promotion phase, which only
@@ -1373,7 +1663,7 @@ export default function CreateMissionWizard() {
     // promoteIfNeeded and the true-unmount effect below), never by this
     // effect.
     if (!id) return;
-    if (loadingMission || published || wasActive) { pendingSaveRef.current = null; return; }
+    if (loadingMission || published) { pendingSaveRef.current = null; return; }
 
     // A mission created silently during THIS session (promotedId — never a
     // pre-existing missionId) that got typed into and then fully erased
@@ -1382,7 +1672,8 @@ export default function CreateMissionWizard() {
     // it. Scoped to promotedId only: a real, pre-existing draft (missionId,
     // opened from the Draft tab or resumed) is never touched here, even if
     // it's momentarily empty mid-edit — that's a much bigger, riskier
-    // behavior this isn't meant to cover.
+    // behavior this isn't meant to cover. Never reachable for wasActive:
+    // that always has missionId set, so !missionId is already false.
     if (!missionId && promotedId && !hasContent(d)) {
       const idToDelete = promotedId;
       pendingSaveRef.current = { kind: "delete", id: idToDelete, builderId };
@@ -1400,7 +1691,11 @@ export default function CreateMissionWizard() {
       return () => clearTimeout(timer);
     }
 
-    const payload = buildMissionPayload("draft");
+    // wasActive keeps its existing status (there's nothing to publish, it
+    // already is) — buildMissionPayload("draft") here would be wrong for it,
+    // and hardcoding "active" would silently revive a completed/closed
+    // mission on the very first background autosave of an unrelated edit.
+    const payload = buildMissionPayload(wasActive ? liveStatus : "draft");
     // Tracked outside the timer so the flush-on-unmount effect below can
     // still send this exact payload if the builder navigates away before
     // the debounce ever gets to fire — see that effect for why.
@@ -1414,7 +1709,7 @@ export default function CreateMissionWizard() {
     }, 800);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [d, missionId, promotedId, loadingMission, published, wasActive, maxReached]);
+  }, [d, missionId, promotedId, loadingMission, published, wasActive, liveStatus, maxReached]);
 
   // The debounce above (the update-once-promoted effect) cancels its own
   // timer on every d change — that's the debounce working as intended. But
@@ -1444,21 +1739,22 @@ export default function CreateMissionWizard() {
       const pending = pendingSaveRef.current;
       if (pending?.kind === "update") {
         api.updateMission(pending.id, pending.payload).catch(() => {});
-        return;
-      }
-      if (pending?.kind === "delete") {
+      } else if (pending?.kind === "delete") {
         api.deleteMission(pending.id).then(() => {
           if (getRecentDraftId(pending.builderId) === pending.id) clearRecentDraftId(pending.builderId);
         }).catch(() => {});
-        return;
-      }
-      if (!missionId && !promotedIdRef.current && contentRef.current) {
+      } else if (!missionId && !promotedIdRef.current && contentRef.current) {
         const payload = buildMissionPayload("draft", dRef.current);
         api.createMission(payload).then(({ mission }) => {
           setRecentDraftId(builderId, mission.id);
           clearScratch(builderId);
         }).catch(() => {});
       }
+      // Independent of whichever branch above ran (or none — the debounce
+      // may have already flushed on its own before this unmount happened) —
+      // a live mission being edited gets its one "done editing" checkpoint
+      // here, a no-op if nothing participant-relevant actually changed.
+      if (wasActiveRef.current) notifyLiveEditIfChanged(missionId, dRef.current);
     };
   }, []);
 
@@ -1508,9 +1804,20 @@ export default function CreateMissionWizard() {
   const publish = async () => {
     setBusy(true); setError("");
     try {
-      const payload = buildMissionPayload("active");
       const existingId = missionId || promotedId;
+      // wasActive's edits are already autosaved as-typed (see the debounced
+      // update effect above) — this click's only remaining real job is the
+      // explicit "done editing" checkpoint, so participants get notified of
+      // whatever changed. _notify here (rather than a separate call after)
+      // means one request does both, and the flag stops the unmount that's
+      // about to happen from sending a second, redundant notification.
+      const payload = wasActive ? { ...buildMissionPayload(liveStatus), _notify: true } : buildMissionPayload("active");
       const { mission } = existingId ? await api.updateMission(existingId, payload) : await api.createMission(payload);
+      // Only marked done once the request actually succeeded — a failed
+      // attempt should still let a retry (or the unmount checkpoint, if the
+      // builder gives up and leaves instead) have its normal chance to
+      // notify, rather than being silently skipped forever for this session.
+      if (wasActive) liveEditNotifiedRef.current = true;
       setPublished(true);
       clearAllLocalDraftState(builderId);
       await refreshBuilder();
@@ -1588,8 +1895,8 @@ export default function CreateMissionWizard() {
       </div>
     ) : <StepTestCases d={d} set={set} ref={testCasesRef} />,
     <StepAudience d={d} set={set} toggle={toggle} selectAllInGroup={selectAllInGroup} filters={filters} liveCount={liveCount} isFetchingCount={isFetchingCount} basePool={basePool} />,
-    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} isFetchingCount={isFetchingCount} locked={fieldsLocked} />,
-    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingFormat={missingFormat} missingTasks={missingTasks} missingReward={missingReward} />,
+    <StepReward d={d} set={set} rewards={rewards} showErrors={showErrors} builder={builder} liveCount={liveCount} isFetchingCount={isFetchingCount} locked={fieldsLocked} platformFeePct={platformFeePct} />,
+    <StepReview d={d} categories={categories} ptypes={ptypes} rewards={rewards} liveCount={liveCount} onEditStep={editStep} missingInfo={missingInfo} missingFormat={missingFormat} missingTasks={missingTasks} missingAudience={missingAudience} missingReward={missingReward} rewardIssueDetail={rewardIssueDetail} />,
   ][step];
 
   if (loadingMission) {
@@ -1608,7 +1915,7 @@ export default function CreateMissionWizard() {
     const single = drafts.length === 1;
     return (
       <div style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
-        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon bodyScroll={false}>
+        <Modal title={single ? t("createMission.continueDraftTitle", null, "Continue your draft?") : t("createMission.pickDraftTitle", null, "Continue a draft?")} onClose={draftPickerChooseNew} width={480} hideCloseIcon bodyScroll={false} dismissible={false}>
           <div style={{ padding: 20 }}>
             {single ? (
               <p style={{ margin: "0 0 4px", fontSize: 14 }}>
@@ -1654,7 +1961,7 @@ export default function CreateMissionWizard() {
 
   return (
     <div className="wz" data-layout="rail">
-      {saveStatus !== "idle" && !wasActive && (
+      {saveStatus !== "idle" && (
         <span
           className="pill"
           style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", boxShadow: "var(--shadow-sm)" }}
@@ -1684,17 +1991,7 @@ export default function CreateMissionWizard() {
           })}
         </div>
         <div className="wz-rail-foot">
-          <button className="backlink" onClick={startFresh}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
-          {/* Only offered for an already-live mission nobody has committed to
-              yet (canFullyEdit) — a non-destructive alternative to Start
-              Fresh for this one case: blanks the form in place, same
-              mission id, no delete/create of anything, so nothing already
-              sent to a validator (an invite, a notification) ever points at
-              something that stops existing. Save changes afterward PATCHes
-              this same row, same as any other live-mission edit. */}
-          {wasActive && canFullyEdit && (
-            <button className="backlink" onClick={clearAllFields}><Icon name="refresh" size={16} /> {t("createMission.clearAllFields", null, "Clear all fields")}</button>
-          )}
+          <button className="backlink" onClick={startFresh} style={{ marginLeft: 10 }}><Icon name="refresh" size={16} /> {t("createMission.startFresh", null, "Start fresh")}</button>
           {step === 0 ? (
             <button className="btn" onClick={handleCancelClick} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("createMission.cancel", null, "Cancel")}</button>
           ) : (
@@ -1711,7 +2008,10 @@ export default function CreateMissionWizard() {
           <div className="card" style={{ margin: "24px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
             <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
             <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
-              {t("createMission.lowBalanceWarning", null, "Your balance is low — top up your wallet before publishing to avoid interruptions.")}
+              {/* Two separate t() calls, not one interpolated string -- the
+                  balance needs to render as a real bold element, and the i18n
+                  helper only does plain string substitution, not JSX. */}
+              {t("createMission.lowBalanceWarningPre", null, "Your wallet balance is low —")} <b>{inr(builder?.balance)}</b>. {t("createMission.lowBalanceWarningPost", null, "Top up before publishing to avoid interruptions.")}
             </p>
             <Btn variant="primary" size="sm" icon="plus" onClick={() => navigate("/wallet")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.addFunds", null, "Add funds")}</Btn>
           </div>
@@ -1732,7 +2032,29 @@ export default function CreateMissionWizard() {
             <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
               {t("createMission.onboardingWarning", null, "You can keep building this mission, but you'll need to select your role and finish setup before it can go live.")}
             </p>
-            <Btn variant="primary" size="sm" onClick={() => navigate(builder?.persona ? `/signup?role=${builder.persona}` : "/get-started/feedback")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
+            {/* builder?.persona alone missed a real in-progress onboarding
+                draft that hasn't been committed to the DB yet (see
+                resolveActivePersonaKey) — this used to send a builder who'd
+                already gotten partway through setup back to persona
+                selection from scratch instead of resuming where they left
+                off, same resume logic Dashboard's own "Continue Setup"
+                already uses. */}
+            <Btn variant="primary" size="sm" onClick={() => { const key = resolveActivePersonaKey(builder); navigate(key ? `/signup?role=${key}` : "/get-started/feedback"); }} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.completeProfile", null, "Complete Profile")}</Btn>
+          </div>
+        )}
+        {/* Same cap the create/publish routes actually enforce (see
+            missions.js) — this used to only ever surface as a 400 from
+            Publish on the last step, so a builder who'd already hit the
+            limit filled in the whole wizard before finding out. wasActive is
+            excluded: the cap only blocks a NEW mission going live, not
+            editing one that's already active. */}
+        {!wasActive && overMissionCap && (
+          <div className="card" style={{ margin: "16px 48px 0", borderRadius: "var(--radius)", border: "1px solid var(--danger)", display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", background: "color-mix(in srgb, var(--danger) 8%, var(--panel))", boxShadow: "var(--shadow-sm)" }}>
+            <Icon name="alertTriangle" size={16} style={{ color: "var(--danger)", flexShrink: 0 }} />
+            <p style={{ margin: 0, flex: 1, fontSize: 13, color: "var(--text)" }}>
+              {t("createMission.missionCapWarning", { limit: UNVERIFIED_MISSION_LIMIT }, `Unverified accounts can run a maximum of ${UNVERIFIED_MISSION_LIMIT} active missions. Verify your website to unlock unlimited campaigns.`)}
+            </p>
+            <Btn variant="primary" size="sm" onClick={() => navigate("/settings")} style={{ flexShrink: 0, minWidth: 150 }}>{t("actions.viewProfile", null, "View Profile")}</Btn>
           </div>
         )}
         <div className="wz-content wide">
@@ -1800,14 +2122,17 @@ export default function CreateMissionWizard() {
               >
                 <Btn
                   variant="primary"
-                  iconRight="bolt"
+                  iconRight="arrowRight"
                   disabled={insufficientFunds || busy || !readyToPublish}
                   onClick={goNext}
                   style={!readyToPublish ? { opacity: 0.5, pointerEvents: "none" } : undefined}
                 >
-                  {wasActive
-                    ? (busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes"))
-                    : (busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission"))}
+                  {/* wasActive edits already autosaved as they were typed (see
+                      the debounced update effect above) -- this button
+                      doesn't trigger a second publish either way, but tester
+                      feedback said "Done" read as if the mission wasn't live
+                      yet. Same label either way now. */}
+                  {busy ? t("createMission.publishing", null, "Publishing…") : t("createMission.publishMission", null, "Publish Mission")}
                 </Btn>
               </span>
             </div>
@@ -1830,24 +2155,7 @@ export default function CreateMissionWizard() {
         </div>
       </div>
 
-      {/* A live mission was never autosaved (see wasActive above) — Cancel
-          here just discards in-memory edits, nothing else. It's a distinct,
-          simpler action from leaving a draft, so it gets its own copy
-          instead of the drafts modal below. */}
-      {showExitWarning && wasActive && (
-        <Modal title={t("createMission.leaveWithoutSavingTitle", null, "Leave without saving?")} onClose={() => setShowExitWarning(false)} width={420} hideCloseIcon dismissible={false}>
-          <div style={{ padding: 20 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
-              {t("createMission.leaveWithoutSavingBody", null, "Your changes haven't been saved. If you leave now they'll be lost — the mission itself stays exactly as it is.")}
-            </p>
-            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => setShowExitWarning(false)}>{t("actions.keepEditing", null, "Keep editing")}</button>
-              <button className="btn btn-primary" onClick={() => navigate(-1)}>{t("createMission.leaveAnyway", null, "Leave anyway")}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
-      {showExitWarning && !wasActive && openedFromDraftTab && (
+      {showExitWarning && openedFromDraftTab && (
         // Deliberately opened this specific saved draft from a list (the
         // Draft tab, or Dashboard's recent-missions table) — the builder
         // already knows exactly which mission this is and chose to open it,
@@ -1945,20 +2253,6 @@ export default function CreateMissionWizard() {
             <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
               <button className="btn outline" onClick={() => setShowStartFreshWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
               <button className="btn btn-primary" onClick={doStartFresh}>{t("createMission.startFresh", null, "Start fresh")}</button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {showClearFieldsWarning && (
-        <Modal title={t("createMission.clearAllFieldsTitle", null, "Clear all fields?")} onClose={() => setShowClearFieldsWarning(false)} width={420} hideCloseIcon dismissible={false}>
-          <div style={{ padding: 20 }}>
-            <p style={{ margin: "0 0 14px", fontSize: 14 }}>
-              {t("createMission.clearAllFieldsConfirm", null, "This clears everything currently entered in this form. The published mission itself won't change until you save.")}
-            </p>
-            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
-              <button className="btn outline" onClick={() => setShowClearFieldsWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
-              <button className="btn btn-primary" onClick={doClearAllFields}>{t("createMission.clearAllFields", null, "Clear all fields")}</button>
             </div>
           </div>
         </Modal>

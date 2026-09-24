@@ -11,7 +11,7 @@ export function getVToken() {
   return token;
 }
 
-async function request(path, { method = "GET", body } = {}) {
+async function request(path, { method = "GET", body, keepalive } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -19,6 +19,11 @@ async function request(path, { method = "GET", body } = {}) {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    // Only set by callers saving something on page-exit (see
+    // saveWorkspaceDraft) -- without it, a request already in flight when
+    // the tab closes or the page navigates away gets aborted by the browser
+    // before the server ever sees it.
+    ...(keepalive ? { keepalive: true } : {}),
   });
 
   let data = null;
@@ -83,7 +88,7 @@ export const vapi = {
   submit: (taskId, payload) => request(`/missions/${taskId}/submit`, { method: "POST", body: payload }),
   workspaceData: (id) => request(`/missions/${id}/workspace`),
   submitWorkspaceData: (id, payload) => request(`/missions/${id}/workspace/submit`, { method: "PATCH", body: payload }),
-  saveWorkspaceDraft: (id, payload) => request(`/missions/${id}/workspace/draft`, { method: "PATCH", body: payload }),
+  saveWorkspaceDraft: (id, payload, opts) => request(`/missions/${id}/workspace/draft`, { method: "PATCH", body: payload, keepalive: opts?.keepalive }),
   uploadWorkspaceProof: async (id, file) => {
     const token = getVToken();
     const formData = new FormData();

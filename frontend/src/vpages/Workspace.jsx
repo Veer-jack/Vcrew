@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
+import { Modal } from "../components/Modal";
 import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 function RatingQ({ ans, setAns, readOnly }) {
   return (
@@ -43,11 +45,12 @@ function MCQ({ q, ans, setAns, readOnly }) {
   );
 }
 
-function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
+function YNQ({ ans, detail, setAns, setDetail, readOnly, detailOn = "yes" }) {
   const { t } = useTranslation();
+  const showDetail = ans === detailOn;
   return (
     <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: ans === "yes" ? 12 : 0 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: showDetail ? 12 : 0 }}>
         {["yes", "no"].map(v => (
           <button key={v} disabled={readOnly} onClick={() => setAns(ans === v ? null : v)} style={{
             flex: 1, padding: 11, borderRadius: "var(--radius-sm)",
@@ -59,7 +62,12 @@ function YNQ({ ans, detail, setAns, setDetail, readOnly }) {
           }}>{v === "yes" ? t("actions.yes", null, "Yes") : t("actions.no", null, "No")}</button>
         ))}
       </div>
-      {ans === "yes" && <textarea className="field" placeholder={t("missions.tellUsMoreBroken", null, "Tell us more — what was confusing or broken?")} rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
+      {/* Which answer needs the follow-up textbox depends on how the question
+          is phrased -- "did you hit any errors?" wants detail on Yes, "did
+          you find what you were looking for?" wants it on No. Each question
+          says which via its own detailOn (see meta.js); defaults to "yes"
+          to match every question written before this field existed. */}
+      {showDetail && <textarea className="field" placeholder={t("missions.tellUsMoreBroken", null, "Tell us more — what was confusing or broken?")} rows={3} disabled={readOnly} value={detail || ""} onChange={e => setDetail(e.target.value)} />}
     </div>
   );
 }
@@ -78,6 +86,9 @@ export default function Workspace() {
   const [mission, setMission] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [curIdx, setCurIdx] = useState(0);
+  // Tracks the furthest task ever reached -- separate from curIdx so going
+  // back to review an earlier task doesn't re-lock the ones already passed.
+  const [maxReached, setMaxReached] = useState(0);
   const [stepsDone, setStepsDone] = useState([]);
   const [answers, setAnswers] = useState([]);
   const [proofUploaded, setProofUploaded] = useState([]);
@@ -90,19 +101,41 @@ export default function Workspace() {
   const [isRevision, setIsRevision] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
   const [loadError, setLoadError] = useState(null);
+  const [saveStatus, setSaveStatus] = useState("idle");
+  const [showResetTaskWarning, setShowResetTaskWarning] = useState(false);
 
-  const isFirstRender = useRef(true);
+  // Checking off a step, answering a question, or uploading proof should all
+  // count as "progress worth saving" without waiting for Next/Continue --
+  // scheduleSave (called directly from those three actions below, not from
+  // a useEffect keyed off state) debounces a save 1200ms after the last edit,
+  // so a validator who typed one answer and closed the tab still keeps it.
+  const saveTimerRef = useRef(null);
+  const scheduleSave = (newIdx) => {
+    if (isReadOnly) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => saveDraft(newIdx), 1200);
+  };
+  useEffect(() => () => clearTimeout(saveTimerRef.current), []);
+
+  // The debounce above only fires 1200ms after the last edit -- closing the
+  // tab, hitting browser back, or navigating elsewhere in the app inside
+  // that window cancelled the pending timer and lost whatever was just
+  // typed, with nothing else ever saving it. This flushes immediately
+  // instead of waiting: on an actual tab close/refresh (beforeunload) with
+  // keepalive so the request survives the page unloading, and on leaving
+  // this page for another route in the app (the effect's own cleanup, which
+  // React runs on unmount). A ref keeps this reading the latest state --
+  // the listener itself is only attached once.
+  const latestSaveRef = useRef();
+  latestSaveRef.current = () => { if (!loading && !isReadOnly) saveDraft(curIdx, true); };
   useEffect(() => {
-    if (loading || isReadOnly) return;
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    const timerId = setTimeout(() => {
-      saveDraft(curIdx);
-    }, 1200);
-    return () => clearTimeout(timerId);
-  }, [answers, proofUploaded]);
+    const flush = () => latestSaveRef.current();
+    window.addEventListener("beforeunload", flush);
+    return () => {
+      window.removeEventListener("beforeunload", flush);
+      flush();
+    };
+  }, []);
 
   // "Time Taken" (shown to the Builder on review) should reflect actual work,
   // not however long this tab happened to sit open — so we count seconds
@@ -145,6 +178,10 @@ export default function Workspace() {
             savedAnswers = t.map((_, i) => rawAnswers[i] || {});
             savedIdx = wrapped ? (data.responses.curIdx || 0) : 0;
             setCurIdx(savedIdx);
+            // A task with saved answers was reached even if curIdx itself
+            // points earlier (e.g. the validator went back before closing).
+            const furthestAnswered = savedAnswers.reduce((max, a, i) => (a && Object.keys(a).length > 0 ? i : max), 0);
+            setMaxReached(Math.max(savedIdx, furthestAnswered));
           }
           setIsRevision(!!data.isRevision);
           setRevisionReason(data.revisionReason || "");
@@ -172,7 +209,7 @@ export default function Workspace() {
       <Icon name="alertCircle" size={48} style={{ color: "var(--text-muted)", marginBottom: 16 }} />
       <h2 style={{ fontSize: 20, marginBottom: 8 }}>{loadError ? t("missions.cantOpenHere", null, "Can't open this mission here") : t("missions.noTasksFound", null, "No tasks found")}</h2>
       <p style={{ color: "var(--text-muted)" }}>{loadError || t("missions.noTasksDesc", null, "This mission does not have any tasks generated yet.")}</p>
-      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate("/validator/missions")}>{t("actions.goBack", null, "Go Back")}</Btn>
+      <Btn variant="primary" style={{ marginTop: 24 }} onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.goBack", null, "Go Back")}</Btn>
     </div>
   );
 
@@ -191,23 +228,54 @@ export default function Workspace() {
 
   const toggleStep = (si) => {
     setStepsDone(p => { const a = [...p]; const s = new Set(a[curIdx]); s.has(si) ? s.delete(si) : s.add(si); a[curIdx] = s; return a; });
+    scheduleSave(curIdx);
   };
   const setAns = (qid, val) => {
     setAnswers(p => { const a = [...p]; a[curIdx] = { ...a[curIdx], [qid]: val }; return a; });
+    scheduleSave(curIdx);
   };
-  async function saveDraft(newIdx = curIdx) {
+  async function saveDraft(newIdx = curIdx, keepalive = false, overrides = {}) {
     if (isReadOnly) return;
+    if (!keepalive) setSaveStatus("saving");
     try {
-      const finalAnswers = answers.map((ans, i) => {
+      const ansSrc = overrides.answers || answers;
+      const proofSrc = overrides.proofUploaded || proofUploaded;
+      const finalAnswers = ansSrc.map((ans, i) => {
         const c = { ...ans };
-        if (proofUploaded[i]) c._proof = proofUploaded[i];
+        if (proofSrc[i]) c._proof = proofSrc[i];
         return c;
       });
-      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx, activeSeconds: activeSecondsRef.current });
+      // keepalive: true is what actually makes this survive a tab close or
+      // page navigation -- see the flush-on-exit effect below and the
+      // keepalive comment in vapi/client.js.
+      await vapi.saveWorkspaceDraft(id, { answers: finalAnswers, curIdx: newIdx, activeSeconds: activeSecondsRef.current }, { keepalive });
+      if (!keepalive) setSaveStatus("saved");
     } catch (e) {
       console.warn("Auto-save failed", e);
+      if (!keepalive) setSaveStatus("idle");
     }
   }
+
+  // Wipes every task's steps/answers/proof and takes the validator back to
+  // the first one -- a full restart of the mission, not just the task
+  // currently open. Saves right away (not the debounced scheduleSave) with
+  // the cleared arrays passed explicitly, since state set here hasn't
+  // re-rendered yet -- saveDraft would otherwise read the stale pre-reset
+  // values straight off the closure and persist the very data being wiped.
+  const resetAllTasks = () => {
+    const clearedSteps = tasks.map(() => new Set());
+    const clearedAnswers = tasks.map(() => ({}));
+    const clearedProof = tasks.map(() => false);
+    setStepsDone(clearedSteps);
+    setAnswers(clearedAnswers);
+    setProofUploaded(clearedProof);
+    setCurIdx(0);
+    setMaxReached(0);
+    setShowResetTaskWarning(false);
+    window.scrollTo(0, 0);
+    saveDraft(0, false, { answers: clearedAnswers, proofUploaded: clearedProof });
+  };
+  const exitWorkspace = async () => { await saveDraft(curIdx); navigate(backToMyMissionsUrl()); };
 
   const goNext = async () => {
     if (curIdx === tasks.length - 1) {
@@ -230,6 +298,7 @@ export default function Workspace() {
       setSubmitting(false);
     } else {
       setCurIdx(i => i + 1);
+      setMaxReached(m => Math.max(m, curIdx + 1));
       window.scrollTo(0, 0);
       saveDraft(curIdx + 1);
     }
@@ -254,7 +323,7 @@ export default function Workspace() {
             </div>
           ))}
         </div>
-        <Btn variant="primary" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+        <Btn variant="primary" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
       </div>
     </div>
   );
@@ -288,9 +357,14 @@ export default function Workspace() {
             </button>
           )}
           {tasks.map((t, i) => {
-            const state = i < curIdx ? "done" : i === curIdx ? "active" : "locked";
+            // Locked is relative to the furthest task ever reached, not the
+            // current position -- otherwise stepping back to review an
+            // earlier task re-locked every task already passed.
+            const state = i === curIdx ? "active" : i <= maxReached ? "done" : "locked";
+            const jumpable = !isReadOnly && state !== "locked" && i !== curIdx;
             return (
-              <div key={t.id} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", opacity: state === "locked" ? 0.45 : 1 }}>
+              <div key={t.id} onClick={jumpable ? () => { setCurIdx(i); window.scrollTo(0, 0); saveDraft(i); } : undefined}
+                style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "10px 18px", opacity: state === "locked" ? 0.45 : 1, cursor: jumpable ? "pointer" : "default" }}>
                 <span style={{
                   width: 24, height: 24, borderRadius: "50%", display: "grid", placeItems: "center",
                   fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, flexShrink: 0, zIndex: 1,
@@ -309,26 +383,43 @@ export default function Workspace() {
             );
           })}
         </div>
-        <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>
-            <span>{t("missions.progress", null, "Progress")}</span>
-            <span style={{ fontFamily: "var(--mono)", fontWeight: 600, color: "var(--text)" }}>{curIdx + 1}/{tasks.length}</span>
+        {!isReadOnly && (
+          <div style={{ padding: "14px 18px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
+            <button className="backlink" onClick={() => setShowResetTaskWarning(true)}>
+              <Icon name="refresh" size={16} /> {t("missions.startFreshTask", null, "Start fresh")}
+            </button>
+            <div className="row gap-2" style={{ alignItems: "center" }}>
+              <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={exitWorkspace}>{t("createMission.cancel", null, "Cancel")}</button>
+              {/* Was always rendered, just disabled on the first task -- a
+                  single-task mission (no previous step to go back to at all)
+                  showed a permanently dead Back button next to Cancel for no
+                  reason. Same fix as the Settings edit-step and mission
+                  wizard rails: only render it once there's actually
+                  somewhere to go back to. */}
+              {curIdx > 0 && (
+                <button className="btn" style={{ border: "none", background: "transparent", color: "var(--accent)" }} onClick={() => { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); }}>{t("createMission.back", null, "Back")}</button>
+              )}
+            </div>
           </div>
-          <div style={{ height: 6, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}>
-            <div style={{ width: `${(curIdx / tasks.length) * 100}%`, height: "100%", borderRadius: 20, background: "linear-gradient(90deg,var(--accent),var(--accent-2))", transition: "width .4s" }} />
-          </div>
-        </div>
+        )}
       </aside>
 
       {/* Main */}
       <div style={{ display: "flex", flexDirection: "column", background: "var(--bg)" }}>
+        {saveStatus !== "idle" && !isReadOnly && (
+          <span className="pill" style={{ position: "fixed", top: 18, right: 24, zIndex: 50, gap: 6, fontSize: 12, fontWeight: 700, color: "var(--accent)", background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", boxShadow: "var(--shadow-sm)" }}>
+            {saveStatus === "saving"
+              ? <><Icon name="refresh" size={13} style={{ animation: "spin 0.9s linear infinite" }} />{t("createMission.savingStatus", null, "Saving…")}</>
+              : <><Icon name="check" size={13} />{t("createMission.autoSavedStatus", null, "Auto-saved")}</>}
+          </span>
+        )}
+
         {/* Topbar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 28px", height: 60, background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20 }}>
-          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--text-muted)" }}>{t("missions.taskNOfTotal", { n: curIdx + 1, total: tasks.length }, `Task ${curIdx + 1} of ${tasks.length}`)} {isReadOnly && t("missions.reviewMode", null, "(Review Mode)")}</span>
-          <span style={{ flex: 1 }} />
-          <button className="btn btn-ghost" style={{ padding: "7px 12px", fontSize: 13 }} onClick={async () => { await saveDraft(curIdx); navigate("/validator/missions"); }}>
-            <Icon name="x" size={14} /> {t("actions.exit", null, "Exit")}
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 36px", maxWidth: 780, margin: "0 auto", width: "100%", background: "color-mix(in srgb,var(--bg) 86%,transparent)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, zIndex: 20, boxSizing: "border-box" }}>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 800, letterSpacing: "-.025em" }}>{task.title}</h2>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sev.bg, color: sev.color, flexShrink: 0 }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />{sev.l}
+          </span>
         </div>
 
         {/* Content */}
@@ -341,14 +432,6 @@ export default function Workspace() {
               <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>{revisionReason}</p>
             </div>
           )}
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 800, background: sev.bg, color: sev.color }}>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor" }} />{sev.l}
-              </span>
-            </div>
-            <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.025em" }}>{task.title}</h2>
-          </div>
 
           {/* Steps */}
           <div className="card" style={{ padding: "16px 20px", marginBottom: 18 }}>
@@ -379,11 +462,11 @@ export default function Workspace() {
               <div key={q.id} style={{ paddingBottom: 20, marginBottom: 20, borderBottom: i < task.questions.length - 1 ? "1px solid var(--border)" : "none" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
                   <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 600, color: "var(--text-faint)", paddingTop: 3, flexShrink: 0 }}>Q{i + 1}</span>
-                  <span style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.4 }}>{q.text}</span>
+                  <span style={{ fontWeight: 700, fontSize: 15, lineHeight: 1.4 }}>{q.text} <span style={{ color: "var(--danger)" }}>*</span></span>
                 </div>
                 {q.type === "rating" && <RatingQ ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
                 {q.type === "multiple_choice" && <MCQ q={q} ans={answers[curIdx]?.[q.id]} setAns={v => setAns(q.id, v)} readOnly={isReadOnly} />}
-                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} />}
+                {q.type === "yes_no_detail" && <YNQ ans={answers[curIdx]?.[q.id]} detail={answers[curIdx]?.[q.id + "_detail"]} setAns={v => setAns(q.id, v)} setDetail={v => setAns(q.id + "_detail", v)} readOnly={isReadOnly} detailOn={q.detailOn || "yes"} />}
                 {q.type === "text" && <textarea className="field" placeholder={t("missions.typeYourAnswer", null, "Type your answer…")} rows={3} disabled={isReadOnly} value={answers[curIdx]?.[q.id] || ""} onChange={e => setAns(q.id, e.target.value)} />}
               </div>
             ))}
@@ -411,7 +494,8 @@ export default function Workspace() {
                     setUploadingProof(true);
                     try {
                       const res = await vapi.uploadWorkspaceProof(id, file);
-                      setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.filename; return a; });
+                      setProofUploaded(p => { const a = [...p]; a[curIdx] = res.file.url; return a; });
+                      scheduleSave(curIdx);
                     } catch (err) {
                       alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));
                     } finally {
@@ -427,35 +511,35 @@ export default function Workspace() {
               )}
             </div>
           )}
-
-          {/* Readiness checklist */}
-          {!isReadOnly && !canNext && (
-            <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb,var(--warning) 30%,transparent)", borderRadius: "var(--radius)", padding: "12px 16px", fontSize: 13, color: "var(--warning)" }}>
-              <b>{t("missions.beforeContinuing", null, "Before continuing:")}</b>
-              <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
-                {!stepsComplete && <li>{t("missions.checkOffSteps", null, "Check off all steps above")}</li>}
-                {!allAnswered && <li>{t("missions.answerAllQuestions", null, "Answer all questions")}</li>}
-                {!proofOk && <li>{t("missions.uploadProof", null, "Upload a screenshot as proof")}</li>}
-                {!liveSessionOk && <li>{t("missions.waitForLiveSessionCompletion", { session: mission?.ptype === "focus" ? t("missions.focusGroupText", null, "focus group") : t("missions.interviewText", null, "live interview") }, `Wait for the builder to mark the ${mission?.ptype === "focus" ? "focus group" : "live interview"} as completed`)}</li>}
-              </ul>
-            </div>
-          )}
         </div>
 
         {/* Bottom nav */}
         <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, display: "flex", alignItems: "center", gap: 14, padding: "14px 36px", background: "color-mix(in srgb,var(--bg) 90%,transparent)", backdropFilter: "blur(12px)", borderTop: "1px solid var(--border)", zIndex: 30 }}>
-          <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
-            <Icon name="arrowLeft" size={16} /> {t("actions.previous", null, "Previous")}
-          </button>
+          {/* Only shown in review mode -- otherwise this duplicated the
+              sidebar's own Back control below it. */}
+          {isReadOnly && (
+            <button className="btn btn-ghost" onClick={() => { if (curIdx > 0) { setCurIdx(i => i - 1); window.scrollTo(0, 0); saveDraft(curIdx - 1); } }} disabled={curIdx === 0}>
+              <Icon name="arrowLeft" size={16} /> {t("actions.previous", null, "Previous")}
+            </button>
+          )}
           <span style={{ flex: 1 }} />
-          <span style={{ fontSize: 13, color: "var(--text-faint)", fontFamily: "var(--mono)" }}>{curIdx + 1} / {tasks.length}</span>
-          <span style={{ flex: 1 }} />
-          <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate("/validator/missions") : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
+          <Btn variant="primary" onClick={isReadOnly ? (curIdx === tasks.length - 1 ? () => navigate(backToMyMissionsUrl()) : goNext) : goNext} disabled={!isReadOnly && (!canNext || submitting)} style={{ opacity: isReadOnly || canNext ? 1 : 0.55 }}>
             {isReadOnly ? (curIdx === tasks.length - 1 ? t("actions.backToMissions", null, "Back to Missions") : t("actions.nextTask", null, "Next task")) : (submitting ? t("actions.submitting", null, "Submitting…") : curIdx === tasks.length - 1 ? t("actions.submitAllResponses", null, "Submit all responses") : t("actions.nextTask", null, "Next task"))}
             {curIdx < tasks.length - 1 && <Icon name="arrowRight" size={16} />}
           </Btn>
         </div>
       </div>
+      {showResetTaskWarning && (
+        <Modal title={t("missions.startFreshTaskTitle", null, "Start fresh on this mission?")} onClose={() => setShowResetTaskWarning(false)} width={400} hideCloseIcon dismissible={false}>
+          <div style={{ padding: 20 }}>
+            <p style={{ margin: "0 0 14px", fontSize: 14 }}>{t("missions.startFreshTaskConfirm", null, "This clears the steps, answers, and proof you've entered for every task and takes you back to the first one.")}</p>
+            <div className="row gap-2" style={{ marginTop: 24, justifyContent: "flex-end" }}>
+              <button className="btn outline" onClick={() => setShowResetTaskWarning(false)}>{t("actions.cancel", null, "Cancel")}</button>
+              <button className="btn btn-primary" onClick={resetAllTasks}>{t("missions.startFreshTask", null, "Start fresh")}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

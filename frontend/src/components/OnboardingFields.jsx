@@ -4,16 +4,38 @@ import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
 import { COUNTRIES } from "./auth/countries";
 import { FilterGroup } from "../pages/CreateMissionWizard";
+import { isValidMobile } from "../data/onboarding";
 
 const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
 
-export function Field({ label, optional, span, hint, invalid, children }) {
+export function Field({ label, optional, span, hint, invalid, action, children }) {
   return (
     <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`}>
-      <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
+      <div className="row between" style={{ alignItems: "center" }}>
+        <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
+        {action}
+      </div>
       {children}
       {hint && <p className="fhint">{hint}</p>}
     </div>
+  );
+}
+
+// "Select all"/"Clear all" for a plain Chips multi-select -- Country
+// already had this via FilterGroup (which also brings search/collapse/
+// custom-entry machinery a short options list doesn't need), so this gives
+// every other chip category (Validator Type, Age, Gender, Occupation,
+// Education, Income band, Languages, Interests) the same affordance without
+// pulling in FilterGroup itself.
+export function SelectAllToggle({ options, value, onChange }) {
+  const { t } = useTranslation();
+  const sel = value || [];
+  const allSelected = options.length > 0 && options.every(o => sel.includes(o));
+  return (
+    <button type="button" className="backlink" style={{ margin: 0, fontSize: 12, flexShrink: 0 }}
+      onClick={() => onChange(allSelected ? [] : [...options])}>
+      {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+    </button>
   );
 }
 
@@ -38,30 +60,51 @@ export function SelectInput({ value, onChange, options, placeholder }) {
   );
 }
 
-export function FSection({ label, count, required }) {
+export function FSection({ label, count, required, action }) {
   return (
-    <div className="row between" style={{ margin: "18px 0 10px" }}>
+    <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }}>
       <div className="eyebrow" style={{ fontSize: 12 }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
-      {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+      <div className="row gap-3" style={{ alignItems: "center" }}>
+        {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+        {action}
+      </div>
     </div>
   );
 }
 
 // Single or multi-select pill chips, used for plain string option lists.
+// Lists over 10 options collapse behind a "Show more/less" toggle (same
+// threshold FilterGroup already uses for its own default expanded/collapsed
+// state) -- a currently-selected option never hides, even past the cutoff,
+// so a collapsed view can never look like a selection silently vanished.
 export function Chips({ options, value, onChange, multi = true }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const sel = value || (multi ? [] : "");
   const isOn = (o) => (multi ? sel.includes(o) : sel === o);
   const toggle = (o) => {
     if (!multi) { onChange(sel === o ? "" : o); return; }
     onChange(sel.includes(o) ? sel.filter((x) => x !== o) : [...sel, o]);
   };
+  const collapsible = options.length > 10;
+  const visible = collapsible && !open ? options.filter((o, i) => i < 10 || isOn(o)) : options;
   return (
-    <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-      {options.map((o) => (
+    <div className="row gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>
+      {visible.map((o) => (
+        // Same .ck checkmark box FilterGroup's own chips already render --
+        // these plain Chips groups (Age, Gender, Education, ...) were
+        // missing it, so a selection only read as "selected" via the border
+        // color, not the checkmark every other filter chip in the app has.
         <button key={o} type="button" className={`chip${isOn(o) ? " on" : ""}`} onClick={() => toggle(o)}>
-          {o}
+          <span className="ck"><Icon name="check" size={10} /></span>{o}
         </button>
       ))}
+      {collapsible && (
+        <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
+          {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: options.length }, `Show all (${options.length})`)}
+          <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -87,32 +130,29 @@ export function SelCards({ options, value, onChange, multi = false, cols = 2 }) 
   );
 }
 
+// Same `.reach`/`.r-*` classes and layout CreateMissionWizard's own
+// StepAudience reach banner uses (see builder.css) -- previously a plain
+// `.card` with its own bespoke markup, which is the "why doesn't this look
+// like the mission-creation audience step" gap the tester flagged.
 export function ReachMeter({ reach, base, firstLoad, updating }) {
   const { t } = useTranslation();
   const pct = firstLoad ? 0 : Math.max(4, Math.min(100, Math.round((reach / base) * 100)));
   return (
-    <div className="card" style={{ padding: 16, marginBottom: 6 }}>
-      <div className="row between" style={{ alignItems: "center" }}>
-        <div className="row gap-2" style={{ alignItems: "center" }}>
-          <Icon name="users" size={16} />
-          {firstLoad ? (
-            <div className="faint" style={{ fontSize: 13.5 }}>{t("onboardingFields.findingAudience", null, "Finding your audience…")}</div>
-          ) : (
-            <div>
-              <div className="row gap-2" style={{ alignItems: "baseline" }}>
-                <div style={{ fontWeight: 700, fontSize: 18, fontFamily: "var(--mono)", opacity: updating ? 0.5 : 1, transition: "opacity .15s" }}>
-                  {reach.toLocaleString("en-US")}
-                </div>
-                {updating && <span className="faint" style={{ fontSize: 11 }}>{t("onboardingFields.updating", null, "Updating…")}</span>}
-              </div>
-              <div className="faint" style={{ fontSize: 11.5 }}>{t("onboardingFields.peopleMatchNow", null, "people match right now")}</div>
-            </div>
-          )}
+    <div className="reach" style={{ marginBottom: 16 }}>
+      <div className="reach-top">
+        <span className="r-ic"><Icon name="users" size={22} /></span>
+        <div style={{ flex: 1, opacity: updating ? 0.5 : 1, transition: "opacity .2s" }}>
+          <div className="r-num">{firstLoad ? "—" : reach.toLocaleString("en-US")}</div>
+          <div className="r-lab">{firstLoad ? t("onboardingFields.findingAudience", null, "Finding your audience…") : t("onboardingFields.peopleMatchNow", null, "people match right now")}</div>
         </div>
+        {updating ? (
+          <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("onboardingFields.updating", null, "Updating…")}</span>
+        ) : (
+          <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
+        )}
       </div>
-      <div style={{ height: 6, borderRadius: 6, background: "var(--border)", marginTop: 10, overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 6, transition: "width .25s" }} />
-      </div>
+      <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
+      <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
     </div>
   );
 }
@@ -130,11 +170,17 @@ export function LocationFields({ d, set, withCity, showErrors }) {
       <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
         <FilterGroup
           title={t("onboardingFields.country", null, "Country")}
+          required
           options={COUNTRY_NAMES}
           sel={countrySel}
           toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
           onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
           trFilterLabel={(t, v) => v}
+          // FilterGroup's own default (options.length <= 10) would leave
+          // this collapsed given ~195 countries -- Country is exactly the
+          // one group people expect to actually browse/pick many from on
+          // open, unlike a shorter list where collapsed-by-default declutters.
+          initialExpanded
         />
       </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
@@ -149,167 +195,174 @@ export function LocationFields({ d, set, withCity, showErrors }) {
   );
 }
 
-export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
+export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender }) {
   const { t } = useTranslation();
+  const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
+  const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")];
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.age", null, "Age")}>
-        <Chips options={ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"]} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
+      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
+        <Chips options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
-      <Field label={t("onboardingFields.gender", null, "Gender")}>
-        <Chips options={genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")]} value={d.genders} onChange={(v) => set("genders", v)} />
+      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
+        <Chips options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
   );
 }
 
-export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions }) {
+export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions, showErrors, requireOccupation }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
-  
-  const [occInput, setOccInput] = useState("");
-  const [intInput, setIntInput] = useState("");
 
   const defaultOccOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
-  const customOccs = (d.occupations || []).filter(o => !defaultOccOptions.includes(o) && o !== "Other");
+  // A saved custom entry needs to stay listed (so it can be re-checked)
+  // even while unchecked -- deriving this list from d.occupations itself
+  // (the old approach) meant unchecking it via Clear all also deleted it
+  // outright, since the same array tracked both "known" and "currently
+  // selected". occupationsOther is its own independent field, exactly
+  // like CreateMissionWizard's own d.otherEntries[key], so Clear all only
+  // ever touches selection.
+  const customOccs = d.occupationsOther || [];
   const occupationOptions = defaultOccOptions;
-  
-  const isOtherOccupation = !!occOptions && (d.occupations || []).includes("Other");
+  const occSel = new Set(d.occupations || []);
+  // Same {toggle, onSelectAll} shape LocationFields' Country uses -- title
+  // arg is ignored (one group per call here, unlike CreateMissionWizard's
+  // shared multi-group filters object).
+  const toggleOcc = (_, o) => set("occupations", occSel.has(o) ? (d.occupations || []).filter(x => x !== o) : [...(d.occupations || []), o]);
+  const selectAllOcc = (opts) => {
+    const s = new Set(d.occupations || []);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) { opts.forEach(o => s.delete(o)); s.delete("Other"); } else { opts.forEach(o => s.add(o)); }
+    set("occupations", [...s]);
+  };
 
-  const saveOcc = () => {
-    const val = occInput.trim();
-    if (!val) return;
-    set("occupations", [...(d.occupations || []).filter(o => o !== "Other"), val]);
-    setOccInput("");
-  };
-  const cancelOcc = () => {
-    set("occupations", (d.occupations || []).filter(o => o !== "Other"));
-    setOccInput("");
-  };
-  const removeCustomOcc = (val) => set("occupations", (d.occupations || []).filter(o => o !== val));
+  const educationOptions = [t("onboardingFields.eduHighSchool", null, "High school"), t("onboardingFields.eduDiploma", null, "Diploma"), t("onboardingFields.eduUndergraduate", null, "Undergraduate"), t("onboardingFields.eduPostgraduate", null, "Postgraduate"), t("onboardingFields.eduPhd", null, "PhD / Doctorate")];
+  const incomeBandOptions = incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"]);
+  const languageOptions = region === "india"
+    ? [t("onboardingFields.langHindi", null, "Hindi"), t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langTamil", null, "Tamil"), t("onboardingFields.langTelugu", null, "Telugu"), t("onboardingFields.langKannada", null, "Kannada"), t("onboardingFields.langBengali", null, "Bengali"), t("onboardingFields.langMarathi", null, "Marathi"), t("onboardingFields.langGujarati", null, "Gujarati"), t("onboardingFields.langMalayalam", null, "Malayalam"), t("onboardingFields.langPunjabi", null, "Punjabi")]
+    : [t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langSpanish", null, "Spanish"), t("onboardingFields.langFrench", null, "French"), t("onboardingFields.langGerman", null, "German"), t("onboardingFields.langMandarin", null, "Mandarin"), t("onboardingFields.langArabic", null, "Arabic"), t("onboardingFields.langPortuguese", null, "Portuguese"), t("onboardingFields.langJapanese", null, "Japanese")];
 
   const defaultIntOptions = interestOptions || [t("onboardingFields.intAI", null, "AI"), t("onboardingFields.intStartups", null, "Startups"), t("onboardingFields.intFitness", null, "Fitness"), t("onboardingFields.intHealthcare", null, "Healthcare"), t("onboardingFields.intEducation", null, "Education"), t("onboardingFields.intFinance", null, "Finance"), t("onboardingFields.intGaming", null, "Gaming"), t("onboardingFields.intParenting", null, "Parenting"), t("onboardingFields.intTravel", null, "Travel"), t("onboardingFields.intFashion", null, "Fashion"), t("onboardingFields.intFood", null, "Food"), t("onboardingFields.intSustainability", null, "Sustainability")];
-  const customInts = (d.interests || []).filter(o => !defaultIntOptions.includes(o) && o !== "Other");
-  const intHasOther = defaultIntOptions.includes("Other");
+  const customInts = d.interestsOther || [];
   const finalIntOptions = defaultIntOptions;
-  
-  const isOtherInterest = intHasOther && (d.interests || []).includes("Other");
-
-  const saveInt = () => {
-    const val = intInput.trim();
-    if (!val) return;
-    set("interests", [...(d.interests || []).filter(o => o !== "Other"), val]);
-    setIntInput("");
+  const intSel = new Set(d.interests || []);
+  const toggleInt = (_, o) => set("interests", intSel.has(o) ? (d.interests || []).filter(x => x !== o) : [...(d.interests || []), o]);
+  const selectAllInt = (opts) => {
+    const s = new Set(d.interests || []);
+    const allIn = opts.every(o => s.has(o));
+    if (allIn) { opts.forEach(o => s.delete(o)); s.delete("Other"); } else { opts.forEach(o => s.add(o)); }
+    set("interests", [...s]);
   };
-  const cancelInt = () => {
-    set("interests", (d.interests || []).filter(o => o !== "Other"));
-    setIntInput("");
-  };
-  const removeCustomInt = (val) => set("interests", (d.interests || []).filter(o => o !== val));
 
   return (
     <div className="col gap-3">
-      {show.occupation && (
-        <Field label={t("onboardingFields.occupation", null, "Occupation")}>
-          <Chips options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} />
-          {customOccs.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-                {customOccs.map(o => (
-                  <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {o}
-                    <button type="button" onClick={() => removeCustomOcc(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
-                      <Icon name="x" size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Field>
-      )}
-      {show.occupation && isOtherOccupation && (
-        <Field label={t("onboardingFields.occupationOtherLabel", null, "Please specify occupation")}>
-          <div className="row gap-2">
-            <TextInput value={occInput} onChange={setOccInput} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} />
-            <button type="button" className="btn" disabled={!occInput.trim()} onClick={saveOcc}>{t("actions.save", null, "Save")}</button>
-            <button type="button" className="btn btn-ghost" onClick={cancelOcc}>{t("actions.cancel", null, "Cancel")}</button>
+      {show.occupation && (() => {
+        // Matches CreateMissionWizard's own audience filters exactly: a
+        // literal "Other" option gets split into its own trailing
+        // FilterGroup section (its own header, count, Select all, collapse)
+        // instead of living as a trigger chip inside the main grid -- that
+        // inline-trigger version is what shipped first here and wasn't what
+        // was actually asked for.
+        const hasOther = occupationOptions.includes("Other");
+        const mainOpts = hasOther ? occupationOptions.filter(o => o !== "Other") : occupationOptions;
+        return (
+          <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined}>
+            <FilterGroup
+              title={t("onboardingFields.occupation", null, "Occupation")}
+              required
+              options={mainOpts}
+              sel={occSel}
+              toggle={toggleOcc}
+              // Read-only here -- this group doesn't grow its own "add
+              // other" input; it just needs to know about the sibling
+              // Other section's saved entries so this header's own
+              // selected-count/Select all account for them too.
+              otherEntries={hasOther ? customOccs : undefined}
+              onSelectAll={selectAllOcc}
+              // FilterGroup's own default (collapsed past 10 options) hid
+              // this by default even when someone already has 20+ real
+              // selections -- same override Country already gets.
+              initialExpanded
+            />
+            {hasOther && (
+              <FilterGroup
+                title={t("onboardingFields.other", null, "Other")}
+                options={["Other"]}
+                sel={occSel}
+                toggle={toggleOcc}
+                otherEntries={customOccs}
+                onOtherEntriesChange={(entries) => set("occupationsOther", entries)}
+                onSelectAll={selectAllOcc}
+                otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
+              />
+            )}
           </div>
-        </Field>
-      )}
+        );
+      })()}
       {show.education && (
-        <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}>
-          <Chips options={[t("onboardingFields.eduHighSchool", null, "High school"), t("onboardingFields.eduDiploma", null, "Diploma"), t("onboardingFields.eduUndergraduate", null, "Undergraduate"), t("onboardingFields.eduPostgraduate", null, "Postgraduate"), t("onboardingFields.eduPhd", null, "PhD / Doctorate")]} value={d.educations} onChange={(v) => set("educations", v)} />
+        <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}
+          action={<SelectAllToggle options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />}>
+          <Chips options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />
         </Field>
       )}
       {show.income && (
-        <Field label={t("onboardingFields.incomeBand", null, "Income band")} optional>
-          <Chips options={incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"])} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
+        <Field label={t("onboardingFields.incomeBand", null, "Income band")} optional
+          action={<SelectAllToggle options={incomeBandOptions} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />}>
+          <Chips options={incomeBandOptions} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
         </Field>
       )}
       {show.languages && (
-        <Field label={t("onboardingFields.languages", null, "Languages")} optional hint={notYetTrackedHint}>
-          <Chips options={region === "india" ? [t("onboardingFields.langHindi", null, "Hindi"), t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langTamil", null, "Tamil"), t("onboardingFields.langTelugu", null, "Telugu"), t("onboardingFields.langKannada", null, "Kannada"), t("onboardingFields.langBengali", null, "Bengali"), t("onboardingFields.langMarathi", null, "Marathi"), t("onboardingFields.langGujarati", null, "Gujarati"), t("onboardingFields.langMalayalam", null, "Malayalam"), t("onboardingFields.langPunjabi", null, "Punjabi")] : [t("onboardingFields.langEnglish", null, "English"), t("onboardingFields.langSpanish", null, "Spanish"), t("onboardingFields.langFrench", null, "French"), t("onboardingFields.langGerman", null, "German"), t("onboardingFields.langMandarin", null, "Mandarin"), t("onboardingFields.langArabic", null, "Arabic"), t("onboardingFields.langPortuguese", null, "Portuguese"), t("onboardingFields.langJapanese", null, "Japanese")]} value={d.languages} onChange={(v) => set("languages", v)} />
+        <Field label={t("onboardingFields.languages", null, "Languages")} optional hint={notYetTrackedHint}
+          action={<SelectAllToggle options={languageOptions} value={d.languages} onChange={(v) => set("languages", v)} />}>
+          <Chips options={languageOptions} value={d.languages} onChange={(v) => set("languages", v)} />
         </Field>
       )}
-      {show.interests && (
-        <Field label={t("onboardingFields.interests", null, "Interests")} optional>
-          <Chips options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} />
-          {customInts.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
-              <div className="row gap-2" style={{ flexWrap: "wrap" }}>
-                {customInts.map(o => (
-                  <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    {o}
-                    <button type="button" onClick={() => removeCustomInt(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
-                      <Icon name="x" size={14} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </Field>
-      )}
-      {show.interests && isOtherInterest && (
-        <Field label={t("onboardingFields.interestOtherLabel", null, "Please specify interest")}>
-          <div className="row gap-2">
-            <TextInput value={intInput} onChange={setIntInput} placeholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")} />
-            <button type="button" className="btn" disabled={!intInput.trim()} onClick={saveInt}>{t("actions.save", null, "Save")}</button>
-            <button type="button" className="btn btn-ghost" onClick={cancelInt}>{t("actions.cancel", null, "Cancel")}</button>
-          </div>
-        </Field>
-      )}
+      {show.interests && (() => {
+        const hasOther = finalIntOptions.includes("Other");
+        const mainOpts = hasOther ? finalIntOptions.filter(o => o !== "Other") : finalIntOptions;
+        return (
+          <>
+            <FilterGroup
+              title={t("onboardingFields.interests", null, "Interests")}
+              options={mainOpts}
+              sel={intSel}
+              toggle={toggleInt}
+              otherEntries={hasOther ? customInts : undefined}
+              onSelectAll={selectAllInt}
+              initialExpanded
+            />
+            {hasOther && (
+              <FilterGroup
+                title={t("onboardingFields.other", null, "Other")}
+                options={["Other"]}
+                sel={intSel}
+                toggle={toggleInt}
+                otherEntries={customInts}
+                onOtherEntriesChange={(entries) => set("interestsOther", entries)}
+                onSelectAll={selectAllInt}
+                otherPlaceholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")}
+              />
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
 
-// "Verify" steps store a claim for manual review — there is no automated
-// DNS/domain-ownership or document verification pipeline today, so this
-// records intent rather than pretending to confirm it instantly.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, verified, onVerify, onUnverify, optional, showErrors, validate }) {
-  const { t } = useTranslation();
-  const [errorMsg, setErrorMsg] = useState("");
-  const invalid = (showErrors && !optional && !verified) || !!errorMsg;
-
-  const handleVerify = () => {
-    if (validate) {
-      const err = validate(value);
-      if (err) {
-        setErrorMsg(err);
-        return;
-      }
-    }
-    setErrorMsg("");
-    onVerify();
-  };
-
-  const handleChange = (v) => {
-    onChange(v);
-    if (errorMsg) setErrorMsg("");
-  };
+// "Verify" steps record a claim for manual review — there is no automated
+// DNS/domain-ownership or document verification pipeline today. This used to
+// hide the input behind a Submit button and a "Submitted" pill once clicked,
+// which meant the value you'd just typed vanished from view with no way to
+// see it again short of hitting Edit — same shape as every other field in
+// the wizard now: a plain, always-visible, always-editable input with its
+// error (if any) shown live underneath, no separate submit step.
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate }) {
+  const trimmed = (value || "").trim();
+  const liveError = validate ? validate(value) : null;
+  const missingRequired = showErrors && !optional && !trimmed;
+  const invalid = missingRequired || (!!trimmed && !!liveError);
 
   return (
     <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }}>
@@ -317,25 +370,10 @@ export function VerifyRow({ icon, title, desc, placeholder, value, onChange, ver
         <Icon name={icon} size={16} />
       </span>
       <div style={{ flex: 1 }}>
-        <div className="row between" style={{ alignItems: "center" }}>
-          <b style={{ fontSize: 13.5 }}>{title} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</b>
-          {verified && (
-            <div className="row gap-2" style={{ alignItems: "center" }}>
-              <span className="pill" style={{ color: "var(--success)", fontSize: 11 }}><Icon name="check" size={12} /> {t("onboardingFields.submitted", null, "Submitted")}</span>
-              <button type="button" className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={onUnverify}>{t("actions.edit", null, "Edit")}</button>
-            </div>
-          )}
-        </div>
+        <b style={{ fontSize: 13.5 }}>{title} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</b>
         <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
-        {!verified && (
-          <div className="col gap-1">
-            <div className="row gap-2">
-              <input className={`fin ${errorMsg ? "fin-invalid" : ""}`} style={{ flex: 1 }} value={value || ""} onChange={(e) => handleChange(e.target.value)} placeholder={placeholder} />
-              <button type="button" className="btn btn-ghost" style={{ fontSize: 12.5 }} disabled={!value} onClick={handleVerify}>{t("onboardingFields.submit", null, "Submit")}</button>
-            </div>
-            {errorMsg && <div className="err" style={{ fontSize: 12, color: "var(--danger)" }}>{errorMsg}</div>}
-          </div>
-        )}
+        <input className={`fin ${invalid ? "fin-invalid" : ""}`} style={{ width: "100%" }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+        {trimmed && liveError && <div className="err" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>{liveError}</div>}
       </div>
     </div>
   );
@@ -347,7 +385,6 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
   const defaultOptions = [t("onboardingFields.roleFounderCeo", null, "Founder & CEO"), t("onboardingFields.roleCofounder", null, "Co-founder"), t("onboardingFields.roleProductManager", null, "Product Manager"), t("onboardingFields.roleHeadOfProduct", null, "Head of Product"), t("onboardingFields.roleGrowthMarketing", null, "Growth / Marketing"), t("onboardingFields.roleDesignLead", null, "Design Lead"), t("onboardingFields.roleEngineeringLead", null, "Engineering Lead"), t("onboardingFields.roleOperations", null, "Operations"), otherLabel];
   const roleOptions = roleField?.options ? [...roleField.options, otherLabel] : defaultOptions;
   const isOther = d.designation === otherLabel;
-  const mobileDigits = (d.mobile || "").replace(/\D/g, "");
   return (
     <div className="fgrid c2">
       <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()}>
@@ -358,8 +395,8 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
       </Field>
       <Field
         label={t("onboardingFields.mobileNumber", null, "Mobile number")}
-        invalid={showErrors && mobileDigits.length < 8}
-        hint={t("onboardingFields.mobileNumberHint", null, "Local or international numbers are accepted — add a country code (e.g. +91) if you're outside India. 8–15 characters total.")}
+        invalid={showErrors && !isValidMobile(d.mobile)}
+        hint={t("onboardingFields.mobileNumberHint", null, "A 10-digit Indian mobile number, or add a country code (e.g. +1 555 123 4567) if you're outside India.")}
       >
         <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
       </Field>

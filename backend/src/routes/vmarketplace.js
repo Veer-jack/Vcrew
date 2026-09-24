@@ -38,10 +38,20 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
   const tagline = t.tagline || (t.description ? t.description.slice(0, 100) : "");
   const company = t.company || t.brand || "Independent";
   const reward = t.reward ?? t.reward_amount ?? 0;
-  const minutes = t.minutes ?? 10;
+  // A "sample"/"free" reward is genuinely ₹0 in cash — without this, the
+  // validator has no way to tell "this pays nothing" apart from "this ships
+  // a product after approval", since both show as a bare 0. vtasks never had
+  // a reward_type column at all (always cash), hence the "fixed" fallback.
+  const rewardType = t.reward_type || "fixed";
   const spotsTotal = t.spots_total ?? t.spotsTotal ?? t.target ?? 0;
   const spotsLeft = t.spots_left ?? t.spotsLeft ?? Math.max(0, spotsTotal - (t.joined || 0));
-  const deadline = t.deadline_label || t.deadline || "Soon";
+  // deadline_label is precomputed (TO_CHAR ... 'Mon DD') by the list queries
+  // that already know to do it -- this single-fetch route's plain SELECT *
+  // doesn't, so t.deadline was leaking through as a raw, unformatted
+  // timestamp (e.g. "2026-09-18T00:00:00.000Z") instead of a real label.
+  // Format it here too so every caller is covered, not just the ones that
+  // remember to precompute it in SQL.
+  const deadline = t.deadline_label || (t.deadline ? new Date(t.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Soon");
   
   let postedH = t.posted_h ?? t.postedH;
   if (postedH === undefined && t.created_at) {
@@ -52,7 +62,12 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
   const brief = t.brief || t.description || "";
   const stepsRaw = t.steps_json || t.tasks_json || "[]";
   let steps = [];
-  try { steps = JSON.parse(stepsRaw).map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')); } catch {}
+  let questionCount = 0;
+  try {
+    const parsed = JSON.parse(stepsRaw);
+    steps = parsed.map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task'));
+    questionCount = parsed.reduce((n, s) => n + (Array.isArray(s && s.questions) ? s.questions.length : 0), 0);
+  } catch {}
   
   const hot = t.hot !== undefined ? !!t.hot : ((t.joined || 0) > ((t.target || 1) / 2));
   const verified = t.verified !== undefined ? !!t.verified : true;
@@ -60,9 +75,10 @@ async function serializeTask(t, savedIds, myContext, inviteContext) {
 
   return {
     id: t.id, type: normType, ptype: t.ptype || null, category: t.category || null, product, tagline, company,
-    reward, minutes, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
+    reward, rewardType, questionCount, match: t.match_pct || t.match || 90, spotsLeft, spotsTotal,
     deadline, postedH, brief, steps,
     hot, verified, featured,
+    builderName: t.builder_name || null, builderDesignation: t.builder_designation || null,
     saved: savedIds.has(t.id), 
     status: t.status || "active",
     myStatus: myContext[t.id]?.status || null,
@@ -83,21 +99,38 @@ async function loadContext(validatorId) {
 }
 
 router.get("/", async (req, res) => {
-  const { q, types, reward, time, verified, minMatch, sort } = req.query;
+  const { q, types, reward, verified, minMatch, sort } = req.query;
   const { savedIds, myContext, inviteContext } = await loadContext(req.validator.id);
 
   // We use a CTE to unify the schema so we can filter at the DB level, preventing Node.js OOM
   const baseCTE = `
     WITH base_tasks AS (
-      SELECT id::text, COALESCE(ptype, 'mvp')::text as raw_type, name::text as product, description::text as tagline, COALESCE(brand, 'Independent')::text as company, 
-             COALESCE(reward_amount, 0)::int as reward, 10::int as minutes, 90::int as match_pct, GREATEST(0, COALESCE(target, 0) - COALESCE(joined, 0))::int as spots_left, 
-             COALESCE(target, 0)::int as spots_total, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - created_at))/3600)::int as posted_h,
-             description::text as brief, tasks_json::text as steps_json, (COALESCE(joined,0) > COALESCE(target,1)/2)::boolean as hot, true::boolean as verified, 
-             false::boolean as featured, 'missions' as source, status::text as status
-      FROM missions WHERE status IN ('active','live','published')
+      SELECT m.id::text, COALESCE(m.ptype, 'mvp')::text as raw_type, m.ptype::text as ptype, m.name::text as product,
+             -- Real missions have no separate short tagline -- feeding the same
+             -- description into both tagline and brief made the card show the
+             -- exact same text twice. Left blank here; the frontend just skips
+             -- the tagline line when there's nothing to put there.
+             ''::text as tagline, COALESCE(m.brand, 'Independent')::text as company,
+             COALESCE(m.reward_amount, 0)::int as reward, 90::int as match_pct,
+             -- m.joined is a hand-incremented counter that drifts from the
+             -- real participants rows (confirmed already on the builder side
+             -- -- see recalcMissionStats/getRealJoinedCount in stats.js) --
+             -- a validator staring at "0 of 1 slots" on a mission the builder
+             -- already sees as full is that same drift, just read from here
+             -- instead. Counting participants directly is the fix everywhere
+             -- this table gets read, not just where it's already applied.
+             GREATEST(0, COALESCE(m.target, 0) - (SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')))::int as spots_left,
+             COALESCE(m.target, 0)::int as spots_total, COALESCE(TO_CHAR(m.deadline, 'Mon DD'), 'Soon')::text as deadline_label, FLOOR(EXTRACT(EPOCH FROM (NOW() - m.created_at))/3600)::int as posted_h,
+             m.description::text as brief, m.tasks_json::text as steps_json,
+             ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
+             false::boolean as featured, 'missions' as source, m.status::text as status, COALESCE(m.reward_type, 'fixed')::text as reward_type,
+             b.name::text as builder_name, b.designation::text as builder_designation, m.category::text as category
+      FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
+      WHERE m.status IN ('active','live','published')
       UNION ALL
-      SELECT id::text, type::text as raw_type, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, spots_left::int, 
-             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status
+      SELECT id::text, type::text as raw_type, NULL::text as ptype, product::text, tagline::text, company::text, reward::int, match_pct::int, spots_left::int,
+             spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status, 'fixed'::text as reward_type,
+             NULL::text as builder_name, NULL::text as builder_designation, NULL::text as category
       FROM vtasks
     )
   `;
@@ -125,8 +158,6 @@ router.get("/", async (req, res) => {
   }
   const REWARD_TESTS = { lt100: r => r < 100, mid: r => r >= 100 && r <= 200, gt200: r => r > 200 };
   if (reward && REWARD_TESTS[reward]) tasks = tasks.filter(t => REWARD_TESTS[reward](t.reward));
-  const TIME_TESTS = { lt10: m => m < 10, mid: m => m >= 10 && m <= 20, gt20: m => m > 20 };
-  if (time && TIME_TESTS[time]) tasks = tasks.filter(t => TIME_TESTS[time](t.minutes));
   if (verified === "true") tasks = tasks.filter(t => t.verified);
   if (minMatch) tasks = tasks.filter(t => t.match >= Number(minMatch));
 
@@ -136,7 +167,12 @@ router.get("/", async (req, res) => {
     closing: (a, b) => deadlineHours(a.deadline) - deadlineHours(b.deadline),
     newest: (a, b) => a.postedH - b.postedH,
   }[sort] || ((a, b) => b.match - a.match);
-  tasks.sort(cmp);
+  // A pending invitation always wins, regardless of whatever sort is
+  // selected -- the builder specifically asked for this validator, so it
+  // shouldn't be buried below "best match" or "newest" like any other open
+  // mission. Falls through to the normal comparator among invited-vs-invited
+  // or neither-vs-neither.
+  tasks.sort((a, b) => (b.inviteId ? 1 : 0) - (a.inviteId ? 1 : 0) || cmp(a, b));
 
   const lang = req.validator.preferred_language;
   if (lang && lang !== "en") {
@@ -163,7 +199,15 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   let t = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   let source = "mission";
-  if (!t) {
+  if (t) {
+    // Two things the list route's CTE already corrects for that this raw
+    // row doesn't: `joined` drifts from the real participants rows (same
+    // fix as the list route, see the comment there), and `missions` has no
+    // real `tagline` column, so serializeTask's fallback would otherwise
+    // slice the description into a fake one -- showing the same text twice.
+    t.joined = await getRealJoinedCount(t.id);
+    t.tagline = "";
+  } else {
     t = await db.prepare(`SELECT * FROM vtasks WHERE id = ?`).get(req.params.id);
     source = "vtask";
   }
@@ -202,11 +246,10 @@ router.post("/:id/save", async (req, res) => {
   
   const saved = !!req.body?.saved;
   if (saved) {
-    try {
-      await db.prepare(`INSERT INTO v_saved (validator_id, task_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(req.validator.id, t.id);
-    } catch(e) {
-      // Ignored for real missions due to vtasks FK constraint, unless dropped
-    }
+    // v_saved.task_id has no FK (see schema.sql) — it points at either
+    // vtasks or missions, so this insert now genuinely succeeds for both.
+    // ON CONFLICT DO NOTHING only covers "already saved this exact one".
+    await db.prepare(`INSERT INTO v_saved (validator_id, task_id) VALUES (?, ?) ON CONFLICT DO NOTHING`).run(req.validator.id, t.id);
   } else {
     await db.prepare(`DELETE FROM v_saved WHERE validator_id = ? AND task_id = ?`).run(req.validator.id, t.id);
   }
@@ -223,7 +266,7 @@ router.post("/:id/apply", async (req, res) => {
   if (!req.validator.occupation) {
     return res.status(403).json({ error: "Complete your profile before joining a mission.", code: "ONBOARDING_REQUIRED" });
   }
-  let t = await db.prepare(`SELECT id, builder_id, status FROM missions WHERE id = ?`).get(req.params.id);
+  let t = await db.prepare(`SELECT id, builder_id, status, require_approval FROM missions WHERE id = ?`).get(req.params.id);
   let isRealMission = !!t;
   if (!t) {
     t = await db.prepare(`SELECT id, 'active' as status FROM vtasks WHERE id = ?`).get(req.params.id);
@@ -247,7 +290,7 @@ router.post("/:id/apply", async (req, res) => {
 
   if (isRealMission) {
     try {
-      const val = await db.prepare(`SELECT name FROM validators WHERE id = ?`).get(req.validator.id);
+      const val = await db.prepare(`SELECT name, rating FROM validators WHERE id = ?`).get(req.validator.id);
       const missionCategory = await db.prepare(`SELECT name, category FROM missions WHERE id = ?`).get(t.id);
 
       await db.transaction(async (tx) => {
@@ -271,23 +314,45 @@ router.post("/:id/apply", async (req, res) => {
           if (realJoined >= mission.target) throw new Error("MISSION_FULL");
         }
 
-        await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(t.id);
+        // trust used to be a flat 95 for every joiner regardless of track
+        // record — now derived from their real rating (unrated validators
+        // treated as the same 5.0 baseline used elsewhere when averaging in
+        // their first review), same formula the invite-accept path uses.
+        const trust = Math.round((val?.rating || 5) * 20);
+        const missionName = missionCategory?.name || "Unknown";
 
-        await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
-          .run(req.validator.id, t.id);
+        if (t.require_approval) {
+          // Doesn't touch missions.joined or spawn a shipment yet — this
+          // candidate isn't in until the builder actually accepts them (see
+          // POST /:id/participants/:pid/review), which is also where those
+          // two happen. Left at 'pending'/'applied', not occupying a slot
+          // (getRealJoinedCount excludes it), so other candidates can still
+          // apply up to target while this one waits on a decision.
+          await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'applied', 0, 'Awaiting builder review')`)
+            .run(req.validator.id, t.id);
+          await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'pending', 0, ?)`)
+            .run(t.id, req.validator.id, val ? val.name : "New Validator", trust);
+          await tx.prepare(`
+            INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+            VALUES (?, 'application', 'application_received', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
+          `).run(t.builder_id, "New Application to Review", `${val ? val.name : "A validator"} applied to "${missionName}" — review their profile to accept or reject.`, t.id);
+        } else {
+          await tx.prepare(`UPDATE missions SET joined = joined + 1 WHERE id = ?`).run(t.id);
+          await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, progress, status_label) VALUES (?, ?, 'active', 0, 'Accepted just now')`)
+            .run(req.validator.id, t.id);
+          await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, ?)`)
+            .run(t.id, req.validator.id, val ? val.name : "New Validator", trust);
 
-        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, role, city, stage, reward, trust) VALUES (?, ?, ?, 'Validator', 'Unknown', 'accepted', 0, 95)`)
-          .run(t.id, req.validator.id, val ? val.name : "New Validator");
+          if (missionCategory?.category === "sample") {
+            await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
+              .run(t.id, req.validator.id);
+          }
 
-        if (missionCategory?.category === "sample") {
-          await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
-            .run(t.id, req.validator.id);
+          await tx.prepare(`
+            INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+            VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
+          `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionName}".`, t.id);
         }
-
-        await tx.prepare(`
-          INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
-          VALUES (?, 'application', 'participant_joined', 'userplus', 'primary', ?, ?, 'Just now', 1, ?)
-        `).run(t.builder_id, "New Participant Joined", `${val ? val.name : "A new validator"} has joined your mission "${missionCategory?.name || 'Unknown'}".`, t.id);
       });
 
     } catch (err) {
@@ -339,7 +404,13 @@ router.post("/:id/decline", async (req, res) => {
     ? await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, t.id)
     : await db.prepare(`SELECT * FROM v_my_missions WHERE validator_id = ? AND task_id = ?`).get(req.validator.id, t.id);
 
-  if (existing && existing.status !== "declined") {
+  // 'applied' is an open application still awaiting the builder's decision
+  // (see the require-approval apply path) — the validator hasn't actually
+  // joined anything yet, so "Decline" here means withdrawing that
+  // application, not leaving a mission. Everything else already
+  // in-progress (active/submitted/etc.) is still blocked, same as before.
+  const isWithdrawingApplication = existing?.status === "applied";
+  if (existing && existing.status !== "declined" && !isWithdrawingApplication) {
     return res.status(400).json({ error: "You're already participating in this mission." });
   }
 
@@ -350,6 +421,13 @@ router.post("/:id/decline", async (req, res) => {
       } else {
         await tx.prepare(`INSERT INTO v_my_missions (validator_id, task_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, t.id);
       }
+    } else if (isWithdrawingApplication) {
+      await tx.prepare(`UPDATE v_my_missions SET status = 'declined', status_label = 'Declined' WHERE id = ?`).run(existing.id);
+      if (isRealMission) {
+        await tx.prepare(`UPDATE participants SET stage = 'declined', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'pending'`).run(t.id, req.validator.id);
+        await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'application_withdrawn', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
+          .run(t.builder_id, "Application Withdrawn", `${req.validator.name} withdrew their application for "${t.name}" before you reviewed it.`, t.id);
+      }
     }
 
     // A pending invitation for this mission gets declined too, in the same
@@ -359,7 +437,9 @@ router.post("/:id/decline", async (req, res) => {
       const invite = await tx.prepare(`SELECT * FROM mission_invitations WHERE mission_id = ? AND validator_id = ? AND status = 'pending'`).get(t.id, req.validator.id);
       if (invite) {
         await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
-        await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
+        // A real stage, not a delete -- see the same change in
+        // vmissions.js's invitations/:id/decline for why.
+        await tx.prepare(`UPDATE participants SET stage = 'declined', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(t.id, req.validator.id);
         await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
           .run(t.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${t.name}.`, t.id);
       }
@@ -378,7 +458,23 @@ router.post("/:id/undecline", async (req, res) => {
   if (!t) return res.status(404).json({ error: "Mission not found" });
 
   if (isRealMission) {
-    await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
+    await db.transaction(async (tx) => {
+      await tx.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND mission_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
+      // Decline mirrors this the other way (invited -> declined, or pending
+      // application -> declined). Which one it was determines what "undo"
+      // restores: an invitation goes back to 'invited'/pending so it can be
+      // accepted again; a withdrawn application goes back to 'pending' so
+      // the builder's review queue picks it up again. A plain
+      // browse-then-decline has neither row and both branches just match
+      // nothing.
+      const declinedInvite = await tx.prepare(`SELECT id FROM mission_invitations WHERE mission_id = ? AND validator_id = ? AND status = 'declined'`).get(t.id, req.validator.id);
+      if (declinedInvite) {
+        await tx.prepare(`UPDATE mission_invitations SET status = 'pending' WHERE id = ?`).run(declinedInvite.id);
+        await tx.prepare(`UPDATE participants SET stage = 'invited', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+      } else {
+        await tx.prepare(`UPDATE participants SET stage = 'pending', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'declined'`).run(t.id, req.validator.id);
+      }
+    });
   } else {
     await db.prepare(`DELETE FROM v_my_missions WHERE validator_id = ? AND task_id = ? AND status = 'declined'`).run(req.validator.id, t.id);
   }

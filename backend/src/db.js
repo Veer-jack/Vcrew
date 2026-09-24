@@ -70,7 +70,7 @@ export const db = {
     run: async (...params) => {
       const isInsert = /^\s*INSERT/i.test(sql);
       // Only append RETURNING id for tables that have a serial id column
-      const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens/i.test(sql);
+      const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified/i.test(sql);
       const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(sql) ? `${sql} RETURNING id` : sql;
       const { rows, rowCount } = await query(finalSql, flat(params));
       return { changes: rowCount, lastInsertRowid: rows[0]?.id ?? null };
@@ -90,7 +90,7 @@ export const db = {
           run: async (...params) => {
             const pgSql = toPostgres(sql);
             const isInsert = /^\s*INSERT/i.test(sql);
-            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens/i.test(sql);
+            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified/i.test(sql);
             const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(pgSql) ? `${pgSql} RETURNING id` : pgSql;
             const r = await client.query(finalSql, flat(params));
             return { changes: r.rowCount, lastInsertRowid: r.rows[0]?.id ?? null };
@@ -134,10 +134,57 @@ export async function initDb() {
     // Define-the-Test form from and it came back empty even though the
     // already-generated tasks themselves loaded fine.
     if (!mCols.includes('test_case_form_json')) await client.query('ALTER TABLE missions ADD COLUMN test_case_form_json TEXT');
+    // Set once, the moment status actually becomes 'completed' (see the
+    // PATCH /:id handler) -- powers the Missions "All" tab's Completed Date
+    // column, distinct from deadline (a planned date, not when it actually happened).
+    if (!mCols.includes('completed_at')) await client.query('ALTER TABLE missions ADD COLUMN completed_at TIMESTAMPTZ');
+    // Same idea as completed_at, for when status actually becomes 'closed' --
+    // powers the Missions Closed tab's Closed Date column.
+    if (!mCols.includes('closed_at')) await client.query('ALTER TABLE missions ADD COLUMN closed_at TIMESTAMPTZ');
+    // Same idea, for when status actually becomes 'archived' -- powers the
+    // mission detail header's "Archived on" date.
+    if (!mCols.includes('archived_at')) await client.query('ALTER TABLE missions ADD COLUMN archived_at TIMESTAMPTZ');
+    // Set on every real PATCH /:id edit (see that handler) -- powers the
+    // Missions Draft tab's Last Edited column, distinct from created_at
+    // (when the draft was first started, not when it was last worked on).
+    if (!mCols.includes('updated_at')) await client.query('ALTER TABLE missions ADD COLUMN updated_at TIMESTAMPTZ');
+    // Builder-facing switch: when set, a validator's open apply doesn't
+    // auto-join them — it lands as participants.stage='pending' for the
+    // builder to accept/reject first. See POST /marketplace/:id/apply and
+    // POST /:id/participants/:pid/review.
+    if (!mCols.includes('require_approval')) await client.query('ALTER TABLE missions ADD COLUMN require_approval INTEGER DEFAULT 0');
     const rCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='responses'");
     const rColNames = rCols.rows.map(r => r.column_name);
     if (!rColNames.includes('active_seconds')) await client.query('ALTER TABLE responses ADD COLUMN active_seconds INTEGER');
     if (!rColNames.includes('revision_count')) await client.query('ALTER TABLE responses ADD COLUMN revision_count INTEGER DEFAULT 0');
+    // Stamped every time a builder sends this response back for revision --
+    // revision_count alone said how many times, not when, so the review
+    // drawer had no date to show for "Revision Requested" the way it does
+    // for Submitted/Time Taken/Tasks.
+    if (!rColNames.includes('revision_requested_at')) await client.query('ALTER TABLE responses ADD COLUMN revision_requested_at TIMESTAMPTZ');
+    // Every route that changes participants.stage also stamps this (see
+    // schema.sql) -- joined_at only ever reflects when the row was first
+    // created (i.e. when they were invited/applied), so a card that has
+    // since moved to Declined/Accepted/Started/etc. showed that original
+    // invite time under whichever label, which was wrong the moment they
+    // actually moved. Backfilled to joined_at for existing rows (the best
+    // available guess for their current stage, since the real transition
+    // time was never recorded before this column existed) rather than NOW(),
+    // which would make every pre-existing row look like it just changed.
+    const pCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='participants'");
+    const pColNames = pCols.rows.map(r => r.column_name);
+    if (!pColNames.includes('stage_changed_at')) {
+      await client.query('ALTER TABLE participants ADD COLUMN stage_changed_at TIMESTAMPTZ');
+      await client.query('UPDATE participants SET stage_changed_at = joined_at WHERE stage_changed_at IS NULL');
+    }
+    // The category picked on the raise-a-ticket form was captured by the
+    // frontend but never actually stored anywhere -- every ticket showed a
+    // hardcoded "Support" placeholder regardless of what was picked (see
+    // freshdesk.js). Existing rows have no real category to backfill from,
+    // so they keep the same "Other" default new rows get.
+    const stCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='support_tickets'");
+    const stColNames = stCols.rows.map(r => r.column_name);
+    if (!stColNames.includes('category')) await client.query("ALTER TABLE support_tickets ADD COLUMN category TEXT DEFAULT 'Other'");
     // Validator type migrations and other new columns
     const vCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='validators'");
     const vColNames = vCols.rows.map(r => r.column_name);
@@ -220,6 +267,19 @@ export async function initDb() {
       }
     }
 
+    // vs.id was never a real column (v_saved's PK is validator_id+task_id) —
+    // the "Saved" tab's ORDER BY vs.id was broken from day one, just never
+    // hit until now. saved_at gives it a real, meaningful sort key instead.
+    const vsCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='v_saved'");
+    if (!vsCols.rows.some(r => r.column_name === 'saved_at')) {
+      await client.query('ALTER TABLE v_saved ADD COLUMN saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()');
+    }
+    // task_id's FK only ever pointed at vtasks(id) — saving a real mission
+    // (missions.id, never a vtasks row) violated it on every attempt,
+    // silently swallowed by an empty catch block that still reported
+    // success. See schema.sql's v_saved definition for the full story.
+    await client.query('ALTER TABLE v_saved DROP CONSTRAINT IF EXISTS v_saved_task_id_fkey');
+
     const tmCols = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='thread_messages'");
     const tmColNames = tmCols.rows.map(r => r.column_name);
     for (const col of ['attachment_path', 'attachment_name']) {
@@ -292,6 +352,27 @@ export async function initDb() {
     const fgpColNames = fgpCols.rows.map(r => r.column_name);
     if (!fgpColNames.includes('is_restart')) {
       await client.query(`ALTER TABLE focus_group_polls ADD COLUMN is_restart BOOLEAN DEFAULT FALSE`);
+    }
+
+    // De-dup record for the "notify the builder when a new validator matches
+    // a 0-match mission" feature (see notificationsHelper.js's
+    // notifyBuilderOfNewMatch) -- without this, the same validator re-saving
+    // their profile (any Settings edit, not just onboarding) would re-fire
+    // the same "new match" notification every time, since they'd still be
+    // the sole match on re-check.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS mission_match_notified (
+        mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+        validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
+        notified_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (mission_id, validator_id)
+      )
+    `);
+
+    const mCols2 = await client.query("SELECT column_name FROM information_schema.columns WHERE table_name='missions'");
+    const mColNames2 = mCols2.rows.map(r => r.column_name);
+    if (!mColNames2.includes('full_submissions_notified')) {
+      await client.query(`ALTER TABLE missions ADD COLUMN full_submissions_notified INTEGER DEFAULT 0`);
     }
 
     console.log("✅ PostgreSQL connected + schema applied");

@@ -25,6 +25,7 @@ import Analytics from "./pages/Analytics";
 import Wallet from "./pages/Wallet";
 import Support from "./pages/Support";
 import Settings from "./pages/Settings";
+import EditAccountStep from "./pages/EditAccountStep";
 import Messages from "./pages/Messages";
 
 import { VAuthProvider, useVAuth } from "./vcontext/VAuthContext";
@@ -34,6 +35,7 @@ import VLogin from "./vpages/VLogin";
 import VOAuthCallback from "./vpages/OAuthCallback";
 import VOnboarding from "./vpages/VOnboarding";
 import VSettings from "./vpages/VSettings";
+import VEditAccountStep from "./vpages/VEditAccountStep";
 import MissionBrief from "./vpages/MissionBrief";
 import DailyCheckin from "./vpages/DailyCheckin";
 import ShipmentStatus from "./vpages/ShipmentStatus";
@@ -69,6 +71,7 @@ import AMissionReview from "./apages/AMissionReview";
 import ASupport from "./apages/ASupport";
 import AWithdrawals from "./apages/AWithdrawals";
 import AAnalytics from "./apages/AAnalytics";
+import { rememberPreLoginPath } from "./utils/authRedirect";
 
 /* ---------------- Builder (existing) ---------------- */
 
@@ -76,7 +79,7 @@ function RequireAuth({ children }) {
   const { builder, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  if (!builder) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!builder) { rememberPreLoginPath(location.pathname); return <Navigate to="/login" replace />; }
   return children;
 }
 
@@ -89,6 +92,7 @@ function ExternalRedirect({ to }) {
 
 function BuilderRoutes() {
   const { builder, loading } = useAuth();
+  const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
@@ -99,11 +103,53 @@ function BuilderRoutes() {
         <Route index element={<Dashboard />} />
       </Route>
       <Route path="/get-started" element={builder ? <Navigate to="/" replace /> : <IntentFork />} />
-      <Route path="/get-started/feedback" element={builder?.profile ? <Navigate to="/" replace /> : <RoleSelect />} />
-      <Route path="/signup" element={builder?.profile ? <Navigate to="/" replace /> : <OnboardingWizard />} />
+      {/* builder.profile (profile_json) isn't "onboarding done" -- any partial
+          PATCH /auth/profile save populates it too (e.g. PhoneSetup's
+          onClearPrefill in Settings.jsx writes `{ profile: { mobile: null } }`),
+          independent of whether onboarding was ever completed. Bouncing on
+          that instead of the real, dedicated onboardingCompleted flag sent a
+          builder who'd merely touched Settings straight back to Dashboard the
+          moment they tried to pick a role or resume the wizard -- the same
+          distinction personaConfig.jsx's resolveActivePersonaKey already
+          documents and relies on. */}
+      <Route path="/get-started/feedback" element={builder?.onboardingCompleted ? <Navigate to="/" replace /> : <RoleSelect />} />
+      <Route path="/signup" element={builder?.onboardingCompleted ? <Navigate to="/" replace /> : <OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
-      <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
-      <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard /></RequireAuth>} />
+      {/* key={location.pathname} forces a real unmount/remount whenever the
+          URL moves between /missions/new and /missions/:id/edit, or between
+          two different draft ids — without it, these are two separate
+          <Route> entries rendering the identical element tree, and React's
+          reconciliation can treat that as the same component instance with
+          updated props rather than a fresh one. That silently let a stale
+          closure survive across "Continue draft": the wizard's one-time
+          true-unmount checkpoint (an effect with an empty dependency array,
+          so its cleanup closure is captured exactly once) kept believing
+          missionId was still undefined from the original /missions/new
+          mount, even long after the URL had moved to a real draft id — so
+          leaving the resumed draft still ran its "create a new mission from
+          this unpromoted session" fallback, using the resumed draft's own
+          content. That's the actual root cause of the reported duplicate
+          drafts: not a race in that fallback's guard, but this mount never
+          having reset in the first place. */}
+      <Route path="/missions/new" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
+      <Route path="/missions/:id/edit" element={<RequireAuth><CreateMissionWizard key={location.pathname} /></RequireAuth>} />
+      {/* Keyed on builder?.id alone, not the path -- this page edits real
+          identity columns (name/designation/org/website, see
+          EditAccountStep's handleSave), and its own "unchanged baseline"
+          state is deliberately captured once per mount, not resynced on
+          every builder update. Without the id in the key, staying on this
+          exact URL through a log-out/log-in-as-someone-else (no navigation
+          in between) kept the previous account's typed-but-unsaved values
+          in place -- clicking Save then wrote them onto whichever account
+          the session had switched to, not the one they were typed for.
+          location.pathname used to be in this key too, but that's the same
+          string as this route's own :step param -- it was forcing a full
+          remount (silently wiping the in-progress draft) on every single
+          step-to-step rail navigation inside the wizard, defeating the
+          "draft persists across steps" behavior EditAccountStep otherwise
+          already implements. Dropped; builder?.id alone still catches the
+          actual account-switch case this key exists for. */}
+      <Route path="/settings/edit-step/:step" element={<RequireAuth><EditAccountStep key={builder?.id} /></RequireAuth>} />
       <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
         <Route path="/missions" element={<Missions />} />
         <Route path="/missions/:id" element={<MissionDetail />} />
@@ -127,7 +173,7 @@ function RequireVAuth({ children }) {
   const { validator, loading } = useVAuth();
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  if (!validator) return <Navigate to="/validator/login" state={{ from: location.pathname }} replace />;
+  if (!validator) { rememberPreLoginPath(location.pathname); return <Navigate to="/validator/login" replace />; }
   
   if ((!validator.validator_type || !validator.city) && !location.pathname.includes("/validator/onboarding")) {
     return <Navigate to="/validator/onboarding" replace />;
@@ -137,13 +183,20 @@ function RequireVAuth({ children }) {
 }
 
 function ValidatorRoutes() {
-  const { loading } = useVAuth();
+  const { loading, validator } = useVAuth();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
 
   return (
     <Routes>
       <Route path="login" element={<VLogin />} />
         <Route path="onboarding" element={<RequireVAuth><VOnboarding /></RequireVAuth>} />
+      {/* Standalone, outside VLayout -- same full-screen wizard treatment as
+          the onboarding wizard itself and the builder side's own
+          /settings/edit-step/:step. key={validator?.id} only (not the path,
+          which contains :step) so navigating between steps here doesn't
+          remount and wipe the in-progress draft -- same fix App.jsx's
+          builder route already needed for the identical bug. */}
+      <Route path="settings/edit-step/:step" element={<RequireVAuth><VEditAccountStep key={validator?.id} /></RequireVAuth>} />
 
       <Route path="reset-password" element={<ResetPassword apiClient={vapi} loginPath="/validator/login" />} />
       <Route path="oauth-callback" element={<VOAuthCallback />} />
@@ -175,7 +228,7 @@ function RequireAAuth({ children }) {
   const { admin, loading } = useAAuth();
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  if (!admin) return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
+  if (!admin) { rememberPreLoginPath(location.pathname); return <Navigate to="/admin/login" replace />; }
   return children;
 }
 

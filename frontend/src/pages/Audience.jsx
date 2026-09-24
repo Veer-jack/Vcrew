@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
-import { Avatar, Btn, Empty, KpiCard, MatchRing } from "../components/ui";
+import { Avatar, Btn, Empty, KpiCard } from "../components/ui";
 import { api } from "../api/client";
 import { InviteToMissionModal } from "../components/InviteToMissionModal";
 import { Modal } from "../components/Modal";
@@ -10,6 +11,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useTranslation } from "../i18n/index.jsx";
 import { trFilterLabel } from "../data/audienceFilterLabels";
+import { ValidatorProfileDrawer } from "../components/ValidatorProfileDrawer";
 
 const EMPTY_SEL = (filters) => Object.fromEntries(Object.keys(filters).map(k => [k, new Set()]));
 
@@ -71,13 +73,46 @@ function selToProfilePatch(sel, filters) {
   };
 }
 
+// Real match against whatever the builder actually selected, instead of a
+// fixed per-validator "profile richness" score — each selected filter group
+// (Geography, Role, Professional, Interests, and each Demographics subgroup
+// independently) counts as one vote, using the exact same matchOption() the
+// results list itself filters by, so "100% match" and "shows up in results"
+// can never disagree. No filters selected at all means there's nothing to
+// differentiate members by, so match is undefined rather than a fake 100.
+function computeMatch(m, sel, filters) {
+  const groups = [];
+  // matchOption() already treats "Worldwide"/"Remote" as a universal match
+  // (see line ~101) -- voting on the raw selection directly, instead of
+  // stripping those out first, lets a Worldwide-only selection register as
+  // a real (if trivially satisfied) vote instead of an empty one, which
+  // used to fall through to the "no filters selected" case and show "--"
+  // instead of the 100% every validator legitimately gets there.
+  const vote = (g, opts) => { if (opts && opts.size > 0) groups.push([...opts].some(o => matchOption(m, g, o))); };
+  vote("Geography", sel.Geography);
+  vote("ValidationCrew Role", sel["ValidationCrew Role"]);
+  vote("Professional", sel.Professional);
+  vote("Interests", sel.Interests);
+  for (const key of ["Age", "Gender", "Income Bracket", "Marital Status", "Has Kids"]) {
+    const opts = sel.Demographics ? new Set([...sel.Demographics].filter(o => filters.Demographics?.[key]?.includes(o))) : null;
+    vote("Demographics", opts);
+  }
+  if (!groups.length) return null;
+  return Math.round((groups.filter(Boolean).length / groups.length) * 100);
+}
+
 const matchOption = (m, g, o) => {
   if (g === "Geography") {
     const qGeo = o.toLowerCase();
     if (qGeo.includes("worldwide") || qGeo.includes("remote")) return true;
-    const c = m.city.toLowerCase();
-    if (c.includes(qGeo)) return true;
-    if (COUNTRY_MAP[o] && COUNTRY_MAP[o].some(city => c.includes(city.toLowerCase()))) return true;
+    // Same four-field OR the backend's real match-count query runs (see
+    // buildAudienceClauses in backend/src/routes/audience.js) — checking
+    // only `city` here let a validator matched server-side by state/country
+    // alone silently disappear from this list, producing a mismatched count
+    // for the identical filters.
+    const fields = [m.city, m.addressCity, m.addressState, m.addressCountry];
+    if (fields.some(f => f && f.toLowerCase().includes(qGeo))) return true;
+    if (COUNTRY_MAP[o] && COUNTRY_MAP[o].some(city => (m.city || "").toLowerCase().includes(city.toLowerCase()))) return true;
     return false;
   }
   if (g === "ValidationCrew Role") return m.role === o;
@@ -89,6 +124,45 @@ const matchOption = (m, g, o) => {
   }
   return false;
 };
+
+// A validator with a long expertise list wrapped to many rows and blew the
+// card's height out -- the full list is only ever a click away anyway (View
+// Profile's drawer shows every tag), so this clamps to whatever fits within
+// the first 2 rows and folds the rest into a "+N" chip instead. Same real-
+// layout-measurement technique as Settings' ChipField (a fixed item-count
+// cutoff doesn't work consistently across validators with different
+// tag-label widths).
+function ExpertiseChips({ items, t }) {
+  const rowRef = useRef(null);
+  const [visibleCount, setVisibleCount] = useState(null);
+  // Primitive fingerprint, not the array itself -- the caller passes a
+  // freshly-mapped array literal every render, so depending on `items` by
+  // reference would re-run this (and its setState) every render, looping.
+  const itemsKey = (items || []).join("|");
+
+  useLayoutEffect(() => {
+    if (!rowRef.current) { setVisibleCount(null); return; }
+    const chips = Array.from(rowRef.current.children);
+    if (chips.length < 2) { setVisibleCount(null); return; }
+    const tops = [...new Set(chips.map(c => c.offsetTop))];
+    if (tops.length <= 2) { setVisibleCount(null); return; } // already fits within 2 rows
+    const thirdRowTop = tops[2];
+    const fitCount = chips.filter(c => c.offsetTop < thirdRowTop).length;
+    setVisibleCount(Math.max(1, fitCount - 1)); // reserve a slot for the +N chip
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey]);
+
+  const shown = visibleCount != null ? items.slice(0, visibleCount) : items;
+  const remaining = visibleCount != null ? items.length - visibleCount : 0;
+  return (
+    <div ref={rowRef} className="aud-tags">
+      {shown.map((e, i) => <span key={`${e}-${i}`} className="mtag accent">{trFilterLabel(t, e)}</span>)}
+      {/* Plain text, not another chip -- sits right after the last real one
+          instead of being pushed out to the row's far edge. */}
+      {remaining > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", alignSelf: "center" }}>+{remaining}</span>}
+    </div>
+  );
+}
 
 export default function AudienceExplorer() {
   const { t } = useTranslation();
@@ -108,9 +182,15 @@ export default function AudienceExplorer() {
   const [citySuggestion, setCitySuggestion] = useState("");
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [sortKey, setSortKey] = useState("match");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef(null);
+  const [sortMenuPos, setSortMenuPos] = useState(null);
 
   useEffect(() => {
-    setIsLoading(true);
+    // isLoading already starts true (useState(true) above) and this effect
+    // only ever runs once on mount ([] deps) -- setting it again here was
+    // dead code that just tripped the "no setState synchronously in an
+    // effect" lint rule for no actual behavior change.
     api.audience().then(res => {
       // 1) Find custom cities, occs, and interests from DB that don't match standard lists
       const stdGeo = new Set(Object.values(res.filters.Geography || {}).flat().map(s => s.toLowerCase()));
@@ -233,28 +313,18 @@ export default function AudienceExplorer() {
 
   const results = useMemo(() => {
     if (!sel.Geography) return members;
-    return members.filter(m => {
-      const specificGeo = sel.Geography.size > 0 ? [...sel.Geography].filter(v => !/worldwide|remote/i.test(v)) : [];
-      const geo = sel.Geography.size === 0 || (specificGeo.length === 0 ? true : specificGeo.some(o => matchOption(m, "Geography", o)));
-      const role = !sel["ValidationCrew Role"] || sel["ValidationCrew Role"].size === 0 || [...sel["ValidationCrew Role"]].some(o => matchOption(m, "ValidationCrew Role", o));
-      const occ = !sel.Professional || sel.Professional.size === 0 || [...sel.Professional].some(o => matchOption(m, "Professional", o));
-      const int = sel.Interests.size === 0 || [...sel.Interests].some(o => matchOption(m, "Interests", o));
-      const ageOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.Age?.includes(o)));
-      const genOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.Gender?.includes(o)));
-      const incOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Income Bracket"]?.includes(o)));
-      const marOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Marital Status"]?.includes(o)));
-      const kidOpts = new Set([...(sel.Demographics || [])].filter(o => filters.Demographics?.["Has Kids"]?.includes(o)));
-
-      const demoAge = ageOpts.size === 0 || [...ageOpts].some(o => matchOption(m, "Demographics", o));
-      const demoGen = genOpts.size === 0 || [...genOpts].some(o => matchOption(m, "Demographics", o));
-      const demoInc = incOpts.size === 0 || [...incOpts].some(o => matchOption(m, "Demographics", o));
-      const demoMar = marOpts.size === 0 || [...marOpts].some(o => matchOption(m, "Demographics", o));
-      const demoKids = kidOpts.size === 0 || [...kidOpts].some(o => matchOption(m, "Demographics", o));
-      const demo = demoAge && demoGen && demoInc && demoMar && demoKids;
-      
-      const qq = !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase());
-      return geo && role && occ && int && demo && qq;
-    }).sort((a, b) => {
+    // Used to require matching every single selected filter group (a hard
+    // AND across Geography/Role/Professional/Interests/each Demographics
+    // subgroup) to show up at all -- a validator who matched 2 of 3 selected
+    // groups was excluded outright, even though computeMatch would've
+    // scored them a very reasonable 67%. Now anyone at or above a 75% match
+    // shows up, using the exact same per-group vote computeMatch already
+    // does, so "shows up in results" and "match%" can't disagree.
+    return members
+      .filter(m => !q || (m.name + m.occ + m.city).toLowerCase().includes(q.toLowerCase()))
+      .map(m => ({ ...m, match: computeMatch(m, sel, filters) }))
+      .filter(m => m.match === null || m.match >= 75)
+      .sort((a, b) => {
       if (sortKey === "trust") return (b.trust || 0) - (a.trust || 0);
       if (sortKey === "name") return a.name.localeCompare(b.name);
       return b.match - a.match;
@@ -287,7 +357,7 @@ export default function AudienceExplorer() {
       m.city,
       m.role,
       m.trust > 0 ? m.trust.toString() : t("audience.establishingTrust", null, "Establishing Trust"),
-      `${m.match}%`,
+      typeof m.match === "number" ? `${m.match}%` : "—",
       m.verified ? t("audience.yes", null, "Yes") : t("audience.no", null, "No")
     ]);
 
@@ -306,12 +376,17 @@ export default function AudienceExplorer() {
   };
 
   const verifiedPct = members.length ? Math.round((members.filter(a => a.verified).length / members.length) * 100) : 0;
+  // Averaged over the currently matching set (results), same cohort the
+  // "Matching members" card counts — previously a hardcoded "88" with no
+  // relationship to who's actually in the pool.
+  const avgTrust = results.length ? Math.round(results.reduce((s, m) => s + (m.trust || 0), 0) / results.length) : 0;
+  const activeThisWeekPct = results.length ? Math.round((results.filter(m => m.activeThisWeek).length / results.length) * 100) : 0;
+  const hasAnyFilter = Object.values(sel).some(s => s.size > 0);
 
   return (
     <div className="page rise">
       <div className="ph">
         <div>
-          <span className="eyebrow">{t("audience.discovery", null, "Discovery")}</span>
           <h1>{t("audience.title", null, "Audience Explorer")}</h1>
           <p className="lead">{t("audience.lead", null, "Search verified members and layer filters to find exactly who should validate your product.")}</p>
         </div>
@@ -324,18 +399,32 @@ export default function AudienceExplorer() {
           <button className="backlink" style={{ fontSize: 13, color: "var(--accent)" }} onClick={() => { setSel(EMPTY_SEL(filters)); setQ(""); setUsingDefaults(false); }}>{t("actions.resetEveryone", null, "Reset to see everyone")}</button>
         </div>
       )}
-      {!usingDefaults && Object.keys(builder?.profile || {}).length > 0 && (
+      {/* "Custom audience" implies deliberate filters are active -- right
+          after "Reset to see everyone" there are none at all, so that
+          copy was actively misleading (looked like the reset hadn't
+          worked). Split into the two states it was conflating. */}
+      {!usingDefaults && hasAnyFilter && Object.keys(builder?.profile || {}).length > 0 && (
         <div className="row between" style={{ alignItems: "center", padding: "10px 16px", background: "var(--panel)", border: "1px dashed var(--border)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: 13 }}>
           <span className="muted" style={{ fontWeight: 500 }}><Icon name="info" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />{t("audience.customAudience", null, "You are exploring a custom audience.")}</span>
           <button className="backlink" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500 }} onClick={() => setShowRestoreModal(true)}>{t("actions.restoreDefaults", null, "Restore profile defaults")}</button>
         </div>
       )}
+      {!usingDefaults && !hasAnyFilter && Object.keys(builder?.profile || {}).length > 0 && (
+        <div className="row between" style={{ alignItems: "center", padding: "10px 16px", background: "var(--panel)", border: "1px dashed var(--border)", borderRadius: "var(--radius)", marginBottom: 16, fontSize: 13 }}>
+          <span className="muted" style={{ fontWeight: 500 }}><Icon name="users" size={14} style={{ verticalAlign: -2, marginRight: 6 }} />{t("audience.showingEveryone", null, "Showing everyone — no filters applied.")}</span>
+          <button className="backlink" style={{ fontSize: 13, color: "var(--accent)", fontWeight: 500 }} onClick={() => setShowRestoreModal(true)}>{t("actions.restoreDefaults", null, "Restore profile defaults")}</button>
+        </div>
+      )}
 
+      {/* "Matching" implies matched against something -- with every checkbox
+          unticked (no onboarding-selected audience, and nothing picked here
+          either) there's no actual criteria being matched, just the raw
+          pool, so the honest label there is "Available" instead. */}
       <div className="kpis sec" style={{ gridTemplateColumns: "repeat(4,1fr)" }}>
-        <KpiCard label={t("audience.matchingMembers", null, "Matching members")} value={results.length} icon="users" />
+        <KpiCard label={hasAnyFilter ? t("audience.matchingMembers", null, "Matching members") : t("audience.availableMembers", null, "Available members")} value={results.length} icon="users" />
         <KpiCard label={t("audience.verified", null, "Verified")} value={verifiedPct} unit="%" icon="shield" tone="green" />
-        <KpiCard label={t("audience.avgTrustScore", null, "Avg trust score")} value="88" icon="award" />
-        <KpiCard label={t("audience.activeThisWeek", null, "Active this week")} value="71%" icon="bolt" tone="amber" />
+        <KpiCard label={t("audience.avgTrustScore", null, "Avg trust score")} value={avgTrust} icon="award" />
+        <KpiCard label={t("audience.activeThisWeek", null, "Active this week")} value={activeThisWeekPct} unit="%" icon="bolt" tone="amber" />
       </div>
 
       <div className="aud">
@@ -407,18 +496,65 @@ export default function AudienceExplorer() {
           
           <div className="toolbar">
             <div className="seg-search"><Icon name="search" size={16} /><input placeholder={citySuggestion || t("audience.searchPlaceholder", null, "Search by name, role, city…")} value={q} onChange={e => { setQ(e.target.value); setUsingDefaults(false); }} /></div>
-            <span className="muted" style={{ fontSize: 13 }}>{results.length} {t("audience.results", null, "results")}</span>
             <span className="grow" />
-            <select
-              value={sortKey}
-              onChange={e => setSortKey(e.target.value)}
+            {/* Was a native <select> -- its own OS-drawn control frame
+                showed as a second box on top of any custom border/focus
+                styling in some browsers (Discover's own Sort hit the same
+                thing), and its native focus ring stays visible until the
+                element genuinely loses focus, not just when its options
+                popup closes, so dismissing it by clicking away still left
+                it looking "selected". A plain button + portal-rendered
+                menu sidesteps both: no native chrome to fight, and the
+                highlight is driven directly by sortMenuOpen state instead
+                of DOM focus, so it clears the instant the menu closes.
+                Portaled to document.body rather than positioned locally --
+                the result cards below (.aud-card.rise) get their own
+                stacking context from their entrance animation, and a
+                later sibling stacking context always paints over an
+                earlier one regardless of any z-index set inside it. */}
+            <button
+              ref={sortBtnRef}
+              type="button"
+              onClick={() => {
+                if (!sortMenuOpen) {
+                  const r = sortBtnRef.current.getBoundingClientRect();
+                  setSortMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+                }
+                setSortMenuOpen(o => !o);
+              }}
               aria-label={t("audience.sortBy", null, "Sort by")}
-              style={{ fontSize: 13, fontWeight: 500, marginRight: 16, border: "1px solid var(--border)", borderRadius: 6, padding: "5px 8px", background: "var(--panel)", color: "inherit", cursor: "pointer" }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, marginRight: 16, border: `1px solid ${sortMenuOpen ? "var(--accent)" : "var(--border)"}`, boxShadow: sortMenuOpen ? "var(--ring)" : "none", borderRadius: 6, padding: "5px 8px", background: "var(--panel)", color: "inherit", cursor: "pointer" }}
             >
-              <option value="match">{t("audience.sortByMatch", null, "Sort by: Match")}</option>
-              <option value="trust">{t("audience.sortByTrust", null, "Sort by: Trust")}</option>
-              <option value="name">{t("audience.sortByName", null, "Sort by: Name")}</option>
-            </select>
+              {sortKey === "trust" ? t("audience.sortByTrust", null, "Sort by: Trust") : sortKey === "name" ? t("audience.sortByName", null, "Sort by: Name") : t("audience.sortByMatch", null, "Sort by: Match")}
+              <Icon name="chevronDown" size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+            </button>
+            {sortMenuOpen && sortMenuPos && createPortal(
+              <>
+                <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setSortMenuOpen(false)} />
+                <div role="menu" style={{
+                  position: "fixed", top: sortMenuPos.top, right: sortMenuPos.right, zIndex: 50, minWidth: 170,
+                  background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                  boxShadow: "var(--shadow-md)", padding: 6,
+                }}>
+                  {[{ k: "match", l: t("audience.sortByMatch", null, "Sort by: Match") }, { k: "trust", l: t("audience.sortByTrust", null, "Sort by: Trust") }, { k: "name", l: t("audience.sortByName", null, "Sort by: Name") }].map(s => {
+                    const on = s.k === sortKey;
+                    return (
+                      <button
+                        key={s.k}
+                        role="menuitemradio"
+                        aria-checked={on}
+                        type="button"
+                        onClick={() => { setSortKey(s.k); setSortMenuOpen(false); }}
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                      >
+                        {s.l}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>,
+              document.body
+            )}
             <Btn variant="ghost" size="sm" icon="download" onClick={exportPDF} disabled={results.length === 0}>{t("actions.exportPdf", null, "Export PDF")}</Btn>
           </div>
           <div style={{ transition: "opacity 0.3s ease", opacity: isLoading ? 0.3 : 1, pointerEvents: isLoading ? "none" : "auto" }}>
@@ -428,28 +564,75 @@ export default function AudienceExplorer() {
               <div className="aud-grid">
                 {results.slice(0, visibleCount).map((m) => (
                   <div className="aud-card rise" key={m.id}>
-                  <div className="aud-card-top">
+                  {/* Reordered per tester feedback: name, then a single
+                      occupation | location | role line, then the trust pill
+                      + profile completion together, then match% last -- was
+                      trust pill/match% crammed into the name/occupation
+                      rows themselves. */}
+                  <div className="row gap-3" style={{ alignItems: "flex-start" }}>
                     <Avatar name={m.name} size={44} />
-                    <MatchRing value={m.match} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="aud-name" style={{ minWidth: 0 }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</span>
+                        {m.verified && <span className="verif" style={{ flexShrink: 0 }}><Icon name="checkCircle" size={13} /></span>}
+                      </div>
+                      <div className="aud-sub" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {[trFilterLabel(t, m.occ), trFilterLabel(t, m.city), trFilterLabel(t, m.role)].filter(Boolean).join(" | ")}
+                      </div>
+                    </div>
                   </div>
-                  <div className="aud-name">{m.name} {m.verified && <span className="verif"><Icon name="checkCircle" size={13} /></span>}</div>
-                  <div className="aud-sub">{trFilterLabel(t, m.occ)}<br />{trFilterLabel(t, m.city)} · <span className="mono">{trFilterLabel(t, m.role)}</span></div>
-                  <div className="aud-tags">{m.expertise.map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
-                  <div className="aud-trust-row">
+                  {/* Pulled out of the indented name column (which sits to
+                      the right of the avatar) so these start at the card's
+                      true left edge, same as Bio below -- nested under the
+                      name column, they were indented ~56px further right
+                      than Bio, so no amount of spacing between items here
+                      could ever line the two up. */}
+                  <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 8 }}>
                     {m.trust > 0 ? (
-                      <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}>
+                      <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
                         <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
                       </span>
                     ) : (
-                      <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none" }}>
+                      <span className="mtag" style={{ background: "var(--accent-weak)", color: "var(--accent)", border: "none", flexShrink: 0 }}>
                         <Icon name="bolt" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.establishingTrust", null, "Establishing Trust")}
                       </span>
                     )}
+                    <span className="mtag" style={{ flexShrink: 0 }}>
+                      {t("audience.missionsDoneCount", { count: m.missionsDone || 0 }, `${m.missionsDone || 0} mission${(m.missionsDone || 0) === 1 ? "" : "s"} done`)}
+                    </span>
                   </div>
-                  <div className="muted" style={{ fontSize: 11.5 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</div>
+                  <div className="row" style={{ alignItems: "center", gap: 28, marginTop: 6 }}>
+                    {/* .mtag has 9px of left padding inside its pill shape
+                        (see builder.css), so "Building Trust"'s own text
+                        sits 9px in from the row's left edge -- matching
+                        that here lines this line's first letter up with
+                        the row above instead of both looking offset even
+                        though their containers start at the same x. */}
+                    {/* Match% dropped per tester feedback -- was the only
+                        content alongside Profile complete% on this row. */}
+                    <span className="muted" style={{ fontSize: 11.5, fontWeight: 600, flexShrink: 0, marginLeft: 9 }}>{t("audience.profileComplete", { pct: m.profileCompletion }, `Profile ${m.profileCompletion}% complete`)}</span>
+                  </div>
+                  {/* Bio, clamped to 2 lines with an ellipsis -- wasn't shown
+                      on the card at all before, only after opening View
+                      Profile. Same clamp technique already used for bio-like
+                      text elsewhere (ATesterApplications.jsx, Discover.jsx). */}
+                  {m.bio && (
+                    <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {m.bio}
+                    </div>
+                  )}
+                  {/* Blue accent chips (.mtag.accent), matching the reference
+                      -- was the plain gray .mtag look every other tag list
+                      already moved away from earlier this session. */}
+                  <ExpertiseChips items={m.expertise} t={t} />
+                  {/* Invite is the action a builder actually comes here to
+                      take, so it's the filled/primary button now -- the
+                      reference has View Profile filled instead, but the
+                      tester asked for these two swapped from how it shows
+                      there. */}
                   <div className="aud-card-actions">
-                    <Btn variant="ghost" size="sm" icon="eye" onClick={() => setViewProfileValidator(m)}>{t("actions.viewProfile", null, "View Profile")}</Btn>
-                    <Btn variant="ghost" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
+                    <Btn size="sm" icon="eye" style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent" }} onClick={() => setViewProfileValidator(m)}>{t("actions.view", null, "View")}</Btn>
+                    <Btn variant="primary" size="sm" icon="userplus" onClick={() => setInviteModalValidator(m)}>{t("actions.invite", null, "Invite")}</Btn>
                   </div>
                 </div>
               ))}
@@ -468,37 +651,12 @@ export default function AudienceExplorer() {
         <InviteToMissionModal validator={inviteModalValidator} onClose={() => setInviteModalValidator(null)} />
       )}
       {viewProfileValidator && (
-        <Modal title={t("audience.viewProfileTitle", null, "Validator Profile")} onClose={() => setViewProfileValidator(null)} width={440}>
-          <div style={{ padding: "0 20px 20px" }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 18 }}>
-              <Avatar name={viewProfileValidator.name} size={52} />
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", gap: 6 }}>
-                  {viewProfileValidator.name}
-                  {viewProfileValidator.verified && <span className="verif"><Icon name="checkCircle" size={14} /> {t("badge.verifiedBuilder", null, "Verified")}</span>}
-                </div>
-                <div className="muted" style={{ fontSize: 13 }}>{trFilterLabel(t, viewProfileValidator.occ)} · {trFilterLabel(t, viewProfileValidator.city)} · <span className="mono">{trFilterLabel(t, viewProfileValidator.role)}</span></div>
-              </div>
-            </div>
-            <div className="row gap-3" style={{ marginBottom: 18 }}>
-              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
-                <MatchRing value={viewProfileValidator.match} />
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.matchScore", null, "Match")}</div>
-              </div>
-              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
-                <b style={{ fontSize: 20 }}>{viewProfileValidator.trust > 0 ? viewProfileValidator.trust : "—"}</b>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.trustScore", null, "Trust score")}</div>
-              </div>
-              <div className="card" style={{ flex: 1, padding: 12, textAlign: "center" }}>
-                <b style={{ fontSize: 20 }}>{viewProfileValidator.profileCompletion}%</b>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 6 }}>{t("audience.profileCompleteShort", null, "Profile complete")}</div>
-              </div>
-            </div>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>{t("audience.expertiseTags", null, "Expertise")}</div>
-            <div className="aud-tags" style={{ marginBottom: 20 }}>{(viewProfileValidator.expertise || []).map(e => <span key={e} className="mtag">{trFilterLabel(t, e)}</span>)}</div>
-            <Btn variant="primary" style={{ width: "100%" }} icon="userplus" onClick={() => { setInviteModalValidator(viewProfileValidator); setViewProfileValidator(null); }}>{t("actions.invite", null, "Invite")}</Btn>
-          </div>
-        </Modal>
+        <ValidatorProfileDrawer
+          validator={viewProfileValidator}
+          t={t}
+          onClose={() => setViewProfileValidator(null)}
+          onInvite={(v) => { setInviteModalValidator(v); setViewProfileValidator(null); }}
+        />
       )}
       {showRestoreModal && (
         <Modal title={t("audience.restoreTitle", null, "Restore your default audience?")} onClose={() => setShowRestoreModal(false)} width={420}>

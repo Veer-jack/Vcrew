@@ -19,12 +19,11 @@ function NextCard({ task, vtypes, onOpen }) {
         </div>
         <div className="row gap-2" style={{ alignItems: "baseline" }}><h3 style={{ margin: 0, fontSize: 19, fontWeight: 800, letterSpacing: "-.02em" }}>{task.product}</h3><span className="muted" style={{ fontSize: 14 }}>· {task.tagline}</span></div>
         <div className="row gap-4 wrap faint" style={{ fontSize: 12.5, marginTop: 8 }}>
-          <span className="row gap-2"><Icon name="clock" size={14} />~{task.minutes} min</span>
           <span className="row gap-2"><Icon name="clock" size={14} />{deadlineLabel(task.deadline)}</span>
         </div>
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10, textAlign: "right" }}>
-        <VReward amount={task.reward} big />
+        <VReward amount={task.reward} type={task.rewardType} big />
         <button className="btn btn-primary">{t("actions.startValidating", null, "Start validating")} <Icon name="arrowRight" /></button>
       </div>
     </div>
@@ -81,7 +80,7 @@ export default function Submitted() {
           </div>
           <div style={{ textAlign: "right" }}>
             <div className="eyebrow">{t("missions.reward", null, "Reward")}</div>
-            <VReward amount={task.reward} big />
+            <VReward amount={task.reward} type={task.rewardType} big />
             <div className="faint" style={{ fontSize: 11 }}>{t("missions.pendingApproval", null, "pending approval")}</div>
           </div>
         </div>

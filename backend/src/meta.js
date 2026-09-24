@@ -14,14 +14,14 @@ export const CATEGORIES = [
 ];
 
 export const PTYPES = [
-  { id: "survey",    label: "Written Survey",          icon: "list",    desc: "10–15 structured questions",  est: "8 min" },
-  { id: "ptest",     label: "Guided Task Flow",        icon: "flask",   desc: "Guided tasks + feedback",      est: "25 min" },
-  { id: "interview", label: "Live 1:1 Video Call",     icon: "mic",     desc: "Scheduled 1:1 call",           est: "30 min" },
-  { id: "focus",     label: "Moderated Group Session", icon: "users",   desc: "Moderated 6–8 person session", est: "45 min" },
-  { id: "trial",     label: "Multi-Day Diary Study",   icon: "gift",    desc: "Use over several days",        est: "7 days" },
-  { id: "video",     label: "Screen Recording Walkthrough", icon: "video", desc: "Recorded walkthrough",      est: "20 min" },
-  { id: "webtest",   label: "Website Navigation Audit",icon: "browser", desc: "Think-aloud browse",           est: "15 min" },
-  { id: "apptest",   label: "App Install & Usage Test",icon: "phone",   desc: "Install + task flows",         est: "20 min" },
+  { id: "survey",    label: "Written Survey",          icon: "list",    desc: "Structured questionnaire" },
+  { id: "ptest",     label: "Guided Task Flow",        icon: "flask",   desc: "Guided tasks + feedback" },
+  { id: "interview", label: "Live 1:1 Video Call",     icon: "mic",     desc: "Scheduled 1:1 call" },
+  { id: "focus",     label: "Moderated Group Session", icon: "users",   desc: "Moderated 6–8 person session" },
+  { id: "trial",     label: "Multi-Day Diary Study",   icon: "gift",    desc: "Use over several days" },
+  { id: "video",     label: "Screen Recording Walkthrough", icon: "video", desc: "Recorded walkthrough" },
+  { id: "webtest",   label: "Website Navigation Audit",icon: "browser", desc: "Think-aloud browse" },
+  { id: "apptest",   label: "App Install & Usage Test",icon: "phone",   desc: "Install + task flows" },
 ];
 
 // Per-participation-type guidance for AI task generation: how tasks of this
@@ -77,7 +77,7 @@ export const TASK_GUIDANCE = {
         steps: ["Consider the pricing or value described", "Answer honestly about what you'd realistically pay"],
         questions: [
           { id: "q4", text: "What's a fair price for this?", type: "multiple_choice", options: ["I wouldn't pay for it", "Low price", "Mid-range price", "Premium price"] },
-          { id: "q5", text: "Would you recommend this to a friend?", type: "yes_no_detail" },
+          { id: "q5", text: "Would you recommend this to a friend?", type: "yes_no_detail", detailOn: "no" },
           { id: "q6", text: "How well does this solve a real problem for you?", type: "rating", scale: 5 },
         ],
         proof: null, min_time_seconds: 150,
@@ -142,7 +142,7 @@ export const TASK_GUIDANCE = {
         id: 2, title: "Edge case & error handling", severity: "imp", section: "edge_cases_errors",
         steps: ["Try an invalid input somewhere in the flow (blank field, wrong format)", "Try navigating away mid-flow and returning", "Note what happens"],
         questions: [
-          { id: "q4", text: "Did the product handle your invalid input gracefully?", type: "yes_no_detail" },
+          { id: "q4", text: "Did the product handle your invalid input gracefully?", type: "yes_no_detail", detailOn: "no" },
           { id: "q5", text: "How clear were any error messages?", type: "rating", scale: 5 },
         ],
         proof: "screenshot", min_time_seconds: 200,
@@ -198,6 +198,137 @@ export const TASK_GUIDANCE = {
           { id: "q4", text: "How likely are you to actually switch from your current approach?", type: "rating", scale: 5 },
         ],
         proof: null, min_time_seconds: 200,
+      },
+    ],
+  },
+  // focus/trial/video/webtest/apptest have no `sections` yet (added on dev
+  // independently of main's section-taxonomy rewrite above) -- buildTaskPrompt
+  // already falls back to its plain, non-sectioned instructions for any ptype
+  // without one, so these are left as-is rather than force-fit into the new
+  // shape.
+  focus: {
+    promptFragment: "This mission is a FOCUS GROUP discussion. Generate tasks framed as discussion prompts where the validator writes out what they would contribute in a group conversation (comparing opinions, reacting to hypothetical alternative views). Do not require screenshot proof.",
+    proofDefault: null,
+    taskCount: [3, 4],
+    fallback: [
+      {
+        id: 1, title: "Group discussion: initial reactions", severity: "imp",
+        steps: ["Imagine you're in a room with 5-6 other people discussing this product for the first time", "Write out what you'd say when asked to share your first reaction"],
+        questions: [
+          { id: "q1", text: "What's your unfiltered first reaction?", type: "text" },
+          { id: "q2", text: "Which best describes your overall reaction?", type: "multiple_choice", options: ["Excited", "Curious", "Skeptical", "Indifferent"] },
+        ],
+        proof: null, min_time_seconds: 240,
+      },
+      {
+        id: 2, title: "Group discussion: comparing alternatives", severity: "imp",
+        steps: ["Think about what you currently use instead of this product", "Write your contribution as if debating the pros and cons with the group"],
+        questions: [
+          { id: "q3", text: "How does this compare to what you use today?", type: "text" },
+          { id: "q4", text: "Would this replace your current solution?", type: "yes_no_detail", detailOn: "no" },
+        ],
+        proof: null, min_time_seconds: 240,
+      },
+    ],
+  },
+  trial: {
+    promptFragment: "This mission is an extended PRODUCT TRIAL used over several days. Generate tasks that reflect usage over time (daily habits, evolving opinion) rather than a single session, and include at least one task specifically about whether the validator would continue using the product after the trial ends. Require screenshot proof.",
+    proofDefault: "screenshot",
+    taskCount: [3, 4],
+    fallback: [
+      {
+        id: 1, title: "Day-to-day usage log", severity: "imp",
+        steps: ["Use the product as part of your normal routine for the trial period", "Keep brief notes each time you use it"],
+        questions: [
+          { id: "q1", text: "Describe how you actually used it (not how you think you should).", type: "text" },
+          { id: "q2", text: "How well did it fit into your existing routine?", type: "rating", scale: 5 },
+        ],
+        proof: "screenshot", min_time_seconds: 200,
+      },
+      {
+        id: 2, title: "Extended trial reflection", severity: "crit",
+        steps: ["Reflect on your usage across the whole trial period", "Consider whether you'd keep using it after the trial ends"],
+        questions: [
+          { id: "q3", text: "Did your opinion change from day 1 to now?", type: "yes_no_detail" },
+          { id: "q4", text: "Would you continue using this after the trial?", type: "multiple_choice", options: ["Yes", "No", "Maybe, if it improved"] },
+        ],
+        proof: null, min_time_seconds: 200,
+      },
+    ],
+  },
+  video: {
+    promptFragment: "This mission requires a RECORDED VIDEO WALKTHROUGH. Generate tasks that instruct the validator to record themselves narrating their actions out loud, and require proof for each task (they will upload the recording as proof).",
+    proofDefault: "screenshot",
+    taskCount: [2, 3],
+    fallback: [
+      {
+        id: 1, title: "Recorded walkthrough of first use", severity: "crit",
+        steps: ["Record yourself (screen and voice) using the product for the first time", "Narrate your thoughts out loud as you go — don't filter yourself"],
+        questions: [
+          { id: "q1", text: "Summarize your recording — what moments stood out?", type: "text" },
+          { id: "q2", text: "How natural did the experience feel?", type: "rating", scale: 5 },
+        ],
+        proof: "screenshot", min_time_seconds: 300,
+      },
+      {
+        id: 2, title: "Key feature deep-dive recording", severity: "imp",
+        steps: ["Pick the single most important feature", "Record a short walkthrough demonstrating how you'd use it, explaining your reasoning aloud"],
+        questions: [
+          { id: "q3", text: "What did you struggle to explain or demonstrate?", type: "text" },
+          { id: "q4", text: "How confident do you feel using this feature?", type: "rating", scale: 5 },
+        ],
+        proof: "screenshot", min_time_seconds: 300,
+      },
+    ],
+  },
+  webtest: {
+    promptFragment: "This mission is WEBSITE TESTING via think-aloud browsing. Generate tasks about navigation, findability, and visual or layout issues specific to a website, and require screenshot proof. If real website context is provided below (fetched page title, description, or section headings), reference it directly — name actual page sections or the site's stated purpose — rather than writing generic placeholder tasks.",
+    proofDefault: "screenshot",
+    taskCount: [3, 5],
+    fallback: [
+      {
+        id: 1, title: "Homepage first impression & navigation", severity: "crit",
+        steps: ["Land on the homepage without prior context", "Try to find a key piece of information or page using only navigation, no search", "Note every click you make"],
+        questions: [
+          { id: "q1", text: "How easy was navigation?", type: "rating", scale: 5 },
+          { id: "q2", text: "Did you find what you were looking for?", type: "yes_no_detail", detailOn: "no" },
+          { id: "q3", text: "What confused you most about the layout?", type: "text" },
+        ],
+        proof: "screenshot", min_time_seconds: 200,
+      },
+      {
+        id: 2, title: "Responsive & broken-link check", severity: "imp",
+        steps: ["Resize your browser window or check on mobile view", "Click through at least 5 links or buttons across the site", "Note anything broken, slow, or misaligned"],
+        questions: [
+          { id: "q4", text: "Did you find any broken links or layout issues?", type: "yes_no_detail" },
+          { id: "q5", text: "List anything that looked visually off.", type: "text" },
+        ],
+        proof: "screenshot", min_time_seconds: 220,
+      },
+    ],
+  },
+  apptest: {
+    promptFragment: "This mission is MOBILE APP TESTING. Generate tasks about install flow, permissions, and app-specific behaviors (backgrounding, notifications, offline mode), and require screenshot proof. Tailor steps to the specific platform(s) named above — iOS and Android differ in back-navigation, permission dialogs, and gesture patterns — and if the platform is \"Both\", include at least one task comparing behavior across platforms.",
+    proofDefault: "screenshot",
+    taskCount: [3, 5],
+    fallback: [
+      {
+        id: 1, title: "Install & first launch", severity: "crit",
+        steps: ["Install the app from the provided link", "Complete the first-launch or onboarding experience", "Note install time and any permission prompts"],
+        questions: [
+          { id: "q1", text: "How smooth was install and first launch?", type: "rating", scale: 5 },
+          { id: "q2", text: "Did any permission prompts feel unnecessary or unclear?", type: "yes_no_detail" },
+        ],
+        proof: "screenshot", min_time_seconds: 180,
+      },
+      {
+        id: 2, title: "Core task flow + interruption test", severity: "imp",
+        steps: ["Complete the app's main task flow", "Midway through, background the app (press home) and reopen it", "Check whether your progress was preserved"],
+        questions: [
+          { id: "q3", text: "Was your progress preserved after backgrounding the app?", type: "yes_no_detail", detailOn: "no" },
+          { id: "q4", text: "How reliable did the app feel overall?", type: "rating", scale: 5 },
+        ],
+        proof: "screenshot", min_time_seconds: 220,
       },
     ],
   },
@@ -292,7 +423,7 @@ Return ONLY valid JSON. No markdown, no backticks, no explanation. Use this exac
       "questions": [
         { "id": "q1", "text": "Question text", "type": "rating", "scale": 5 },
         { "id": "q2", "text": "Question text", "type": "multiple_choice", "options": ["Option A", "Option B"] },
-        { "id": "q3", "text": "Question text", "type": "yes_no_detail" },
+        { "id": "q3", "text": "Question text", "type": "yes_no_detail", "detailOn": "no" },
         { "id": "q4", "text": "Complete this sentence honestly:", "type": "fill_in_blank", "prompt": "I almost didn't sign up because ___" },
         { "id": "q5", "text": "Rank these by importance to you", "type": "ranking", "options": ["Speed", "Price", "Design"] }
       ],
@@ -303,8 +434,13 @@ Return ONLY valid JSON. No markdown, no backticks, no explanation. Use this exac
 }
 
 severity must be one of: crit, imp, nice
-proof: "screenshot" or null — follow the mission type guidance's proof default above
-Include 3-5 questions per task mixing types per that section's preferred types. Make tasks specific to the product described.`;
+proof: "screenshot" or null — follow the mission type guidance's proof default above if given
+For yes_no_detail questions, set "detailOn" to whichever answer actually needs an explanation —
+"no" for a question phrased as "did X work / succeed / go smoothly" (the problem is worth
+describing when it DIDN'T), "yes" for one phrased as "did you encounter/hit X problem" (the
+problem is worth describing when they DID). Get this backwards and the follow-up text box pops
+open on the answer that has nothing to explain.
+Include 3-5 questions per task mixing types per that section's preferred types, if given. Make tasks specific to the product described.`;
 }
 
 // Single source of truth for the platform fee charged on top of reward spend when a

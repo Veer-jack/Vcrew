@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { FILTERS } from "../meta.js";
+import { BADGES, levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -45,6 +46,28 @@ router.get("/", async (req, res) => {
       }
       const invites = await db.prepare(`SELECT validator_id, status FROM mission_invitations WHERE mission_id = ? AND status != 'cancelled'`).all(missionId);
       invitedMap = Object.fromEntries(invites.map(i => [i.validator_id, i.status]));
+      // mission_invitations only ever covers the invite side -- a
+      // require-approval application the builder rejected, or one the
+      // validator withdrew, has no invitation row at all, so this list
+      // showed a plain "+ Invite" button for someone already turned down
+      // (or who'd already declined), with no warning of that history.
+      // participants.stage is the authoritative record of both outcomes
+      // (the Kanban reads the same column) -- checked after the invites so
+      // it wins over a stale/unrelated invitation status.
+      const outcomeRows = await db.prepare(`SELECT validator_id, stage FROM participants WHERE mission_id = ? AND stage IN ('declined', 'not_selected')`).all(missionId);
+      for (const r of outcomeRows) invitedMap[r.validator_id] = r.stage;
+      // Anyone with a real, still-current-or-concluded relationship to this
+      // mission (invited, applied, accepted, started, submitted, rewarded,
+      // rejected, failed) isn't a fresh invite candidate — unlike a decline
+      // or a rejected application, there's nothing to "invite" here.
+      // Ravi Varma being fully rewarded still showed up with a plain +Invite
+      // button because this route only ever excluded/flagged declined and
+      // not_selected, never checked for an active/concluded participant row.
+      const activeRows = await db.prepare(`SELECT validator_id FROM participants WHERE mission_id = ? AND stage NOT IN ('declined', 'not_selected')`).all(missionId);
+      if (activeRows.length) {
+        sql += ` AND id NOT IN (${activeRows.map(() => "?").join(",")})`;
+        params.push(...activeRows.map(r => r.validator_id));
+      }
     }
   }
 
@@ -78,14 +101,27 @@ router.get("/", async (req, res) => {
 
     // Calculate a dynamic match percentage based on profile completeness and rating
     const completeness = (v.location ? 20 : 0) + (v.bio ? 20 : 0) + (expertise.length > 0 ? 30 : 0) + (v.verified ? 30 : 0);
-    const match_pct = Math.min(100, 50 + completeness); 
+    const match_pct = Math.min(100, 50 + completeness);
+
+    // Same last_active_date the mission-workspace streak logic already stamps
+    // on every real action (see vmissions.js) — reused here instead of a new
+    // field so "active this week" means the same thing everywhere it's shown.
+    const activeThisWeek = !!(v.last_active_date && (Date.now() - new Date(v.last_active_date).getTime()) <= 7 * 24 * 60 * 60 * 1000);
 
     return {
-      id: v.id, 
-      name: v.name, 
-      role: finalRole, 
-      city: v.city || v.location || "Unknown", 
-      occ: v.occupation || "Unspecified", 
+      id: v.id,
+      name: v.name,
+      role: finalRole,
+      city: v.city || v.location || "Unknown",
+      // Explorer's own client-side Geography matching (matchOption in
+      // Audience.jsx) used to only ever check `city` — the real backend
+      // count this same audience feeds elsewhere (getRealMatchCount, used by
+      // onboarding's reach meter and the mission wizard) ORs across all four
+      // of these columns, so a validator matched by state/country alone
+      // counted server-side but never showed up client-side, producing a
+      // genuine "the numbers don't agree" mismatch on identical filters.
+      addressCity: v.address_city, addressState: v.address_state, addressCountry: v.address_country,
+      occ: v.occupation || "Unspecified",
       industry: v.industry || "Unspecified", 
       verified: !!v.verified, 
       expertise: expertise,
@@ -97,11 +133,84 @@ router.get("/", async (req, res) => {
       marital: v.marital_status,
       has_kids: v.has_kids,
       profileCompletion: v.profile_completion || 60,
+      activeThisWeek,
       invitedStatus: invitedMap[v.id] || null,
+      // Both already sit on the validator row (missions_done is the same
+      // precomputed column the profile-detail endpoint below reads as
+      // `completed`) -- exposing them here too, in the bulk list response
+      // itself, is what actually lets the card show them without an extra
+      // per-card /audience/:id/profile fetch.
+      bio: v.bio || null,
+      missionsDone: v.missions_done || 0,
     };
   });
 
   res.json({ members: mapped, filters: FILTERS, missionAudience });
+});
+
+const MISSION_STATUS_LABELS = {
+  applied: "Applied", active: "In progress", revision: "Revision requested",
+  submitted: "Submitted", completed: "Completed", rejected: "Rejected",
+  failed: "Failed", closed: "Closed",
+};
+
+// The View Profile drawer's read-only detail view for a single validator --
+// reuses the exact level/badge rules vprofile.js computes for a validator's
+// own Profile page (so "earned" means the same thing in both places), just
+// scoped to whatever :id a builder is looking at instead of req.validator.
+// Recent missions is deliberately platform-wide (every builder this
+// validator has worked with, not just the one asking) — the product call
+// here trades a sliver of cross-builder mission-name visibility for a
+// fuller picture of how active/reliable this validator actually is.
+router.get("/:id/profile", async (req, res) => {
+  const v = await db.prepare(`SELECT * FROM validators WHERE id = ?`).get(req.params.id);
+  if (!v) return res.status(404).json({ error: "Validator not found" });
+
+  const missionsDone = v.missions_done || 0;
+  const lvl = levelForCompleted(missionsDone);
+
+  const statsRow = await db.prepare(`
+    SELECT COUNT(*) as total_graded, SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as total_approved
+    FROM responses WHERE validator_id = ? AND status IN ('approved', 'rejected')
+  `).get(v.id);
+  let accuracy = 100;
+  if (statsRow && statsRow.total_graded > 0) {
+    accuracy = Math.round((Number(statsRow.total_approved) / Number(statsRow.total_graded)) * 100);
+  }
+  const streak = v.streak || 0;
+
+  const earnedBadges = BADGES.filter(b => {
+    if (b.label === "Identity verified") return !!v.phone_verified;
+    if (b.label === "AI specialist") return missionsDone >= 50 && accuracy >= 90;
+    if (b.label === "30-day streak") return streak >= 4;
+    if (b.label === "Top 5% rated") return v.rating >= 4.8 && (v.reviews_count || 0) >= 50;
+    if (b.label === "SaaS expert") return missionsDone >= 25;
+    if (b.label === "Perfectionist") return accuracy >= 98 && missionsDone >= 30;
+    return false;
+  }).map(({ icon, label, desc }) => ({ icon, label, desc }));
+
+  const recentRows = await db.prepare(`
+    SELECT m.id as mission_id, m.name, vmm.status, vmm.status_label, vmm.updated_at
+    FROM v_my_missions vmm
+    JOIN missions m ON vmm.mission_id = m.id
+    WHERE vmm.validator_id = ? AND vmm.status != 'declined'
+    ORDER BY vmm.updated_at DESC
+    LIMIT 5
+  `).all(v.id);
+
+  res.json({
+    level: { n: lvl.n, name: lvl.name },
+    completed: missionsDone,
+    completionRate: 100,
+    badges: earnedBadges,
+    recentMissions: recentRows.map(r => ({
+      id: r.mission_id,
+      name: r.name,
+      status: r.status,
+      statusLabel: r.status_label || MISSION_STATUS_LABELS[r.status] || r.status,
+      date: r.updated_at,
+    })),
+  });
 });
 
 // Shared by getRealMatchCount (the Audience Explorer/wizard's live reach
@@ -109,7 +218,7 @@ router.get("/", async (req, res) => {
 // candidate list) — one clause builder so both agree on exactly what "this
 // person matches the mission's audience" means. Each group is AND'd
 // together; values within a group are OR'd.
-function buildAudienceClauses(audience) {
+export function buildAudienceClauses(audience) {
   const clauses = [];
   const params = [];
 
@@ -130,8 +239,15 @@ function buildAudienceClauses(audience) {
       clauses.push(`(${ors.join(" OR ")})`);
     } else if (group === "ValidationCrew Role") {
       // Same fallback as the Audience Explorer: unassigned/"User" role falls back to validator_type.
-      clauses.push(`(CASE WHEN role IS NULL OR role = 'User' THEN INITCAP(validator_type) ELSE role END) = ANY(?)`);
-      params.push(values);
+      // LOWER(TRIM(...)) on both sides -- a validator's role/occupation/industry
+      // are free-ish text fields (set via profile edits, seed scripts, imports
+      // over time), not a hard DB enum, so they can drift from the exact
+      // casing/spacing of the fixed filter option list even when they mean
+      // the same thing to a person reading both side by side. Geography
+      // already tolerated this via ILIKE; these four groups didn't, so a
+      // validator could look like an obvious match and still never appear.
+      clauses.push(`LOWER(TRIM(CASE WHEN role IS NULL OR role = 'User' THEN INITCAP(validator_type) ELSE role END)) = ANY(?)`);
+      params.push(values.map(v => v.trim().toLowerCase()));
     } else if (group === "Professional") {
       // "Other" is a bare marker (see StepAudience/FilterGroup's otherEntries)
       // with no occupation info of its own — same no-op treatment as
@@ -140,31 +256,32 @@ function buildAudienceClauses(audience) {
       // typed alongside it (which is already appended as its own entry).
       const specificOcc = values.filter(v => v.toLowerCase() !== "other");
       if (specificOcc.length) {
-        clauses.push(`occupation = ANY(?)`);
-        params.push(specificOcc);
+        clauses.push(`LOWER(TRIM(occupation)) = ANY(?)`);
+        params.push(specificOcc.map(v => v.trim().toLowerCase()));
       }
     } else if (group === "Interests") {
       const specificInterests = values.filter(v => v.toLowerCase() !== "other");
       if (specificInterests.length) {
-        clauses.push(`(industry = ANY(?) OR specialties_json ILIKE ANY(?))`);
-        params.push(specificInterests, specificInterests.map(v => `%"${v}"%`));
+        clauses.push(`(LOWER(TRIM(industry)) = ANY(?) OR specialties_json ILIKE ANY(?))`);
+        params.push(specificInterests.map(v => v.trim().toLowerCase()), specificInterests.map(v => `%"${v}"%`));
       }
     } else if (group === "Demographics") {
       const demoClauses = [];
+      const lower = (arr) => arr.map(v => v.trim().toLowerCase());
       const ages = values.filter(v => FILTERS.Demographics.Age.includes(v));
-      if (ages.length) { demoClauses.push(`age_group = ANY(?)`); params.push(ages); }
+      if (ages.length) { demoClauses.push(`LOWER(TRIM(age_group)) = ANY(?)`); params.push(lower(ages)); }
 
       const genders = values.filter(v => FILTERS.Demographics.Gender.includes(v));
-      if (genders.length) { demoClauses.push(`gender = ANY(?)`); params.push(genders); }
+      if (genders.length) { demoClauses.push(`LOWER(TRIM(gender)) = ANY(?)`); params.push(lower(genders)); }
 
       const incomes = values.filter(v => FILTERS.Demographics["Income Bracket"].includes(v));
-      if (incomes.length) { demoClauses.push(`income_bracket = ANY(?)`); params.push(incomes); }
+      if (incomes.length) { demoClauses.push(`LOWER(TRIM(income_bracket)) = ANY(?)`); params.push(lower(incomes)); }
 
       const maritals = values.filter(v => FILTERS.Demographics["Marital Status"].includes(v));
-      if (maritals.length) { demoClauses.push(`marital_status = ANY(?)`); params.push(maritals); }
+      if (maritals.length) { demoClauses.push(`LOWER(TRIM(marital_status)) = ANY(?)`); params.push(lower(maritals)); }
 
       const kids = values.filter(v => FILTERS.Demographics["Has Kids"].includes(v));
-      if (kids.length) { demoClauses.push(`has_kids = ANY(?)`); params.push(kids); }
+      if (kids.length) { demoClauses.push(`LOWER(TRIM(has_kids)) = ANY(?)`); params.push(lower(kids)); }
 
       if (demoClauses.length) {
         clauses.push(`(${demoClauses.join(" AND ")})`);

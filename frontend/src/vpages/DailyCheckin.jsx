@@ -4,6 +4,7 @@ import Icon from "../components/Icon";
 import { Btn, inr } from "../components/ui";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 export default function DailyCheckin() {
   const { t } = useTranslation();
@@ -94,7 +95,7 @@ export default function DailyCheckin() {
         ) : (
           <>
             <p style={{ color: "var(--text-muted)", margin: "0 0 8px", fontSize: 15 }}>{t("missions.comeBackTomorrow", { nextDay: currentDay + 1 }, `Come back tomorrow for Day ${currentDay + 1}.`)}</p>
-            <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+            <Btn variant="ghost" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
           </>
         )}
       </div>
@@ -103,10 +104,13 @@ export default function DailyCheckin() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-      {/* Top App Bar */}
-      <div style={{ height: 64, background: "#fff", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
+      {/* Top App Bar -- this page renders its own bar instead of the shared
+          VLayout/.topbar (it's a standalone route, not nested under that
+          layout), so it never inherited .topbar's position:sticky and just
+          scrolled away with the page, unlike the normal dashboard's. */}
+      <div style={{ position: "sticky", top: 0, zIndex: 30, height: 64, background: "#fff", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <button className="btn btn-quiet" style={{ padding: 8 }} onClick={() => navigate("/validator/missions")}><Icon name="arrowLeft" size={18} /></button>
+          <button className="btn btn-quiet" style={{ padding: 8 }} onClick={() => navigate(backToMyMissionsUrl())}><Icon name="arrowLeft" size={18} /></button>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--panel-2)", display: "grid", placeItems: "center" }}>
               <Icon name="flask" size={16} style={{ color: "var(--accent)" }} />
@@ -250,7 +254,7 @@ export default function DailyCheckin() {
               </div>
               <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800 }}>{t("missions.missionFailed", null, "Mission Failed")}</h3>
               <p style={{ margin: "0 auto 24px", maxWidth: 400, color: "var(--text-muted)" }}>{t("missions.missionLockedOut", null, "You exceeded the maximum number of extra days. This mission is now locked and cannot be completed.")}</p>
-              <Btn variant="ghost" onClick={() => navigate("/validator/missions")}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
+              <Btn variant="ghost" onClick={() => navigate(backToMyMissionsUrl())}>{t("actions.backToMyMissions", null, "Back to My Missions")}</Btn>
             </div>
           ) : !canSubmitToday ? (
             <div className="card rise" style={{ padding: 40, textAlign: "center", background: "#fff" }}>
@@ -264,7 +268,7 @@ export default function DailyCheckin() {
             <div className="card rise" style={{ padding: 32, background: "#fff" }}>
               {/* Form elements remain unchanged in logic, updated styles to match mockup */}
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.didYouUseItToday", null, "Did you use it today?")}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.didYouUseItToday", null, "Did you use it today?")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 <div style={{ display: "flex", gap: 16 }}>
                   {[t("missions.yesActively", null, "Yes, actively"), t("missions.triedBriefly", null, "Tried briefly"), t("missions.no", null, "No")].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, used: v }))} style={{
@@ -278,9 +282,18 @@ export default function DailyCheckin() {
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.whatDidYouDo", null, "What did you do in the app today?")}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.whatDidYouDo", null, "What did you do in the app today?")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 <textarea className="fin" placeholder={t("missions.whatDidYouDoPlaceholder", null, "e.g. Browsed the catalogue, added 2 items to cart, tried checkout…")} rows={4} value={answers.what} onChange={e => setAnswers(a => ({ ...a, what: e.target.value }))} style={{ fontSize: 14, padding: 16, background: "var(--panel)" }} />
-                <div style={{ textAlign: "right", fontSize: 12, color: "var(--text-faint)", marginTop: 8 }}>{answers.what.length}/500</div>
+                {/* This field disabling Submit was invisible -- unlike the
+                    chip questions above (pick one, visibly "done") or the
+                    screenshot's own asterisk below, there was nothing here
+                    saying 10 characters was a hard minimum, just a passive
+                    length counter. Same red/asterisk treatment as the
+                    screenshot requirement, and swaps to a plain counter
+                    once actually satisfied so it doesn't nag once it's done. */}
+                <div style={{ textAlign: "right", fontSize: 12, marginTop: 8, color: answers.what.trim().length > 10 ? "var(--text-faint)" : "var(--danger)" }}>
+                  {answers.what.trim().length > 10 ? `${answers.what.length}/500` : t("missions.whatDidYouDoMin", null, "Minimum 10 characters")}
+                </div>
               </div>
 
               <div style={{ marginBottom: 32 }}>
@@ -301,7 +314,7 @@ export default function DailyCheckin() {
               </div>
 
               <div style={{ marginBottom: 32 }}>
-                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.openAgainTomorrow", null, "Would you open it again tomorrow?")}</div>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{t("missions.openAgainTomorrow", null, "Would you open it again tomorrow?")} <span style={{ color: "var(--danger)", marginLeft: 4 }}>*</span></div>
                 <div style={{ display: "flex", gap: 16 }}>
                   {[t("missions.definitely", null, "Definitely"), t("missions.maybe", null, "Maybe"), t("missions.no", null, "No")].map(v => (
                     <button key={v} onClick={() => setAnswers(a => ({ ...a, comeback: v }))} style={{
@@ -330,7 +343,7 @@ export default function DailyCheckin() {
                       setUploadingProof(true);
                       try {
                         const res = await vapi.uploadCheckinProof(id, file);
-                        setProofFilename(res.file.filename);
+                        setProofFilename(res.file.url);
                       } catch (err) {
                         alert(err.message || t("missions.failedUploadProof", null, "Failed to upload proof"));
                       } finally {

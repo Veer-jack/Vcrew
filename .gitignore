@@ -10,3 +10,9 @@ docs/superpowers/
 # Maintenance scripts
 scripts/
 **/scripts/
+
+# Local-only backup of pre-refresh translated pages (git history already
+# has this content at the original paths) + Python bytecode cache
+backend/_stale_lang_backup_pre_refresh/
+__pycache__/
+*.pyc

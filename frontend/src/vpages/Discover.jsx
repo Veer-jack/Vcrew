@@ -1,12 +1,122 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
+import { Btn } from "../components/ui";
 import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
+import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
-import { deadlineLabel, deadlineHours } from "../vutil";
+import { deadlineLabel, deadlineHours, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
-import { vtLabel, rewardBandLabel, timeBandLabel, sortLabel } from "../vi18n";
+import { vtLabel, rewardBandLabel, sortLabel } from "../vi18n";
+import { TYPES, stepLabelsFor } from "./VOnboarding.jsx";
+import VSubmissionDrawer from "../components/VSubmissionDrawer";
+
+// Mirrors the builder Dashboard's own ProfileCompletionBanner -- Skip (in
+// onboarding's rail) always just saves progress and exits, so this is what
+// picks that back up: a "Continue Setup" card when a type's picked but not
+// finished, or a "Select your type" card when Skip happened before that
+// even. Validators have no onboarding-completed flag on the backend (unlike
+// builders' onboarding_completed_at) -- city is only ever set by the
+// onboarding save itself, so its absence is the same signal in practice.
+function ProfileCompletionBanner({ validator, navigate, t }) {
+  if (!validator || validator.city) return null;
+
+  let validatorType = null;
+  try { validatorType = JSON.parse(localStorage.getItem(`VC_V_TYPE_${validator.id}`)); } catch { /* ignore */ }
+
+  if (!validatorType) {
+    return (
+      <div className="card" style={{ border: "1px solid var(--accent-weak)", padding: 0, marginBottom: 20, display: "flex", flexWrap: "wrap", overflow: "hidden" }}>
+        <div style={{ flex: "1 1 320px", padding: 32, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "var(--accent-weak)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+              <Icon name="user" size={26} />
+            </div>
+            <h3 style={{ fontSize: 20, margin: 0, fontWeight: 700 }}>{t("discover.selectTypeAndSetup", null, "Select your type and complete setup")}</h3>
+          </div>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>{t("discover.selectTypeDesc", null, "Choose the type that best describes you to unlock the right missions and start earning.")}</p>
+          <div style={{ marginTop: 16 }}>
+            <Btn variant="primary" onClick={() => navigate("/validator/onboarding")}><Icon name="user" size={16} /> {t("actions.selectType", null, "Select Type")}</Btn>
+          </div>
+        </div>
+        <div style={{ flex: "1 1 320px", padding: 32, background: "var(--panel-2)", borderLeft: "1px solid var(--border)" }}>
+          <h4 style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>{t("discover.chooseYourType", null, "Choose your type")}</h4>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {TYPES.map(ty => (
+              <div key={ty.key} style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: 8, padding: 14, textAlign: "center" }}>
+                <div style={{ color: ty.color, marginBottom: 8 }}><Icon name={ty.icon} size={20} /></div>
+                <div style={{ fontSize: 11, fontWeight: 700 }}>{t(`vOnboarding.types.${ty.key}.title`, null, ty.title)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const type = TYPES.find(ty => ty.key === validatorType);
+  const stepLabels = stepLabelsFor(t, validatorType);
+  const totalSteps = stepLabels.length;
+  let step = 0;
+  try { step = JSON.parse(localStorage.getItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator.id}`)) || 0; } catch { /* ignore */ }
+  const pct = totalSteps ? Math.round((step / totalSteps) * 100) : 0;
+
+  const changeRole = () => {
+    if (!window.confirm(t("vOnboarding.confirmChangeRole", null, "Are you sure you want to change your role? This will clear all your progress."))) return;
+    localStorage.removeItem(`VC_V_TYPE_${validator.id}`);
+    localStorage.removeItem(`VC_V_STEP_${validatorType.toUpperCase()}_${validator.id}`);
+    localStorage.removeItem(`VC_V_MAXSTEP_${validatorType.toUpperCase()}_${validator.id}`);
+    localStorage.removeItem(`VC_V_DRAFT_${validatorType.toUpperCase()}_${validator.id}`);
+    navigate("/validator/onboarding");
+  };
+
+  return (
+    <div className="card" style={{ border: "1px solid var(--accent)", padding: 24, marginBottom: 20, display: "flex", flexWrap: "wrap", gap: 32, alignItems: "center" }}>
+      <div style={{ flex: "0 0 160px", textAlign: "center" }}>
+        <div style={{ width: 54, height: 54, borderRadius: "50%", background: type?.bg, color: type?.color, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+          <Icon name={type?.icon || "user"} size={26} />
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{step} {t("dashboard.of", null, "of")} {totalSteps} {t("dashboard.completed", null, "completed")}</div>
+        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)" }} />
+        </div>
+      </div>
+      <div style={{ flex: "1 1 240px" }}>
+        <h3 style={{ fontSize: 18, margin: "0 0 4px" }}>{t("discover.completeYourTypeProfile", { type: t(`vOnboarding.types.${validatorType}.title`, null, type?.title) }, `Complete your ${type?.title} profile`)}</h3>
+        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 14px" }}>{t(`vOnboarding.types.${validatorType}.desc`, null, type?.desc)}</p>
+        <span className="pill" style={{ fontSize: 11, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 700 }}>{t("dashboard.step", null, "Step")} {Math.min(step + 1, totalSteps)} {t("dashboard.of", null, "of")} {totalSteps}</span>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("dashboard.nextStep", null, "Next step")}</div>
+          <b style={{ fontSize: 14 }}>{stepLabels[Math.min(step, totalSteps - 1)]}</b>
+        </div>
+      </div>
+      <div style={{ flex: "0 0 240px", borderLeft: "1px solid var(--border)", paddingLeft: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+          {stepLabels.map((label, i) => {
+            const isDone = i < step;
+            const isCurr = i === step;
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, opacity: (isDone || isCurr) ? 1 : 0.5 }}>
+                {isDone ? (
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: "var(--success)", color: "#fff", display: "grid", placeItems: "center" }}><Icon name="check" size={12} /></div>
+                ) : (
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", background: isCurr ? "var(--accent)" : "var(--panel)", border: isCurr ? "none" : "1px solid var(--border)", color: isCurr ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center", fontSize: 11, fontWeight: 700 }}>{i + 1}</div>
+                )}
+                <span style={{ fontSize: 13, fontWeight: isCurr ? 600 : 500 }}>{label}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Btn variant="primary" block onClick={() => navigate("/validator/onboarding")}>{t("actions.continueSetup", null, "Continue Setup →")}</Btn>
+          <Btn variant="ghost" block onClick={changeRole}>{t("actions.changeRole", null, "Change role")}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // Same grouping the card badges already use (see MktCard/FeaturedMission
 // above) — the status tabs are just a filter over that same vocabulary,
@@ -14,8 +124,11 @@ import { vtLabel, rewardBandLabel, timeBandLabel, sortLabel } from "../vi18n";
 function myStatusGroup(myStatus) {
   if (myStatus === "completed") return "approved";
   if (myStatus === "submitted") return "submitted";
-  if (myStatus === "active" || myStatus === "applied") return "accepted";
-  if (myStatus === "rejected") return "rejected";
+  if (myStatus === "active") return "accepted";
+  // A "require approval" mission's open application — distinct from
+  // "accepted": nothing to resume yet, just waiting on the builder.
+  if (myStatus === "applied") return "pending";
+  if (myStatus === "rejected" || myStatus === "not_selected") return "rejected";
   if (myStatus === "declined") return "declined";
   return "open";
 }
@@ -27,21 +140,44 @@ const MY_STATUS_META = {
   completed: { icon: "award", labelKey: "status.approved", labelDefault: "Approved", color: "var(--warning)" },
   submitted: { icon: "send", labelKey: "status.submitted", labelDefault: "Submitted", color: "var(--accent)" },
   active: { icon: "checkCircle", labelKey: "status.accepted", labelDefault: "Accepted", color: "var(--success)" },
-  applied: { icon: "checkCircle", labelKey: "status.accepted", labelDefault: "Accepted", color: "var(--success)" },
+  applied: { icon: "clock", labelKey: "status.awaiting", labelDefault: "Awaiting", color: "var(--warning)" },
   rejected: { icon: "xCircle", labelKey: "status.rejected", labelDefault: "Rejected", color: "var(--danger)" },
+  not_selected: { icon: "xCircle", labelKey: "status.notSelected", labelDefault: "Not selected", color: "var(--text-muted)" },
   declined: { icon: "x", labelKey: "status.declined", labelDefault: "Declined", color: "var(--text-muted)" },
 };
 function myStatusButtonStyle(myStatus) {
   const meta = MY_STATUS_META[myStatus];
-  return meta ? { background: meta.color, borderColor: meta.color, opacity: (myStatus === "rejected" || myStatus === "declined") ? 0.8 : 1 } : undefined;
+  return meta ? { background: meta.color, borderColor: meta.color, opacity: (myStatus === "rejected" || myStatus === "declined" || myStatus === "not_selected") ? 0.8 : 1 } : undefined;
 }
 function myStatusButtonLabel(t, myStatus, resumeLabel, openLabel) {
   if (myStatus === "completed") return t("actions.viewResults", null, "View results");
   if (myStatus === "submitted") return t("actions.viewSubmission", null, "View submission");
-  if (myStatus === "active" || myStatus === "applied") return resumeLabel;
+  // Matches the exact wording the single-mission detail page already uses
+  // for this status -- "Resume"/"Resume mission" on the card said something
+  // different from "Accepted · Start now" on the page it opens into.
+  if (myStatus === "active") return t("actions.acceptedStartNow", null, "Accepted · Start now");
+  if (myStatus === "applied") return t("status.awaiting", null, "Awaiting");
   if (myStatus === "rejected") return t("actions.viewReason", null, "View reason");
+  if (myStatus === "not_selected") return t("status.notSelected", null, "Not selected");
   if (myStatus === "declined") return t("actions.viewDeclined", null, "Declined");
   return openLabel;
+}
+
+// One glance summary of "where do I stand" (invitations waiting, missions in
+// progress, awaiting review, money coming) -- replaces the validation-type
+// cards that just repeated the sidebar's own filter list.
+function VStatCard({ icon, label, value, tone }) {
+  return (
+    <div className="card" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+      <span style={{ width: 36, height: 36, borderRadius: 10, flex: "none", display: "grid", placeItems: "center", background: `color-mix(in srgb, var(${tone || "--accent"}) 14%, transparent)`, color: `var(${tone || "--accent"})` }}>
+        <Icon name={icon} size={17} />
+      </span>
+      <div style={{ minWidth: 0 }}>
+        <div className="faint" style={{ fontSize: 11.5 }}>{label}</div>
+        <div className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{value}</div>
+      </div>
+    </div>
+  );
 }
 
 function RadioRow({ on, onClick, label }) {
@@ -55,21 +191,41 @@ function RadioRow({ on, onClick, label }) {
   );
 }
 
-function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
+function MktCard({ task, vtypes, ptypes, categories, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
-  const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
+  const spotPct = task.spotsTotal > 0 ? (task.spotsLeft / task.spotsTotal) * 100 : 100;
   const urgent = deadlineHours(task.deadline) <= 12;
+  // What kind of feedback this actually is (Written Survey, Live 1:1 Video
+  // Call, ...) -- vtasks demo rows have no ptype, so this just doesn't show
+  // for them rather than guessing.
+  const ptypeLabel = task.ptype ? ptypes.find(p => p.id === task.ptype)?.label : null;
+  // Mission category (Website Review, Research Study, ...) -- matches the
+  // detail page's own top-row tag (see MissionDetails.jsx's `cat`), which
+  // this card was missing entirely; it had participation type sitting in
+  // that slot instead.
+  const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
   return (
     <div className="card mkt-cardhover" style={{ position: "relative", overflow: "hidden", padding: "38px 18px 18px", display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
-      {MY_STATUS_META[task.myStatus]
-        ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={11} style={{ marginRight: 4 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
-        : <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={11} style={{ marginRight: 4 }} />{t("status.open", null, "Open")}</span>}
+      {/* Discover only ever lists open/available missions -- an "Open" badge
+          on every single card said nothing a real status (Accepted/
+          Submitted/...) doesn't already say better when there is one. A
+          pending invite goes in that same corner slot instead -- a builder
+          specifically asked for this validator, which is worth flagging
+          above a plain "Open" mission. */}
+      {MY_STATUS_META[task.myStatus] ? (
+        <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={11} style={{ marginRight: 4 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
+      ) : task.inviteId ? (
+        <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "5px 12px", fontWeight: 800, fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="mail" size={11} style={{ marginRight: 4 }} />{t("status.invited", null, "Invited")}</span>
+      ) : null}
       <div className="row between" style={{ alignItems: "flex-start" }}>
         <div className="row gap-2 wrap">
           <VTypeTag type={task.type} vtypes={vtypes} />
           <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={11} />{task.match}%</span>
-          {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={11} />{t("status.hot", null, "Hot")}</span>}
+          {/* More than half the target spots already filled -- see the "hot"
+              calc in vmarketplace.js. */}
+          {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={11} />{t("status.highDemand", null, "High demand")}</span>}
+          {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={11} />{cat.label}</span>}
         </div>
         <div className="row gap-1">
           <button className={`mkt-save`} onClick={e => { e.stopPropagation(); onReport?.(task); }} title={t("actions.reportMission", null, "Report Mission")} style={{ width: 32, height: 32 }}>
@@ -86,19 +242,29 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
           <h3 style={{ margin: 0, fontSize: 17, fontWeight: 800, letterSpacing: "-.02em" }}>{task.product}</h3>
           {task.verified && <span className="verif" title={t("badge.verifiedBuilder", null, "Verified builder")}><Icon name="shield" size={12} /></span>}
         </div>
-        <div className="faint" style={{ fontSize: 12.5, marginTop: 3 }}>{task.tagline} · {task.company}</div>
+        {/* Real missions have no separate tagline (see vmarketplace.js) --
+            joining and filtering instead of "{tagline} · {company}" avoids a
+            dangling " · " when there's nothing before it. */}
+        <div className="faint" style={{ fontSize: 12.5, marginTop: 3 }}>{[task.tagline, task.company].filter(Boolean).join(" · ")}</div>
+        {task.builderName && <div className="faint" style={{ fontSize: 11.5, marginTop: 1 }}>{t("discover.postedBy", null, "Posted by")} {task.builderName}{task.builderDesignation ? `, ${task.builderDesignation}` : ""}</div>}
       </div>
       <p className="muted" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
+      {/* Absorbs whatever leftover height the grid row's stretch gives this
+          card (see .mkt-grid) beyond this card's own natural content, so
+          the spots/deadline row, progress bar, and reward/View footer all
+          sit together flush at the bottom instead of drifting up on cards
+          with a shorter brief. */}
+      <div style={{ flex: 1 }} />
       <div className="row gap-3 wrap faint" style={{ fontSize: 12 }}>
-        <span className="row gap-2"><Icon name="clock" size={13} />~{task.minutes}{t("discover.minutesShort", null, "m")}</span>
         <span className="row gap-2"><Icon name="users" size={13} />{task.spotsLeft} {t("discover.spotsLeft", null, "left")}</span>
         <span className="row gap-2" style={{ color: urgent ? "var(--danger)" : "inherit", fontWeight: urgent ? 700 : 400 }}><Icon name="clock" size={13} />{deadlineLabel(task.deadline)}</span>
+        {ptypeLabel && <span className="row gap-2"><Icon name="list" size={13} />{ptypeLabel}</span>}
       </div>
       <div style={{ height: 5, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}>
         <i style={{ display: "block", height: "100%", width: (100 - spotPct) + "%", borderRadius: 20, background: spotPct < 25 ? "var(--danger)" : `var(${vt.accentVar})` }} />
       </div>
       <div className="row between" style={{ marginTop: 2, paddingTop: 11, borderTop: "1px solid var(--border)" }}>
-        <div><VReward amount={task.reward} /><span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span></div>
+        <div><VReward amount={task.reward} type={task.rewardType} />{rewardPaysOnApproval(task.rewardType) && <span className="faint" style={{ fontSize: 11 }}> {t("discover.onApproval", null, "on approval")}</span>}</div>
         <button className="btn btn-primary" style={{ padding: "8px 14px", ...myStatusButtonStyle(task.myStatus) }} onClick={e => { e.stopPropagation(); onOpen(task); }}>
           {myStatusButtonLabel(t, task.myStatus, t("actions.resume", null, "Resume"), t("actions.view", null, "View"))}
           <Icon name="arrowRight" size={15} />
@@ -108,21 +274,26 @@ function MktCard({ task, vtypes, onSave, onReport, onOpen }) {
   );
 }
 
-function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
+function FeaturedMission({ task, vtypes, ptypes, categories, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
+  const ptypeLabel = task.ptype ? ptypes.find(p => p.id === task.ptype)?.label : null;
+  const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
   return (
     <div className="card rise-2" onClick={() => onOpen(task)} style={{ padding: 0, overflow: "hidden", cursor: "pointer",
       background: `linear-gradient(120deg, color-mix(in srgb, var(${vt.accentVar}) 13%, var(--panel)), var(--panel) 62%)` }}>
       <div style={{ position: "relative", padding: "42px 24px 22px" }}>
-        {MY_STATUS_META[task.myStatus]
-          ? <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={12} style={{ marginRight: 5 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
-          : <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--text-muted)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="bolt" size={12} style={{ marginRight: 5 }} />{t("status.open", null, "Open")}</span>}
+        {MY_STATUS_META[task.myStatus] ? (
+          <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: MY_STATUS_META[task.myStatus].color, color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name={MY_STATUS_META[task.myStatus].icon} size={12} style={{ marginRight: 5 }} />{t(MY_STATUS_META[task.myStatus].labelKey, null, MY_STATUS_META[task.myStatus].labelDefault)}</span>
+        ) : task.inviteId ? (
+          <span className="tag" style={{ position: "absolute", top: 0, left: 0, background: "var(--accent)", color: "#fff", padding: "6px 14px", fontWeight: 800, fontSize: 11, letterSpacing: "0.05em", textTransform: "uppercase", borderRadius: "0 0 10px 0" }}><Icon name="mail" size={12} style={{ marginRight: 5 }} />{t("status.invited", null, "Invited")}</span>
+        ) : null}
         <div className="row between wrap gap-3" style={{ alignItems: "flex-start" }}>
           <div className="row gap-2 wrap" style={{ marginBottom: 4 }}>
             <span className="tag" style={{ background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name="bolt" size={12} />{t("status.featured", null, "Featured")}</span>
             <VTypeTag type={task.type} vtypes={vtypes} />
             <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("discover.match", null, "match")}</span>
+            {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={12} />{cat.label}</span>}
             {task.verified && <span className="verif"><Icon name="shield" size={12} />{t("badge.verifiedBuilder", null, "Verified builder")}</span>}
           </div>
           <div className="row gap-1">
@@ -136,17 +307,21 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
         </div>
         <div className="row gap-3" style={{ alignItems: "center", marginTop: 8 }}>
           <span style={{ width: 52, height: 52, borderRadius: 14, flex: "none", display: "grid", placeItems: "center", background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name={vt.icon} size={26} /></span>
-          <div><h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2><div className="muted" style={{ fontSize: 14.5 }}>{task.tagline} · {task.company}</div></div>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
+            <div className="muted" style={{ fontSize: 14.5 }}>{[task.tagline, task.company].filter(Boolean).join(" · ")}</div>
+            {task.builderName && <div className="faint" style={{ fontSize: 12.5, marginTop: 2 }}>{t("discover.postedBy", null, "Posted by")} {task.builderName}{task.builderDesignation ? `, ${task.builderDesignation}` : ""}</div>}
+          </div>
         </div>
-        <p className="muted" style={{ margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.55, maxWidth: "70ch" }}>{task.brief}</p>
+        <p className="muted" style={{ margin: "14px 0 0", fontSize: 14.5, lineHeight: 1.55, maxWidth: "70ch", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{task.brief}</p>
         <div className="row between wrap gap-3" style={{ marginTop: 18 }}>
           <div className="row gap-4 wrap faint" style={{ fontSize: 13 }}>
-            <span className="row gap-2"><Icon name="clock" size={14} />~{task.minutes} {t("discover.minutes", null, "min")}</span>
             <span className="row gap-2"><Icon name="users" size={14} />{task.spotsLeft} {t("discover.of", null, "of")} {task.spotsTotal} {t("discover.spotsLeftFull", null, "spots left")}</span>
             <span className="row gap-2" style={{ color: "var(--danger)", fontWeight: 700 }}><Icon name="bolt" size={14} />{deadlineLabel(task.deadline)}</span>
+            {ptypeLabel && <span className="row gap-2"><Icon name="list" size={14} />{ptypeLabel}</span>}
           </div>
           <div className="row gap-3" style={{ alignItems: "center" }}>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} big /><div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div></div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div>}</div>
             <button className="btn btn-primary btn-lg" style={myStatusButtonStyle(task.myStatus)} onClick={e => { e.stopPropagation(); onOpen(task); }}>
               {myStatusButtonLabel(t, task.myStatus, t("actions.resumeMission", null, "Resume mission"), t("actions.startValidating", null, "Start validating"))} <Icon name="arrowRight" />
             </button>
@@ -157,24 +332,66 @@ function FeaturedMission({ task, vtypes, onSave, onReport, onOpen }) {
   );
 }
 
+// Keys only (labels are translated inline where STATUS_TABS is built,
+// further down) -- just enough to validate a ?tab= value from the URL
+// without needing the translation context this runs before.
+const STATUS_TAB_KEYS = ["all", "open", "pending", "accepted", "submitted", "approved", "rejected", "declined"];
+
 export default function Discover() {
   const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
-  const { vtypes, typeOrder, rewardBands, timeBands, sorts } = useVMeta();
+  const { validator } = useVAuth();
+  const { vtypes, typeOrder, rewardBands, sorts, ptypes, categories } = useVMeta();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [types, setTypes] = useState(new Set());
   const [reward, setReward] = useState("any");
-  const [time, setTime] = useState("any");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [minMatch, setMinMatch] = useState(0);
   const [sort, setSort] = useState("match");
-  const [statusTab, setStatusTab] = useState("all");
-  const [showFilters, setShowFilters] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef(null);
+  const [sortMenuPos, setSortMenuPos] = useState(null);
+  // Seeded from ?tab= so navigating away (a mission's own detail page, the
+  // submission drawer) and back doesn't silently reset this to "all" --
+  // matches My missions' own tab persistence exactly (both this page and
+  // that one had the identical bug reported separately, same root cause).
+  const urlStatusTab = searchParams.get("tab");
+  const [statusTab, setStatusTabState] = useState(
+    STATUS_TAB_KEYS.includes(urlStatusTab) ? urlStatusTab : "all"
+  );
+  const setStatusTab = (k) => {
+    setStatusTabState(k);
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set("tab", k);
+      return p;
+    }, { replace: true });
+  };
+  // Re-sync if the URL's tab changes while already mounted here (e.g. a
+  // notification or link that deep-links to a specific tab) -- the useState
+  // above only seeds the initial value on mount.
+  useEffect(() => {
+    if (STATUS_TAB_KEYS.includes(urlStatusTab) && urlStatusTab !== statusTab) {
+      setStatusTabState(urlStatusTab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlStatusTab]);
   const [data, setData] = useState(null);
+  const [stats, setStats] = useState(null);
   const [visibleCount, setVisibleCount] = useState(20);
+  // Opening a completed mission here used to navigate to a separate
+  // celebration page (MissionResults.jsx); now opens the same read-only
+  // submission drawer My missions' own "View details" uses, in place.
+  const [viewingResults, setViewingResults] = useState(null);
+  // Which sidebar filter groups are collapsed -- same shape and default
+  // (all start open) as Audience Explorer's own filter panel, which this
+  // now matches.
+  const [closedGroups, setClosedGroups] = useState(new Set());
 
   const toggleType = (k) => setTypes(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
-  const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setTime("any"); setVerifiedOnly(false); setMinMatch(0); };
+  const toggleGroup = (g) => setClosedGroups(p => { const s = new Set(p); s.has(g) ? s.delete(g) : s.add(g); return s; });
+  const clearAll = () => { setQ(""); setTypes(new Set()); setReward("any"); setVerifiedOnly(false); setMinMatch(0); };
 
   useEffect(() => {
     // Prevent back-button going to login
@@ -186,10 +403,18 @@ export default function Discover() {
 
   useEffect(() => {
     setTimeout(() => setVisibleCount(20), 0);
-    vapi.marketplace({ q, types: [...types].join(","), reward, time, verified: verifiedOnly, minMatch, sort })
+    vapi.marketplace({ q, types: [...types].join(","), reward, verified: verifiedOnly, minMatch, sort })
       .then(setData)
       .catch(() => {});
-  }, [q, types, reward, time, verifiedOnly, minMatch, sort, dataVersion]);
+  }, [q, types, reward, verifiedOnly, minMatch, sort, dataVersion]);
+
+  // Independent of the filtered marketplace fetch above -- these are the
+  // validator's own standing numbers (pending invitations, missions in
+  // progress, money owed/earned), not something filters or search narrow.
+  useEffect(() => {
+    vapi.myMissions().then(d => setStats(s => ({ ...s, counts: d.counts }))).catch(() => {});
+    vapi.earnings().then(d => setStats(s => ({ ...s, pending: d.pending, lifetime: d.lifetime }))).catch(() => {});
+  }, []);
 
   // Status is filtered client-side over the already-fetched list (see
   // visibleTasks below), so switching tabs just resets the "Load more" cursor.
@@ -197,7 +422,7 @@ export default function Discover() {
 
   const onOpen = (task) => {
     if (task.myStatus === "completed") {
-      navigate(`/validator/missions/${task.id}/results`);
+      setViewingResults(task);
     } else {
       navigate(`/validator/missions/${task.id}`, { state: { fromDiscover: true } });
     }
@@ -220,7 +445,7 @@ export default function Discover() {
 
   if (!data) return <div className="page rise"><div className="muted">{t("actions.loading", null, "Loading…")}</div></div>;
 
-  const filtersActive = q || types.size || reward !== "any" || time !== "any" || verifiedOnly || minMatch > 0;
+  const filtersActive = q || types.size || reward !== "any" || verifiedOnly || minMatch > 0;
   const showFeatured = !filtersActive && statusTab === "all" && sort === "match" && data.featured;
   // Status is about your own relationship to each mission (haven't applied /
   // applied / approved), not ordering — kept as its own tabs row instead of
@@ -229,6 +454,7 @@ export default function Discover() {
   const STATUS_TABS = [
     { k: "all", l: t("discover.statusAll", null, "All") },
     { k: "open", l: t("status.open", null, "Open") },
+    { k: "pending", l: t("status.awaiting", null, "Awaiting") },
     { k: "accepted", l: t("status.accepted", null, "Accepted") },
     { k: "submitted", l: t("status.submitted", null, "Submitted") },
     { k: "approved", l: t("status.approved", null, "Approved") },
@@ -244,10 +470,24 @@ export default function Discover() {
 
   return (
     <div className="page">
+      <ProfileCompletionBanner validator={validator} navigate={navigate} t={t} />
+
       <div className="rise" style={{ marginBottom: 18 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>{t("discover.eyebrow", null, "Mission marketplace")}</div>
-        <h2 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("discover.headline", null, "Find your next mission")}</h2>
-        <p className="muted" style={{ margin: "0 0 16px", fontSize: 15 }}>{data.total} {t("discover.sub1", null, "open missions matched to your expertise · ")} {t("discover.sub2", null, "paid on approval.")}</p>
+        <h2 style={{ margin: "0 0 4px", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("discover.welcomeHeadline", { name: validator?.name?.split(" ")[0] || "" }, `Welcome ${validator?.name?.split(" ")[0] || ""}, find your next mission`)}</h2>
+        <p className="muted" style={{ margin: 0, fontSize: 15 }}>{data.total} {t("discover.sub1", null, "open missions matched to your expertise · ")} {t("discover.sub2", null, "paid on approval.")}</p>
+      </div>
+
+      {/* Where you stand right now -- replaces the validation-type cards,
+          which just repeated the sidebar's own filter list. */}
+      <div className="mkt-stats rise-2" style={{ marginBottom: 18 }}>
+        <VStatCard icon="mail" label={t("discover.invitations", null, "Invitations")} value={stats?.counts?.invited ?? "—"} tone="--accent" />
+        <VStatCard icon="bolt" label={t("discover.activeMissions", null, "Active missions")} value={stats?.counts ? (stats.counts.active + stats.counts.applied) : "—"} tone="--success" />
+        <VStatCard icon="send" label={t("status.submitted", null, "Submitted")} value={stats?.counts?.submitted ?? "—"} tone="--warning" />
+        <VStatCard icon="clock" label={t("discover.pendingRewards", null, "Pending rewards")} value={stats?.pending != null ? `₹${stats.pending.toLocaleString("en-IN")}` : "—"} tone="--warning" />
+        <VStatCard icon="award" label={t("discover.totalEarned", null, "Total earned")} value={stats?.lifetime != null ? `₹${stats.lifetime.toLocaleString("en-IN")}` : "—"} tone="--success" />
+      </div>
+
+      <div className="rise-2" style={{ marginBottom: 22 }}>
         <div className="mkt-searchbar">
           <Icon name="search" size={18} style={{ color: "var(--text-faint)", flex: "none" }} />
           <input placeholder={t("discover.searchPlaceholder", null, "Search products, companies, or what you'll validate…")} value={q} onChange={e => setQ(e.target.value)} />
@@ -255,19 +495,7 @@ export default function Discover() {
         </div>
       </div>
 
-      <div className="rise-2" style={{ marginBottom: 22 }}>
-        <div className="mkt-cats">
-          {data.categories.map(c => (
-            <button key={c.key} className={`mkt-cat ${types.has(c.key) ? "on" : ""}`} style={{ "--c": `var(${vtypes[c.key].accentVar})` }} onClick={() => toggleType(c.key)}>
-              <span className="ci"><Icon name={vtypes[c.key].icon} size={18} /></span>
-              <span className="cl">{vtLabel(t, vtypes[c.key])}</span>
-              <span className="cc">{c.count} {t("status.open", null, "open")}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
+      {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} ptypes={ptypes} categories={categories} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
 
       <div className="tabs rise-2" style={{ margin: showFeatured ? "24px 0 0" : "0" }}>
         {STATUS_TABS.map(st => (
@@ -283,58 +511,137 @@ export default function Discover() {
           <span className="muted mono" style={{ fontSize: 13 }}>{visibleTasks.length}</span>
         </div>
         <div className="row gap-2">
-          <button className="pill" onClick={() => setShowFilters(f => !f)} style={{ cursor: "pointer" }}><Icon name="filter" size={14} />{t("discover.filters", null, "Filters")}{filtersActive ? " ·" : ""}</button>
-          <label className="pill" style={{ gap: 8, cursor: "pointer" }}>
+          {/* A native <select> here kept leaking its own OS-drawn control
+              frame as a second box inside the pill's focus highlight, in a
+              way border/background/outline/appearance couldn't fully
+              suppress in every real browser (Linux/Chrome widget theming
+              specifically) -- a plain button + popover has no native form
+              chrome to fight in the first place. No inline border/background
+              here -- .pill already sets both, and an inline border would
+              always win over .pill-focus-within:focus-within's own
+              border-color no matter how specific that rule was, silently
+              leaving only the box-shadow ring visible on focus. */}
+          <button
+            ref={sortBtnRef}
+            type="button"
+            className="pill pill-focus-within"
+            style={{ gap: 8, cursor: "pointer" }}
+            onClick={() => {
+              // This row (rise-2) and the mission grid below it (rise-3)
+              // each get their own stacking context from the entrance
+              // animation's transform keyframes -- a LATER sibling
+              // stacking context always paints over an earlier one
+              // regardless of any z-index set inside it, so a plain
+              // position:absolute popover here was rendering correctly
+              // but was actually unclickable, sitting behind the mission
+              // cards despite looking on top. Portaled straight to
+              // document.body (see below) so it isn't inside either
+              // stacking context in the first place.
+              if (!sortMenuOpen) {
+                const r = sortBtnRef.current.getBoundingClientRect();
+                setSortMenuPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+              }
+              setSortMenuOpen(o => !o);
+            }}
+          >
             <span className="faint" style={{ fontSize: 12 }}>{t("discover.sort", null, "Sort")}</span>
-            <select value={sort} onChange={e => setSort(e.target.value)} style={{ border: "none", background: "none", fontFamily: "inherit", fontWeight: 700, fontSize: 13, color: "var(--text)", outline: "none", cursor: "pointer" }}>
-              {sorts.map(s => <option key={s.k} value={s.k}>{sortLabel(t, s.k, s.l)}</option>)}
-            </select>
-          </label>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text)" }}>{sortLabel(t, sort, sorts.find(s => s.k === sort)?.l)}</span>
+            <Icon name="chevronDown" size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+          </button>
+          {sortMenuOpen && sortMenuPos && createPortal(
+            <>
+              {/* :focus-within (the pill's own highlight) only clears once
+                  the button genuinely loses focus -- closing the menu
+                  (state) doesn't do that by itself, so clicking away would
+                  dismiss the menu but leave the pill looking permanently
+                  "focused". Blurring here is what actually resets it. */}
+              <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => { setSortMenuOpen(false); sortBtnRef.current?.blur(); }} />
+              <div role="menu" style={{
+                position: "fixed", top: sortMenuPos.top, right: sortMenuPos.right, zIndex: 50, minWidth: 180,
+                background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                boxShadow: "var(--shadow-md)", padding: 6,
+              }}>
+                {sorts.map(s => {
+                  const on = s.k === sort;
+                  return (
+                    <button
+                      key={s.k}
+                      role="menuitemradio"
+                      aria-checked={on}
+                      type="button"
+                      onClick={() => { setSort(s.k); setSortMenuOpen(false); sortBtnRef.current?.blur(); }}
+                      style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                    >
+                      {sortLabel(t, s.k, s.l)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>,
+            document.body
+          )}
         </div>
       </div>
 
-      <div className={`mkt-layout ${showFilters ? "show-filters" : ""}`}>
+      <div className="mkt-layout">
         <aside className="mkt-side rise-2">
-          <div className="card" style={{ padding: 18 }}>
-            <div className="row between" style={{ marginBottom: 14 }}>
-              <b style={{ fontSize: 14, fontWeight: 800 }}>{t("discover.filters", null, "Filters")}</b>
+          {/* Same .filter-panel/.fgroup shell Audience Explorer's own filter
+              sidebar uses (builder.css) -- collapsible groups with a live
+              selected-count badge, instead of a flat always-open list. */}
+          <div className="filter-panel">
+            <div className="row between" style={{ marginBottom: 16, alignItems: "center" }}>
+              <b style={{ fontSize: 15, fontWeight: 800 }}>{t("discover.filters", null, "Filters")}</b>
               {filtersActive && <button className="backlink" style={{ margin: 0, fontSize: 12 }} onClick={clearAll}>{t("actions.clearAll", null, "Clear all")}</button>}
             </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.validationType", null, "Validation type")}</span>
-              {typeOrder.map(k => {
-                const count = data.categories.find(c => c.key === k)?.count ?? 0;
-                return (
-                  <button
-                    key={k} className={`mkt-check ${types.has(k) ? "on" : ""}`}
-                    style={{ "--c": `var(${vtypes[k].accentVar})`, width: "100%", opacity: count === 0 ? 0.45 : 1, cursor: count === 0 ? "not-allowed" : "pointer" }}
-                    disabled={count === 0}
-                    onClick={() => toggleType(k)}
-                  >
-                    <span className="bx">{types.has(k) && <Icon name="check" size={12} />}</span>
-                    <Icon name={vtypes[k].icon} size={14} style={{ color: "var(--c)", flex: "none" }} />
-                    {vtLabel(t, vtypes[k])}<span className="cnt">{count}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.reward", null, "Reward")}</span>
-              <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={rewardBandLabel(t, b.k, b.l)} />)}</div>
-            </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.timeRequired", null, "Time required")}</span>
-              <div className="col gap-2">{timeBands.map(b => <RadioRow key={b.k} on={time === b.k} onClick={() => setTime(b.k)} label={timeBandLabel(t, b.k, b.l)} />)}</div>
-            </div>
-            <div className="mkt-fgroup">
-              <span className="lbl">{t("discover.minMatch", null, "Minimum match")} · {minMatch}%</span>
-              <input type="range" min="0" max="95" step="5" value={minMatch} onChange={e => setMinMatch(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)" }} />
-            </div>
-            <div className="mkt-fgroup">
-              <button className={`mkt-check ${verifiedOnly ? "on" : ""}`} style={{ width: "100%" }} onClick={() => setVerifiedOnly(v => !v)}>
-                <span className="bx">{verifiedOnly && <Icon name="check" size={12} />}</span>
-                {t("discover.verifiedOnly", null, "Verified builders only")}
+
+            <div className={`fgroup ${closedGroups.has("type") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("type")}>
+                <span>{t("discover.validationType", null, "Validation type")}</span>
+                <span className="row gap-2" style={{ alignItems: "center", flexShrink: 0 }}>
+                  {types.size > 0 && <span className="mono" style={{ color: "var(--accent)", fontWeight: 700, textTransform: "none" }}>({types.size})</span>}
+                  <Icon name="chevronDown" size={15} />
+                </span>
               </button>
+              <div className="fgroup-body">
+                {typeOrder.map(k => {
+                  const count = data.categories.find(c => c.key === k)?.count ?? 0;
+                  const on = types.has(k);
+                  return (
+                    <button key={k} className={`fcheck ${on ? "on" : ""}`} style={{ opacity: count === 0 ? 0.45 : 1, cursor: count === 0 ? "not-allowed" : "pointer" }} disabled={count === 0} onClick={() => toggleType(k)}>
+                      <span className="box">{on && <Icon name="check" size={11} />}</span>
+                      <Icon name={vtypes[k].icon} size={14} style={{ color: `var(${vtypes[k].accentVar})`, flex: "none", marginRight: -2 }} />
+                      {vtLabel(t, vtypes[k])}<span className="fcount">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className={`fgroup ${closedGroups.has("reward") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("reward")}>
+                <span>{t("discover.reward", null, "Reward")}</span>
+                <Icon name="chevronDown" size={15} />
+              </button>
+              <div className="fgroup-body">
+                <div className="col gap-2">{rewardBands.map(b => <RadioRow key={b.k} on={reward === b.k} onClick={() => setReward(b.k)} label={rewardBandLabel(t, b.k, b.l)} />)}</div>
+              </div>
+            </div>
+
+            <div className={`fgroup ${closedGroups.has("more") ? "closed" : ""}`}>
+              <button className="fgroup-h" onClick={() => toggleGroup("more")}>
+                <span>{t("discover.moreFilters", null, "More filters")}</span>
+                <Icon name="chevronDown" size={15} />
+              </button>
+              <div className="fgroup-body">
+                <div style={{ padding: "4px 0 10px" }}>
+                  <span className="faint" style={{ fontSize: 12 }}>{t("discover.minMatch", null, "Minimum match")} · {minMatch}%</span>
+                  <input type="range" min="0" max="95" step="5" value={minMatch} onChange={e => setMinMatch(+e.target.value)} style={{ width: "100%", accentColor: "var(--accent)", marginTop: 6 }} />
+                </div>
+                <button className={`fcheck ${verifiedOnly ? "on" : ""}`} style={{ width: "100%" }} onClick={() => setVerifiedOnly(v => !v)}>
+                  <span className="box">{verifiedOnly && <Icon name="check" size={11} />}</span>
+                  {t("discover.verifiedOnly", null, "Verified builders only")}
+                </button>
+              </div>
             </div>
           </div>
         </aside>
@@ -343,7 +650,7 @@ export default function Discover() {
             ? <div className="card"><VEmpty icon="search" title={t("discover.noMatchTitle", null, "No missions match")} body={t("discover.noMatchBody", null, "Try widening your filters or clearing your search — new missions are posted throughout the day.")} cta={<button className="btn btn-primary" onClick={() => { clearAll(); setStatusTab("all"); }}>{t("actions.clearFilters", null, "Clear filters")}</button>} /></div>
             : (
               <div>
-                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
+                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} ptypes={ptypes} categories={categories} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
                 {visibleCount < visibleTasks.length && (
                   <div style={{ textAlign: "center", marginTop: 24, paddingBottom: 24 }}>
                     <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</button>
@@ -353,6 +660,7 @@ export default function Discover() {
             )}
         </div>
       </div>
+      {viewingResults && <VSubmissionDrawer taskId={viewingResults.id} missionName={viewingResults.product} onClose={() => setViewingResults(null)} />}
     </div>
   );
 }

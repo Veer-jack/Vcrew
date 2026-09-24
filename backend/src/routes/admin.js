@@ -405,7 +405,7 @@ router.get("/tester-applications", async (req, res) => {
     id: v.id, name: v.name, email: v.email, city: v.city, occupation: v.occupation,
     experience: v.experience_years, industry: JSON.parse(v.industry_json || "[]"), company: v.company,
     linkedinUrl: v.linkedin_url, portfolioUrl: v.portfolio_url, testingBio: v.testing_bio,
-    resumeUrl: v.resume_path ? `/api/uploads/${v.resume_path}` : null, resumeFilename: v.resume_filename,
+    resumeUrl: v.resume_path ? (v.resume_path.startsWith("http") ? v.resume_path : `/api/uploads/${v.resume_path}`) : null, resumeFilename: v.resume_filename,
     createdAt: v.created_at, status: v.tester_status,
   })) });
 });

@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft } from "../data/personaConfig";
+import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft, PERSONA_NAME_FIELD, audienceStepIssue } from "../data/personaConfig";
 import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
@@ -12,17 +12,16 @@ import LanguageSwitcher from "../components/LanguageSwitcher";
 
 const REGION = "india"; // ValidationCrew's primary market today; no region switcher yet.
 
-const PERSONA_NAME_FIELD = {
-  founder: "companyName",
-  company: "companyName",
-  researcher: "institution",
-  organization: "orgName",
-};
-
-function StepRail({ steps, current, maxReached, onJump }) {
+// Start over / Skip / Back live at the rail's bottom, same spot and the
+// same .wz-rail-foot styling CreateMissionWizard's own rail uses for its
+// Start fresh/Cancel/Back trio -- moved out of the top navbar so both
+// wizards read the same way. Skip stands in for Cancel there; Back keeps
+// its existing name and only appears past the first step, same condition
+// the old inline Back button used.
+function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, onBack }) {
   const { t } = useTranslation();
   return (
-    <aside className="wiz-rail">
+    <aside className="wiz-rail scroll-hover">
       <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
       <div className="col gap-1">
         {steps.map((s, i) => {
@@ -39,6 +38,17 @@ function StepRail({ steps, current, maxReached, onJump }) {
             </button>
           );
         })}
+      </div>
+      <div className="wz-rail-foot">
+        <button className="backlink" onClick={onStartFresh} style={{ marginLeft: 8 }}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
+        {current === 0 ? (
+          <button className="btn" onClick={onSkip} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
+        ) : (
+          <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
+            <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
+            <button className="btn" onClick={onBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
+          </div>
+        )}
       </div>
     </aside>
   );
@@ -193,11 +203,17 @@ export default function OnboardingWizard() {
     // `{}`) is merged on top rather than replacing this wholesale, so an
     // empty/partial draft can't blank out the real account's name/email.
     const base = { fullName: builder?.name || "", email: builder?.email || "" };
+    let merged = base;
     try {
       const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
-      if (saved?.d) return { ...base, ...saved.d };
+      if (saved?.d) merged = { ...base, ...saved.d };
     } catch { /* ignore */ }
-    return base;
+    // Anything already saved server-side (e.g. a field fixed via Settings
+    // while setup was still incomplete) is more authoritative than a stale
+    // local draft that predates that edit -- overlaid last so it wins
+    // per-field, while any field only the draft has (genuine in-progress,
+    // never-submitted work) still comes through untouched.
+    return { ...merged, ...(builder?.profile || {}) };
   });
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
@@ -212,6 +228,21 @@ export default function OnboardingWizard() {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: newStep, maxReached: newMaxReached, d: currentD }));
     } catch { /* ignore */ }
   };
+
+  // Belt-and-suspenders for the explicit saveDraft() calls below: those only
+  // fire at step transitions (Continue/Back/rail-jump), so anything typed on
+  // the CURRENT step was invisible to localStorage until the next transition
+  // — leaving it to survive only Continue/Back and be silently dropped by
+  // any other way of leaving (Skip's window.location.href, closing the tab
+  // past the unsaved-changes warning, the browser's own back button). This
+  // keeps the saved draft caught up with every keystroke instead, so no exit
+  // path can lose more than what the debounce hasn't flushed yet.
+  useEffect(() => {
+    if (done) return;
+    const timer = setTimeout(() => saveDraft(step, maxReached, d), 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, maxReached, d, done]);
 
   const stepKey = persona ? persona.steps[step].key : null;
   const StepComponent = persona ? persona.components[stepKey] : null;
@@ -231,7 +262,14 @@ export default function OnboardingWizard() {
 
   const goNext = async () => {
     if (!isValid) {
-      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      // Founder/Company's "audience" step silently discards the WHOLE step
+      // if any one of Age/Gender/Country/Occupation is missing (see
+      // audienceStepValid) -- naming only the generic message here left
+      // people fixing one field, hitting Next, getting rejected again for a
+      // DIFFERENT missing field, same trap EditAccountStep's Settings-side
+      // edit already had a specific fix for.
+      const specificIssue = stepKey === "audience" && (role === "founder" || role === "company") ? audienceStepIssue(d, t) : null;
+      setError(specificIssue || t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
       setShowErrors(true);
       // The warning banner renders at the top of the step — scroll there so
       // it's actually visible instead of silently appearing above the fold.
@@ -281,6 +319,28 @@ export default function OnboardingWizard() {
     saveDraft(i, maxReached, d);
   };
 
+  // Reset (not remove) the draft: this stays on the same role, just restarts
+  // progress within it, so the dashboard's "which role / how far" banner
+  // stays in sync instead of reporting no role picked.
+  const startFresh = () => {
+    window.__bypassUnload = true;
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: 0, maxReached: 0, d: { fullName: builder?.name || "", email: builder?.email || "" } }));
+    } catch { /* ignore */ }
+    window.location.reload();
+  };
+  // A real navigation (not react-router's navigate), same as the old plain
+  // <a href="/"> -- preserves "same functionality" exactly rather than
+  // switching to a soft SPA route change as a side effect of relocating it.
+  const handleSkip = () => {
+    // Flush synchronously -- the debounced autosave effect above might not
+    // have fired yet, and this navigation (a real page load) doesn't wait
+    // around for it the way an in-app route change would.
+    saveDraft(step, maxReached, d);
+    window.__bypassUnload = true;
+    window.location.href = "/";
+  };
+
   if (done) {
     return (
       <div className="auth-shell">
@@ -296,38 +356,42 @@ export default function OnboardingWizard() {
         <span style={{ fontWeight: 800 }}>ValidationCrew</span>
         <RoleSwitcher currentKey={role} currentName={t(`onboarding.persona.${role}.name`, null, persona.name)} builder={builder} />
         <div style={{ flex: 1 }} />
-        <LanguageSwitcher style={{ marginRight: 16 }} />
-        <button
-          onClick={() => {
-            window.__bypassUnload = true;
-            // Reset (not remove) the draft: this stays on the same role, just
-            // restarts progress within it, so the dashboard's "which role /
-            // how far" banner stays in sync instead of reporting no role picked.
-            try {
-              localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: 0, maxReached: 0, d: { fullName: builder?.name || "", email: builder?.email || "" } }));
-            } catch { /* ignore */ }
-            window.location.reload();
-          }}
-          className="faint"
-          style={{ fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', marginRight: 16 }}
-        >
-          {t("actions.startOver", null, "Start over")}
-        </button>
-        <a href="/" onClick={() => { window.__bypassUnload = true; }} className="faint" style={{ fontSize: 13 }}>{t("actions.skipForNow", null, "Skip for now")}</a>
+        {/* Same fix as EditAccountStep's switcher -- every other usage
+            (AppLayout topbar, RoleSelect, IntentFork) persists the choice
+            via onSave; this one didn't, so it only changed the session's
+            UI language and reverted on the next real reload. */}
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 16 }} />
       </header>
 
       <div className="wiz-body-grid">
-        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} />
+        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} onStartFresh={startFresh} onSkip={handleSkip} onBack={goBack} />
         <div className="wiz-content">
+          {/* .wiz-rail (Start over/Skip/Back's only other home) hides below
+              760px -- this keeps Skip and Back reachable on mobile without
+              duplicating the desktop rail's Start over too, matching the
+              mission wizard's own mobile behavior (Start fresh is
+              rail-exclusive there too; Cancel/Back stay reachable). */}
+          <div className="wiz-mob-nav">
+            <button className="btn" onClick={handleSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
+            {step > 0 && <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>}
+          </div>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
-          <div className="row gap-3" style={{ marginTop: 28 }}>
-            {step > 0 && <Btn variant="ghost" onClick={goBack}>{t("actions.back", null, "Back")}</Btn>}
-            <Btn variant="primary" onClick={goNext} disabled={busy}>
-              {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
-            </Btn>
-          </div>
         </div>
+      </div>
+
+      {/* Fixed to the right regardless of scroll or step content height --
+          previously part of the normal flow right after each step's own
+          content, so it landed at a different screen position on every step
+          depending on how tall that step was. Not the mission wizard's own
+          full-width bottom bar (.wz-foot) -- just this one button, anchored
+          to a corner, since Back/Skip/Start over already moved into the rail.
+          right: 110 (not a tighter 32) clears the support-chat bubble that
+          also docks bottom-right, which otherwise sits on top of it. */}
+      <div style={{ position: "fixed", bottom: 28, right: 110, zIndex: 40 }}>
+        <Btn variant="primary" onClick={goNext} disabled={busy} style={{ boxShadow: "var(--shadow-lg)" }}>
+          {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
+        </Btn>
       </div>
     </div>
   );

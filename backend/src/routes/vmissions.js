@@ -3,18 +3,14 @@ import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { VTYPES } from "../vmeta.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { randomUUID } from "crypto";
+import { cloudinary, makeCloudinaryStorage } from "../upload.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { computeCheckinStatus, TRIAL_EXTRA_DAYS } from "../checkinLogic.js";
 import { translateBatch } from "../translate.js";
+import { buildResponseBreakdown, parseResponseData } from "../responseBreakdown.js";
 
 export const router = Router();
 router.use(validatorAuthMiddleware);
-
-const UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // A participant only ever moves accepted -> started once they've actually
 // done something (first check-in, first interview acceptance, first poll
@@ -25,20 +21,15 @@ fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 // (started/submitted/rewarded/etc.), and calling it again on repeat actions
 // (e.g. day 2's check-in) is a harmless no-op.
 async function markParticipantStarted(missionId, validatorId) {
-  await db.prepare(`UPDATE participants SET stage = 'started' WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
+  const result = await db.prepare(`UPDATE participants SET stage = 'started', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'accepted'`)
     .run(missionId, validatorId);
+  // Lets a caller notify the builder only on the real accepted->started
+  // transition, not on every repeat call (e.g. every subsequent autosave).
+  return result.changes > 0;
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || "";
-    cb(null, `${randomUUID()}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: makeCloudinaryStorage("vcrew-proof"),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
   fileFilter: (req, file, cb) => {
     const allowed = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "video/quicktime"];
@@ -48,13 +39,22 @@ const upload = multer({
 });
 router.use(validatorAuthMiddleware);
 
+// A rejected upload (mission not found, wrong status, ...) still landed on
+// Cloudinary before the rejection was known -- best-effort delete it rather
+// than leaving it orphaned, same intent the old fs.unlinkSync had for local
+// disk. Not awaited by callers since it's cleanup, not part of the response.
+function cleanupUpload(file) {
+  const resourceType = file.mimetype?.startsWith("video") ? "video" : "image";
+  cloudinary.uploader.destroy(file.filename, { resource_type: resourceType }).catch(() => {});
+}
+
 function serializeRow(row) {
   return {
     id: row.mm_id,
     taskId: row.id,
     src: row.src,
     type: row.category ? row.type : (VTYPES[row.type] ? row.type : "mvp"), category: row.category, product: row.product, tagline: row.tagline, company: row.company,
-    reward: row.reward, minutes: row.minutes, match: row.match_pct,
+    reward: row.reward, rewardType: row.reward_type || "fixed", minutes: row.minutes, match: row.match_pct,
     deadline: row.deadline_label,
     status: row.status, progress: row.progress, quality: row.quality, reason: row.reason,
     statusLabel: row.status_label,
@@ -63,9 +63,9 @@ function serializeRow(row) {
 
 // GET /api/v/missions?status=active
 const TASK_UNION = `
-  SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src FROM vtasks
+  SELECT id::text, type::text, NULL as category, product::text, tagline::text, company::text, reward::int, minutes::int, match_pct::int, deadline_label::text, steps_json::text, brief::text, 'vtask' as src, 'fixed'::text as reward_type FROM vtasks
   UNION ALL
-  SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src FROM missions
+  SELECT id::text, ptype::text as type, category::text as category, name::text as product, description::text as tagline, brand::text as company, reward_amount::int as reward, 10::int as minutes, 90::int as match_pct, COALESCE(TO_CHAR(deadline, 'Mon DD'), 'Soon')::text as deadline_label, tasks_json::text as steps_json, description::text as brief, 'mission' as src, COALESCE(reward_type, 'fixed')::text as reward_type FROM missions
 `;
 
 router.get("/", async (req, res) => {
@@ -80,7 +80,7 @@ router.get("/", async (req, res) => {
              t.* FROM v_saved vs
       JOIN (${TASK_UNION}) t ON (t.id = vs.task_id)
       WHERE vs.validator_id = ?
-      ORDER BY vs.id DESC
+      ORDER BY vs.saved_at DESC
     `).all(req.validator.id);
   } else {
     let sql = `
@@ -189,8 +189,8 @@ router.get("/:taskId", async (req, res) => {
   }
 
   const taskData = isRealMission
-    ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", ptype: t.ptype || null, category: t.category || null, product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
-    : { id: t.id, type: t.type, ptype: null, category: null, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
+    ? { id: t.id, type: VTYPES[t.ptype] ? t.ptype : "mvp", ptype: t.ptype || null, category: t.category || null, product: t.name, tagline: t.description ? t.description.slice(0, 100) : "", company: t.brand || "Independent", reward: t.reward_amount || 0, rewardType: t.reward_type || "fixed", minutes: 10, brief: t.description || "", steps: JSON.parse(t.tasks_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) }
+    : { id: t.id, type: t.type, ptype: null, category: null, product: t.product, tagline: t.tagline, company: t.company, reward: t.reward, rewardType: "fixed", minutes: t.minutes, brief: t.brief, steps: JSON.parse(t.steps_json || "[]").map(s => typeof s === 'string' ? s : (s.title || s.description || 'Task')) };
 
   let scheduleStatus = null;
   if (isRealMission && t.ptype === "interview") {
@@ -214,6 +214,60 @@ router.get("/:taskId", async (req, res) => {
       flags: mm.flags_json ? JSON.parse(mm.flags_json) : [],
       notes: mm.notes || "",
     } : null,
+  });
+});
+
+// GET /api/v/missions/:id/submission — the validator's own submitted
+// answers for a real mission, formatted the same way the builder's
+// Responses/Participants drawer shows them (see routes/missions.js's GET
+// /:id/submissions and responseBreakdown.js, which this shares) -- lets
+// "View results" open a read-only drawer here instead of navigating to a
+// separate page just to show a reward/rating summary.
+router.get("/:id/submission", async (req, res) => {
+  const mission = await db.prepare(`
+    SELECT m.*, b.name AS builder_name, b.org AS builder_org, b.color AS builder_color
+    FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
+    WHERE m.id = ?
+  `).get(req.params.id);
+  if (!mission) return res.status(404).json({ error: "Mission not found" });
+
+  const r = await db.prepare(`SELECT * FROM responses WHERE mission_id = ? AND validator_id = ? ORDER BY submitted_at DESC LIMIT 1`).get(mission.id, req.validator.id);
+  if (!r) return res.status(404).json({ error: "No submission found for this mission" });
+
+  // Score/reason live on the validator's own v_my_missions row, not on
+  // `responses` -- that's where the builder's approve/reject/revise action
+  // (routes/missions.js) actually writes the rating and feedback text once
+  // a verdict exists. null on anything still pending, same as the reward
+  // itself hasn't cleared yet.
+  const mm = await db.prepare(`SELECT score, reason FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, mission.id);
+
+  let missionTasks = [];
+  try { missionTasks = mission.tasks_json ? JSON.parse(mission.tasks_json) : []; } catch {}
+
+  const data = parseResponseData(r.data_json);
+  const breakdown = buildResponseBreakdown(data, missionTasks);
+
+  res.json({
+    mission: {
+      id: mission.id, name: mission.name,
+      company: mission.brand || mission.builder_org || mission.builder_name || "Independent",
+      builderName: mission.builder_name, builderColor: mission.builder_color || "#4f46e5",
+      reward: mission.reward_amount, rewardType: mission.reward_type || "fixed",
+    },
+    submission: {
+      status: r.status,
+      date: new Date(r.submitted_at).toLocaleDateString(),
+      mins: r.active_seconds != null ? Math.max(1, Math.round(r.active_seconds / 60)) : null,
+      tasks: breakdown.length > 0 ? `${breakdown.length}/${breakdown.length}` : "All",
+      revisionRequestedAt: r.revision_requested_at ? new Date(r.revision_requested_at).toLocaleDateString() : null,
+      // A rating of exactly 0 (the column's own default) reads the same as
+      // "no verdict yet" here -- only approved/rejected missions ever get a
+      // real score written, so this can't collide with a genuine 0-star
+      // rating that doesn't exist in this app's 1-5 scale.
+      score: mm?.score || null,
+      reason: mm?.reason || null,
+      breakdown,
+    },
   });
 });
 
@@ -360,7 +414,18 @@ router.patch("/:id/workspace/draft", async (req, res) => {
   await db.prepare(`UPDATE v_my_missions SET progress = ?, updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(progressPercent, req.params.id, req.validator.id);
 
-  await markParticipantStarted(req.params.id, req.validator.id);
+  const justStarted = await markParticipantStarted(req.params.id, req.validator.id);
+  // Every other ptype-specific "started" trigger (shipment received,
+  // interview accepted, focus group availability, daily check-in) already
+  // notifies the builder here -- this generic draft-autosave path, the one
+  // every plain survey/testing/feedback mission actually goes through, was
+  // the one case with no notification at all.
+  if (justStarted) {
+    await db.prepare(`
+      INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
+      VALUES (?, 'application', 'mission_started', 'rocket', 'accent', 'Mission Started', ?, 'Just now', 1, ?)
+    `).run(m.builder_id, `${req.validator.name} has started working on "${m.name}".`, m.id);
+  }
 
   res.json({ ok: true, progress: progressPercent });
 });
@@ -423,7 +488,7 @@ router.post("/:id/workspace/proof", (req, res, next) => {
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(404).json({ error: "Mission not found" });
   }
 
@@ -432,13 +497,13 @@ router.post("/:id/workspace/proof", (req, res, next) => {
   // task the builder flagged, so it must be allowed from either state.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(400).json({ error: "Mission not active or not accepted" });
   }
 
   res.status(201).json({
     ok: true,
-    file: { filename: req.file.filename, url: `/api/uploads/${req.file.filename}` },
+    file: { filename: req.file.filename, url: req.file.path },
   });
 });
 
@@ -453,23 +518,28 @@ router.post("/:id/checkin/proof", (req, res, next) => {
 
   const m = await db.prepare(`SELECT * FROM missions WHERE id = ?`).get(req.params.id);
   if (!m) {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(404).json({ error: "Mission not found" });
   }
   if (m.ptype !== "trial") {
-    fs.unlinkSync(req.file.path);
+    cleanupUpload(req.file);
     return res.status(400).json({ error: "This mission does not use daily check-ins" });
   }
 
+  // Same allowance the task-proof endpoint above already makes: a revision
+  // request drops v_my_missions.status to "revision" for the whole mission,
+  // not just the one task/day the builder actually flagged -- requiring a
+  // literal "active" here meant every subsequent day's check-in screenshot
+  // was rejected too, for the rest of the trial, until an admin/DB fix.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  if (!mm || mm.status !== "active") {
-    fs.unlinkSync(req.file.path);
+  if (!mm || (mm.status !== "active" && mm.status !== "revision")) {
+    cleanupUpload(req.file);
     return res.status(400).json({ error: "Mission not active or not accepted" });
   }
 
   res.status(201).json({
     ok: true,
-    file: { filename: req.file.filename, url: `/api/uploads/${req.file.filename}` },
+    file: { filename: req.file.filename, url: req.file.path },
   });
 });
 
@@ -563,7 +633,7 @@ router.patch("/:id/workspace/submit", async (req, res) => {
   await db.prepare(`UPDATE v_my_missions SET status = 'submitted', progress = 100, status_label = 'Submitted for review', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(req.params.id, req.validator.id);
     
-  await db.prepare(`UPDATE participants SET stage = 'submitted' WHERE mission_id = ? AND validator_id = ?`)
+  await db.prepare(`UPDATE participants SET stage = 'submitted', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`)
     .run(req.params.id, req.validator.id);
 
   res.json({ ok: true });
@@ -795,8 +865,12 @@ router.post("/:id/checkin", async (req, res) => {
   if (!m) return res.status(404).json({ error: "Mission not found" });
   if (m.ptype !== "trial") return res.status(400).json({ error: "This mission does not use daily check-ins" });
 
+  // Same "revision" allowance as the checkin/proof upload just above --
+  // a revision request on this mission (anywhere in it) drops status to
+  // "revision" for the whole thing, not just the flagged day, so requiring
+  // literal "active" here blocked every later day's check-in too.
   const mm = await db.prepare(`SELECT status FROM v_my_missions WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
-  if (!mm || mm.status !== "active") return res.status(400).json({ error: "Mission not active or not accepted" });
+  if (!mm || (mm.status !== "active" && mm.status !== "revision")) return res.status(400).json({ error: "Mission not active or not accepted" });
 
   const p = await db.prepare(`SELECT joined_at AS accepted_at FROM participants WHERE mission_id = ? AND validator_id = ?`).get(req.params.id, req.validator.id);
   if (!p) return res.status(403).json({ error: "Not participating" });
@@ -807,7 +881,7 @@ router.post("/:id/checkin", async (req, res) => {
 
   if (lockedOut) {
     await db.prepare(`UPDATE v_my_missions SET status = 'failed', status_label = 'Failed (Missed Check-ins)', updated_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
-    await db.prepare(`UPDATE participants SET stage = 'failed' WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
+    await db.prepare(`UPDATE participants SET stage = 'failed', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ?`).run(req.params.id, req.validator.id);
     
     await db.prepare(`
       INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id)
@@ -875,17 +949,35 @@ router.post("/invitations/:id/accept", async (req, res) => {
       // (no prior invite) still fall through to the INSERT.
       const invitedRow = await tx.prepare(`SELECT id FROM participants WHERE mission_id = ? AND validator_id = ?`).get(m.id, req.validator.id);
       if (invitedRow) {
-        await tx.prepare(`UPDATE participants SET stage = 'accepted', status = 'active' WHERE id = ?`).run(invitedRow.id);
+        await tx.prepare(`UPDATE participants SET stage = 'accepted', status = 'active', stage_changed_at = NOW() WHERE id = ?`).run(invitedRow.id);
       } else {
-        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city) VALUES (?, ?, ?, ?, ?, ?)`)
-          .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote');
+        // Same trust formula as the invited-row path above and marketplace
+        // apply — req.validator is a full row (see auth.js), so its rating
+        // is already on hand, no extra query needed.
+        const trust = Math.round((req.validator.rating || 5) * 20);
+        await tx.prepare(`INSERT INTO participants (mission_id, validator_id, name, email, role, city, trust) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+          .run(m.id, req.validator.id, req.validator.name, req.validator.email, req.validator.role || 'User', req.validator.city || 'Remote', trust);
       }
-      // A prior decline (see POST /marketplace/:id/decline) left a
-      // 'declined' row here — a fresh invite shouldn't silently bypass
-      // that, so update it in place rather than inserting a second row,
-      // and reject if the validator hasn't explicitly undone the decline.
+      // Marketplace-style direct joins (POST /marketplace/:id/apply) create
+      // this row up front; accepting an invite skipped it entirely, so a
+      // "sample" mission's builder could never mark an invited validator's
+      // shipment as shipped — the update always matched zero rows. Guarded
+      // with an existence check since this handler can run again for the
+      // same validator+mission (e.g. a re-sent invite after a decline).
+      if (m.category === "sample") {
+        const hasShipment = await tx.prepare(`SELECT 1 FROM sample_shipments WHERE mission_id = ? AND validator_id = ?`).get(m.id, req.validator.id);
+        if (!hasShipment) {
+          await tx.prepare(`INSERT INTO sample_shipments (mission_id, validator_id, status) VALUES (?, ?, 'awaiting_shipment')`)
+            .run(m.id, req.validator.id);
+        }
+      }
+      // A prior decline (see POST /marketplace/:id/decline) can leave a
+      // 'declined' row here. That used to also block accepting here, but
+      // `invite` above is already a specific, currently-pending invitation
+      // the builder deliberately re-sent -- the validator explicitly
+      // accepting it is a clearer, later signal than a stale decline flag,
+      // so update the row in place instead of rejecting the accept.
       const existingMy = await tx.prepare(`SELECT id, status FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, m.id);
-      if (existingMy?.status === "declined") throw new Error("DECLINED_MISSION");
       if (existingMy) {
         await tx.prepare(`UPDATE v_my_missions SET status = 'active' WHERE id = ?`).run(existingMy.id);
       } else {
@@ -917,9 +1009,6 @@ router.post("/invitations/:id/accept", async (req, res) => {
     if (err.message === "MISSION_FULL") {
       return res.status(400).json({ error: "Sorry, this mission has just filled all available slots." });
     }
-    if (err.message === "DECLINED_MISSION") {
-      return res.status(400).json({ error: "You declined this mission. Undo that from My Missions if you'd like to accept it." });
-    }
     throw err;
   }
 });
@@ -933,7 +1022,20 @@ router.post("/invitations/:id/decline", async (req, res) => {
 
   await db.transaction(async (tx) => {
     await tx.prepare(`UPDATE mission_invitations SET status = 'declined' WHERE id = ?`).run(invite.id);
-    await tx.prepare(`DELETE FROM participants WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
+    // A real stage, not a delete -- the builder's Participants Kanban has a
+    // Declined column for exactly this, so a decline is visible there
+    // instead of the invitee just silently vanishing with no trace beyond
+    // the one-off notification.
+    await tx.prepare(`UPDATE participants SET stage = 'declined', stage_changed_at = NOW() WHERE mission_id = ? AND validator_id = ? AND stage = 'invited'`).run(invite.mission_id, req.validator.id);
+    // Mirror the marketplace decline path: record it on the validator side
+    // too, so this lands in their "Declined" tab (with an Undo) exactly like
+    // a browse-decline does, instead of the invite just disappearing.
+    const existingMy = await tx.prepare(`SELECT id FROM v_my_missions WHERE validator_id = ? AND mission_id = ?`).get(req.validator.id, invite.mission_id);
+    if (existingMy) {
+      await tx.prepare(`UPDATE v_my_missions SET status = 'declined', status_label = 'Declined' WHERE id = ?`).run(existingMy.id);
+    } else {
+      await tx.prepare(`INSERT INTO v_my_missions (validator_id, mission_id, status, status_label) VALUES (?, ?, 'declined', 'Declined')`).run(req.validator.id, invite.mission_id);
+    }
     if (m) {
       await tx.prepare(`INSERT INTO notifications (builder_id, cat, type, icon, tone, title, body, time_label, unread, target_id) VALUES (?, 'application', 'invite_declined', 'xCircle', 'warning', ?, ?, 'Just now', 1, ?)`)
         .run(m.builder_id, "Invite Declined", `${req.validator.name} has declined your invitation for ${m.name}.`, m.id);

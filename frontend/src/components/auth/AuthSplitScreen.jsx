@@ -10,6 +10,7 @@ import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../..
 import { detectLangFromCountryCode } from "../../i18n/languages.js";
 import { useTranslation } from "../../i18n/index.jsx";
 import { EMAIL_RE, isPasswordValid } from "../../utils/validators.js";
+import { takePreLoginPath } from "../../utils/authRedirect";
 
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
 
@@ -126,7 +127,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   };
   const emailFormValid = emailOk && isPasswordValid(password) && (mode === "signin" || (name.trim() && agree));
 
-  const goAfterAuth = () => navigate(location.state?.from || homePath, { replace: true });
+  const goAfterAuth = () => navigate(takePreLoginPath() || homePath, { replace: true });
 
   const submitEmail = async (e) => {
     e.preventDefault();
@@ -206,6 +207,13 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       const idToken = await cred.user.getIdToken();
       const res = await adapter.phoneLoginVerify(idToken);
       adapter.onAuthed(res.token, res[adapter.userKey]);
+      // Phone auth silently creates a brand-new account for any unrecognized
+      // number (see buildFirebaseLoginRouter's createUser), regardless of
+      // which tab -- Sign in or Create account -- happened to be open. profile
+      // is the same "still needs onboarding" signal the route guards
+      // themselves gate on, so this catches a fresh account either way,
+      // instead of only the email path's signup mode ever reaching onboarding.
+      if (signupHref && !res[adapter.userKey]?.profile) { navigate(signupHref, { replace: true }); return; }
       goAfterAuth();
     } catch (err) {
       setError(friendlyAuthError(err, t));

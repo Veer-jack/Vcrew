@@ -4,16 +4,18 @@ import Icon from "../components/Icon";
 import { VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
-import { deadlineLabel } from "../vutil";
+import { deadlineLabel, rewardPaysOnApproval } from "../vutil";
 import { useTranslation } from "../i18n/index.jsx";
+import VSubmissionDrawer from "../components/VSubmissionDrawer";
 
 export default function MissionDetails() {
   const { t, dataVersion } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { vtypes, ptypes } = useVMeta();
+  const { vtypes, ptypes, categories } = useVMeta();
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [viewingResults, setViewingResults] = useState(null);
 
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState("");
@@ -43,8 +45,22 @@ export default function MissionDetails() {
 
   const { task, rubric } = data;
   const vType = vtypes[task.type];
-  const spotPct = (task.spotsLeft / task.spotsTotal) * 100;
   const accepted = task.myStatus === "active" || task.myStatus === "submitted" || task.myStatus === "completed";
+  const pt = task.ptype && ptypes ? ptypes.find(p => p.id === task.ptype) : null;
+  const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
+  // Header metadata line -- company plus the participation format, which
+  // used to sit in its own "Mission requirements" block further down the
+  // page. tagline (the mission's description) is deliberately left out --
+  // it's already shown in full in the "About this mission" section below,
+  // and repeating it here just pushed the reward down variable amounts
+  // depending on its length. Filtered + joined so a missing piece (no
+  // ptype, no question count) doesn't leave a stray leading/trailing
+  // separator.
+  const headerMeta = [
+    task.company,
+    pt && pt.label,
+    task.questionCount > 0 && t("missions.questionCount", { count: task.questionCount }, `${task.questionCount} questions`),
+  ].filter(Boolean).join(" | ");
 
   // Shared by apply() and acceptInvite() — both actions are now gated
   // server-side on having a complete-enough profile (see vmarketplace.js /
@@ -62,8 +78,15 @@ export default function MissionDetails() {
   const apply = async () => {
     setBusy(true);
     try {
-      await vapi.applyTask(task.id);
-      setData(d => ({ ...d, task: { ...d.task, myStatus: "active" } }));
+      // Hardcoded to "active" here regardless of what actually happened --
+      // a require-approval mission's apply genuinely lands at 'applied', not
+      // 'active' (see POST /marketplace/:id/apply), so this showed "Accepted
+      // · Start now" for a couple of seconds no matter what, only correcting
+      // itself to "Awaiting builder review" once the validator left and came
+      // back and the page did a real fetch. Using the response's own status
+      // means the very first render already shows the truth.
+      const { myMission } = await vapi.applyTask(task.id);
+      setData(d => ({ ...d, task: { ...d.task, myStatus: myMission?.status || "active" } }));
     } catch (e) {
       handleJoinError(e);
     } finally { setBusy(false); }
@@ -132,69 +155,97 @@ export default function MissionDetails() {
         </div>
       )}
 
+      {/* Was never shown anywhere -- the builder's rejection note only ever
+          reached the validator as a one-time notification toast, easy to
+          miss and gone for good afterward. */}
+      {task.myStatus === "rejected" && task.myReason && (
+        <div className="card rise" style={{ padding: "16px var(--pad-card)", marginBottom: 16, background: "var(--danger-weak)", border: "1px solid var(--danger)", display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <Icon name="xCircle" size={20} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div style={{ fontWeight: 700, color: "var(--danger)", marginBottom: 3 }}>{t("missions.submissionRejected", null, "Your submission was rejected")}</div>
+            <div style={{ fontSize: 13.5, color: "var(--text)" }}>{task.myReason}</div>
+          </div>
+        </div>
+      )}
+
       <div className="card rise" style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "26px var(--pad-card)", borderBottom: "var(--hairline) solid var(--border)",
+        <div style={{ padding: "20px var(--pad-card)", borderBottom: "var(--hairline) solid var(--border)",
           background: `linear-gradient(180deg, color-mix(in srgb, var(${vType.accentVar}) 8%, var(--panel)), var(--panel))` }}>
           <div className="row between wrap gap-4" style={{ alignItems: "flex-start" }}>
             <div className="row gap-3" style={{ alignItems: "flex-start" }}>
-              <span style={{ width: 56, height: 56, borderRadius: 15, display: "grid", placeItems: "center", flex: "none", background: `var(${vType.accentVar})`, color: "#fff" }}><Icon name={vType.icon} size={28} /></span>
+              <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none", background: `var(${vType.accentVar})`, color: "#fff" }}><Icon name={vType.icon} size={22} /></span>
               <div>
-                <div className="row gap-2 wrap" style={{ marginBottom: 7 }}>
+                <div className="row gap-2 wrap" style={{ marginBottom: 6 }}>
                   <VTypeTag type={task.type} vtypes={vtypes} />
+                  {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={12} />{cat.label}</span>}
                   {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={12} />{t("missions.highDemand", null, "High demand")}</span>}
                   <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("missions.match", null, "match")}</span>
                 </div>
-                <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
-                <p className="muted" style={{ margin: "4px 0 0", fontSize: 15 }}>{task.tagline} · {task.company}</p>
+                <h2 style={{ margin: 0, fontSize: 21, fontWeight: 800, letterSpacing: "-.025em" }}>{task.product}</h2>
+                <p className="muted" style={{ margin: "4px 0 0", fontSize: 13.5 }}>{headerMeta}</p>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}><VReward amount={task.reward} big /><div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div></div>
+            <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("missions.onApproval", null, "on approval")}</div>}</div>
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", borderBottom: "var(--hairline) solid var(--border)" }}>
+        {/* "Your match" dropped -- it's already the one match% shown, in the
+            header pill, so repeating it here was the only actual duplicate.
+            Requirements moved into this row's third column instead of
+            sitting in its own section further down the page. */}
+        {/* Requirements needs real room for three inline chips -- equal
+            thirds left it wrapping onto its own extra line and made the
+            whole card look taller than it needed to be. Participants/
+            Deadline only ever hold one short line of text, so they don't
+            need nearly as much width. */}
+        <div style={{ display: "grid", gridTemplateColumns: "0.6fr 0.6fr 1.6fr", borderBottom: "var(--hairline) solid var(--border)" }}>
           {[
-            { ic: "clock", l: t("missions.time", null, "Time"), v: `~${task.minutes} min` },
-            { ic: "users", l: t("missions.spotsLeft", null, "Spots left"), v: `${task.spotsLeft} / ${task.spotsTotal}` },
+            // Filled-first, matching the builder side's own "Participants:
+            // joined/target" convention -- "Slots left: 5/5" on a mission
+            // nobody had joined read as full rather than empty, and the two
+            // sides disagreeing on which side of the fraction "matters"
+            // wasn't obvious until you actually compared them side by side.
+            { ic: "users", l: t("missions.participants", null, "Participants"), v: `${task.spotsTotal - task.spotsLeft} / ${task.spotsTotal}` },
             { ic: "calendar", l: t("missions.deadline", null, "Deadline"), v: deadlineLabel(task.deadline) },
-            { ic: "target", l: t("missions.yourMatch", null, "Your match"), v: `${task.match}%` },
           ].map((x, i) => (
             <div key={i} style={{ padding: "16px var(--pad-card)", borderLeft: i ? "var(--hairline) solid var(--border)" : "none" }}>
               <div className="row gap-2 faint" style={{ fontSize: 11.5, marginBottom: 5 }}><Icon name={x.ic} size={13} />{x.l}</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{x.v}</div>
             </div>
           ))}
+          <div style={{ padding: "16px var(--pad-card)", borderLeft: "var(--hairline) solid var(--border)" }}>
+            <div className="row gap-2 faint" style={{ fontSize: 11.5, marginBottom: 7 }}><Icon name="fileText" size={13} />{t("missions.requirements", null, "Requirements")}</div>
+            <div className="row gap-1 wrap">
+              <span className="pill" style={{ padding: "4px 9px", fontSize: 11.5 }}><Icon name="shield" size={12} />{t("missions.verifiedProfile", null, "Verified profile")}</span>
+              <span className="pill" style={{ padding: "4px 9px", fontSize: 11.5 }}><Icon name="cpu" size={12} />{rubric.label} {t("missions.expertise", null, "expertise")}</span>
+              <span className="pill" style={{ padding: "4px 9px", fontSize: 11.5 }}><Icon name="star" size={12} />4.0+ {t("missions.rating", null, "rating")}</span>
+            </div>
+          </div>
         </div>
 
         <div style={{ padding: "var(--pad-card)" }}>
           <div className="eyebrow" style={{ marginBottom: 9 }}>{t("missions.aboutThisMission", null, "About this mission")}</div>
           <p style={{ margin: "0 0 22px", fontSize: 15, lineHeight: 1.6, overflowWrap: "anywhere", wordBreak: "break-word" }}>{task.brief}</p>
+          {/* Tinted so the two panels read as distinct blocks instead of one
+              continuous section -- blue for the task list, warm/cream for
+              the grading criteria. Mission-format details (Feedback Format,
+              question count) moved up into the header metadata line, so the
+              old "Mission requirements" sub-block here was dropped as a
+              duplicate; same for the Requirements chips, now in the stats
+              row above instead of repeated in this panel too. */}
           <div className="m2" style={{ gap: 22 }}>
-            <div>
+            <div style={{ background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 20%, transparent)", borderRadius: "var(--radius)", padding: 22 }}>
               <div className="eyebrow" style={{ marginBottom: 11 }}>{t("missions.whatYoullDo", null, "What you'll do")}</div>
               <div style={{ display: "grid", gap: 9 }}>
                 {task.steps.map((s, i) => (
                   <div key={i} className="row gap-3" style={{ alignItems: "flex-start" }}>
-                    <span className="mono" style={{ width: 22, height: 22, flex: "none", borderRadius: 6, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 600, background: "var(--accent-weak)", color: "var(--accent)" }}>{i + 1}</span>
+                    <span className="mono" style={{ width: 22, height: 22, flex: "none", borderRadius: 6, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 600, background: "var(--panel)", color: "var(--accent)" }}>{i + 1}</span>
                     <span style={{ fontSize: 14, overflowWrap: "anywhere", wordBreak: "break-word" }}>{s}</span>
                   </div>
                 ))}
               </div>
-              {task.ptype && ptypes && ptypes.find(p => p.id === task.ptype) && (() => {
-                const pt = ptypes.find(p => p.id === task.ptype);
-                return (
-                  <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
-                    <h3 style={{ margin: "0 0 10px", fontSize: 16, fontWeight: 800 }}>{t("missions.missionRequirements", null, "Mission requirements")}</h3>
-                    <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14.5, color: "var(--text)", lineHeight: 1.6 }}>
-                      <li>{t("missions.feedbackFormat", null, "Feedback Format:")} {pt.label}</li>
-                      <li>{t("missions.estimatedTime", null, "Estimated time:")} {pt.est}</li>
-                    </ul>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", paddingLeft: 23, marginTop: 10 }}>{pt.desc}</div>
-                  </div>
-                );
-              })()}
             </div>
-            <div>
+            <div style={{ background: "var(--warning-weak)", border: "1px solid color-mix(in srgb, var(--warning) 25%, transparent)", borderRadius: "var(--radius)", padding: 22 }}>
               <div className="eyebrow" style={{ marginBottom: 11 }}>{t("missions.gradedOn", null, "What you'll be graded on")}</div>
               <div style={{ display: "grid", gap: 8 }}>
                 {rubric.rubric.map(d => (
@@ -204,26 +255,13 @@ export default function MissionDetails() {
                   </div>
                 ))}
               </div>
-              <div className="eyebrow" style={{ margin: "20px 0 11px" }}>{t("missions.requirements", null, "Requirements")}</div>
-              <div className="row gap-2 wrap">
-                <span className="pill"><Icon name="shield" size={13} />{t("missions.verifiedProfile", null, "Verified profile")}</span>
-                <span className="pill"><Icon name="cpu" size={13} />{rubric.label} {t("missions.expertise", null, "expertise")}</span>
-                <span className="pill"><Icon name="star" size={13} />4.0+ {t("missions.rating", null, "rating")}</span>
-              </div>
             </div>
           </div>
         </div>
 
-        <div style={{ padding: "0 var(--pad-card) var(--pad-card)" }}>
-          <div className="row between" style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 6 }}>
-            <span>{task.spotsLeft} of {task.spotsTotal} {t("missions.spotsRemaining", null, "spots remaining")}</span>
-            <span className="mono" style={{ color: spotPct < 25 ? "var(--danger)" : "inherit" }}>{Math.round(100 - spotPct)}% {t("missions.filled", null, "filled")}</span>
-          </div>
-          <div className="lvl-meter"><i style={{ width: (100 - spotPct) + "%", background: spotPct < 25 ? "var(--danger)" : undefined }} /></div>
-        </div>
       </div>
 
-      {task.myStatus === "declined" ? (
+      {task.myStatus === "declined" && !task.inviteId ? (
         <div className="row gap-3 wrap rise-2" style={{ position: "sticky", bottom: 0, marginTop: 18, padding: "14px 16px", alignItems: "center",
           background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
           border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
@@ -236,11 +274,16 @@ export default function MissionDetails() {
       <div className="row gap-3 wrap rise-2" style={{ position: "sticky", bottom: 0, marginTop: 18, padding: "14px 16px",
         background: "color-mix(in srgb, var(--bg) 88%, transparent)", backdropFilter: "blur(12px)",
         border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)" }}>
-        <button className="btn btn-ghost" onClick={toggleSave}>
-          {task.spotsLeft <= 0 && !accepted && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <><Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />{task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save")}</>}
+        <button className="btn btn-ghost" onClick={toggleSave}
+          title={task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? t("actions.notifyMe", null, "Notify me if a slot opens") : (task.saved ? t("actions.saved", null, "Saved") : t("actions.save", null, "Save"))}>
+          {task.spotsLeft <= 0 && !accepted && task.myStatus !== "applied" && task.myStatus !== "not_selected" && !task.saved ? <>🔔 {t("actions.notifyMe", null, "Notify me if a slot opens")}</> : <Icon name="bookmark" style={{ fill: task.saved ? "currentColor" : "none" }} />}
         </button>
-        {!task.inviteId && !accepted && (
-          <button className="btn btn-quiet" disabled={busy} onClick={declineMission}>{t("actions.decline", null, "Decline")}</button>
+        {/* Already judged and done -- there's nothing left here to decline
+            out of, same reasoning "not_selected" already gets excluded for. */}
+        {!task.inviteId && !accepted && task.myStatus !== "not_selected" && task.myStatus !== "rejected" && (
+          <button className="btn btn-quiet" disabled={busy} onClick={declineMission} style={{ color: "var(--danger)" }}>
+            {task.myStatus === "applied" ? t("actions.withdrawApplication", null, "Withdraw application") : t("actions.decline", null, "Decline")}
+          </button>
         )}
         {!reportDone
           ? <button className="btn btn-quiet" style={{ color: "var(--text-faint)", fontSize: 12.5 }} onClick={() => setReportOpen(o => !o)}>
@@ -249,21 +292,33 @@ export default function MissionDetails() {
           : <span className="faint" style={{ fontSize: 12.5 }}><Icon name="checkCircle" size={13} /> {t("actions.reported", null, "Reported — admin will review")}</span>
         }
         <span className="grow" />
-        <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>{t("missions.earn", null, "Earn")} <b style={{ color: "var(--success)" }}>₹{task.reward}</b> {t("missions.onApproval", null, "on approval")}</span>
 
         {task.inviteId ? (
           <div className="row gap-2">
             <button className="btn btn-ghost" disabled={busy} onClick={declineMission} style={{ color: "var(--danger)" }}>{t("actions.decline", null, "Decline")}</button>
-            <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : acceptInvite}>
+            <button className="btn btn-primary" disabled={busy || task.spotsLeft <= 0} onClick={task.spotsLeft <= 0 ? undefined : acceptInvite}>
               <Icon name="userplus" />
               {busy ? t("actions.accepting", null, "Accepting…") : task.spotsLeft <= 0 ? t("missions.slotsFilled", null, "Slots Filled") : t("actions.acceptInvitation", null, "Accept Invitation")}
             </button>
           </div>
-        ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" || task.myStatus === "applied" ? (
-          <button className="btn btn-primary btn-lg" onClick={() => {
-              const inProgress = task.myStatus === "active" || task.myStatus === "applied";
-              const dest = task.myStatus === "completed" ? "results"
-                : (task.ptype === "trial" && inProgress) ? "checkin"
+        ) : task.myStatus === "applied" ? (
+          // A "require approval" mission's open application — genuinely
+          // nothing to do or see yet (no submission, no reason), so unlike
+          // every other myStatus branch below this isn't a button into the
+          // workspace. It used to be lumped in with "active" here, which
+          // would've let a not-yet-accepted applicant straight into the
+          // workspace the moment that status became reachable.
+          <span className="pill" style={{ fontSize: 13, padding: "10px 16px", color: "var(--warning)" }}><Icon name="clock" size={14} />{t("missions.awaitingBuilderReview", null, "Awaiting builder review")}</span>
+        ) : task.myStatus === "not_selected" ? (
+          <span className="pill" style={{ fontSize: 13, padding: "10px 16px", color: "var(--text-faint)" }}><Icon name="x" size={14} />{t("missions.notSelectedThisTime", null, "Not selected this time")}</span>
+        ) : task.myStatus === "completed" || task.myStatus === "submitted" || task.myStatus === "active" || task.myStatus === "rejected" ? (
+          <button className="btn btn-primary" onClick={() => {
+              if (task.myStatus === "completed" || task.myStatus === "submitted") {
+                setViewingResults(task);
+                return;
+              }
+              const inProgress = task.myStatus === "active";
+              const dest = (task.ptype === "trial" && inProgress) ? "checkin"
                 : (task.category === "sample" && inProgress) ? "shipment"
                 : (task.ptype === "interview" && inProgress) ? "schedule"
                 : (task.ptype === "focus" && inProgress) ? "poll"
@@ -273,12 +328,12 @@ export default function MissionDetails() {
                 : "workspace";
               navigate(`/validator/missions/${task.id}/${dest}`);
             }} style={{
-              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
-              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : (task.myStatus === "active" || task.myStatus === "applied") ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              background: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : task.myStatus === "active" ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
+              borderColor: task.myStatus === "completed" ? "var(--warning)" : task.myStatus === "submitted" ? "var(--accent)" : task.myStatus === "active" ? "var(--success)" : task.myStatus === "rejected" ? "var(--danger)" : undefined,
               opacity: task.myStatus === "rejected" ? 0.8 : 1
-            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} /> {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : (task.myStatus === "active" || task.myStatus === "applied") ? t("actions.acceptedStartNow", null, "Accepted · Start now") : t("actions.viewReason", null, "View reason")}</button>
+            }}><Icon name={task.myStatus === "completed" ? "award" : task.myStatus === "rejected" ? "xCircle" : "check"} /> {task.myStatus === "completed" ? t("actions.viewResults", null, "View results") : task.myStatus === "submitted" ? t("actions.viewSubmission", null, "View submission") : task.myStatus === "active" ? t("actions.acceptedStartNow", null, "Accepted · Start now") : t("actions.viewReason", null, "View reason")}</button>
         ) : (
-          <button className="btn btn-primary btn-lg" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
+          <button className="btn btn-primary" disabled={busy || task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published")} onClick={task.spotsLeft <= 0 || (task.status !== "active" && task.status !== "live" && task.status !== "published") ? undefined : apply}>
             {busy ? t("actions.applying", null, "Applying…") : (task.status !== "active" && task.status !== "live" && task.status !== "published") ? t("missions.missionClosed", null, "Mission Closed") : task.spotsLeft <= 0 ? t("missions.outOfSlots", null, "Out of slots") : t("actions.applyToMission", null, "Apply to this mission")} {task.spotsLeft > 0 && (task.status === "active" || task.status === "live" || task.status === "published") && <Icon name="arrowRight" />}
           </button>
         )}
@@ -300,6 +355,8 @@ export default function MissionDetails() {
           </div>
         </div>
       )}
+
+      {viewingResults && <VSubmissionDrawer taskId={viewingResults.id} missionName={viewingResults.product} onClose={() => setViewingResults(null)} />}
     </div>
   );
 }

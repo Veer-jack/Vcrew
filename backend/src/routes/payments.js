@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { isCashfreeConfigured, createOrder, getOrder } from "../cashfreeClient.js";
+import { handlePaymentGatewayError } from "../outage.js";
 
 export const router = Router();
 

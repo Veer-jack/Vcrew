@@ -23,7 +23,7 @@ function timeAgo(dateStr) {
 
 async function serializeThread(t, withMessages, lang) {
   const tTime = t.created_at ? timeAgo(t.created_at) : "Just now";
-  const out = { id: t.id, name: t.name || "Builder", role: t.role || "Builder", mission: t.mission, time: tTime };
+  const out = { id: t.id, name: t.name || "Builder", role: t.role || "Builder", mission: t.mission, missionId: t.mission_id || null, time: tTime };
 
   const msgs = await db.prepare(`SELECT * FROM thread_messages WHERE thread_id = ? ORDER BY id ASC`).all(t.id);
   const doTranslate = lang && lang !== "en" && msgs.length;
@@ -36,7 +36,9 @@ async function serializeThread(t, withMessages, lang) {
     out.messages = msgs.map(m => ({
       from: m.sender_role === 'validator' ? 'me' : 'them',
       text: bodyOf(m),
-      attachment: m.attachment_path ? { url: `/api/uploads/${m.attachment_path}`, name: m.attachment_name } : null,
+      // New uploads store the full Cloudinary URL directly; a bare filename
+      // here is a pre-Cloudinary attachment still pointing at local disk.
+      attachment: m.attachment_path ? { url: m.attachment_path.startsWith("http") ? m.attachment_path : `/api/uploads/${m.attachment_path}`, name: m.attachment_name } : null,
       time: m.created_at ? timeAgo(m.created_at) : "Just now",
     }));
   } else {
@@ -98,11 +100,14 @@ router.post("/threads/:id/attachment", upload.single("file"), async (req, res) =
   if (!t) return res.status(404).json({ error: "Thread not found" });
   if (!req.file) return res.status(400).json({ error: "file is required" });
 
+  // req.file.path is the Cloudinary secure_url (see upload.js) -- stored
+  // directly rather than a bare filename, since there's no local disk path
+  // to reconstruct a URL from anymore.
   await db.prepare(`INSERT INTO thread_messages (thread_id, sender_role, sender_id, attachment_path, attachment_name) VALUES (?, 'validator', ?, ?, ?)`)
-    .run(t.id, req.validator.id, req.file.filename, req.file.originalname);
+    .run(t.id, req.validator.id, req.file.path, req.file.originalname);
   await db.prepare(`UPDATE threads SET created_at = NOW() WHERE id = ?`).run(t.id);
 
   setImmediate(() => notifyBuilderNewMessage(t.builder_id, req.validator.name, t.id));
 
-  res.status(201).json({ message: { from: "me", attachment: { url: `/api/uploads/${req.file.filename}`, name: req.file.originalname }, time: "Just now" } });
+  res.status(201).json({ message: { from: "me", attachment: { url: req.file.path, name: req.file.originalname }, time: "Just now" } });
 });

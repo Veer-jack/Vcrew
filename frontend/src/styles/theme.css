@@ -69,6 +69,17 @@ a { color: inherit; text-decoration: none; }
 *::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 20px; border: 3px solid transparent; background-clip: content-box; }
 *::-webkit-scrollbar-thumb:hover { background: var(--text-faint); background-clip: content-box; }
 
+/* Scrollbar stays reserved (no layout shift) but invisible until the area
+   itself is hovered -- only the thumb's color toggles, not its width. Same
+   width and pale grey as a plain native browser scrollbar (--border-strong,
+   the same tone the sidebar's own border already uses) instead of the
+   darker/heavier custom tones tried earlier. */
+.side, .scroll-hover { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.side:hover, .scroll-hover:hover { scrollbar-color: var(--border-strong) transparent; }
+.side::-webkit-scrollbar, .scroll-hover::-webkit-scrollbar { width: 1px; }
+.side::-webkit-scrollbar-thumb, .scroll-hover::-webkit-scrollbar-thumb { background: transparent; border-radius: 20px; }
+.side:hover::-webkit-scrollbar-thumb, .scroll-hover:hover::-webkit-scrollbar-thumb { background: var(--border-strong); }
+
 /* ============================================================
    APP SHELL
    ============================================================ */
@@ -114,6 +125,11 @@ a { color: inherit; text-decoration: none; }
   border: var(--hairline) solid var(--border); border-radius: var(--radius); padding: 13px;
   background: var(--panel-2);
 }
+/* Validator sidebar's own profile card (VLayout) -- highlighted and
+   slightly larger than the plain .lvl-card look the wallet card above it
+   (and the builder side's own wallet card) still uses, since this one is
+   the account identity, not a stat. */
+.lvl-card-profile { background: var(--accent-weak); padding: 15px; }
 .lvl-top { display: flex; align-items: center; gap: 9px; }
 .lvl-meter { height: 6px; border-radius: 20px; background: var(--panel-inset); overflow: hidden; margin-top: 10px; }
 .lvl-meter > i { display: block; height: 100%; border-radius: 20px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
@@ -180,13 +196,18 @@ a { color: inherit; text-decoration: none; }
   backdrop-filter: blur(12px) saturate(1.4);
   border-bottom: var(--hairline) solid var(--border);
 }
-.topbar h1 { font-size: 19px; font-weight: 800; letter-spacing: -.02em; margin: 0; }
 .search {
-  display: flex; align-items: center; gap: 9px; flex: 1; max-width: 420px;
+  display: flex; align-items: center; gap: 9px; flex: 1; max-width: 560px;
   padding: 8px 13px; background: var(--panel); border: var(--hairline) solid var(--border);
   border-radius: var(--radius-sm); color: var(--text-faint);
 }
 .search input { border: none; background: none; outline: none; color: var(--text); font-family: inherit; font-size: 14px; width: 100%; }
+/* The global :focus-visible rule below (accent-colored ring, !important)
+   still wins by default -- this scoped override keeps the keyboard-focus
+   visibility that rule exists for (WCAG 2.4.7), just as a plain border
+   matching the rest of the card/panel language instead of a bright ring. */
+.search input:focus-visible { outline: none !important; }
+.search:focus-within { border-color: var(--border-strong); }
 .topbar-spacer { flex: 1; }
 .icon-btn {
   width: 38px; height: 38px; border-radius: var(--radius-sm); display: grid; place-items: center;
@@ -235,6 +256,12 @@ a { color: inherit; text-decoration: none; }
   background: var(--panel); white-space: nowrap;
 }
 .pill svg { width: 14px; height: 14px; }
+/* For a .pill that wraps a focusable control (e.g. Discover's Sort select)
+   -- same border-color/box-shadow every other focused field already uses
+   (.fin:focus, textarea.field:focus, .otp-box:focus), applied to the whole
+   pill via :focus-within instead of the control's own focus ring, which
+   only ever outlines itself, not the label/text sitting next to it. */
+.pill-focus-within:focus-within { border-color: var(--accent); box-shadow: var(--ring); }
 
 .stat-num { font-family: var(--mono); font-weight: 600; letter-spacing: -.02em; }
 
@@ -364,7 +391,6 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
   .app.mob-open .mob-scrim { opacity: 1; pointer-events: auto; }
   
   .topbar { padding: 0 16px; gap: 12px; }
-  .topbar h1 { display: none; }
   .search { max-width: none; }
 }
 
@@ -374,6 +400,11 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .auth-card h1 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; margin: 4px 0 6px; }
 .fld { display: flex; flex-direction: column; gap: 6px; }
 .fld label { font-size: 13px; font-weight: 700; color: var(--text-muted); }
+/* Pairs onboarding's own full-width Field blocks (VOnboarding.jsx) into a
+   compact 2-per-row layout when reused inside a settings-style form -- the
+   option lists they hold (country/state/city names) don't need the full
+   width a standalone onboarding step gives them. */
+.addr-row > .fld { flex: 1 1 180px; min-width: 180px; }
 .fin {
   width: 100%; padding: 11px 14px; font-family: inherit; font-size: 14px;
   color: var(--text); background: var(--panel-inset); border: var(--hairline) solid var(--border);
@@ -386,6 +417,11 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .fld-invalid .fin, .fld-invalid .field { border-color: var(--danger); }
 .ferr { color: var(--danger); font-size: 12px; margin: 6px 0 0; }
 .fld-invalid label { color: var(--danger); }
+/* FilterGroup (Country/Occupation) renders its title as a plain <b>, not a
+   <label>/.fin -- the two rules above never matched it, so wrapping one in
+   .fld-invalid (as Country's own LocationFields wrapper already did) drew no
+   visible difference at all despite the validation genuinely failing on it. */
+.fld-invalid .fsec b { color: var(--danger); }
 .err-banner { background: var(--danger-weak); color: var(--danger); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; font-weight: 600; }
 
 /* intent-fork + role-select onboarding screens */
@@ -412,13 +448,27 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 /* onboarding wizard shell (PERSONA_CONFIG-driven) */
 .wiz-shell { min-height: 100vh; display: flex; flex-direction: column; }
 .wiz-top {
-  display: flex; align-items: center; gap: 10px; padding: 14px 28px;
+  display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 28px;
   border-bottom: var(--hairline) solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 5;
 }
 .wiz-body-grid {
   flex: 1; display: grid; grid-template-columns: 220px 1fr; gap: 0; max-width: 980px; margin: 0 auto; width: 100%;
 }
-.wiz-rail { padding: 28px 20px; border-right: var(--hairline) solid var(--border); }
+/* Without position:sticky + height:100vh + align-self:start, the grid row
+   stretches .wiz-rail to match .wiz-content's height -- fine on a short
+   step, but on a long one (more fields) that stretch pushed Start
+   over/Skip/Back far down the page along with it, landing at a different
+   spot on every step instead of staying put. Same fix CreateMissionWizard's
+   own .wz-rail already uses: pin the rail to one viewport height and let it
+   scroll on its own (overflow-y:auto) if its own content ever runs long,
+   independent of how tall the step content next to it gets. */
+.wiz-rail {
+  /* top/height account for .wiz-top's own 64px -- sticking this at top:0
+     too would land it right on top of that header (both pinned to the
+     viewport's y:0) instead of settling in below it. */
+  position: sticky; top: 64px; align-self: start; height: calc(100vh - 64px); overflow-y: auto;
+  padding: 28px 20px; border-right: var(--hairline) solid var(--border); display: flex; flex-direction: column;
+}
 .wiz-content { padding: 32px 28px; max-width: 640px; }
 .wiz-step {
   display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-sm);
@@ -434,10 +484,16 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 }
 .wiz-step-current .wiz-step-dot { background: var(--accent); color: #fff; }
 .wiz-step-done .wiz-step-dot { background: var(--success-weak); color: var(--success); }
+.wiz-mob-nav { display: none; }
 @media (max-width: 760px) {
   .wiz-body-grid { grid-template-columns: 1fr; }
   .wiz-rail { display: none; }
   .wiz-content { padding: 20px 16px; max-width: 100%; }
+  /* Skip/Back moved into the rail's footer for desktop parity with the
+     mission wizard's own Cancel/Back placement -- but the rail itself
+     hides on mobile, so without this Skip/Back would have nowhere to
+     render at all below this width. */
+  .wiz-mob-nav { display: flex; gap: 10px; margin-bottom: 18px; }
 }
 
 /* ===== Redesigned split-screen login / signup ===== */
@@ -463,7 +519,12 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .asplit-stat span { font-size: 11px; color: var(--text-faint); }
 .asplit-proof { margin-top: 18px; font-size: 11.5px; color: var(--text-faint); }
 
-.asplit-form-col { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+/* align-items: flex-start (not center) so the form always starts at the
+   same fixed offset from the top -- Sign in (fewer fields) and Create
+   account (more fields) are different heights, and centering each one
+   independently in the same fixed-height column made Sign in visibly
+   start lower than Create account when switching tabs. */
+.asplit-form-col { display: flex; align-items: flex-start; justify-content: center; padding: 64px 24px 40px; }
 .asplit-form { width: 100%; max-width: 420px; }
 .asplit-tabs { display: flex; border: var(--hairline) solid var(--border); border-radius: var(--radius-sm); padding: 3px; margin-bottom: 24px; }
 .asplit-tabs button {

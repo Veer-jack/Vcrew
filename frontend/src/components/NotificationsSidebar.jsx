@@ -127,7 +127,10 @@ export default function NotificationsSidebar({ onClose, items, setItems, onMarkA
               <span className="notif-dot" />
               <span className={`feed-ic ${n.tone}`} style={{ width: 34, height: 34 }}><Icon name={n.icon} size={16} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="row between" style={{ gap: 8 }}><b style={{ fontSize: 13.5 }}>{n.title}</b><span className="feed-time">{timeAgo(n.createdAt) || n.time || n.timeLabel}</span></div>
+                <div className="row between" style={{ gap: 8, alignItems: "flex-start" }}>
+                  <b style={{ fontSize: 13.5, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={n.title}>{n.title}</b>
+                  <span className="feed-time" style={{ flex: "none" }}>{timeAgo(n.createdAt) || n.time || n.timeLabel}</span>
+                </div>
                 <p className="muted" style={{ margin: "3px 0 0", fontSize: 13, lineHeight: 1.45 }}>{n.body}</p>
               </div>
             </div>

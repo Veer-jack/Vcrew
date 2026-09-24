@@ -37,6 +37,5 @@ export const badgeDesc = (t, label, desc) => t(`badge.${BADGE_IDS[label] || labe
 export const expertiseLabel = (t, label) => t(`expertise.${EXPERTISE_IDS[label] || label}`, null, label);
 export const helpCatLabel = (t, cat) => t(`helpCat.${HELP_CAT_IDS[cat] || cat.toLowerCase()}`, null, cat);
 export const rewardBandLabel = (t, k, fallback) => t(`rewardBand.${k}`, null, fallback);
-export const timeBandLabel = (t, k, fallback) => t(`timeBand.${k}`, null, fallback);
 export const sortLabel = (t, k, fallback) => t(`sort.${k}`, null, fallback);
 export const helpArticleField = (t, idx, field, fallback) => t(`helpArticle.${idx}.${field}`, null, fallback);

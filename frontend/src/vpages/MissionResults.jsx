@@ -5,6 +5,7 @@ import { vapi } from "../vapi/client";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { VTypeTag } from "../vcomponents/vui";
 import { useTranslation } from "../i18n/index.jsx";
+import { backToMyMissionsUrl } from "../vutil";
 
 export default function MissionResults() {
   const { t } = useTranslation();
@@ -39,9 +40,9 @@ export default function MissionResults() {
   };
 
   return (
-    <div className="page" style={{ maxWidth: 640, margin: "0 auto", textAlign: "center", paddingTop: "8vh" }}>
+    <div className="page" style={{ maxWidth: 640, margin: "0 auto", textAlign: "center", paddingTop: "8vh", position: "relative" }}>
       
-      <button className="btn btn-quiet rise" onClick={() => navigate("/validator/missions")} style={{ position: "absolute", top: 24, left: 16 }}>
+      <button className="btn btn-quiet rise" onClick={() => navigate(backToMyMissionsUrl())} style={{ position: "absolute", top: 24, left: 16 }}>
         <Icon name="arrowLeft" />{t("actions.myMissions", null, "My missions")}
       </button>
 

@@ -20,6 +20,13 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      // Marketing's clean SEO routes (/for-builders/idea-validation/, etc.)
+      // live on the backend, not the SPA — without this the dev server's
+      // own history fallback swallows them and bounces to the app's "/".
+      '/for-builders': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
 })

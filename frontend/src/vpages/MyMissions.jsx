@@ -5,6 +5,7 @@ import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import VSubmissionDrawer from "../components/VSubmissionDrawer";
 
 const MM_STATUS = {
   applied:   { label: "Applied", labelKey: "status.applied", tone: "var(--warning)", bg: "var(--warning-weak)" },
@@ -13,24 +14,32 @@ const MM_STATUS = {
   submitted: { label: "In review", labelKey: "status.inReview", tone: "var(--warning)", bg: "var(--warning-weak)" },
   completed: { label: "Paid", labelKey: "status.paid", tone: "var(--success)", bg: "var(--success-weak)" },
   rejected:  { label: "Not selected", labelKey: "status.notSelected", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
+  // Distinct from `rejected` above -- that's a submission the builder
+  // reviewed after the work was done; this is an open application the
+  // builder didn't accept before any work started. "Not Accepted" (not
+  // "Not selected" again) so the two tabs don't read as duplicates.
+  not_selected: { label: "Not Accepted", labelKey: "status.notAccepted", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   closed:    { label: "Closed", labelKey: "status.closed", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   declined:  { label: "Declined", labelKey: "status.declined", tone: "var(--text-faint)", bg: "var(--panel-inset)" },
   saved:     { label: "Saved", labelKey: "status.saved", tone: "var(--accent)", bg: "var(--accent-weak)" },
 };
 
+// Order per tester request: Invited · Applied · Active · Submitted ·
+// Completed · Saved · Rejected · Not Accepted · Declined · Closed.
 const TABS = [
+  { k: "invited", l: "Invited", lKey: "status.invited" },
   { k: "applied", l: "Applied", lKey: "status.applied" },
   { k: "active", l: "Active", lKey: "status.active" },
   { k: "submitted", l: "Submitted", lKey: "status.submitted" },
   { k: "completed", l: "Completed", lKey: "status.completed" },
-  { k: "rejected", l: "Rejected", lKey: "status.rejected" },
-  { k: "closed", l: "Closed", lKey: "status.closed" },
-  { k: "declined", l: "Declined", lKey: "status.declined" },
-  { k: "invited", l: "Invited", lKey: "status.invited" },
   { k: "saved", l: "Saved", lKey: "status.saved" },
+  { k: "rejected", l: "Rejected", lKey: "status.rejected" },
+  { k: "not_selected", l: "Not Accepted", lKey: "status.notAccepted" },
+  { k: "declined", l: "Declined", lKey: "status.declined" },
+  { k: "closed", l: "Closed", lKey: "status.closed" },
 ];
 
-function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
+function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave, onViewResults }) {
   const { t } = useTranslation();
   const [undeclining, setUndeclining] = useState(false);
   const [unsaving, setUnsaving] = useState(false);
@@ -38,16 +47,23 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
   const vType = vtypes[m.type] || (pt ? { icon: pt.icon, label: pt.label, accentVar: "--vt-mvp" } : vtypes["mvp"]);
   const s = MM_STATUS[m.status];
   return (
-    <div className="card" style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
+    // alignItems:flex-start, not center -- a closed row's extra "why this
+    // closed" line makes its middle column taller than the icon, and
+    // center would then float the icon down into the middle of that
+    // instead of lining up with the title at the top.
+    <div className="card" style={{ padding: "16px 18px", minHeight: 94, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "flex-start" }}>
       <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none",
         background: `color-mix(in srgb, var(${vType.accentVar}) 14%, transparent)`, color: `var(${vType.accentVar})` }}>
         <Icon name={vType.icon} size={22} />
       </span>
       <div style={{ minWidth: 0 }}>
-        <div className="row gap-2" style={{ alignItems: "baseline" }}>
-          <b style={{ fontSize: 16, letterSpacing: "-.01em" }}>{m.product}</b>
-          <span className="muted" style={{ fontSize: 13.5 }}>· {m.tagline}</span>
-        </div>
+        {/* Title on its own single line (truncated, not wrapped) and the
+            description below it, clamped to 2 lines with an ellipsis --
+            an unbounded tagline (a long/repeated one) used to sit inline
+            next to the title with no limit at all, sometimes wrapping the
+            whole row many lines tall. */}
+        <b style={{ fontSize: 16, letterSpacing: "-.01em", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.product}</b>
+        {m.tagline && <p className="muted" style={{ margin: "2px 0 0", fontSize: 13.5, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{m.tagline}</p>}
         <div className="row gap-3 wrap faint" style={{ fontSize: 12.5, marginTop: 5 }}>
           <span className="tag" style={{ background: s.bg, color: s.tone }}>{t(s.labelKey, null, s.label)}</span>
           <span className="row gap-2"><Icon name="clock" size={13} />{m.deadline}</span>
@@ -57,8 +73,11 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
         {(m.status === "active" || m.status === "revision") && <div className="lvl-meter" style={{ marginTop: 10, maxWidth: 320 }}><i style={{ width: m.progress + "%" }} /></div>}
         {m.reason && <p className="faint" style={{ margin: "7px 0 0", fontSize: 12.5 }}>{m.reason}</p>}
       </div>
-      <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
-        <div style={{ textAlign: "right" }}><VReward amount={m.reward} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
+      {/* Reward and the row's action side by side (reward first, then
+          button) instead of stacked -- per tester feedback, for every
+          status, not just some. */}
+      <div className="row" style={{ alignItems: "center", gap: 16 }}>
+        <div style={{ textAlign: "right" }}><VReward amount={m.reward} type={m.rewardType} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
         {(m.status === "active" || m.status === "revision") && <button className="btn btn-primary" onClick={() => {
           const dest = (m.type === "trial") ? "checkin"
             : (m.category === "sample") ? "shipment"
@@ -77,14 +96,47 @@ function MyMissionRow({ m, vtypes, ptypes, navigate, onUndecline, onUnsave }) {
           }}>{undeclining ? t("actions.undoing", null, "Undoing…") : t("actions.undoDecline", null, "Undo")}</button>
         )}
         {m.status === "applied" && <span className="pill" style={{ fontSize: 12 }}><Icon name="clock" size={13} />{t("status.awaiting", null, "Awaiting")}</span>}
-        {m.status === "submitted" && <span className="pill" style={{ fontSize: 12, color: "var(--warning)" }}><Icon name="clock" size={13} />{t("status.inReview", null, "In review")}</span>}
-        {m.status === "completed" && <span className="pill" style={{ fontSize: 12, color: "var(--success)" }}><Icon name="check" size={13} />{t("status.paid", null, "Paid")}</span>}
+        {/* Nothing here previously led back to what was actually submitted --
+            "Paid" was the whole row, with no way to review it afterward.
+            Opens the same read-only submission drawer the builder's own
+            Participants/Responses view uses (VSubmissionDrawer), instead of
+            navigating away to a separate page. The "Paid" pill that used to
+            sit above this button was dropped -- already shown once as the
+            status tag next to the title/date. Same primary-button styling
+            as Resume, per feedback that this button read as secondary/ghost
+            when it's just as much a primary action on this row. */}
+        {m.status === "completed" && (
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewResults", null, "View results")} <Icon name="arrowRight" /></button>
+        )}
+        {/* Same drawer, before a verdict exists yet -- the endpoint reads
+            whatever's in `responses` for this mission/validator regardless
+            of status, so a still-pending submission renders identically,
+            just without a rating/reward outcome underneath it. Separate
+            label from "completed" ("View details", not "View results")
+            since there's no result to show yet, only what was sent in. */}
+        {m.status === "submitted" && (
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewDetails", null, "View details")} <Icon name="arrowRight" /></button>
+        )}
+        {/* A closed mission previously had nothing to click at all -- just
+            the static "why this closed" line, dead-ending the row. Same
+            drawer as Submitted/Completed: if the validator had already
+            submitted before the builder closed it, this shows exactly what
+            went in; if not, the drawer's own "no submission found" state
+            covers that instead of this button silently doing nothing. */}
+        {m.status === "closed" && (
+          <button className="btn btn-primary" onClick={() => onViewResults(m)}>{t("actions.viewReward", null, "View reward")} <Icon name="arrowRight" /></button>
+        )}
         {m.status === "saved" && (
-          <div className="row gap-2">
-            <button className="btn btn-ghost" disabled={unsaving} onClick={async () => {
+          <div className="row gap-2" style={{ alignItems: "center" }}>
+            {/* Icon-only, not a full "Remove" button -- View is the actual
+                primary action on this row, and a whole second labeled
+                button next to it read as more weight than removing a
+                bookmark needs. Same icon-btn pattern used elsewhere
+                (Messages.jsx's attach/open-in-new-tab controls). */}
+            <button className="icon-btn" aria-label={unsaving ? t("actions.removing", null, "Removing…") : t("actions.remove", null, "Remove")} title={t("actions.remove", null, "Remove")} disabled={unsaving} onClick={async () => {
               setUnsaving(true);
               try { await onUnsave(m.taskId); } finally { setUnsaving(false); }
-            }}><Icon name="x" size={14} />{unsaving ? t("actions.removing", null, "Removing…") : t("actions.remove", null, "Remove")}</button>
+            }}><Icon name="x" size={16} /></button>
             <button className="btn btn-primary" onClick={() => navigate(`/validator/missions/${m.taskId}`)}>{t("actions.view", null, "View")} <Icon name="arrowRight" /></button>
           </div>
         )}
@@ -102,7 +154,7 @@ function InvitedMissionRow({ inv, ptypes, navigate, onAccept, onDecline }) {
   const [busy, setBusy] = useState(false);
   const pt = ptypes?.find(p => p.id === inv.ptype);
   return (
-    <div className="card" style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
+    <div className="card" style={{ padding: "16px 18px", minHeight: 94, display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "center" }}>
       <span style={{ width: 46, height: 46, borderRadius: 13, display: "grid", placeItems: "center", flex: "none",
         background: "color-mix(in srgb, var(--accent) 14%, transparent)", color: "var(--accent)" }}>
         <Icon name={pt?.icon || "mail"} size={22} />
@@ -118,7 +170,7 @@ function InvitedMissionRow({ inv, ptypes, navigate, onAccept, onDecline }) {
         </div>
       </div>
       <div className="col" style={{ alignItems: "flex-end", gap: 10 }}>
-        <div style={{ textAlign: "right" }}><VReward amount={inv.reward_amount} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
+        <div style={{ textAlign: "right" }}><VReward amount={inv.reward_amount} type={inv.reward_type} /><div className="faint" style={{ fontSize: 11 }}>{t("missions.reward", null, "reward")}</div></div>
         <div className="row gap-2">
           <button className="btn btn-ghost" disabled={busy} onClick={async () => { setBusy(true); try { await onDecline(inv.invite_id); } finally { setBusy(false); } }}>{t("actions.decline", null, "Decline")}</button>
           <button className="btn btn-primary" disabled={busy} onClick={async () => { setBusy(true); try { await onAccept(inv.invite_id); } finally { setBusy(false); } }}>{busy ? t("actions.working", null, "Working…") : t("actions.accept", null, "Accept")}</button>
@@ -142,6 +194,7 @@ export default function MyMissions() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
+  const [viewingResults, setViewingResults] = useState(null);
 
   // Re-sync when the URL's tab param changes while already mounted here
   // (e.g. clicking a notification that deep-links to a tab on this same page) —
@@ -151,6 +204,19 @@ export default function MyMissions() {
       setTab(urlTab);
     }
   }, [urlTab]);
+
+  // A handful of pages several hops deep (Workspace, Daily Check-in, Mission
+  // Brief, Shipment Status, Task Review, Mission Results, Focus Group Poll)
+  // have their own "Back to My Missions" link, landing here with no way to
+  // know which tab the validator actually started from -- threading that
+  // through router state would mean every intermediate navigate() call on
+  // the way there re-passing it along, easy to drop on any one hop.
+  // sessionStorage instead: written here on every real tab value (including
+  // the URL-driven resync above), read back by BACK_TO_MISSIONS_URL()
+  // regardless of how many pages deep the validator ended up.
+  useEffect(() => {
+    try { sessionStorage.setItem("vc_my_missions_tab", tab); } catch { /* ignore */ }
+  }, [tab]);
 
   useEffect(() => {
     let active = true;
@@ -211,7 +277,6 @@ export default function MyMissions() {
     <div className="page">
       <div className="row between wrap gap-4 rise" style={{ marginBottom: 20 }}>
         <div>
-          <div className="eyebrow" style={{ marginBottom: 6 }}>{t("missions.yourWork", null, "Your work")}</div>
           <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("missions.myMissions", null, "My missions")}</h2>
           <p className="muted" style={{ margin: "6px 0 0", fontSize: 15 }}>{t("missions.subtitle", null, "Everything you've applied to, are working on, or have wrapped up.")}</p>
         </div>
@@ -229,14 +294,14 @@ export default function MyMissions() {
       {loading ? <div className="muted">{t("actions.loading", null, "Loading…")}</div> : (!data || data.missions.length === 0)
         ? <div className="card" style={{ padding: 0 }}>
             <VEmpty icon="inbox" title={t("missions.nothingYet", { tab }, `Nothing ${tab} yet`)}
-              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : tab === "declined" ? t("missions.emptyDeclined", null, "Missions you decline will collect here.") : tab === "invited" ? t("missions.emptyInvited", null, "Missions a Builder invites you to will wait here until you accept or decline.") : tab === "saved" ? t("missions.emptySaved", null, "Bookmark a mission from Discover to come back to it here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
-              cta={tab !== "completed" && tab !== "rejected" && tab !== "closed" && tab !== "declined" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
+              body={tab === "applied" ? t("missions.emptyApplied", null, "Missions you apply to will wait here for a decision.") : tab === "completed" ? t("missions.emptyCompleted", null, "Approved, paid missions will collect here.") : tab === "closed" ? t("missions.emptyClosed", null, "Missions closed by the builder before you finished will collect here.") : tab === "declined" ? t("missions.emptyDeclined", null, "Missions you decline will collect here.") : tab === "not_selected" ? t("missions.emptyNotSelected", null, "Applications a builder didn't accept will collect here.") : tab === "invited" ? t("missions.emptyInvited", null, "Missions a Builder invites you to will wait here until you accept or decline.") : tab === "saved" ? t("missions.emptySaved", null, "Bookmark a mission from Discover to come back to it here.") : t("missions.emptyActive", null, "When you take on a mission it'll show up here.")}
+              cta={tab !== "completed" && tab !== "rejected" && tab !== "not_selected" && tab !== "closed" && tab !== "declined" ? <button className="btn btn-primary" onClick={() => navigate("/validator")}>{t("actions.discoverMissions", null, "Discover missions")}</button> : null} />
           </div>
         : (
             <div className="rise-3" style={{ display: "grid", gap: 12 }}>
               {tab === "invited"
                 ? data.missions.slice(0, visibleCount).map(inv => <InvitedMissionRow key={inv.invite_id} inv={inv} ptypes={ptypes} navigate={navigate} onAccept={acceptInvite} onDecline={declineInvite} />)
-                : data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id ?? `saved-${m.taskId}`} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} onUndecline={undecline} onUnsave={unsave} />)}
+                : data.missions.slice(0, visibleCount).map(m => <MyMissionRow key={m.id ?? `saved-${m.taskId}`} m={m} vtypes={vtypes} ptypes={ptypes} navigate={navigate} onUndecline={undecline} onUnsave={unsave} onViewResults={setViewingResults} />)}
               {visibleCount < data.missions.length && (
                 <div style={{ textAlign: "center", marginTop: 12, paddingBottom: 24 }}>
                   <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMoreMissions", null, "Load more missions")}</button>
@@ -244,6 +309,7 @@ export default function MyMissions() {
               )}
             </div>
           )}
+      {viewingResults && <VSubmissionDrawer taskId={viewingResults.taskId} missionName={viewingResults.product} onClose={() => setViewingResults(null)} />}
     </div>
   );
 }

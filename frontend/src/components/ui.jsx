@@ -170,13 +170,14 @@ export function UpdatingBadge({ show }) {
   );
 }
 
-export function Empty({ icon = "inbox", title, children, action }) {
+export function Empty({ icon = "inbox", title, children, action, tip }) {
   return (
     <div className="empty rise">
       <div className="empty-ill"><Icon name={icon} size={44} strokeWidth={1.6} /></div>
       <h3>{title}</h3>
       {children && <p>{children}</p>}
       {action}
+      {tip && <p className="faint" style={{ marginTop: 14, fontSize: 12.5 }}>{tip}</p>}
     </div>
   );
 }

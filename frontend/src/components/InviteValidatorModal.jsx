@@ -16,6 +16,20 @@ const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
           <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 13.5 }}>
             {v.name}
             {v.verified && <Icon name="checkCircle" size={13} color="var(--success)" />}
+            {/* Flags a validator the builder already turned down (a
+                rejected application) or who already declined -- on this
+                same mission -- so re-inviting is still possible (this is
+                just a heads-up, not a block) but never silent. */}
+            {v.invitedStatus === "not_selected" && (
+              <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>
+                {t("status.notSelected", null, "Not selected")}
+              </span>
+            )}
+            {v.invitedStatus === "declined" && (
+              <span style={{ fontSize: 9, padding: "2px 6px", background: "var(--danger, #ff4d4f)", color: "#fff", borderRadius: 12, fontWeight: 600 }}>
+                {t("status.declined", null, "Declined")}
+              </span>
+            )}
           </div>
           <div className="muted" style={{ fontSize: 11.5, marginTop: 2, display: "flex", alignItems: "center" }}>
             {v.occ ? trFilterLabel(t, v.occ) : t("roles.member", null, "Member")} <span style={{ margin: "0 6px", fontSize: 16, color: "var(--border)" }}>•</span> {v.city ? trFilterLabel(t, v.city) : t("locations.remote", null, "Remote")}
@@ -41,7 +55,10 @@ const ValidatorListItem = memo(({ v, isSelected, toggleSelection, t }) => {
           <span className="muted" style={{ fontSize: 10.5, marginTop: 2, fontWeight: 500 }}>{t("metrics.trustScore", null, "Trust Score")}</span>
         </div>
         <div style={{ width: 100, textAlign: "right" }}>
-          {v.invitedStatus ? (
+          {/* Declined/not_selected stay re-invitable -- the chip next to
+              their name is the warning, not a block -- so only a live
+              pending invite or an already-joined participant locks this out. */}
+          {v.invitedStatus === "pending" || v.invitedStatus === "accepted" ? (
             <span className="faint" style={{ fontSize: 12.5, fontWeight: 600 }}>
               {v.invitedStatus === "accepted" ? t("invite.alreadyJoined", null, "Already joined") : t("invite.alreadyInvited", null, "Already invited")}
             </span>
@@ -87,10 +104,15 @@ export function InviteValidatorModal({ mission, onClose }) {
   // New States for UI
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState(new Set());
-  // Recommended is on by default — a first-open view narrowed to the
-  // stronger profiles within the mission's real audience match, rather than
-  // dumping the full matched list unfiltered. Trust 90+ stays opt-in.
-  const [activeFilters, setActiveFilters] = useState(() => new Set([t("invite.recommended", null, "Recommended")]));
+  // Recommended used to be an active filter from first open, which *hid*
+  // everyone below the match threshold — a tester flagged this as a bad
+  // first impression (a builder shouldn't see a shorter list than actually
+  // exists). It starts off now: strong matches lead the default list with
+  // their own "Recommended" section (see displayList below) and an inline
+  // chip on each card, but the pill itself stays as an explicit opt-in
+  // narrowing for anyone who wants the list actually cut down, not just
+  // reordered.
+  const [activeFilters, setActiveFilters] = useState(() => new Set());
   const [viewOnlySelected, setViewOnlySelected] = useState(false);
   const [visibleCount, setVisibleCount] = useState(20);
 
@@ -152,22 +174,28 @@ export function InviteValidatorModal({ mission, onClose }) {
 
   // Does a candidate match one specific audience value, given which
   // group/sub-group it belongs to? Same field mapping the backend's SQL uses.
+  // Case/whitespace-insensitive on both sides, same as the backend's
+  // LOWER(TRIM(...)) matching in buildAudienceClauses — a validator's own
+  // free-text profile fields can drift from the exact filter-option casing
+  // even when they mean the same thing, and this pill filter shouldn't
+  // silently disagree with what the server already decided counts as a match.
+  const eq = (a, b) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
   const matchesAudienceValue = useCallback((v, val) => {
     const meta = filterIndex[val];
     if (!meta) return true; // unknown value — don't block on it
     const { group, subgroup } = meta;
-    if (group === "ValidationCrew Role") return v.role === val;
-    if (group === "Professional") return v.occ === val;
-    if (group === "Interests") return v.industry === val || (v.expertise || []).includes(val);
+    if (group === "ValidationCrew Role") return eq(v.role, val);
+    if (group === "Professional") return eq(v.occ, val);
+    if (group === "Interests") return eq(v.industry, val) || (v.expertise || []).some(e => eq(e, val));
     if (group === "Geography") {
       if (/worldwide|remote/i.test(val) || val.toLowerCase() === "other") return true;
       return (v.city || "").toLowerCase().includes(val.toLowerCase());
     }
     if (group === "Demographics") {
-      if (subgroup === "Age") return v.age_group === val;
-      if (subgroup === "Gender") return v.gender === val;
-      if (subgroup === "Income Bracket") return v.income === val;
-      if (subgroup === "Marital Status") return v.marital === val;
+      if (subgroup === "Age") return eq(v.age_group, val);
+      if (subgroup === "Gender") return eq(v.gender, val);
+      if (subgroup === "Income Bracket") return eq(v.income, val);
+      if (subgroup === "Marital Status") return eq(v.marital, val);
       if (subgroup === "Has Kids") return !!v.has_kids === (val === "Yes");
     }
     return true;
@@ -192,24 +220,29 @@ export function InviteValidatorModal({ mission, onClose }) {
     });
   }, []);
 
-  // Filtered validators based on search, pills, and view toggle
-  const displayList = useMemo(() => {
+  // Filtered validators based on search, pills, and view toggle. Recommended
+  // no longer hides anyone by default — the list always leads with strong
+  // matches (>= 80%) and keeps everyone else below them, with the render
+  // side using recommendedCount to draw one divider at that boundary — but
+  // the pill still narrows the list down to just those matches when a
+  // builder explicitly wants that instead of just the reordering.
+  const { displayList, recommendedCount } = useMemo(() => {
     let list = validators;
-    
+
     if (viewOnlySelected) {
       list = list.filter(v => selectedIds.has(v.id));
     }
-    
+
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(v => 
-        v.name.toLowerCase().includes(q) || 
+      list = list.filter(v =>
+        v.name.toLowerCase().includes(q) ||
         v.role.toLowerCase().includes(q) ||
         v.city.toLowerCase().includes(q) ||
         (v.expertise || []).some(e => e.toLowerCase().includes(q))
       );
     }
-    
+
     // These two are both "quality signal" chips rather than different
     // criteria — a strong match and a high trust score aren't things a
     // person needs both of, so with both active this is an OR (either signal
@@ -218,9 +251,9 @@ export function InviteValidatorModal({ mission, onClose }) {
     const recommendedOn = activeFilters.has(t("invite.recommended", null, "Recommended"));
     const trust90On = activeFilters.has(t("invite.trust90", null, "Trust 90+"));
     if (recommendedOn && trust90On) {
-      list = list.filter(v => v.match >= 80 || v.trust >= 90).sort((a, b) => b.match - a.match);
+      list = list.filter(v => v.match >= 80 || v.trust >= 90);
     } else if (recommendedOn) {
-      list = list.filter(v => v.match >= 80).sort((a, b) => b.match - a.match);
+      list = list.filter(v => v.match >= 80);
     } else if (trust90On) {
       list = list.filter(v => v.trust >= 90);
     }
@@ -239,11 +272,19 @@ export function InviteValidatorModal({ mission, onClose }) {
       list = list.filter(v => vals.some(val => matchesAudienceValue(v, val)));
     }
 
-    return list;
+    const recommended = list.filter(v => v.match >= 80).sort((a, b) => b.match - a.match);
+    const rest = list.filter(v => v.match < 80);
+    return { displayList: [...recommended, ...rest], recommendedCount: recommended.length };
   }, [validators, search, activeFilters, viewOnlySelected, selectedIds, audienceFilterChips, filterIndex, matchesAudienceValue, t]);
 
-  const handleBulkInvite = async () => {
-    if (selectedIds.size === 0) return;
+  // { rejectedCount, total } while the "you sure?" dialog is up, otherwise
+  // null -- kept separate from just sending the request straight through so
+  // a builder re-inviting someone with negative history on this mission
+  // (declined an earlier invite, or had an application rejected) gets one
+  // deliberate confirmation instead of it happening silently.
+  const [rejectedConfirm, setRejectedConfirm] = useState(null);
+
+  const sendInvites = async () => {
     setInviting(true);
     try {
       await Promise.all(
@@ -257,10 +298,24 @@ export function InviteValidatorModal({ mission, onClose }) {
     }
   };
 
+  const handleBulkInvite = () => {
+    if (selectedIds.size === 0) return;
+    const rejectedCount = Array.from(selectedIds).filter(id => {
+      const v = validators.find(vv => vv.id === id);
+      return v?.invitedStatus === "not_selected" || v?.invitedStatus === "declined";
+    }).length;
+    if (rejectedCount > 0) {
+      setRejectedConfirm({ rejectedCount, total: selectedIds.size });
+      return;
+    }
+    sendInvites();
+  };
+
   return (
+    <>
     <Modal hideHeader={true} onClose={onClose} width={850}>
       <div className="col" style={{ height: "92vh", display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" }}>
-        
+
         {/* Fixed Header Section */}
         <div style={{ padding: "16px 24px 12px", flexShrink: 0 }}>
           
@@ -348,9 +403,9 @@ export function InviteValidatorModal({ mission, onClose }) {
               >
                 {t("invite.recommended", null, "Recommended")}
               </Btn>
-              <Btn 
-                variant={activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "primary" : "ghost"} 
-                size="sm" 
+              <Btn
+                variant={activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "primary" : "ghost"}
+                size="sm"
                 icon="award"
                 onClick={() => toggleFilter(t("invite.trust90", null, "Trust 90+"))}
                 style={{ borderRadius: 20, border: activeFilters.has(t("invite.trust90", null, "Trust 90+")) ? "none" : "1px solid var(--border)" }}
@@ -405,25 +460,44 @@ export function InviteValidatorModal({ mission, onClose }) {
             // its Audience tab, not from this modal), so the copy points
             // there instead of suggesting a change the builder can't make
             // from this screen.
-            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noAudienceMatch", null, "No one in the validator pool currently matches this mission's audience. Widen your targeting from the Audience tab to reach more people — matches update live as new members join.")}</div>
+            <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noAudienceMatch", null, "No one in the validator pool matches this mission's audience right now — we'll notify you the moment a matching validator joins.")}</div>
           ) : displayList.length === 0 ? (
             <div className="muted" style={{ padding: 20, textAlign: "center" }}>{t("invite.noMatchesFound", null, "No matches found for these filters.")}</div>
           ) : (
             <div className="col gap-0">
-              {displayList.slice(0, visibleCount).map(v => (
-                <ValidatorListItem
-                  key={v.id}
-                  v={v}
-                  isSelected={selectedIds.has(v.id)}
-                  toggleSelection={toggleSelection}
-                  t={t}
-                />
+              {displayList.slice(0, visibleCount).map((v, i) => (
+                <div key={v.id}>
+                  {i === 0 && recommendedCount > 0 && recommendedCount < displayList.length && (
+                    <div className="row ac" style={{ gap: 10, margin: "0 0 10px" }}>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                        {t("invite.recommended", null, "Recommended")}
+                      </span>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                    </div>
+                  )}
+                  {i === recommendedCount && recommendedCount > 0 && recommendedCount < displayList.length && (
+                    <div className="row ac" style={{ gap: 10, margin: "14px 0 10px" }}>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                        {t("invite.otherMembers", null, "Other members")}
+                      </span>
+                      <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+                    </div>
+                  )}
+                  <ValidatorListItem
+                    v={v}
+                    isSelected={selectedIds.has(v.id)}
+                    toggleSelection={toggleSelection}
+                    t={t}
+                  />
+                </div>
               ))}
-              
+
               {visibleCount < displayList.length && (
                 <div style={{ textAlign: "center", marginTop: 24, marginBottom: 12 }}>
                   <Btn variant="outline" onClick={() => setVisibleCount(c => c + 50)}>
-                    {t("actions.loadMore", null, "Load more")} ({displayList.length - visibleCount})
+                    {t("actions.loadMoreMembers", null, "Load more members")} ({displayList.length - visibleCount})
                   </Btn>
                 </div>
               )}
@@ -485,5 +559,23 @@ export function InviteValidatorModal({ mission, onClose }) {
 
       </div>
     </Modal>
+    {rejectedConfirm && (
+      <Modal tone="warning" title={rejectedConfirm.total === 1
+        ? t("invite.confirmRejectedSingleTitle", null, "Invite Rejected User?")
+        : t("invite.confirmRejectedMultiTitle", null, "Rejected Users Selected")} onClose={() => setRejectedConfirm(null)} width={440}>
+        <div style={{ padding: "0 20px 20px" }}>
+          <p style={{ fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+            {rejectedConfirm.total === 1
+              ? t("invite.confirmRejectedSingleBody", null, "This user was previously rejected. Do you still want to send them an invite to join this mission?")
+              : t("invite.confirmRejectedMultiBody", { n: rejectedConfirm.rejectedCount, total: rejectedConfirm.total }, `${rejectedConfirm.rejectedCount} of ${rejectedConfirm.total} selected participants were previously rejected. Do you still want to send invites to them?`)}
+          </p>
+          <div className="row gap-2" style={{ marginTop: 20, justifyContent: "flex-end" }}>
+            <button className="btn" onClick={() => setRejectedConfirm(null)}>{t("actions.noCancel", null, "No, Cancel")}</button>
+            <Btn variant="primary" onClick={() => { setRejectedConfirm(null); sendInvites(); }}>{t("actions.yesSendInvite", null, "Yes, Send Invite")}</Btn>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }

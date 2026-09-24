@@ -61,6 +61,14 @@ html[lang="ar"] body, html[lang="ur"] body {
   color: var(--ink-2);
 }
 img { max-width: 100%; display: block; }
+/* The generic reset above silently overrides the logo's explicit
+   height:80px;width:auto inline style whenever its flex container has less
+   width available than the image's natural size at that height -- the
+   browser has to shrink width to satisfy max-width, then shrinks height to
+   match (to preserve aspect ratio), so the logo rendered small in whatever
+   locale's longer nav-link text left it less room. A fixed-height brand
+   lockup should never scale down to fit, unlike a normal content image. */
+.brand img { max-width: none; }
 a { color: inherit; text-decoration: none; }
 button { font-family: inherit; cursor: pointer; }
 ::selection { background: var(--indigo); color: #fff; }
@@ -193,6 +201,26 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 }
 .nav-menu.right { left: auto; right: 0; transform-origin: top right; }
 .nav-drop.open .nav-menu { opacity: 1; visibility: visible; transform: none; }
+/* "For Builders" intent-page menu — hover-triggered (pure CSS, no JS)
+   instead of click-toggled, since this parent is a real link, not a
+   button. Deliberately its own panel (not .nav-menu, the auth dropdowns'
+   vertical stacked-link style) — this one lays its items out in a row,
+   the way a wide "mega menu" of intent pages should read, not a narrow
+   dropdown list. */
+.nav-drop-hover { position: relative; }
+.builder-menu {
+  position: absolute; top: calc(100% + 10px); left: 0;
+  display: flex; flex-direction: row; gap: 4px; white-space: nowrap;
+  background: #fff; border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: var(--shadow-lg); padding: 8px; z-index: 120;
+  opacity: 0; visibility: hidden; transform: translateY(-8px); transform-origin: top left;
+  transition: opacity .16s ease, transform .16s ease, visibility .16s;
+}
+.builder-menu a { padding: 10px 16px; border-radius: 11px; font-size: 14.5px; font-weight: 600; color: var(--muted); transition: background .14s, color .14s; }
+.builder-menu a:hover { background: var(--bg-soft); color: var(--ink); }
+.nav-drop-hover:hover .builder-menu { opacity: 1; visibility: visible; transform: none; }
+.nav-drop-hover > a .caret { display: inline-block; width: 12px; height: 12px; margin-left: 3px; vertical-align: -1px; opacity: .65; transition: transform .2s ease; }
+.nav-drop-hover:hover > a .caret { transform: rotate(180deg); }
 .nav-menu-lab { display: block; font-family: var(--mono); font-size: 10.5px; font-weight: 600;
   letter-spacing: .14em; text-transform: uppercase; color: var(--faint); padding: 9px 12px 7px; }
 .nav-menu a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 11px; transition: background .14s; }
@@ -203,8 +231,18 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .nm-emerald { background: var(--emerald-w); color: var(--emerald); }
 .nm-tx b { display: block; font-size: 14px; color: var(--ink); font-weight: 700; letter-spacing: -.01em; }
 .nm-tx small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
-.nav-in { display: flex; align-items: center; gap: 30px; height: 70px; }
-.brand { display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; }
+/* Wider than the site's normal .wrap max-width (1180px) -- that cap exists
+   to keep paragraph/feature-grid content readable, which doesn't apply to
+   a thin nav bar. Same 28px side gutter either way (still inherited from
+   .wrap), just less unused space on either side on a wide screen. */
+.nav-in { display: flex; align-items: center; gap: 30px; height: 70px; max-width: 1400px; }
+/* flex-shrink:0 -- without it, a locale whose nav-link translations run
+   longer than English (French, Russian, ...) squeezed the flex row hard
+   enough to shrink the logo itself instead of just tightening the gaps
+   around it, clipping the wordmark. Pinned to its natural size in every
+   language now, same as the mark/wordmark spans below always were meant
+   to render. */
+.brand { display: flex; align-items: center; gap: 12px; font-weight: 800; color: var(--ink); letter-spacing: -.02em; flex-shrink: 0; }
 .brand .wordmark { display: flex; flex-direction: column; line-height: 1.08; }
 .brand .v-name { font-size: 16px; font-weight: 800; letter-spacing: -.03em; }
 .brand .crew { font-size: 16px; font-weight: 800; letter-spacing: -.03em; color: #2563eb; }
@@ -215,7 +253,10 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .nav-links a { padding: 8px 14px; border-radius: 9px; font-size: 14.5px; font-weight: 600; color: var(--muted); transition: color .14s, background .14s; white-space: nowrap; }
 .nav-links a:hover { color: var(--ink); background: var(--bg-soft); }
 .nav-spacer { flex: 1; }
-.nav-cta { display: flex; align-items: center; gap: 10px; }
+/* Same reasoning as .brand above -- the "Go to Dashboard"/account cluster
+   shouldn't get squeezed out of its normal size either, or its position
+   relative to the edge would shift language to language too. */
+.nav-cta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .nav-burger { display: none; width: 42px; height: 42px; border-radius: 10px; border: 1px solid var(--line-2); background: #fff; align-items: center; justify-content: center; }
 .nav-burger svg { width: 20px; height: 20px; color: var(--ink); }
 
@@ -271,6 +312,17 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .hero-trust .txt { font-size: 13.5px; color: var(--muted); }
 .hero-trust .txt b { color: var(--ink); }
 
+/* Marketing asked for the home hero back closer to its original, more
+   compact scale -- scoped to body[data-page="home"] rather than editing
+   the shared .hero/.lead/.display rules directly, since idea-validation.html
+   and user-testing.html reuse those same class names for their own hero. */
+body[data-page="home"] .hero { padding: 44px 0 64px; }
+body[data-page="home"] .hero .display { font-size: clamp(34px, 5vw, 56px); }
+body[data-page="home"] .hero h1 { margin-bottom: 16px; }
+body[data-page="home"] .hero .lead { font-size: clamp(15px, 1.3vw, 17px); }
+body[data-page="home"] .hero-eyebrow { margin-bottom: 14px; }
+body[data-page="home"] .hero-cta { margin: 24px 0 20px; }
+
 /* hero map panel */
 .map-panel { position: relative; aspect-ratio: 1 / .92; border-radius: var(--r-xl); overflow: hidden;
   background: linear-gradient(180deg, #fbfbff, #f4f5fc); border: 1px solid var(--line); box-shadow: var(--shadow-lg); }
@@ -318,6 +370,14 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .showcase .browser { max-width: 1040px; margin: 0 auto; }
 .showcase-cap { text-align: center; margin-top: 20px; font-size: 13.5px; color: var(--faint); }
 
+/* ---------- trust bar (stat tiles) ---------- */
+.trustbar-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 720px; margin: 32px auto 0; }
+.trustbar-item { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-sm); padding: 22px 16px; text-align: center; transition: transform .18s, box-shadow .18s, border-color .18s; }
+.trustbar-item:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--line-2); }
+.trustbar-item .n { font-family: var(--mono); font-weight: 700; font-size: clamp(20px, 2.4vw, 28px); color: var(--indigo); letter-spacing: -.02em; }
+.trustbar-item .l { font-size: 13px; color: var(--muted); margin-top: 6px; }
+@media (max-width: 640px) { .trustbar-row { grid-template-columns: 1fr; } }
+
 /* ---------- logo / trusted strip ---------- */
 .trusted { padding: 40px 0 8px; }
 .trusted .label { text-align: center; font-size: 13px; font-weight: 700; color: var(--faint); letter-spacing: .02em; margin-bottom: 26px; }
@@ -335,6 +395,7 @@ h1, h2, h3, h4 { color: var(--ink); font-weight: 800; letter-spacing: -.03em; li
 .tile .ti svg { width: 21px; height: 21px; }
 .tile b { display: block; color: var(--ink); font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
 .tile p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.tile .kicker { display: block; font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); margin-bottom: 6px; }
 
 /* ---------- human categories (3 cols) ---------- */
 .humans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }

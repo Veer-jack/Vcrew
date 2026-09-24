@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandLogoFull, BrandMark } from "../components/BrandMark";
@@ -170,16 +171,6 @@ const NAV_GROUPS = [
   ] },
 ];
 
-const TITLES = {
-  "/validator": "Discover", "/validator/missions": "My missions", "/validator/messages": "Messages",
-  "/validator/earnings": "Earnings & reputation", "/validator/profile": "Profile", "/validator/support": "Help center", "/validator/settings": "Settings",
-};
-function pageTitle(pathname) {
-  if (TITLES[pathname]) return TITLES[pathname];
-  if (pathname.startsWith("/validator/missions/")) return "Validation session";
-  return "ValidationCrew";
-}
-
 export default function VLayout() {
   const { t, dataVersion } = useTranslation();
   const { validator, logout } = useVAuth();
@@ -204,6 +195,17 @@ export default function VLayout() {
   }, [dataVersion]);
 
   useEffect(() => { setShowProfile(false); }, [location.pathname]);
+
+  // Set by VOnboarding's handleDone right before its hard page-load redirect
+  // (a toast fired there would never get to render) -- picked up once here,
+  // since every /validator/* page mounts under this layout.
+  useEffect(() => {
+    const roleLabel = localStorage.getItem("vc_role_changed_toast");
+    if (!roleLabel) return;
+    localStorage.removeItem("vc_role_changed_toast");
+    toast.success(t("vLayout.roleChangedToast", { role: roleLabel }, `Your role is now ${roleLabel}`));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // A "cover the whole page and close on click" overlay doesn't work here:
   // .topbar has backdrop-filter, which makes it the containing block for any
@@ -269,10 +271,10 @@ export default function VLayout() {
           }),
         ])}
         <div className="side-foot">
-          <button onClick={() => navigate("/validator/profile")} data-tooltip={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block" }}>
-            <div className="lvl-card">
+          <button onClick={() => navigate("/validator/profile")} data-tooltip={collapsed ? validator?.name : undefined} style={{ all: "unset", cursor: "pointer", display: "block", width: "100%" }}>
+            <div className="lvl-card lvl-card-profile">
               <div className="lvl-top">
-                <VAvatar name={validator?.name || ""} size={36} />
+                <VAvatar name={validator?.name || ""} size={40} />
                 <div className="nav-label" style={{ minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{validator?.name}</div>
                   <div className="faint" style={{ fontSize: 11.5 }}>{t("vLayout.lvlPrefix", { level: validator?.level }, `Lvl ${validator?.level}`)} · {validator?.levelName}</div>
@@ -289,7 +291,6 @@ export default function VLayout() {
       <main className="main" id="main-content">
         <header className="topbar">
           <button className="icon-btn mob-burger" onClick={() => setMobOpen(true)} title={t("vLayout.menu", null, "Menu")} style={{ marginRight: 4 }}><Icon name="menu" size={18} /></button>
-          <h1>{t("nav." + pageTitle(location.pathname).toLowerCase().replace(/ /g, ""), null, pageTitle(location.pathname))}</h1>
           <span className="topbar-spacer" />
           <LanguageSwitcher onSave={(lang) => vapi.setLanguage(lang).catch(() => {})} style={{ marginRight: 12, height: 32 }} />
           <button className="icon-btn" style={{ position: 'relative' }} onClick={() => setBell(true)} title={t("vLayout.notifications", null, "Notifications")}>

@@ -167,7 +167,13 @@ CREATE TABLE IF NOT EXISTS missions (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   flagged INTEGER DEFAULT 0,
   flag_reason TEXT,
-  flagged_at TIMESTAMPTZ
+  flagged_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  closed_at TIMESTAMPTZ,
+  archived_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  require_approval INTEGER DEFAULT 0,
+  full_submissions_notified INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS participants (
@@ -182,7 +188,10 @@ CREATE TABLE IF NOT EXISTS participants (
   reward INTEGER DEFAULT 0,
   trust INTEGER DEFAULT 0,
   status TEXT DEFAULT 'active',
-  joined_at TIMESTAMPTZ DEFAULT NOW()
+  joined_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Stamped on every stage change (see backend/src/db.js's migration note) --
+  -- joined_at only ever reflects when this row was first created.
+  stage_changed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS mission_invitations (
@@ -298,6 +307,17 @@ CREATE TABLE IF NOT EXISTS admin_notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- De-dup record for the "notify the builder when a new validator matches a
+-- 0-match mission" feature (see notificationsHelper.js's
+-- notifyBuilderOfNewMatch) -- prevents the same validator re-saving their
+-- profile from re-firing the same "new match" notification every time.
+CREATE TABLE IF NOT EXISTS mission_match_notified (
+  mission_id TEXT NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
+  validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
+  notified_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (mission_id, validator_id)
+);
+
 CREATE TABLE IF NOT EXISTS threads (
   id SERIAL PRIMARY KEY,
   builder_id INTEGER REFERENCES builders(id) ON DELETE CASCADE,
@@ -377,9 +397,17 @@ CREATE TABLE IF NOT EXISTS vtasks (
   featured INTEGER DEFAULT 0
 );
 
+-- task_id deliberately has no foreign key — it points at either vtasks(id)
+-- (legacy marketplace items) or missions(id) (real missions), and a single
+-- FK can only ever point at one table. Saving a real mission used to violate
+-- the old vtasks-only FK on every attempt, silently (an empty catch block
+-- swallowed it while still reporting success), so the row was never
+-- actually written — the Saved tab stayed empty no matter how many missions
+-- got "saved".
 CREATE TABLE IF NOT EXISTS v_saved (
   validator_id INTEGER NOT NULL REFERENCES validators(id) ON DELETE CASCADE,
-  task_id TEXT NOT NULL REFERENCES vtasks(id) ON DELETE CASCADE,
+  task_id TEXT NOT NULL,
+  saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (validator_id, task_id)
 );
 
@@ -423,6 +451,11 @@ CREATE TABLE IF NOT EXISTS support_tickets (
   name TEXT,
   subject TEXT NOT NULL,
   description TEXT,
+  -- The category picked on the raise-a-ticket form (Payments/Missions/
+  -- Account/Validators/Quality/Other) -- Freshdesk has no field for this,
+  -- so it's the local row that's the source of truth for it everywhere,
+  -- synced ticket or not.
+  category TEXT DEFAULT 'Other',
   status TEXT DEFAULT 'open',
   freshdesk_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),

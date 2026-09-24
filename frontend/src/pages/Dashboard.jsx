@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
-import { Btn, KpiCard, UpdatingBadge, inr, inrK } from "../components/ui";
+import { Btn, KpiCard, UpdatingBadge, inrK } from "../components/ui";
 import MissionsTable from "../components/MissionsTable";
 import { useAuth } from "../context/AuthContext";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
-import { PERSONA_CONFIG, onboardingDraftKey, stepLabel } from "../data/personaConfig";
+import { PERSONA_CONFIG, onboardingDraftKey, stepLabel, resolveActivePersonaKey } from "../data/personaConfig";
 import { useTranslation } from "../i18n/index.jsx";
 import { activityWho, activityText } from "../bi18n";
 import { getRecentDraftId, getScratch, hasContent, hasResumableDraft } from "../utils/missionDraft";
@@ -46,23 +46,12 @@ function ProfileCompletionBanner({ builder, nav }) {
   // dedicated signal (only set by the actual onboarding-completion route).
   if (builder?.onboardingCompleted) return null; // already completed
 
-  let activePersonaKey = builder?.persona;
+  const activePersonaKey = resolveActivePersonaKey(builder);
   let draftStepNum = null;
 
-  // If the user hasn't saved a persona to the DB yet, check if they started a draft
-  if (!activePersonaKey) {
-    for (const key of Object.keys(PERSONA_CONFIG)) {
-      try {
-        const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, key)));
-        if (draft && typeof draft.step === "number") {
-          activePersonaKey = key;
-          draftStepNum = draft.step + 1; // 1-indexed
-          break;
-        }
-      } catch { /* ignore */ }
-    }
-  } else {
-    // They have a persona in DB, but profile is incomplete. Check their draft for progress.
+  // Same draft this resolution just checked for *whether* one exists — read
+  // it again here for its step number specifically (1-indexed for display).
+  if (activePersonaKey) {
     try {
       const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
       if (draft && typeof draft.step === "number") {
@@ -76,23 +65,15 @@ function ProfileCompletionBanner({ builder, nav }) {
       <div className="card" style={{ border: "1px solid var(--accent-weak)", padding: 0, marginBottom: 20, display: "flex", overflow: "hidden" }}>
         {/* Left Side */}
         <div style={{ flex: "1", padding: 32, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-          <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
-            <Icon name="user" size={26} />
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 8 }}>
+            <div style={{ width: 54, height: 54, borderRadius: "50%", background: "#eff6ff", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>
+              <Icon name="user" size={26} />
+            </div>
+            <h3 style={{ fontSize: 20, margin: 0, color: "var(--heading)", fontWeight: 600 }}>{t("dashboard.selectRole", null, "Select your role and complete setup")}</h3>
           </div>
-          <h3 style={{ fontSize: 20, marginBottom: 8, color: "var(--heading)", fontWeight: 600 }}>{t("dashboard.selectRole", null, "Select your role and complete setup")}</h3>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24, lineHeight: 1.5 }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0, lineHeight: 1.5 }}>
             {t("dashboard.selectRoleDesc", null, "Choose the role that best describes you to personalize your workspace and begin the setup process.")}
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text)" }}>
-              <div style={{ color: "#3b82f6" }}><Icon name="alertCircle" size={16} /></div>
-              {t("dashboard.noRoleSelected", null, "No role selected")}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--text-muted)" }}>
-              <div style={{ color: "#9ca3af" }}><Icon name="xCircle" size={16} /></div>
-              {t("dashboard.setupNotStarted", null, "Setup not started")}
-            </div>
-          </div>
         </div>
         {/* Right Side */}
         <div style={{ flex: "1.5", padding: 32, background: "#f8fafc", borderLeft: "1px solid var(--border)" }}>
@@ -213,26 +194,6 @@ function ProfileCompletionBanner({ builder, nav }) {
   );
 }
 
-function QuickActions({ nav, balance }) {
-  const { t } = useTranslation();
-  const items = [
-    { ic: "plus", t: t("actions.createMission", null, "Create Mission"), s: t("dashboard.qaLaunchNew", null, "Launch a new study"), go: () => nav("/missions/new") },
-    { ic: "compass", t: t("actions.browseAudience", null, "Browse Audience"), s: t("dashboard.qaFindMembers", null, "Find the right members"), go: () => nav("/audience") },
-    { ic: "chart", t: t("actions.viewReports", null, "View Reports"), s: t("dashboard.qaAnalytics", null, "Analytics & exports"), go: () => nav("/analytics") },
-    { ic: "wallet", t: t("actions.manageWallet", null, "Manage Wallet"), s: `${inr(balance)} ${t("dashboard.available", null, "available")}`, go: () => nav("/wallet") },
-  ];
-  return (
-    <div className="qa-grid">
-      {items.map((it, i) => (
-        <button className="qa" key={i} onClick={it.go}>
-          <span className="qa-ic"><Icon name={it.ic} size={20} /></span>
-          <span className="qa-meta"><b>{it.t}</b><span>{it.s}</span></span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function ActivityFeed({ rows }) {
   const { t } = useTranslation();
   if (!rows.length) return <div className="muted" style={{ padding: "12px 0" }}>{t("dashboard.noActivity", null, "No recent activity yet.")}</div>;
@@ -258,10 +219,24 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [refetching, setRefetching] = useState(false);
-  const [showAllMissions, setShowAllMissions] = useState(false);
   const [showAllActivity, setShowAllActivity] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  // True only the very first time this browser renders the Dashboard for
+  // this account — a fresh signup lands here (whether it went through
+  // onboarding first or not), and "Welcome back" reads oddly for someone
+  // who's never been here before. The lazy initializer runs once per mount,
+  // and localStorage makes it stick across remounts/refreshes too, so this
+  // flips to "Welcome back" from the very next visit onward.
+  const [isFirstVisit] = useState(() => {
+    if (!builder?.id) return false;
+    const key = `vcrew_dash_seen_${builder.id}`;
+    try {
+      if (localStorage.getItem(key)) return false;
+      localStorage.setItem(key, "1");
+      return true;
+    } catch { return false; }
+  });
 
   useEffect(() => {
     // Prevent back-button going to login page
@@ -283,6 +258,17 @@ export default function Dashboard() {
       toast.success(t("createMission.draftAutoSaved", null, "Your draft has been auto-saved!"), { position: "top-center" });
     }
   }, [builder?.id, t]);
+
+  // Same idea as above, for leaving an in-progress edit of an already-live
+  // mission — see Missions.jsx's matching effect for why this doesn't check
+  // which mission it was.
+  useEffect(() => {
+    let flagged = "";
+    try { flagged = sessionStorage.getItem("vcrew_mission_live_edit_backnav") || ""; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    toast.success(t("createMission.liveEditSaved", null, "Changes are saved"), { position: "top-center" });
+  }, [t]);
 
   useEffect(() => {
     refreshBuilder().catch(() => {});
@@ -366,8 +352,7 @@ export default function Dashboard() {
       <MissionDraftBanner builder={builder} nav={navigate} />
       <div className="ph">
         <div>
-          <span className="eyebrow">{t("dashboard.builderWorkspace", null, "Builder workspace")}</span>
-          <h1>{t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
+          <h1>{isFirstVisit ? t("dashboard.gladYoureHere", null, "Glad you're here,") : t("dashboard.welcomeBack", null, "Welcome back,")} {firstName}</h1>
           <p className="lead">{t("dashboard.howMissionsTracking", { org: builder?.org }, `Here's how ${builder?.org || ""}'s validation missions are tracking today.`)}</p>
         </div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}>
@@ -389,42 +374,49 @@ export default function Dashboard() {
         <KpiCard label={t("dashboard.walletBalance", null, "Wallet Balance")} value={inrK(builder?.balance)} icon="coins" onClick={() => navigate("/wallet")} />
       </div>
 
-      <div className="sec">
-        <div className="sec-head"><h2 className="h-lg">{t("dashboard.quickActions", null, "Quick actions")}</h2></div>
-        <QuickActions nav={navigate} balance={builder?.balance} />
-      </div>
-
-      <div className="sec" style={{ marginBottom: 40 }}>
-        <div className="card" style={{ padding: "18px 0" }}>
-          <div className="sec-head" style={{ marginBottom: 12, padding: "0 18px" }}>
+      {/* Recent missions (wider) and Activity feed (narrower) side by side,
+          matching the reference layout -- each section's heading now sits
+          above its own card, not nested inside it, per the same reference. */}
+      <div className="sec" style={{ marginBottom: 40, display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, alignItems: "start" }}>
+        {/* minWidth:0 matters here -- a grid item defaults to min-width:auto,
+            which stops it shrinking below its content's natural width. The
+            table (.tbl-wrap) already scrolls horizontally on its own when
+            it doesn't fit, but without this the grid item itself refused to
+            shrink below the table's full ~870px, dragging this column wider
+            than its 2fr share and squeezing Activity feed into whatever was
+            left over instead of its fair 1fr. */}
+        <div style={{ minWidth: 0 }}>
+          <div className="sec-head" style={{ marginBottom: 12 }}>
             <h3 className="h-md">{t("dashboard.recentMissions", null, "Recent missions")}</h3>
-            <Btn 
-              variant="quiet" 
-              size="sm" 
-              iconRight={showAllMissions ? "x" : "arrowRight"} 
-              onClick={() => setShowAllMissions(!showAllMissions)}
-            >
-              {showAllMissions ? t("actions.close", null, "Close") : t("actions.viewAllMissions", null, "View all missions")}
+            {/* A real jump to the Missions page, not an in-place expansion --
+                this list is deliberately just the latest active missions, so
+                "see everything" belongs on the actual page that has them. */}
+            <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => navigate("/missions")}>
+              {t("actions.allMissions", null, "All missions")}
             </Btn>
           </div>
-          <MissionsTable rows={showAllMissions ? recentMissions : recentMissions.slice(0, 3)} nav={navigate} categories={categories} />
+          {/* No wrapping .card here -- .tbl-wrap (MissionsTable's own root)
+              already has its own background/border/radius, so a .card
+              around it was just a second, redundant box. */}
+          <MissionsTable rows={recentMissions} nav={navigate} categories={categories} compact />
         </div>
-      </div>
 
-      <div className="sec">
-        <div className="card" style={{ padding: 18 }}>
-          <div className="sec-head" style={{ marginBottom: 6 }}>
+        <div>
+          {/* Heading sits outside the card, matching Recent Missions' --
+              was inside (extra card padding pushed it a row lower), paired
+              with a "Live" badge and a bottom button instead of a header
+              link, which read as visibly misaligned between the columns.
+              "View all activity" now sits in the header, same
+              quiet/arrow-right style as "All missions". */}
+          <div className="sec-head" style={{ marginBottom: 12 }}>
             <h3 className="h-md">{t("dashboard.activityFeed", null, "Activity feed")}</h3>
-            <Btn 
-              variant="quiet" 
-              size="sm" 
-              iconRight={showAllActivity ? "x" : "arrowRight"} 
-              onClick={() => setShowAllActivity(!showAllActivity)}
-            >
-              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAll", null, "View all")}
+            <Btn variant="quiet" size="sm" iconRight="arrowRight" onClick={() => setShowAllActivity(!showAllActivity)}>
+              {showAllActivity ? t("actions.close", null, "Close") : t("actions.viewAllActivity", null, "View all activity")}
             </Btn>
           </div>
-          <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
+          <div className="card" style={{ padding: 18 }}>
+            <ActivityFeed rows={showAllActivity ? activity : activity.slice(0, 4)} />
+          </div>
         </div>
       </div>
     </div>

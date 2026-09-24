@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { Empty, UpdatingBadge } from "../components/ui";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
 import { helpCatLabel, builderHelpArticleField } from "../bi18n";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 
 function RaiseTicket({ onClose, onCreated }) {
   const { t } = useTranslation();
@@ -14,6 +16,7 @@ function RaiseTicket({ onClose, onCreated }) {
   const [sent, setSent] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  useBodyScrollLock();
 
   const submit = async () => {
     setBusy(true); setError("");
@@ -26,10 +29,14 @@ function RaiseTicket({ onClose, onCreated }) {
     } finally { setBusy(false); }
   };
 
-  return (
+  // Portaled straight onto <body> -- mounted in place, this sat deep inside
+  // the page's own layout container, so its fixed-position overlay/box
+  // never actually covered the sidebar or the true viewport height (see the
+  // same fix already applied to SlideOver/ValidatorProfileDrawer elsewhere).
+  return createPortal(
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 61 }}>
         <div style={{ width: 520, maxWidth: "94vw", maxHeight: "90vh", overflow: "auto", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         {sent ? (
           <div style={{ padding: 40, textAlign: "center" }}>
@@ -47,7 +54,7 @@ function RaiseTicket({ onClose, onCreated }) {
             <div style={{ padding: 22, display: "grid", gap: 16 }}>
               {error && <div className="err-banner">{error}</div>}
               <div>
-                <label style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 8 }}>{t("support.category", null, "Category")}</label>
+                <label style={{ fontSize: 13, fontWeight: 700, display: "block", marginBottom: 8 }}>{t("support.category", null, "Category")} <span className="req-star" aria-hidden="true">*</span></label>
                 <div className="row gap-2 wrap">
                   {[
                     { k: "Payments", l: t("support.catPayments", null, "Payments") },
@@ -62,7 +69,7 @@ function RaiseTicket({ onClose, onCreated }) {
                 </div>
               </div>
               <div className="fld">
-                <label>{t("support.subject", null, "Subject")}</label>
+                <label>{t("support.subject", null, "Subject")} <span className="req-star" aria-hidden="true">*</span></label>
                 <input className="fin" placeholder={t("support.subjectPlaceholder", null, "Briefly, what's going on?")} value={subject} onChange={e => setSubject(e.target.value)} />
               </div>
               <div className="fld">
@@ -78,7 +85,8 @@ function RaiseTicket({ onClose, onCreated }) {
         )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -86,6 +94,7 @@ function ViewTicket({ ticket, onClose }) {
   const { t } = useTranslation();
   const [convos, setConvos] = useState(null);
   const [error, setError] = useState("");
+  useBodyScrollLock();
 
   useEffect(() => {
     api.getTicket(ticket.id)
@@ -93,10 +102,10 @@ function ViewTicket({ ticket, onClose }) {
       .catch(err => setError(err.message || t("support.errLoadTicket", null, "Failed to load ticket")));
   }, [ticket.id, t]);
 
-  return (
+  return createPortal(
     <div style={{ display: "contents" }}>
       <div className="notif-overlay" onClick={onClose} />
-      <div style={{ position: "fixed", top: "50%", left: "calc(50% + 120px)", transform: "translate(-50%,-50%)", zIndex: 61 }}>
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 61 }}>
         <div style={{ width: 600, maxWidth: "94vw", maxHeight: "90vh", overflow: "hidden", display: "flex", flexDirection: "column", background: "var(--panel)", border: "var(--hairline) solid var(--border)", borderRadius: "var(--radius-lg)", boxShadow: "var(--shadow-lg)" }} className="rise">
         <div className="row between" style={{ padding: "18px 22px", borderBottom: "var(--hairline) solid var(--border)", flex: "none" }}>
           <div>
@@ -107,6 +116,18 @@ function ViewTicket({ ticket, onClose }) {
         </div>
         <div style={{ padding: 22, overflow: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
           {error && <div className="err-banner">{error}</div>}
+          {/* The details typed when this ticket was raised -- the very
+              first message in the thread, not a "reply" -- shown the same
+              way "You" messages below are, so it reads as part of one
+              continuous conversation instead of vanishing after submit. */}
+          {ticket.description && (
+            <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "var(--accent-weak)", padding: "12px 16px", borderRadius: 12 }}>
+              <div className="row between gap-3" style={{ marginBottom: 6, fontSize: 12 }}>
+                <b style={{ color: "var(--accent)" }}>{t("support.you", null, "You")}</b>
+              </div>
+              <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.5, color: "var(--accent-strong)" }}>{ticket.description}</div>
+            </div>
+          )}
           {!convos && !error && <div className="muted" style={{ textAlign: "center", padding: 40 }}>{t("support.loadingConversation", null, "Loading conversation...")}</div>}
           {convos && convos.length === 0 && <div className="muted" style={{ textAlign: "center", padding: 40 }}>{t("support.noRepliesYet", null, "No replies yet.")}</div>}
           {convos && convos.map(c => (
@@ -124,7 +145,8 @@ function ViewTicket({ ticket, onClose }) {
         </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -178,13 +200,12 @@ export default function Support() {
     .filter(h => !q || (h.q + h.a + h.cat).toLowerCase().includes(q.toLowerCase()));
 
   return (
-    <div className="page" style={{ maxWidth: 880, margin: "0 auto" }}>
+    <div className="page rise">
       <div className="rise" style={{ marginBottom: 22 }}>
         <div className="row between" style={{ alignItems: "flex-start" }}>
-          <div className="eyebrow" style={{ marginBottom: 6 }}>{t("support.title", null, "Support")}</div>
+          <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("support.helpCenter", null, "Help center")}</h2>
           <UpdatingBadge show={refetching} />
         </div>
-        <h2 style={{ margin: 0, fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" }}>{t("support.helpCenter", null, "Help center")}</h2>
         <p className="muted" style={{ margin: "6px 0 0", fontSize: 15 }}>{t("support.subtitle", null, "Find an answer fast, or raise a ticket and our team will get back within a few hours.")}</p>
       </div>
 

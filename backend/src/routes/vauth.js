@@ -4,26 +4,16 @@ import { hashPassword, comparePassword, createValidatorSession, destroyValidator
 import { sendValidatorWelcome } from "../email.js";
 import { isValidEmail, isValidPassword } from "../validators.js";
 import { levelForCompleted } from "../vmeta.js";
+import { notifyBuilderOfNewMatch } from "../notificationsHelper.js";
 import multer from "multer";
-import path from "path";
-import fs from "fs";
-import { randomUUID } from "crypto";
+import { makeCloudinaryStorage } from "../upload.js";
 
 export const router = Router();
 
 const VALID_LANGS = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
 
-// Same uploads dir + unguessable-UUID-filename convention as the mission proof uploads
-// (vmissions.js) and the generic /api/uploads/:filename server, just with a document
-// mimetype allowlist instead of image/video — a resume is a different kind of file.
-const RESUME_UPLOADS_DIR = path.join(process.env.DB_DIR || path.join(process.cwd(), "backend", "data"), "uploads");
-fs.mkdirSync(RESUME_UPLOADS_DIR, { recursive: true });
-
 const resumeUpload = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, RESUME_UPLOADS_DIR),
-    filename: (req, file, cb) => cb(null, `${randomUUID()}${path.extname(file.originalname) || ""}`),
-  }),
+  storage: makeCloudinaryStorage("vcrew-resumes"),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB, matches the onboarding UI's stated limit
   fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") cb(null, true);
@@ -46,10 +36,42 @@ function publicValidator(v) {
     oauthProvider: v.oauth_provider || null,
     validator_type: v.validator_type,
     tester_status: v.tester_status,
+    tester_tier: v.tester_tier,
     role: v.role,
     avatar: v.avatar,
     bio: v.bio,
-    city: v.city
+    city: v.city,
+    country: v.address_country,
+    state: v.address_state,
+    // Everything collected during onboarding (PATCH /profile below writes
+    // all of these) -- was saved to the DB but never actually sent back
+    // to the frontend, so Settings had no way to show or edit any of it.
+    occupation: v.occupation,
+    experience: v.experience_years,
+    industry: JSON.parse(v.industry_json || "[]"),
+    company: v.company,
+    productTypes: JSON.parse(v.product_types_json || "[]"),
+    techTools: JSON.parse(v.tech_tools_json || "[]"),
+    ageGroup: v.age_group,
+    gender: v.gender,
+    marital: v.marital_status,
+    hasKids: v.has_kids,
+    income: v.income_bracket,
+    height: v.height,
+    weight: v.weight,
+    skinTone: v.skin_tone,
+    hairType: v.hair_type,
+    hairLength: v.hair_length,
+    bodyType: v.body_type,
+    foodPref: v.food_preference,
+    lifestyle: JSON.parse(v.lifestyle_json || "[]"),
+    devices: JSON.parse(v.devices_json || "[]"),
+    hours: v.hours_per_week,
+    testingDomains: JSON.parse(v.testing_domains_json || "[]"),
+    certifications: JSON.parse(v.certifications_json || "[]"),
+    linkedinUrl: v.linkedin_url,
+    portfolioUrl: v.portfolio_url,
+    testingBio: v.testing_bio,
   };
 }
 
@@ -245,8 +267,10 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
         linkedin_url = COALESCE($35, linkedin_url),
         portfolio_url = COALESCE($36, portfolio_url),
         testing_bio = COALESCE($37, testing_bio),
-        specialties_json = COALESCE($38, specialties_json)
-      WHERE id = $39
+        specialties_json = COALESCE($38, specialties_json),
+        address_country = COALESCE($39, address_country),
+        address_state = COALESCE($40, address_state)
+      WHERE id = $41
     `).run(
       b.name || null, b.email ? String(b.email).toLowerCase().trim() : null,
       b.handle || null, b.bio || null, b.city || null, b.city_type || null,
@@ -272,6 +296,7 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
       b.certifications ? JSON.stringify(b.certifications) : null,
       b.linkedin_url || null, b.portfolio_url || null, b.testing_bio || null,
       b.specialties_json || null,
+      b.country || null, b.state || null,
       req.validator.id
     );
   } catch (err) {
@@ -289,6 +314,11 @@ router.patch("/profile", validatorAuthMiddleware, async (req, res) => {
       .run(`${b.name || 'A validator'} has applied for Verified Tester status. Review within 72 hours.`).catch(() => {});
   }
 
+  // Not awaited -- this route is a hot path (every onboarding step and every
+  // Settings save hits it), and scanning active missions for a new match
+  // has no business adding latency to that response.
+  notifyBuilderOfNewMatch(req.validator.id).catch(() => {});
+
   const v = await db.prepare(`SELECT * FROM validators WHERE id = $1`).get(req.validator.id);
   res.json({ validator: v });
 });
@@ -302,8 +332,10 @@ router.post("/profile/resume", validatorAuthMiddleware, (req, res, next) => {
 }, async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
+  // req.file.path is the Cloudinary secure_url (see upload.js) -- stored
+  // directly, since there's no local disk path to reconstruct a URL from.
   await db.prepare(`UPDATE validators SET resume_path = ?, resume_filename = ? WHERE id = ?`)
-    .run(req.file.filename, req.file.originalname, req.validator.id);
+    .run(req.file.path, req.file.originalname, req.validator.id);
 
   res.status(201).json({ ok: true, resume_filename: req.file.originalname });
 });

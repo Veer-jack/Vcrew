@@ -1,19 +1,91 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useVAuth } from "../vcontext/VAuthContext";
 import { vapi } from "../vapi/client";
 import { Btn, PasswordInput } from "../components/ui";
 import Icon from "../components/Icon";
-import PhoneSetup from "../components/PhoneSetup";
 import { useTranslation } from "../i18n/index.jsx";
+import { settingsStepsFor } from "./VOnboarding.jsx";
+
+// Bare label + chips, no card-inside-a-card nesting -- matches the builder
+// Settings page's own ChipField (pages/Settings.jsx), just without its
+// dropdown/"show all" truncation, since nothing here runs anywhere near
+// that Country-with-115-selected scale.
+function VChipField({ label, values }) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}</label>
+      {values?.length ? (
+        <div className="row gap-2 wrap" style={{ marginTop: 7 }}>
+          {values.map(v => <span key={v} className="mtag accent">{v}</span>)}
+        </div>
+      ) : (
+        <div className="faint" style={{ marginTop: 7, fontSize: 13 }}>{t("settings.notSet", null, "Not set")}</div>
+      )}
+    </div>
+  );
+}
+
+// Free text (Bio) isn't a value picked from a list like everything else on
+// this page -- a chip pill around a whole sentence read oddly next to real
+// chips (Role, Industry, ...), so this renders it as plain text instead.
+function VTextField({ label, value }) {
+  const { t } = useTranslation();
+  return (
+    <div>
+      <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}</label>
+      <p style={{ margin: "7px 0 0", fontSize: 13.5, lineHeight: 1.5 }}>{value || <span className="faint">{t("settings.notSet", null, "Not set")}</span>}</p>
+    </div>
+  );
+}
+
+// One read-only summary card per settings step -- title, an Edit button
+// into /validator/settings/edit-step/:step (VEditAccountStep.jsx, the real
+// step form), and its saved values as chips. Mirrors the builder Settings
+// page's own card-per-step pattern (tester's explicit ask), instead of the
+// single long scrolling "answer everything at once" card this replaced.
+function StepCard({ title, stepKey, navigate, children }) {
+  const { t } = useTranslation();
+  return (
+    <div className="card" style={{ padding: "var(--pad-card)" }}>
+      <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ fontSize: 18, margin: 0 }}>{title}</h2>
+        <Btn variant="ghost" icon="edit" onClick={() => navigate(`/validator/settings/edit-step/${stepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export default function VSettings() {
   const { t } = useTranslation();
-  const { validator, refresh, logout, setValidator } = useVAuth();
-  const [name, setName] = useState(validator?.name || "");
-  const [email, setEmail] = useState(validator?.email || "");
-  const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
+  const { validator, refresh } = useVAuth();
+  const navigate = useNavigate();
+  // The onboarding wizard's own role picker is skipped whenever a draft
+  // type is already sitting in localStorage (VC_V_TYPE_<id>), which is
+  // exactly what's left behind by an earlier onboarding attempt that never
+  // reached the final "Complete setup" (that's the only place it gets
+  // cleared) -- landing here from "Upgrade to Validator" resumed that old,
+  // possibly different, draft instead of showing "Which best describes
+  // you?" fresh. Clearing it first guarantees the picker actually shows,
+  // with the current role already highlighted there (see TypeSelector).
+  const goReOnboard = () => {
+    localStorage.removeItem(`VC_V_TYPE_${validator?.id}`);
+    window.location.href = "/validator/onboarding";
+  };
+
+  const isUser = validator?.validator_type === "user";
+  // tester_status defaults to the literal string "none" in the DB (see
+  // schema.sql), not null/empty -- a plain truthy check treats "none" as
+  // "has applied", showing the Verification card/step for every validator
+  // who never actually applied.
+  const hasTesterFields = !!validator?.tester_status && validator.tester_status !== "none";
+  const steps = settingsStepsFor(validator?.validator_type, hasTesterFields);
+  const stepLabel = (key, fallback) => t(`vOnboarding.steps.${key}`, null, fallback);
+  const stepTitle = (key) => { const s = steps.find(([k]) => k === key); return s ? stepLabel(s[0], s[1]) : ""; };
 
   const [changingPassword, setChangingPassword] = useState(false);
   const [pwdCurrent, setPwdCurrent] = useState("");
@@ -57,90 +129,141 @@ export default function VSettings() {
     }
   };
 
-  const save = async () => {
-    setBusy(true); setError(""); setSaved(false);
-    try {
-      await vapi.updateProfile({ name, email });
-      await refresh();
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err) {
-      setError(err.message || t("settings.saveFailed", null, "Couldn't save changes"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="page rise">
       <div className="ph" style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>{t("settings.title", null, "Settings")}</h1>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))", gap: 24, maxWidth: 1000 }}>
-        {/* Left Column */}
-        <div className="col gap-4">
-          {/* Profile Card */}
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="user" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.profileInfo", null, "Profile Information")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.profileDesc", null, "Update your personal details and email address.")}</p>
-              </div>
-            </div>
-            
-            <div className="col gap-4">
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.fullName", null, "Full Name")}</label>
-                <input className="fin" value={name} onChange={e => setName(e.target.value)} />
-              </div>
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.emailAddress", null, "Email Address")}</label>
-                <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} />
-              </div>
-              {error && <p style={{ color: "var(--danger)", fontSize: 13, margin: "4px 0 8px" }}>{error}</p>}
-              {saved && <p style={{ color: "var(--success)", fontSize: 13, margin: "4px 0 8px" }}>✓ {t("settings.changesSaved", null, "Changes saved")}</p>}
-              <div>
-                <Btn variant="primary" onClick={save} disabled={busy}>
-                  {busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save Changes")}
-                </Btn>
-              </div>
+      {/* Account type card -- top of the page instead of buried at the
+          bottom. Tester is the last role, nothing left to apply for, so the
+          whole card is skipped once approved. tester_status is checked
+          directly here (not gated behind validator_type === "tester" like
+          before) -- an application stays validator_type "validator" with
+          tester_status "pending_review"/"rejected" right up until an admin
+          approves it (see vauth.js), so that old gate never actually
+          matched those two states. */}
+      {validator?.validator_type !== "tester" && (
+        <div className="card" style={{ padding: 22, marginBottom: 24, maxWidth: 980 }}>
+          <div className="eyebrow" style={{ marginBottom: 16 }}>{t("settings.accountType", null, "Account type")}</div>
+          <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.type", null, "Type")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
+              {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : t("settings.validatorPro", null, "Validator — Professional")}
             </div>
           </div>
 
-          {/* Account Card */}
-          <div className="card" style={{ padding: 24 }}>
-            <div className="row gap-3" style={{ alignItems: "center", marginBottom: 24 }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="userCheck" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.accountInfo", null, "Account Information")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.accountDesc", null, "View your account details and unique identifiers.")}</p>
-              </div>
+          {validator?.validator_type === "user" && (
+            <div style={{ padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
+              <button className="btn btn-primary" style={{ fontSize: 13, flexShrink: 0 }} onClick={goReOnboard}>{t("settings.upgradeValidator", null, "Upgrade to Validator →")}</button>
             </div>
-            
-            <div className="col gap-3">
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.validatorId", null, "Validator ID")}</label>
-                <input className="fin" value={`#${validator?.id}`} disabled style={{ background: "var(--surface-1)", cursor: "not-allowed" }} />
-              </div>
-              <div className="fld">
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.handle", null, "Handle")}</label>
-                <input className="fin" value={`@${validator?.handle}`} disabled style={{ background: "var(--surface-1)", cursor: "not-allowed" }} />
-              </div>
-            </div>
-          </div>
+          )}
 
-          <PhoneSetup client={vapi} phone={validator?.phone} phoneVerified={validator?.phoneVerified}
-            onUpdate={(phone) => setValidator(v => ({ ...v, phone, phoneVerified: !!phone }))} />
+          {validator?.validator_type === "validator" && validator?.tester_status === "pending_review" && (
+            <div style={{ padding: "12px 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--warning)" }}>
+                <span>⏳</span> {t("settings.underReview", null, "Under review — admin will respond within 72 hours")}
+              </div>
+            </div>
+          )}
+
+          {validator?.validator_type === "validator" && validator?.tester_status === "rejected" && (
+            <div style={{ padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "var(--danger)" }}>✗ {t("settings.applicationNotApproved", null, "Application not approved — you can update your profile and reapply")}</div>
+              <button className="btn btn-primary" style={{ fontSize: 13, flexShrink: 0 }} onClick={goReOnboard}>{t("settings.reapplyTester", null, "Reapply for Verified Tester →")}</button>
+            </div>
+          )}
+
+          {/* Anything other than pending/rejected -- covers a never-applied
+              validator (tester_status null) and also any stale/out-of-sync
+              record where tester_status is already "approved" but
+              validator_type was never bumped to "tester", so the apply
+              option doesn't just silently vanish for them. */}
+          {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && validator?.tester_status !== "rejected" && (
+            <div style={{ padding: "12px 0", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+              <p style={{ fontSize: 13, color: "var(--text-muted)", margin: 0 }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
+              <button className="btn btn-primary" style={{ fontSize: 13, flexShrink: 0 }} onClick={goReOnboard}>{t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}</button>
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Right Column */}
-        <div className="col gap-4">
+      <div className="col gap-5" style={{ maxWidth: 980 }}>
+          {/* Profile Details' one giant scrolling card (every onboarding
+              field, answered inline, one Save at the very bottom) replaced
+              with a card per step -- read-only chips plus an Edit button
+              into the real step form (VEditAccountStep.jsx), same pattern
+              as the builder side's own Settings page. */}
+          {/* No alignItems:start here (unlike the builder Settings page this
+              mirrors) -- tester explicitly wanted every card the same
+              size; default stretch makes same-row cards match the
+              tallest one instead of each staying only as tall as its own
+              content. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
+            <StepCard title={stepTitle("basicInfo")} stepKey="basicInfo" navigate={navigate}>
+              <VChipField label={t("onboardingFields.country", null, "Country")} values={validator?.country ? [validator.country] : []} />
+              <VChipField label={t("onboardingFields.stateRegion", null, "State / Region")} values={validator?.state ? [validator.state] : []} />
+              <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.languages", null, "Languages")} values={validator?.languages} /></div>
+              {!isUser && <div style={{ gridColumn: "1 / -1" }}><VTextField label={t("vOnboarding.fields.shortBio", null, "Short bio")} value={validator?.bio} /></div>}
+            </StepCard>
+
+            {isUser ? (
+              <>
+                <StepCard title={stepTitle("demographics")} stepKey="demographics" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.ageGroup", null, "Age group")} values={validator?.ageGroup ? [validator.ageGroup] : []} />
+                  <VChipField label={t("vOnboarding.fields.gender", null, "Gender")} values={validator?.gender ? [validator.gender] : []} />
+                  <VChipField label={t("vOnboarding.fields.maritalStatus", null, "Marital status")} values={validator?.marital ? [validator.marital] : []} />
+                  <VChipField label={t("vOnboarding.fields.kids", null, "Kids?")} values={validator?.hasKids ? [validator.hasKids] : []} />
+                  <VChipField label={t("vOnboarding.fields.income", null, "Income")} values={validator?.income ? [validator.income] : []} />
+                </StepCard>
+                <StepCard title={stepTitle("physicalProfile")} stepKey="physicalProfile" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.height", null, "Height")} values={validator?.height ? [validator.height] : []} />
+                  <VChipField label={t("vOnboarding.fields.weight", null, "Weight")} values={validator?.weight ? [validator.weight] : []} />
+                  <VChipField label={t("vOnboarding.fields.skinTone", null, "Skin tone")} values={validator?.skinTone ? [validator.skinTone] : []} />
+                  <VChipField label={t("vOnboarding.fields.hairType", null, "Hair type")} values={validator?.hairType ? [validator.hairType] : []} />
+                  <VChipField label={t("vOnboarding.fields.hairLength", null, "Hair length")} values={validator?.hairLength ? [validator.hairLength] : []} />
+                  <VChipField label={t("vOnboarding.fields.bodyType", null, "Body type")} values={validator?.bodyType ? [validator.bodyType] : []} />
+                </StepCard>
+                <StepCard title={stepTitle("lifestyle")} stepKey="lifestyle" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.occupation", null, "Occupation")} values={validator?.occupation ? [validator.occupation] : []} />
+                  <VChipField label={t("vOnboarding.fields.foodPreference", null, "Food preference")} values={validator?.foodPref ? [validator.foodPref] : []} />
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.lifestyleInterests", null, "Lifestyle interests")} values={validator?.lifestyle} /></div>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.devices", null, "Devices")} values={validator?.devices} /></div>
+                  <VChipField label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} values={validator?.hours ? [validator.hours] : []} />
+                </StepCard>
+              </>
+            ) : (
+              <>
+                <StepCard title={stepTitle("professional")} stepKey="professional" navigate={navigate}>
+                  <VChipField label={t("vOnboarding.fields.role", null, "Role")} values={validator?.occupation ? [validator.occupation] : []} />
+                  <VChipField label={t("vOnboarding.fields.experience", null, "Experience")} values={validator?.experience ? [validator.experience] : []} />
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.industry", null, "Industry")} values={validator?.industry} /></div>
+                  <VChipField label={t("vOnboarding.fields.company", null, "Company")} values={validator?.company ? [validator.company] : []} />
+                </StepCard>
+                <StepCard title={stepTitle("expertise")} stepKey="expertise" navigate={navigate}>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.productTypesYouTest", null, "Product types you test")} values={validator?.productTypes} /></div>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.toolsYouUse", null, "Tools you use")} values={validator?.techTools} /></div>
+                </StepCard>
+                <StepCard title={stepTitle("availability")} stepKey="availability" navigate={navigate}>
+                  <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.devices", null, "Devices")} values={validator?.devices} /></div>
+                  <VChipField label={t("vOnboarding.fields.timePerWeek", null, "Time per week")} values={validator?.hours ? [validator.hours] : []} />
+                </StepCard>
+                {hasTesterFields && (
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <StepCard title={stepTitle("verification")} stepKey="verification" navigate={navigate}>
+                      <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.testingDomains", null, "Testing domains")} values={validator?.testingDomains} /></div>
+                      <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.certifications", null, "Certifications")} values={validator?.certifications} /></div>
+                      <VChipField label={t("vOnboarding.fields.linkedinUrl", null, "LinkedIn URL")} values={validator?.linkedinUrl ? [validator.linkedinUrl] : []} />
+                      <VChipField label={t("vOnboarding.fields.portfolioGithub", null, "Portfolio / GitHub")} values={validator?.portfolioUrl ? [validator.portfolioUrl] : []} />
+                      <div style={{ gridColumn: "1 / -1" }}><VChipField label={t("vOnboarding.fields.describeTestingExperience", null, "Describe your testing experience")} values={validator?.testingBio ? [validator.testingBio] : []} /></div>
+                    </StepCard>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* Security Card */}
           {!validator?.oauthProvider && (
             <div className="card" style={{ padding: 24 }}>
@@ -190,99 +313,8 @@ export default function VSettings() {
             </div>
           )}
 
-          {/* More Settings Coming Soon */}
-          <div className="card" style={{ padding: 24, background: "var(--surface-1)", border: "1px dashed var(--border)" }}>
-            <div className="row gap-3" style={{ alignItems: "center" }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--surface-2)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--primary)" }}>
-                <Icon name="sparkle" size={20} />
-              </div>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t("settings.moreSettings", null, "More settings coming soon")}</h3>
-                <p className="faint" style={{ margin: "4px 0 0", fontSize: 13 }}>{t("settings.moreSettingsDesc", null, "We're working on new preferences and customizations for your account.")}</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Validator type & status */}
-      <div className="card" style={{ padding: 22, marginBottom: 24 }}>
-        <div className="eyebrow" style={{ marginBottom: 16 }}>{t("settings.accountType", null, "Account type")}</div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-          <div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{t("settings.type", null, "Type")}</div>
-            <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 2 }}>
-              {validator?.validator_type === "user" ? t("settings.userTester", null, "User — Consumer tester") : validator?.validator_type === "tester" ? t("settings.verifiedTester", null, "Verified Tester") : t("settings.validatorPro", null, "Validator — Professional")}
-            </div>
-          </div>
-          <span style={{
-            padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,
-            background: validator?.validator_type === "user" ? "var(--success-weak)" : validator?.validator_type === "tester" ? "var(--warning-weak)" : "var(--accent-weak)",
-            color: validator?.validator_type === "user" ? "var(--success)" : validator?.validator_type === "tester" ? "var(--warning)" : "var(--accent)",
-          }}>
-            {validator?.validator_type === "user" ? t("badge.user", null, "User") : validator?.validator_type === "tester" ? t("badge.tester", null, "Tester") : t("badge.validator", null, "Validator")}
-          </span>
-        </div>
-
-        {/* Tester status */}
-        {validator?.validator_type === "tester" && (
-          <div style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{t("settings.verificationStatus", null, "Verification status")}</div>
-            {validator?.tester_status === "pending_review" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--warning)" }}>
-                <span>⏳</span> {t("settings.underReview", null, "Under review — admin will respond within 72 hours")}
-              </div>
-            )}
-            {validator?.tester_status === "approved" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--success)" }}>
-                <span>✓</span> {t("settings.verifiedTag", null, "Verified")} {validator?.tester_tier === "senior" ? t("settings.senior", null, "Senior") : t("settings.junior", null, "Junior")} {t("settings.testerUnlocked", null, "Tester — premium missions unlocked")}
-              </div>
-            )}
-            {validator?.tester_status === "rejected" && (
-              <div>
-                <div style={{ fontSize: 13, color: "var(--danger)", marginBottom: 8 }}>✗ {t("settings.applicationNotApproved", null, "Application not approved — you can update your profile and reapply")}</div>
-                <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>{t("settings.reapplyTester", null, "Reapply for Verified Tester")}</button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Upgrade options */}
-        {validator?.validator_type === "user" && (
-          <div style={{ padding: "12px 0" }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{t("settings.upgradeAccount", null, "Upgrade your account")}</div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.upgradeDesc", null, "Have professional expertise? Upgrade to Validator to access app testing and digital product missions.")}</p>
-            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>
-              {t("settings.upgradeValidator", null, "Upgrade to Validator →")}
-            </button>
-          </div>
-        )}
-        {validator?.validator_type === "validator" && validator?.tester_status !== "pending_review" && (
-          <div style={{ padding: "12px 0" }}>
-            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 6 }}>{t("settings.applyTester", null, "Apply for Verified Tester")}</div>
-            <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "0 0 10px" }}>{t("settings.applyTesterDesc", null, "Have QA or product testing experience? Apply for verified status to access premium high-pay missions.")}</p>
-            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => window.location.href = "/validator/onboarding"}>
-              {t("settings.applyTesterBtn", null, "Apply for Verified Tester →")}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Sign Out */}
-      <div className="card row between wrap" style={{ marginTop: 24, padding: 24, background: "color-mix(in srgb, var(--danger) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--danger) 20%, transparent)", maxWidth: 1000, alignItems: "center", gap: 16 }}>
-        <div className="row gap-4" style={{ alignItems: "center" }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: "color-mix(in srgb, var(--danger) 10%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--danger)" }}>
-            <Icon name="logout" size={24} />
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--danger)" }}>{t("settings.signOutTitle", null, "Sign Out")}</h3>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--text-muted)" }}>{t("settings.signOutDesc", null, "You'll need to sign back in to access your missions and earnings.")}</p>
-          </div>
-        </div>
-        <button className="btn btn-outline" style={{ color: "var(--danger)", borderColor: "var(--danger)", background: "transparent" }} onClick={logout}>
-          {t("actions.signOut", null, "Sign out")}
-        </button>
-      </div>
     </div>
   );
 }

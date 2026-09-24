@@ -3,12 +3,14 @@ import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { toast as hotToast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn, Empty, UpdatingBadge } from "../components/ui";
-import MissionsTable from "../components/MissionsTable";
+import MissionsTable, { DELETABLE_STATUSES } from "../components/MissionsTable";
 import { useMeta } from "../context/MetaContext";
 import { api } from "../api/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { categoryLabel } from "../bi18n";
 import { useAuth } from "../context/AuthContext";
 import { getRecentDraftId, hasResumableDraft, clearAllLocalDraftState } from "../utils/missionDraft";
+import { exportCSV } from "../exportUtils";
 
 // Tabs defined dynamically inside component to use translations
 
@@ -16,6 +18,7 @@ export default function Missions() {
   const { t, dataVersion } = useTranslation();
   const { builder } = useAuth();
   const TABS = [
+    { k: "all", l: t("missions.tabAll", null, "All") },
     { k: "active", l: t("missions.tabActive", null, "Active") },
     { k: "draft", l: t("missions.tabDraft", null, "Draft") },
     { k: "closed", l: t("missions.tabClosed", null, "Closed") },
@@ -26,7 +29,7 @@ export default function Missions() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { categories } = useMeta();
-  const [tab, setTab] = useState(searchParams.get("tab") || "active");
+  const [tab, setTab] = useState(searchParams.get("tab") || "all");
   const [q, setQ] = useState(searchParams.get("q") || "");
 
   // Only the initial mount read the tab from the URL — a notification link
@@ -34,7 +37,7 @@ export default function Missions() {
   // open wouldn't remount the component, so this state never picked it up
   // and the URL and the visible tab silently disagreed.
   useEffect(() => {
-    const urlTab = searchParams.get("tab") || "active";
+    const urlTab = searchParams.get("tab") || "all";
     setTab(prev => (prev === urlTab ? prev : urlTab));
   }, [searchParams]);
 
@@ -48,21 +51,36 @@ export default function Missions() {
   };
   const [missions, setMissions] = useState([]);
   const [counts, setCounts] = useState({});
+  const [notifCounts, setNotifCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [refetching, setRefetching] = useState(false);
   const [toast, setToast] = useState(null);
-  const [visibleCount, setVisibleCount] = useState(20);
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  // Selection is scoped to whatever's currently loaded for this tab/search —
+  // switching either one starts fresh rather than carrying over ids that
+  // might not even be in the new list.
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  // Type filter — a genuinely separate dimension from the status tabs, so it
+  // applies on top of whichever tab is active rather than replacing it.
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [typeSearch, setTypeSearch] = useState("");
+  const toggleCategory = (id) => setSelectedCategories(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
 
   useEffect(() => {
-    const t = setTimeout(() => setVisibleCount(20), 0);
+    const t = setTimeout(() => { setPage(1); setSelectedIds(new Set()); }, 0);
     return () => clearTimeout(t);
-  }, [tab, q]);
+  }, [tab, q, selectedCategories]);
 
   useEffect(() => {
     setTimeout(() => setRefetching(true), 0);
-    api.missions({ status: tab, q }).then(d => { setMissions(d.missions); setLoading(false); }).finally(() => setRefetching(false));
+    // "all" means no status filter at all (GET /missions with status
+    // omitted returns every status) -- there's no literal "all" status
+    // in the database to filter by.
+    api.missions({ status: tab === "all" ? "" : tab, q, category: selectedCategories.join(",") }).then(d => { setMissions(d.missions); setLoading(false); }).finally(() => setRefetching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, q, dataVersion]);
+  }, [tab, q, selectedCategories, dataVersion]);
 
   useEffect(() => {
     if (location.state?.toast) {
@@ -83,6 +101,19 @@ export default function Missions() {
     }
   }, [builder?.id, t]);
 
+  // Same idea as above, for leaving an in-progress edit of an already-live
+  // mission — MissionDetail shows this itself when landing back on that
+  // exact mission's own page; this is the fallback for landing here instead
+  // (e.g. Back went further than one page). Any non-empty value counts —
+  // this page doesn't care which mission it was.
+  useEffect(() => {
+    let flagged = "";
+    try { flagged = sessionStorage.getItem("vcrew_mission_live_edit_backnav") || ""; } catch { /* ignore */ }
+    if (!flagged) return;
+    try { sessionStorage.removeItem("vcrew_mission_live_edit_backnav"); } catch { /* ignore */ }
+    hotToast.success(t("createMission.liveEditSaved", null, "Changes are saved"), { position: "top-center" });
+  }, [t]);
+
   const handleDelete = (id) => {
     if (window.confirm(t("missions.deleteConfirm", null, "Are you sure you want to delete this mission?"))) {
       api.deleteMission(id).then(() => {
@@ -93,17 +124,94 @@ export default function Missions() {
           clearAllLocalDraftState(builder?.id);
         }
         setMissions(prev => prev.filter(m => m.id !== id));
+        setSelectedIds(prev => { if (!prev.has(id)) return prev; const next = new Set(prev); next.delete(id); return next; });
         setToast(t("missions.deleteSuccess", null, "Mission deleted successfully"));
         setTimeout(() => setToast(null), 3000);
-      });
+      }).catch(err => hotToast.error(err.message || t("missions.deleteFailed", null, "Couldn't delete this mission")));
     }
+  };
+
+  // Every visible row is selectable — selection also drives Export, which
+  // has no reason to exclude Active/Completed rows. Only Delete, below,
+  // narrows down to the deletable subset of whatever's selected.
+  const pageCount = Math.max(1, Math.ceil(missions.length / PAGE_SIZE));
+  // Clamped, not just read directly -- a bulk/single delete can shrink
+  // missions.length out from under whatever page was already open, and
+  // this keeps that page showing its real (now-shorter) last page of rows
+  // instead of a blank slice past the end.
+  const safePage = Math.min(page, pageCount);
+  const visibleRows = missions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every(m => selectedIds.has(m.id));
+
+  const toggleSelect = (id) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const toggleSelectAll = () => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (allVisibleSelected) visibleRows.forEach(m => next.delete(m.id));
+    else visibleRows.forEach(m => next.add(m.id));
+    return next;
+  });
+
+  const selectedMissions = missions.filter(m => selectedIds.has(m.id));
+  const selectedDeletableCount = selectedMissions.filter(m => DELETABLE_STATUSES.has(m.status)).length;
+
+  const handleBulkExport = () => {
+    exportCSV(
+      "missions.csv",
+      [t("missions.missionCol", null, "Mission"), t("missions.typeCol", null, "Type"), t("missions.statusCol", null, "Status"), t("missions.createdCol", null, "Created"), t("missions.deadlineCol", null, "Deadline"), t("metrics.participants", null, "Participants"), t("metrics.reward", null, "Reward"), t("metrics.completion", null, "Completion")],
+      selectedMissions.map(m => [
+        m.name, m.category, m.status, m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "",
+        m.deadline ? new Date(m.deadline).toLocaleDateString() : "",
+        `${m.participants?.joined ?? 0}/${m.participants?.target ?? 0}`,
+        m.reward?.type === "sample" ? "Sample" : m.reward?.type === "free" ? "Free" : m.reward?.amount ?? "",
+        m.completion ?? "",
+      ])
+    );
+  };
+
+  const handleBulkDelete = () => {
+    const ids = selectedMissions.filter(m => DELETABLE_STATUSES.has(m.status)).map(m => m.id);
+    if (!ids.length) return;
+    if (!window.confirm(t("missions.bulkDeleteConfirm", { count: ids.length }, `Delete ${ids.length} mission(s)? This can't be undone.`))) return;
+    api.bulkDeleteMissions(ids).then(({ deleted }) => {
+      const deletedSet = new Set(deleted);
+      if (deletedSet.has(getRecentDraftId(builder?.id))) clearAllLocalDraftState(builder?.id);
+      setMissions(prev => prev.filter(m => !deletedSet.has(m.id)));
+      setSelectedIds(new Set());
+      setToast(t("missions.bulkDeleteSuccess", { count: deleted.length }, `${deleted.length} mission(s) deleted`));
+      setTimeout(() => setToast(null), 3000);
+    }).catch(err => hotToast.error(err.message || t("missions.bulkDeleteFailed", null, "Couldn't delete these missions")));
   };
 
   // counts per tab (one extra call, cheap and infrequent)
   useEffect(() => {
-    Promise.all(TABS.map(t => api.missions({ status: t.k }).then(d => [t.k, d.missions.length])))
+    Promise.all(TABS.map(t => api.missions({ status: t.k === "all" ? "" : t.k }).then(d => [t.k, d.missions.length])))
       .then(entries => setCounts(Object.fromEntries(entries)));
   }, [missions]);
+
+  // Unread-notification chip per mission row, for a builder who lands on
+  // Missions without ever opening the bell — same 10s poll cadence as
+  // AppLayout's own bell badge so the two never drift far apart. Counts
+  // any unread notification about the mission (not just a new participant
+  // joining), matching MissionDetail's own per-tab badges, which resolve
+  // the same notifications down to whichever tab answers them.
+  useEffect(() => {
+    const fetchNotifCounts = () => api.notifications().then(d => {
+      const byMission = {};
+      for (const n of d.notifications || []) {
+        if (n.unread && n.missionId) {
+          byMission[n.missionId] = (byMission[n.missionId] || 0) + 1;
+        }
+      }
+      setNotifCounts(byMission);
+    }).catch(() => {});
+    fetchNotifCounts();
+    const interval = setInterval(fetchNotifCounts, 10000);
+    return () => clearInterval(interval);
+  }, [dataVersion]);
 
   return (
     <div className="page rise">
@@ -134,23 +242,89 @@ export default function Missions() {
       )}
 
       <div className="ph">
-        <div><span className="eyebrow">{t("missions.eyebrow", null, "Mission management")}</span><h1>{t("missions.title", null, "Missions")}</h1><p className="lead">{t("missions.lead", null, "Every study you've run, in flight, or drafted.")}</p></div>
+        <div><h1>{t("missions.title", null, "Mission Management")}</h1><p className="lead">{t("missions.lead", null, "Every study you've run, in flight, or drafted.")}</p></div>
         <div className="ph-actions" style={{ alignItems: "center", gap: 12 }}><UpdatingBadge show={refetching} /><Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createMission", null, "Create Mission")}</Btn></div>
       </div>
       <div className="toolbar">
         <div className="tabs">{TABS.map(t => <button key={t.k} className={tab === t.k ? "on" : ""} onClick={() => selectTab(t.k)}>{t.l}<span className="cnt">{counts[t.k] ?? "·"}</span></button>)}</div>
         <span className="grow" />
+        <div style={{ position: "relative" }}>
+          <button title={t("missions.filterTitle", null, "Filter")} onClick={() => setFilterOpen(o => !o)}
+            style={{ position: "relative", width: 36, height: 36, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--panel)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+            <Icon name="filter" size={16} />
+            {selectedCategories.length > 0 && (
+              <span style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }} />
+            )}
+          </button>
+          {filterOpen && (
+            <>
+              <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => { setFilterOpen(false); setTypeSearch(""); }} />
+              <div role="menu" style={{
+                position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50, width: 260,
+                background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+                boxShadow: "var(--shadow-md)", padding: "14px",
+              }}>
+                <div className="row" style={{ alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800 }}>{t("missions.filterType", null, "Filter by Type")}</div>
+                  {selectedCategories.length > 0 && (
+                    <button style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 12.5, fontWeight: 700, color: "var(--accent)" }}
+                      onClick={() => setSelectedCategories([])}>
+                      {t("actions.clearAll", null, "Clear all")}
+                    </button>
+                  )}
+                </div>
+                <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>{t("missions.filterTypeHint", null, "Select one or more types")}</div>
+                <div className="row" style={{ alignItems: "center", gap: 8, padding: "7px 10px", marginBottom: 10, border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", background: "var(--panel)" }}>
+                  <Icon name="search" size={14} style={{ color: "var(--text-faint)", flex: "none" }} />
+                  <input value={typeSearch} onChange={e => setTypeSearch(e.target.value)} placeholder={t("missions.searchTypes", null, "Search types…")}
+                    style={{ flex: 1, border: "none", outline: "none", background: "none", fontSize: 13, color: "var(--text)" }} />
+                </div>
+                <div className="col gap-1 scroll-hover" style={{ maxHeight: 280, overflowY: "auto" }}>
+                  {categories.filter(c => categoryLabel(t, c).toLowerCase().includes(typeSearch.toLowerCase())).map(c => {
+                    const on = selectedCategories.includes(c.id);
+                    return (
+                      <label key={c.id} className="menu-item" style={{ display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "8px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}>
+                        <input type="checkbox" checked={on} onChange={() => toggleCategory(c.id)} style={{ cursor: "pointer" }} />
+                        <Icon name={c.icon} size={15} style={{ flex: "none", color: on ? "var(--accent)" : "var(--text-faint)" }} />
+                        {categoryLabel(t, c)}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <div className="seg-search"><Icon name="search" size={16} /><input placeholder={t("missions.searchPlaceholder", null, "Search missions…")} value={q} onChange={e => setQ(e.target.value)} /></div>
       </div>
+      {selectedIds.size > 0 && (
+        <div className="row" style={{ alignItems: "center", gap: 12, padding: "10px 16px", margin: "0 0 14px", background: "var(--accent-weak)", border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)", borderRadius: "var(--radius)" }}>
+          <span style={{ fontWeight: 600, fontSize: 13.5, color: "var(--accent)" }}>{t("missions.selectedCount", { count: selectedIds.size }, `${selectedIds.size} selected`)}</span>
+          <span className="grow" />
+          <Btn variant="ghost" size="sm" icon="download" onClick={handleBulkExport}>{t("actions.export", null, "Export")}</Btn>
+          {selectedDeletableCount > 0 && (
+            <Btn size="sm" icon="trash" onClick={handleBulkDelete} style={{ background: "var(--danger)", color: "#fff" }}>
+              {t("missions.bulkDeleteLabel", { count: selectedDeletableCount }, `Delete (${selectedDeletableCount})`)}
+            </Btn>
+          )}
+        </div>
+      )}
       {loading ? <div className="muted" style={{ padding: 24 }}>{t("actions.loading", null, "Loading…")}</div>
         : missions.length === 0
-          ? <Empty icon="layers" title={`${t("missions.no", null, "No")} ${tab} ${t("missions.missionsLower", null, "missions")}`} action={tab === "draft" || tab === "active" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createFirstMission", null, "Create your first mission")}</Btn> : null}>{tab === "completed" ? t("missions.completedEmpty", null, "Completed missions will appear here once they wrap.") : t("missions.emptyDefault", null, "Nothing here yet.")}</Empty>
+          ? <Empty icon="layers" title={tab === "all" ? t("missions.noMissionsYet", null, "No missions yet — create your first one.") : `${t("missions.no", null, "No")} ${tab} ${t("missions.missionsLower", null, "missions")}`} action={tab === "draft" || tab === "active" || tab === "all" ? <Btn variant="primary" icon="plus" onClick={() => navigate("/missions/new")}>{t("actions.createFirstMission", null, "Create your first mission")}</Btn> : null}>{tab === "completed" ? t("missions.completedEmpty", null, "Completed missions will appear here once they wrap.") : t("missions.emptyDefault", null, "Nothing here yet.")}</Empty>
           : (
             <div style={{ paddingBottom: 32 }}>
-              <MissionsTable rows={missions.slice(0, visibleCount)} nav={navigate} categories={categories} onDelete={handleDelete} />
-              {visibleCount < missions.length && (
-                <div style={{ textAlign: "center", marginTop: 16 }}>
-                  <Btn variant="outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</Btn>
+              <MissionsTable rows={visibleRows} nav={navigate} categories={categories} onDelete={handleDelete} tab={tab}
+                selectedIds={selectedIds} onToggleSelect={toggleSelect} onToggleSelectAll={toggleSelectAll} notifCounts={notifCounts} />
+              {pageCount > 1 && (
+                <div className="row" style={{ alignItems: "center", justifyContent: "center", gap: 16, marginTop: 16 }}>
+                  <button className="btn btn-ghost" disabled={safePage <= 1} onClick={() => setPage(p => p - 1)}>
+                    <Icon name="chevronLeft" size={15} /> {t("actions.previous", null, "Previous")}
+                  </button>
+                  <span className="muted" style={{ fontSize: 13 }}>{t("missions.pageOf", { page: safePage, pageCount }, `Page ${safePage} of ${pageCount}`)}</span>
+                  <button className="btn btn-ghost" disabled={safePage >= pageCount} onClick={() => setPage(p => p + 1)}>
+                    {t("actions.next", null, "Next")} <Icon name="chevronRight" size={15} />
+                  </button>
                 </div>
               )}
             </div>

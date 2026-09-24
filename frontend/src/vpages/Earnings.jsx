@@ -6,6 +6,7 @@ import { VAvatar, VStars, VTypeTag } from "../vcomponents/vui";
 import { useVMeta } from "../vcontext/VMetaContext";
 import { vapi } from "../vapi/client";
 import { useTranslation } from "../i18n/index.jsx";
+import { blockInvalidNumberKeys } from "../utils/numberInput";
 
 export default function Earnings() {
   const { t } = useTranslation();
@@ -49,7 +50,6 @@ export default function Earnings() {
   return (
     <div className="page">
       <div className="rise" style={{ marginBottom: 22 }}>
-        <div className="eyebrow" style={{ marginBottom: 6 }}>{t("earnings.title", null, "Earnings & reputation")}</div>
         <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-.03em" }}>{t("earnings.lifetime", null, "You've earned")} ₹{(data.lifetime || 0).toLocaleString("en-IN")} {t("earnings.allTime", null, "all-time")}</h2>
       </div>
 
@@ -78,7 +78,7 @@ export default function Earnings() {
               <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
                 <div className="fld" style={{ flex: 1, minWidth: 160 }}>
                   <label>{t("earnings.amountWithdraw", null, "Amount to withdraw")}</label>
-                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="200" max={data.available} value={amount} onChange={e => setAmount(e.target.value)} placeholder={`${t("earnings.upTo", null, "Up to")} ${data.available}`} /></div>
+                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="200" max={data.available} value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={blockInvalidNumberKeys} placeholder={`${t("earnings.upTo", null, "Up to")} ${data.available}`} /></div>
                 </div>
                 <button className="btn btn-primary" disabled={busy} onClick={withdraw}>{busy ? t("actions.processing", null, "Processing…") : t("actions.confirmWithdrawal", null, "Confirm withdrawal")}</button>
                 <button className="btn btn-quiet" onClick={() => { setWithdrawing(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</button>
