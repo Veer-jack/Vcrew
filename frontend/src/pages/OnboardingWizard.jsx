@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft, PERSONA_NAME_FIELD } from "../data/personaConfig";
+import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft, PERSONA_NAME_FIELD, audienceStepIssue } from "../data/personaConfig";
 import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
@@ -262,7 +262,14 @@ export default function OnboardingWizard() {
 
   const goNext = async () => {
     if (!isValid) {
-      setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      // Founder/Company's "audience" step silently discards the WHOLE step
+      // if any one of Age/Gender/Country/Occupation is missing (see
+      // audienceStepValid) -- naming only the generic message here left
+      // people fixing one field, hitting Next, getting rejected again for a
+      // DIFFERENT missing field, same trap EditAccountStep's Settings-side
+      // edit already had a specific fix for.
+      const specificIssue = stepKey === "audience" && (role === "founder" || role === "company") ? audienceStepIssue(d, t) : null;
+      setError(specificIssue || t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
       setShowErrors(true);
       // The warning banner renders at the top of the step — scroll there so
       // it's actually visible instead of silently appearing above the fold.

@@ -195,23 +195,23 @@ export function LocationFields({ d, set, withCity, showErrors }) {
   );
 }
 
-export function DemographicsRow({ d, set, ageOptions, genderOptions }) {
+export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender }) {
   const { t } = useTranslation();
   const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
   const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")];
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.age", null, "Age")} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
+      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
         <Chips options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
-      <Field label={t("onboardingFields.gender", null, "Gender")} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
+      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
         <Chips options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
   );
 }
 
-export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions }) {
+export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions, showErrors, requireOccupation }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
 
@@ -267,7 +267,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
         const hasOther = occupationOptions.includes("Other");
         const mainOpts = hasOther ? occupationOptions.filter(o => o !== "Other") : occupationOptions;
         return (
-          <>
+          <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined}>
             <FilterGroup
               title={t("onboardingFields.occupation", null, "Occupation")}
               required
@@ -297,7 +297,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
                 otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
               />
             )}
-          </>
+          </div>
         );
       })()}
       {show.education && (

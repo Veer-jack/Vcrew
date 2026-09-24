@@ -204,7 +204,7 @@ function GenericAudience({ d, set, region, title, sub, showErrors }) {
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.demographicsSection", null, "Demographics")} />
-        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} showErrors={showErrors} requireAge requireGender />
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.locationSection", null, "Location")} />
@@ -214,7 +214,8 @@ function GenericAudience({ d, set, region, title, sub, showErrors }) {
         <FSection label={t("onboarding.profileSection", null, "Profile")} />
         <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional}
           incomeOptions={filters.Demographics?.["Income Bracket"]} interestOptions={interestOptions}
-          show={{ occupation: true, education: true, income: true, languages: true, interests: true }} />
+          show={{ occupation: true, education: true, income: true, languages: true, interests: true }}
+          showErrors={showErrors} requireOccupation />
       </div>
     </div>
   );
@@ -294,11 +295,17 @@ function audienceStepValid(d) {
 // Returns null once everything required is present.
 export function audienceStepIssue(d, t) {
   const countries = Array.isArray(d.country) ? d.country : (d.country ? [d.country] : []);
-  if (!(d.ageBands || []).length) return t("onboarding.issueAudienceAge", null, "Select at least one age group to continue.");
-  if (!(d.genders || []).length) return t("onboarding.issueAudienceGender", null, "Select at least one gender to continue.");
-  if (!countries.length) return t("onboarding.issueAudienceCountry", null, "Select at least one country to continue.");
-  if (!(d.occupations || []).length) return t("onboarding.issueAudienceOccupation", null, "Select at least one occupation to continue.");
-  return null;
+  // Lists every missing requirement at once (used to stop at the first) --
+  // Save silently discards the WHOLE step when any one of these is missing
+  // (see audienceStepValid), so naming only one at a time meant fixing it,
+  // saving again, hitting the next one, and so on -- easy to give up on
+  // partway through and walk away thinking the earlier picks had saved.
+  const issues = [];
+  if (!(d.ageBands || []).length) issues.push(t("onboarding.issueAudienceAge", null, "Select at least one age group to continue."));
+  if (!(d.genders || []).length) issues.push(t("onboarding.issueAudienceGender", null, "Select at least one gender to continue."));
+  if (!countries.length) issues.push(t("onboarding.issueAudienceCountry", null, "Select at least one country to continue."));
+  if (!(d.occupations || []).length) issues.push(t("onboarding.issueAudienceOccupation", null, "Select at least one occupation to continue."));
+  return issues.length ? issues.join(" ") : null;
 }
 function foValid(key, d, region) {
   switch (key) {
@@ -516,7 +523,7 @@ function ResParticipants({ d, set, region, showErrors }) {
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.demographicsSection", null, "Demographics")} required />
-        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
+        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} showErrors={showErrors} requireAge />
         <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} />
       </div>
       <div style={GROUP_CARD}>

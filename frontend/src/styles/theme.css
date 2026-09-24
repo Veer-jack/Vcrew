@@ -417,6 +417,11 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .fld-invalid .fin, .fld-invalid .field { border-color: var(--danger); }
 .ferr { color: var(--danger); font-size: 12px; margin: 6px 0 0; }
 .fld-invalid label { color: var(--danger); }
+/* FilterGroup (Country/Occupation) renders its title as a plain <b>, not a
+   <label>/.fin -- the two rules above never matched it, so wrapping one in
+   .fld-invalid (as Country's own LocationFields wrapper already did) drew no
+   visible difference at all despite the validation genuinely failing on it. */
+.fld-invalid .fsec b { color: var(--danger); }
 .err-banner { background: var(--danger-weak); color: var(--danger); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 13px; font-weight: 600; }
 
 /* intent-fork + role-select onboarding screens */
