@@ -124,13 +124,13 @@ router.get("/", async (req, res) => {
              m.description::text as brief, m.tasks_json::text as steps_json,
              ((SELECT COUNT(*) FROM participants p WHERE p.mission_id = m.id AND p.stage NOT IN ('invited', 'pending', 'declined', 'not_selected', 'rejected', 'failed')) > COALESCE(m.target,1)/2)::boolean as hot, true::boolean as verified,
              false::boolean as featured, 'missions' as source, m.status::text as status, COALESCE(m.reward_type, 'fixed')::text as reward_type,
-             b.name::text as builder_name, b.designation::text as builder_designation
+             b.name::text as builder_name, b.designation::text as builder_designation, m.category::text as category
       FROM missions m LEFT JOIN builders b ON b.id = m.builder_id
       WHERE m.status IN ('active','live','published')
       UNION ALL
       SELECT id::text, type::text as raw_type, NULL::text as ptype, product::text, tagline::text, company::text, reward::int, match_pct::int, spots_left::int,
              spots_total::int, deadline_label::text, posted_h::int, brief::text, steps_json::text, hot::boolean, verified::boolean, featured::boolean, 'vtasks' as source, 'active' as status, 'fixed'::text as reward_type,
-             NULL::text as builder_name, NULL::text as builder_designation
+             NULL::text as builder_name, NULL::text as builder_designation, NULL::text as category
       FROM vtasks
     )
   `;
