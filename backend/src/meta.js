@@ -29,12 +29,41 @@ export const PTYPES = [
 // fallback task set used if AI generation fails (see generate-tasks route).
 export const TASK_GUIDANCE = {
   survey: {
-    promptFragment: "This mission is a SURVEY. Generate direct questionnaire-style tasks — no hands-on product interaction steps. Each task is a short thematic section (e.g. 'First impressions', 'Pricing & positioning') containing only questions. Steps should just say to read and answer the questions. Do not require screenshot proof.",
+    promptFragment: "This mission is a SURVEY. Generate direct questionnaire-style tasks — no hands-on product interaction steps. Each task is a short thematic section containing only questions. Steps should just say to read and answer the questions. Do not require screenshot proof.",
     proofDefault: null,
     taskCount: [3, 5],
+    // Each section = a topic area the AI should consider covering.
+    // "required: true" sections MUST appear. Others are picked based on
+    // product complexity, up to taskCount max.
+    sections: [
+      {
+        id: "first_impressions",
+        label: "First impressions & appeal",
+        required: true,
+        questionTypes: ["rating", "text"],
+      },
+      {
+        id: "problem_fit",
+        label: "Problem fit — does this solve a real problem",
+        required: false,
+        questionTypes: ["likert", "text"],
+      },
+      {
+        id: "pricing_positioning",
+        label: "Pricing & positioning",
+        required: false,
+        questionTypes: ["multiple_choice", "ranking", "fill_in_blank"],
+      },
+      {
+        id: "sentiment_recommend",
+        label: "Overall sentiment & likelihood to recommend",
+        required: true,
+        questionTypes: ["rating", "text", "yes_no_detail"],
+      },
+    ],
     fallback: [
       {
-        id: 1, title: "Product awareness & first impressions", severity: "imp",
+        id: 1, title: "Product awareness & first impressions", severity: "imp", section: "first_impressions",
         steps: ["Read the product description provided", "Answer the following questions based on your honest first impression"],
         questions: [
           { id: "q1", text: "How appealing does this product sound to you?", type: "rating", scale: 5 },
@@ -44,7 +73,7 @@ export const TASK_GUIDANCE = {
         proof: null, min_time_seconds: 180,
       },
       {
-        id: 2, title: "Willingness to pay & positioning", severity: "imp",
+        id: 2, title: "Willingness to pay & positioning", severity: "imp", section: "pricing_positioning",
         steps: ["Consider the pricing or value described", "Answer honestly about what you'd realistically pay"],
         questions: [
           { id: "q4", text: "What's a fair price for this?", type: "multiple_choice", options: ["I wouldn't pay for it", "Low price", "Mid-range price", "Premium price"] },
@@ -55,13 +84,52 @@ export const TASK_GUIDANCE = {
       },
     ],
   },
+
   ptest: {
     promptFragment: "This mission is hands-on PRODUCT TESTING. Generate tasks with concrete step-by-step actions the validator must physically perform in the product, and require screenshot proof for each task.",
     proofDefault: "screenshot",
     taskCount: [4, 6],
+    sections: [
+      {
+        id: "first_impression",
+        label: "First impression before doing anything",
+        required: true,
+        questionTypes: ["rating", "text"],
+      },
+      {
+        id: "core_flow",
+        label: "Core flow — complete the primary action",
+        required: true,
+        questionTypes: ["yes_no_detail", "rating", "text"],
+      },
+      {
+        id: "edge_cases_errors",
+        label: "Edge cases & error handling",
+        required: true,
+        questionTypes: ["yes_no_detail", "text"],
+      },
+      {
+        id: "trust_credibility",
+        label: "Trust, pricing & data-handling signals",
+        required: false,
+        questionTypes: ["likert", "multiple_choice"],
+      },
+      {
+        id: "feature_depth",
+        label: "Secondary features beyond the core loop",
+        required: false,
+        questionTypes: ["rating", "text"],
+      },
+      {
+        id: "sentiment_recommend",
+        label: "Overall verdict & what would kill the deal",
+        required: true,
+        questionTypes: ["rating", "text"],
+      },
+    ],
     fallback: [
       {
-        id: 1, title: "Complete the core product flow", severity: "crit",
+        id: 1, title: "Complete the core product flow", severity: "crit", section: "core_flow",
         steps: ["Open the product", "Complete the primary action it's designed for (e.g. sign up, create, purchase)", "Note anywhere you got stuck or confused"],
         questions: [
           { id: "q1", text: "How intuitive was the core flow?", type: "rating", scale: 5 },
@@ -71,7 +139,7 @@ export const TASK_GUIDANCE = {
         proof: "screenshot", min_time_seconds: 240,
       },
       {
-        id: 2, title: "Edge case & error handling", severity: "imp",
+        id: 2, title: "Edge case & error handling", severity: "imp", section: "edge_cases_errors",
         steps: ["Try an invalid input somewhere in the flow (blank field, wrong format)", "Try navigating away mid-flow and returning", "Note what happens"],
         questions: [
           { id: "q4", text: "Did the product handle your invalid input gracefully?", type: "yes_no_detail", detailOn: "no" },
@@ -81,32 +149,63 @@ export const TASK_GUIDANCE = {
       },
     ],
   },
+
   interview: {
     promptFragment: "This mission is a 1:1 INTERVIEW. Generate open-ended, conversational tasks written as if the validator is answering an interviewer's questions in detail. Prioritize text questions over multiple choice or rating. Do not require screenshot proof — there is no live call recording in this flow.",
     proofDefault: null,
     taskCount: [3, 4],
+    sections: [
+      {
+        id: "background_context",
+        label: "Background & current behavior",
+        required: true,
+        questionTypes: ["text"],
+      },
+      {
+        id: "problem_validation",
+        label: "Do they actually have this problem today",
+        required: true,
+        questionTypes: ["text", "likert"],
+      },
+      {
+        id: "reaction_to_solution",
+        label: "Gut reaction once shown the product/idea",
+        required: false,
+        questionTypes: ["text", "rating"],
+      },
+      {
+        id: "sentiment_recommend",
+        label: "Would they adopt it — dealbreakers",
+        required: true,
+        questionTypes: ["text", "rating"],
+      },
+    ],
     fallback: [
       {
-        id: 1, title: "Background & context", severity: "imp",
-        steps: ["Reflect on your current workflow or habits related to this product's problem space", "Answer in as much detail as possible, as if speaking to an interviewer"],
+        id: 1, title: "Background & context", severity: "imp", section: "background_context",
+        steps: ["Answer based on your real day-to-day experience"],
         questions: [
           { id: "q1", text: "Walk me through how you currently handle this problem, step by step.", type: "text" },
           { id: "q2", text: "What tools or workarounds do you use today?", type: "text" },
         ],
-        proof: null, min_time_seconds: 300,
+        proof: null, min_time_seconds: 180,
       },
       {
-        id: 2, title: "Deep reaction to the product", severity: "crit",
-        steps: ["Review the product or concept provided", "Respond as you would in a live interview — be specific and detailed"],
+        id: 2, title: "Reaction & willingness to adopt", severity: "imp", section: "sentiment_recommend",
+        steps: ["Consider the product/idea described", "Answer candidly, including any hesitations"],
         questions: [
-          { id: "q3", text: "What's your gut reaction, and why?", type: "text" },
-          { id: "q4", text: "What would make you say no to this immediately?", type: "text" },
-          { id: "q5", text: "How well does this fit into your life as-is?", type: "rating", scale: 5 },
+          { id: "q3", text: "What's the single biggest reason you would NOT adopt this?", type: "text" },
+          { id: "q4", text: "How likely are you to actually switch from your current approach?", type: "rating", scale: 5 },
         ],
-        proof: null, min_time_seconds: 300,
+        proof: null, min_time_seconds: 200,
       },
     ],
   },
+  // focus/trial/video/webtest/apptest have no `sections` yet (added on dev
+  // independently of main's section-taxonomy rewrite above) -- buildTaskPrompt
+  // already falls back to its plain, non-sectioned instructions for any ptype
+  // without one, so these are left as-is rather than force-fit into the new
+  // shape.
   focus: {
     promptFragment: "This mission is a FOCUS GROUP discussion. Generate tasks framed as discussion prompts where the validator writes out what they would contribute in a group conversation (comparing opinions, reacting to hypothetical alternative views). Do not require screenshot proof.",
     proofDefault: null,
@@ -235,21 +334,50 @@ export const TASK_GUIDANCE = {
   },
 };
 
-// Builds the OpenAI prompt for POST /api/missions/generate-tasks. Category and
-// ptype are optional — omitting either (or passing an id that doesn't match
-// CATEGORIES/PTYPES) falls back to the original generic framing so the route
-// stays backward compatible for any caller that doesn't send them.
+/* --------------------------------------------------------------------------
+   buildTaskPrompt — now section-driven instead of a bare task count.
+   The model is told: here are the candidate topic areas for this mission
+   type, some are mandatory, pick from the rest based on how complex the
+   product is, and stay within the taskCount range. This guarantees
+   structural coverage (no more "5 tasks that all probe the same flow")
+   while keeping the flexible task count you asked for.
+-------------------------------------------------------------------------- */
 export function buildTaskPrompt({ description, url, platform, goals, targetUsers, category, ptype, urlContext }) {
   const cat = CATEGORIES.find(c => c.id === category);
   const guidance = Object.prototype.hasOwnProperty.call(TASK_GUIDANCE, ptype) ? TASK_GUIDANCE[ptype] : undefined;
 
   const catLine = cat ? `\nMISSION CATEGORY: ${cat.label} — ${cat.desc}` : "";
   const typeLine = guidance ? `\nMISSION TYPE GUIDANCE: ${guidance.promptFragment}` : "";
-  const countPhrase = guidance ? `${guidance.taskCount[0]}-${guidance.taskCount[1]}` : "5-7";
+  const [minCount, maxCount] = guidance ? guidance.taskCount : [5, 7];
+
   const hasUrlContext = urlContext && (urlContext.title || urlContext.description || (urlContext.headings && urlContext.headings.length > 0));
   const urlContextLine = hasUrlContext
     ? `\n\nWEBSITE CONTEXT (fetched from the provided URL):\nTitle: "${urlContext.title || "Not available"}"\nDescription: "${urlContext.description || "Not available"}"\nKey sections: ${urlContext.headings && urlContext.headings.length ? urlContext.headings.join(", ") : "Not available"}`
     : "";
+
+  // Build the section menu the model must choose from.
+  const sections = guidance?.sections || [];
+  const requiredSections = sections.filter(s => s.required);
+  const optionalSections = sections.filter(s => !s.required);
+
+  const sectionMenuLines = sections.length
+    ? sections.map(s =>
+        `- "${s.id}" (${s.required ? "REQUIRED" : "optional"}): ${s.label}. Preferred question types: ${s.questionTypes.join(", ")}.`
+      ).join("\n")
+    : "";
+
+  const sectionInstructions = sections.length
+    ? `\n\nTOPIC AREAS (sections) TO DRAW FROM:
+${sectionMenuLines}
+
+SECTION RULES:
+- You MUST include one task for every REQUIRED section (${requiredSections.map(s => s.id).join(", ") || "none"}).
+- Choose additional OPTIONAL sections ONLY if they are genuinely relevant to this specific product — do not include a section just to hit a higher count. A simple product should get fewer tasks; a complex product can use more.
+- Total tasks must stay between ${minCount} and ${maxCount}.
+- Each task's "section" field in the output JSON must be the exact section id it corresponds to.
+- Never generate two tasks for the same section.
+- For each task, choose question types primarily from that section's "Preferred question types" list — but you may mix in a text/open-ended question anywhere the product specifics call for it.`
+    : `\n\nGenerate ${minCount}-${maxCount} tasks covering the product's core flow, first impressions, edge cases, and overall sentiment.`;
 
   return `You are a Principal QA Engineer with 15+ years of experience. You think like a seasoned tester who probes edge cases, data integrity issues, UX dead-ends, and moments where the product breaks trust with the user.
 
@@ -259,33 +387,45 @@ PRODUCT: ${description || "Not provided"}
 URL: ${url || "Not provided"}
 PLATFORM: ${platform || "Web"}
 VALIDATION GOALS: ${goals || "Core flow, UX, edge cases"}
-TARGET USERS: ${targetUsers || "General users"}${catLine}${typeLine}${urlContextLine}
+TARGET USERS: ${targetUsers || "General users"}${catLine}${typeLine}${urlContextLine}${sectionInstructions}
 
-Generate ${countPhrase} PROFESSIONAL test cases a seasoned QA engineer would run. NOT beginner tasks like "open the app and browse". These are structured, methodical scenarios that stress-test the product deeply, matching the mission type guidance above if given.
+Generate PROFESSIONAL test cases a seasoned QA engineer would run. NOT beginner tasks like "open the app and browse". These are structured, methodical scenarios that stress-test the product deeply, matching the mission type guidance above.
 
 RULES:
 1. Task title must name the SPECIFIC flow or feature - never generic titles
 2. Steps must match the mission type guidance above (e.g. a survey has no hands-on steps, a product test does)
-3. Include at least one task testing error/failure states, unless the mission type guidance says otherwise (e.g. surveys/interviews)
-4. Final task must capture overall sentiment and what would stop them recommending the product
-5. Questions must be expert-level - not "was it easy" but "where specifically did friction occur"
+3. Questions must be expert-level - not "was it easy" but "where specifically did friction occur"
+4. Match each task to exactly one section id from the menu above
 
 QUESTION QUALITY EXAMPLES:
 BAD: "Was signup easy?" GOOD: "At which exact step did friction first occur and what caused it?"
 BAD: "Did you like the design?" GOOD: "Which UI element felt most inconsistent with expectations?"
+
+QUESTION TYPE REFERENCE:
+- rating: numeric scale (needs "scale", e.g. 5 or 10)
+- likert: agree/disagree style statement (needs "scale", typically 5)
+- multiple_choice: single-select from options (needs "options" array)
+- multiple_select: multi-select from options (needs "options" array)
+- yes_no_detail: yes/no forced to explain why
+- text: open-ended free response
+- fill_in_blank: a sentence with a blank for the tester to complete (needs "prompt" with "___" marking the blank)
+- ranking: order a list of items by preference (needs "options" array to rank)
 
 Return ONLY valid JSON. No markdown, no backticks, no explanation. Use this exact schema:
 {
   "tasks": [
     {
       "id": 1,
+      "section": "section_id_from_menu",
       "title": "Task title",
       "severity": "crit",
       "steps": ["Step 1", "Step 2"],
       "questions": [
         { "id": "q1", "text": "Question text", "type": "rating", "scale": 5 },
         { "id": "q2", "text": "Question text", "type": "multiple_choice", "options": ["Option A", "Option B"] },
-        { "id": "q3", "text": "Question text", "type": "yes_no_detail", "detailOn": "no" }
+        { "id": "q3", "text": "Question text", "type": "yes_no_detail", "detailOn": "no" },
+        { "id": "q4", "text": "Complete this sentence honestly:", "type": "fill_in_blank", "prompt": "I almost didn't sign up because ___" },
+        { "id": "q5", "text": "Rank these by importance to you", "type": "ranking", "options": ["Speed", "Price", "Design"] }
       ],
       "proof": "screenshot",
       "min_time_seconds": 180
@@ -294,14 +434,13 @@ Return ONLY valid JSON. No markdown, no backticks, no explanation. Use this exac
 }
 
 severity must be one of: crit, imp, nice
-question types: rating (needs scale), multiple_choice (needs options), yes_no_detail, text
 proof: "screenshot" or null — follow the mission type guidance's proof default above if given
 For yes_no_detail questions, set "detailOn" to whichever answer actually needs an explanation —
 "no" for a question phrased as "did X work / succeed / go smoothly" (the problem is worth
 describing when it DIDN'T), "yes" for one phrased as "did you encounter/hit X problem" (the
 problem is worth describing when they DID). Get this backwards and the follow-up text box pops
 open on the answer that has nothing to explain.
-Include 3-5 questions per task mixing types. Make tasks specific to the product described.`;
+Include 3-5 questions per task mixing types per that section's preferred types, if given. Make tasks specific to the product described.`;
 }
 
 // Single source of truth for the platform fee charged on top of reward spend when a
@@ -368,7 +507,7 @@ export function matchCount(audience = {}) {
 }
 
 export const HELP_ARTICLES = [
-  { q: "How do I add funds to my wallet?", a: "Go to Wallet → Add funds. If card/UPI payments are configured, you can pay directly via Razorpay; otherwise funds are added for demo purposes.", cat: "Payments" },
+  { q: "How do I add funds to my wallet?", a: "Go to Wallet → Add funds. If card/UPI payments are configured, you can pay directly via card, UPI, or netbanking; otherwise funds are added for demo purposes.", cat: "Payments" },
   { q: "How are validators matched to my mission?", a: "Missions are matched to validators based on their expertise tags, past accuracy, and availability. You can also send direct invites from the Audience tab.", cat: "Missions" },
   { q: "What happens if I'm not satisfied with a submission?", a: "You can request changes or reject a submission with feedback before it's marked complete — this won't affect your wallet balance until you approve payment.", cat: "Missions" },
   { q: "How is pricing calculated for a mission?", a: "Pricing depends on mission type, number of participants, and turnaround time. You'll see an estimate before publishing, and funds are held in escrow until completion.", cat: "Payments" },

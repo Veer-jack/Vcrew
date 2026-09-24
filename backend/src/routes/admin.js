@@ -296,7 +296,7 @@ router.get("/withdrawals", async (req, res) => {
     try { account = JSON.parse(w.account_json || "{}"); } catch { /* ignore malformed json */ }
     return {
       id: w.id, validatorName: w.validator_name, validatorEmail: w.validator_email,
-      amount: w.amount, vpa: account.vpa || null, razorpayPayoutId: account.payout_id || null,
+      amount: w.amount, vpa: account.vpa || null, cashfreeTransferId: account.transfer_id || null,
       status: w.status, failureReason: w.note, createdAt: w.requested_at,
     };
   }) });

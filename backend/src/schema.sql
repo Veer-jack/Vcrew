@@ -91,8 +91,7 @@ CREATE TABLE IF NOT EXISTS validators (
   testing_bio TEXT,
   -- From HEAD branch (stats and escrow)
   payout_vpa TEXT,
-  razorpay_contact_id TEXT,
-  razorpay_fund_account_id TEXT,
+  cashfree_beneficiary_id TEXT,
   industry TEXT,
   address_line1 TEXT,
   address_line2 TEXT,

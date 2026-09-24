@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { validatorAuthMiddleware } from "../auth.js";
 import { consumeStepUpToken } from "../firebaseRoutes.js";
-import { isRazorpayXConfigured, createContact, createFundAccount, createPayout } from "../razorpayClient.js";
+import { isCashfreePayoutsConfigured, createBeneficiary, createTransfer } from "../cashfreeClient.js";
 import { LEVELS, levelForCompleted } from "../vmeta.js";
 
 export const router = Router();
@@ -24,7 +24,6 @@ router.get("/", async (req, res) => {
     WHERE mm.validator_id = ? AND mm.status IN ('submitted','completed') ORDER BY mm.updated_at DESC LIMIT 10
   `).all(v.id);
 
-  // Dynamic Scalable Aggregations
   const earningsAgg = await db.prepare(`
     SELECT 
       SUM(CASE WHEN vmm.status = 'completed' THEN m.reward_amount ELSE 0 END) as lifetime,
@@ -39,7 +38,7 @@ router.get("/", async (req, res) => {
     weekEarnings: earningsAgg?.week_earnings || 0,
     weekTarget: 2000, 
     pending: earningsAgg?.pending || 0,
-    available: v.balance || 0, // Balance remains the absolute source of truth for withdrawals
+    available: v.balance || 0,
     lifetime: earningsAgg?.lifetime || 0,
     name: v.name, rating: v.rating, ratingCount: v.reviews_count, accuracy: v.accuracy || 100,
     level: lvl.n, levelName: lvl.name, nextLevelName: nextLvl?.name, toNextLevel: nextLvl ? Math.max(0, nextLvl.min - (v.missions_done || 0)) : 0, levelPct: lvlPct,
@@ -69,52 +68,62 @@ router.post("/withdraw", async (req, res) => {
     return res.status(400).json({ error: "Add a UPI ID for payouts in your profile first", code: "PAYOUT_DETAILS_REQUIRED" });
   }
 
-  // Reserve the funds atomically before attempting any external payout \u2014 closes the
-  // race where a stale req.validator.balance would otherwise let a validator withdraw
-  // more than they actually have, and guarantees a payout is never fired without a
-  // matching internal deduction.
   const reserve = await db.prepare(`UPDATE validators SET balance = balance - ? WHERE id = ? AND balance >= ?`).run(amount, req.validator.id, amount);
   if (reserve.changes === 0) return res.status(400).json({ error: "Amount exceeds available balance" });
   const refundReservation = () => db.prepare(`UPDATE validators SET balance = balance + ? WHERE id = ?`).run(amount, req.validator.id);
 
-  if (isRazorpayXConfigured()) {
+  if (isCashfreePayoutsConfigured()) {
     try {
-      let { razorpay_contact_id: contactId, razorpay_fund_account_id: fundAccountId } = req.validator;
+      let beneficiaryId = req.validator.cashfree_beneficiary_id;
 
-      if (!contactId) {
-        const contact = await createContact({ name: req.validator.name, email: req.validator.email, reference_id: `validator_${req.validator.id}` });
-        contactId = contact.id;
-        await db.prepare(`UPDATE validators SET razorpay_contact_id = ? WHERE id = ?`).run(contactId, req.validator.id);
-      }
-      if (!fundAccountId) {
-        const fundAccount = await createFundAccount({ contactId, vpa: req.validator.payout_vpa });
-        fundAccountId = fundAccount.id;
-        await db.prepare(`UPDATE validators SET razorpay_fund_account_id = ? WHERE id = ?`).run(fundAccountId, req.validator.id);
+      // Cashfree beneficiary ids are caller-assigned (unlike Razorpay's
+      // contact id, which Razorpay generated for you) — use a deterministic
+      // id per validator so this is naturally idempotent across retries.
+      if (!beneficiaryId) {
+        beneficiaryId = `validator_${req.validator.id}`;
+        try {
+          await createBeneficiary({
+            beneficiaryId,
+            name: req.validator.name,
+            email: req.validator.email,
+            phone: req.validator.phone || "9999999999",
+            vpa: req.validator.payout_vpa,
+          });
+        } catch (err) {
+          // If the beneficiary already exists at Cashfree (e.g. a previous
+          // attempt created it but the DB write below failed before caching
+          // it), that's fine — re-use it rather than treating it as fatal.
+          const alreadyExists = /already exists|BENEFICIARY_ALREADY_EXISTS/i.test(err.message || "");
+          if (!alreadyExists) throw err;
+        }
+        await db.prepare(`UPDATE validators SET cashfree_beneficiary_id = ? WHERE id = ?`).run(beneficiaryId, req.validator.id);
       }
 
-      const payout = await createPayout({
-        fundAccountId, amountRupees: amount,
-        referenceId: `withdraw_${req.validator.id}_${Date.now()}`,
+      const transferId = `withdraw_${req.validator.id}_${Date.now()}`;
+      const transfer = await createTransfer({
+        beneficiaryId,
+        amountRupees: amount,
+        transferId,
       });
 
       await db.prepare(`INSERT INTO withdrawals (validator_id, amount, method, account_json, status) VALUES (?,?,?,?,?)`)
-        .run(req.validator.id, amount, 'razorpay', JSON.stringify({ vpa: req.validator.payout_vpa, payout_id: payout.id }), payout.status || 'queued');
+        .run(req.validator.id, amount, 'cashfree', JSON.stringify({ vpa: req.validator.payout_vpa, transfer_id: transferId, cf_transfer_id: transfer.cf_transfer_id }), transfer.status || 'RECEIVED');
 
       await db.prepare(`INSERT INTO v_notifications (validator_id, cat, icon, tone, title, body, time_label, unread) VALUES (?,'system','coin','amber',?,?, 'Just now', 1)`)
-        .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} to ${req.validator.payout_vpa} is ${payout.status || "queued"} and should land within 24h.`);
+        .run(req.validator.id, "Withdrawal requested", `Your withdrawal of \u20b9${amount.toLocaleString("en-IN")} to ${req.validator.payout_vpa} is ${transfer.status || "queued"} and should land within 24h.`);
 
       await db.prepare(`INSERT INTO admin_notifications (cat, type, icon, tone, title, body, time_label, unread) VALUES ('system', 'payout', 'coin', 'amber', 'New Withdrawal Request', ?, 'Just now', 1)`)
-        .run(`${req.validator.name} requested a live RazorpayX withdrawal of \u20b9${amount.toLocaleString("en-IN")}.`);
+        .run(`${req.validator.name} requested a live Cashfree withdrawal of \u20b9${amount.toLocaleString("en-IN")}.`);
 
       const availRow = await db.prepare(`SELECT balance FROM validators WHERE id = ?`).get(req.validator.id);
-      return res.json({ available: availRow.balance, payoutStatus: payout.status });
+      return res.json({ available: availRow.balance, payoutStatus: transfer.status });
     } catch (err) {
       await refundReservation();
       return res.status(400).json({ error: err.message });
     }
   }
 
-  // Simulated fallback when RazorpayX isn't configured.
+  // Simulated fallback when Cashfree Payouts isn't configured.
   await db.prepare(`INSERT INTO withdrawals (validator_id, amount, method, account_json, status) VALUES (?,?,?,?,?)`)
     .run(req.validator.id, amount, 'manual', JSON.stringify({ vpa: req.validator.payout_vpa }), 'pending');
 
