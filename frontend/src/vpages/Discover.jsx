@@ -191,7 +191,7 @@ function RadioRow({ on, onClick, label }) {
   );
 }
 
-function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
+function MktCard({ task, vtypes, ptypes, categories, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
   const spotPct = task.spotsTotal > 0 ? (task.spotsLeft / task.spotsTotal) * 100 : 100;
@@ -200,6 +200,11 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
   // Call, ...) -- vtasks demo rows have no ptype, so this just doesn't show
   // for them rather than guessing.
   const ptypeLabel = task.ptype ? ptypes.find(p => p.id === task.ptype)?.label : null;
+  // Mission category (Website Review, Research Study, ...) -- matches the
+  // detail page's own top-row tag (see MissionDetails.jsx's `cat`), which
+  // this card was missing entirely; it had participation type sitting in
+  // that slot instead.
+  const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
   return (
     <div className="card mkt-cardhover" style={{ position: "relative", overflow: "hidden", padding: "38px 18px 18px", display: "flex", flexDirection: "column", gap: 11, cursor: "pointer" }} onClick={() => onOpen(task)}>
       {/* Discover only ever lists open/available missions -- an "Open" badge
@@ -220,7 +225,7 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
           {/* More than half the target spots already filled -- see the "hot"
               calc in vmarketplace.js. */}
           {task.hot && <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="bolt" size={11} />{t("status.highDemand", null, "High demand")}</span>}
-          {ptypeLabel && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name="list" size={11} />{ptypeLabel}</span>}
+          {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={11} />{cat.label}</span>}
         </div>
         <div className="row gap-1">
           <button className={`mkt-save`} onClick={e => { e.stopPropagation(); onReport?.(task); }} title={t("actions.reportMission", null, "Report Mission")} style={{ width: 32, height: 32 }}>
@@ -253,6 +258,7 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
       <div className="row gap-3 wrap faint" style={{ fontSize: 12 }}>
         <span className="row gap-2"><Icon name="users" size={13} />{task.spotsLeft} {t("discover.spotsLeft", null, "left")}</span>
         <span className="row gap-2" style={{ color: urgent ? "var(--danger)" : "inherit", fontWeight: urgent ? 700 : 400 }}><Icon name="clock" size={13} />{deadlineLabel(task.deadline)}</span>
+        {ptypeLabel && <span className="row gap-2"><Icon name="list" size={13} />{ptypeLabel}</span>}
       </div>
       <div style={{ height: 5, borderRadius: 20, background: "var(--panel-inset)", overflow: "hidden" }}>
         <i style={{ display: "block", height: "100%", width: (100 - spotPct) + "%", borderRadius: 20, background: spotPct < 25 ? "var(--danger)" : `var(${vt.accentVar})` }} />
@@ -268,10 +274,11 @@ function MktCard({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
   );
 }
 
-function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
+function FeaturedMission({ task, vtypes, ptypes, categories, onSave, onReport, onOpen }) {
   const { t } = useTranslation();
   const vt = vtypes[task.type];
   const ptypeLabel = task.ptype ? ptypes.find(p => p.id === task.ptype)?.label : null;
+  const cat = task.category && categories ? categories.find(c => c.id === task.category) : null;
   return (
     <div className="card rise-2" onClick={() => onOpen(task)} style={{ padding: 0, overflow: "hidden", cursor: "pointer",
       background: `linear-gradient(120deg, color-mix(in srgb, var(${vt.accentVar}) 13%, var(--panel)), var(--panel) 62%)` }}>
@@ -286,7 +293,7 @@ function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
             <span className="tag" style={{ background: `var(${vt.accentVar})`, color: "#fff" }}><Icon name="bolt" size={12} />{t("status.featured", null, "Featured")}</span>
             <VTypeTag type={task.type} vtypes={vtypes} />
             <span className="tag" style={{ background: "var(--accent-weak)", color: "var(--accent)" }}><Icon name="target" size={12} />{task.match}% {t("discover.match", null, "match")}</span>
-            {ptypeLabel && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name="list" size={12} />{ptypeLabel}</span>}
+            {cat && <span className="tag" style={{ background: "var(--panel-inset)", color: "var(--text-muted)" }}><Icon name={cat.icon} size={12} />{cat.label}</span>}
             {task.verified && <span className="verif"><Icon name="shield" size={12} />{t("badge.verifiedBuilder", null, "Verified builder")}</span>}
           </div>
           <div className="row gap-1">
@@ -311,6 +318,7 @@ function FeaturedMission({ task, vtypes, ptypes, onSave, onReport, onOpen }) {
           <div className="row gap-4 wrap faint" style={{ fontSize: 13 }}>
             <span className="row gap-2"><Icon name="users" size={14} />{task.spotsLeft} {t("discover.of", null, "of")} {task.spotsTotal} {t("discover.spotsLeftFull", null, "spots left")}</span>
             <span className="row gap-2" style={{ color: "var(--danger)", fontWeight: 700 }}><Icon name="bolt" size={14} />{deadlineLabel(task.deadline)}</span>
+            {ptypeLabel && <span className="row gap-2"><Icon name="list" size={14} />{ptypeLabel}</span>}
           </div>
           <div className="row gap-3" style={{ alignItems: "center" }}>
             <div style={{ textAlign: "right" }}><VReward amount={task.reward} type={task.rewardType} big />{rewardPaysOnApproval(task.rewardType) && <div className="faint" style={{ fontSize: 11 }}>{t("discover.onApproval", null, "on approval")}</div>}</div>
@@ -333,7 +341,7 @@ export default function Discover() {
   const { t, dataVersion } = useTranslation();
   const navigate = useNavigate();
   const { validator } = useVAuth();
-  const { vtypes, typeOrder, rewardBands, sorts, ptypes } = useVMeta();
+  const { vtypes, typeOrder, rewardBands, sorts, ptypes, categories } = useVMeta();
   const [searchParams, setSearchParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [types, setTypes] = useState(new Set());
@@ -487,7 +495,7 @@ export default function Discover() {
         </div>
       </div>
 
-      {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} ptypes={ptypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
+      {showFeatured && <FeaturedMission task={data.featured} vtypes={vtypes} ptypes={ptypes} categories={categories} onSave={onSave} onReport={onReport} onOpen={onOpen} />}
 
       <div className="tabs rise-2" style={{ margin: showFeatured ? "24px 0 0" : "0" }}>
         {STATUS_TABS.map(st => (
@@ -642,7 +650,7 @@ export default function Discover() {
             ? <div className="card"><VEmpty icon="search" title={t("discover.noMatchTitle", null, "No missions match")} body={t("discover.noMatchBody", null, "Try widening your filters or clearing your search — new missions are posted throughout the day.")} cta={<button className="btn btn-primary" onClick={() => { clearAll(); setStatusTab("all"); }}>{t("actions.clearFilters", null, "Clear filters")}</button>} /></div>
             : (
               <div>
-                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} ptypes={ptypes} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
+                <div className="mkt-grid rise-3">{visibleTasks.slice(0, visibleCount).map(t => <MktCard key={t.id} task={t} vtypes={vtypes} ptypes={ptypes} categories={categories} onSave={onSave} onReport={onReport} onOpen={onOpen} />)}</div>
                 {visibleCount < visibleTasks.length && (
                   <div style={{ textAlign: "center", marginTop: 24, paddingBottom: 24 }}>
                     <button className="btn btn-outline" onClick={() => setVisibleCount(c => c + 20)}>{t("actions.loadMore", null, "Load more missions")}</button>
