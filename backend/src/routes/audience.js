@@ -239,8 +239,15 @@ export function buildAudienceClauses(audience) {
       clauses.push(`(${ors.join(" OR ")})`);
     } else if (group === "ValidationCrew Role") {
       // Same fallback as the Audience Explorer: unassigned/"User" role falls back to validator_type.
-      clauses.push(`(CASE WHEN role IS NULL OR role = 'User' THEN INITCAP(validator_type) ELSE role END) = ANY(?)`);
-      params.push(values);
+      // LOWER(TRIM(...)) on both sides -- a validator's role/occupation/industry
+      // are free-ish text fields (set via profile edits, seed scripts, imports
+      // over time), not a hard DB enum, so they can drift from the exact
+      // casing/spacing of the fixed filter option list even when they mean
+      // the same thing to a person reading both side by side. Geography
+      // already tolerated this via ILIKE; these four groups didn't, so a
+      // validator could look like an obvious match and still never appear.
+      clauses.push(`LOWER(TRIM(CASE WHEN role IS NULL OR role = 'User' THEN INITCAP(validator_type) ELSE role END)) = ANY(?)`);
+      params.push(values.map(v => v.trim().toLowerCase()));
     } else if (group === "Professional") {
       // "Other" is a bare marker (see StepAudience/FilterGroup's otherEntries)
       // with no occupation info of its own — same no-op treatment as
@@ -249,31 +256,32 @@ export function buildAudienceClauses(audience) {
       // typed alongside it (which is already appended as its own entry).
       const specificOcc = values.filter(v => v.toLowerCase() !== "other");
       if (specificOcc.length) {
-        clauses.push(`occupation = ANY(?)`);
-        params.push(specificOcc);
+        clauses.push(`LOWER(TRIM(occupation)) = ANY(?)`);
+        params.push(specificOcc.map(v => v.trim().toLowerCase()));
       }
     } else if (group === "Interests") {
       const specificInterests = values.filter(v => v.toLowerCase() !== "other");
       if (specificInterests.length) {
-        clauses.push(`(industry = ANY(?) OR specialties_json ILIKE ANY(?))`);
-        params.push(specificInterests, specificInterests.map(v => `%"${v}"%`));
+        clauses.push(`(LOWER(TRIM(industry)) = ANY(?) OR specialties_json ILIKE ANY(?))`);
+        params.push(specificInterests.map(v => v.trim().toLowerCase()), specificInterests.map(v => `%"${v}"%`));
       }
     } else if (group === "Demographics") {
       const demoClauses = [];
+      const lower = (arr) => arr.map(v => v.trim().toLowerCase());
       const ages = values.filter(v => FILTERS.Demographics.Age.includes(v));
-      if (ages.length) { demoClauses.push(`age_group = ANY(?)`); params.push(ages); }
+      if (ages.length) { demoClauses.push(`LOWER(TRIM(age_group)) = ANY(?)`); params.push(lower(ages)); }
 
       const genders = values.filter(v => FILTERS.Demographics.Gender.includes(v));
-      if (genders.length) { demoClauses.push(`gender = ANY(?)`); params.push(genders); }
+      if (genders.length) { demoClauses.push(`LOWER(TRIM(gender)) = ANY(?)`); params.push(lower(genders)); }
 
       const incomes = values.filter(v => FILTERS.Demographics["Income Bracket"].includes(v));
-      if (incomes.length) { demoClauses.push(`income_bracket = ANY(?)`); params.push(incomes); }
+      if (incomes.length) { demoClauses.push(`LOWER(TRIM(income_bracket)) = ANY(?)`); params.push(lower(incomes)); }
 
       const maritals = values.filter(v => FILTERS.Demographics["Marital Status"].includes(v));
-      if (maritals.length) { demoClauses.push(`marital_status = ANY(?)`); params.push(maritals); }
+      if (maritals.length) { demoClauses.push(`LOWER(TRIM(marital_status)) = ANY(?)`); params.push(lower(maritals)); }
 
       const kids = values.filter(v => FILTERS.Demographics["Has Kids"].includes(v));
-      if (kids.length) { demoClauses.push(`has_kids = ANY(?)`); params.push(kids); }
+      if (kids.length) { demoClauses.push(`LOWER(TRIM(has_kids)) = ANY(?)`); params.push(lower(kids)); }
 
       if (demoClauses.length) {
         clauses.push(`(${demoClauses.join(" AND ")})`);

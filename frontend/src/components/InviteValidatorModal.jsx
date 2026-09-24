@@ -174,22 +174,28 @@ export function InviteValidatorModal({ mission, onClose }) {
 
   // Does a candidate match one specific audience value, given which
   // group/sub-group it belongs to? Same field mapping the backend's SQL uses.
+  // Case/whitespace-insensitive on both sides, same as the backend's
+  // LOWER(TRIM(...)) matching in buildAudienceClauses — a validator's own
+  // free-text profile fields can drift from the exact filter-option casing
+  // even when they mean the same thing, and this pill filter shouldn't
+  // silently disagree with what the server already decided counts as a match.
+  const eq = (a, b) => (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
   const matchesAudienceValue = useCallback((v, val) => {
     const meta = filterIndex[val];
     if (!meta) return true; // unknown value — don't block on it
     const { group, subgroup } = meta;
-    if (group === "ValidationCrew Role") return v.role === val;
-    if (group === "Professional") return v.occ === val;
-    if (group === "Interests") return v.industry === val || (v.expertise || []).includes(val);
+    if (group === "ValidationCrew Role") return eq(v.role, val);
+    if (group === "Professional") return eq(v.occ, val);
+    if (group === "Interests") return eq(v.industry, val) || (v.expertise || []).some(e => eq(e, val));
     if (group === "Geography") {
       if (/worldwide|remote/i.test(val) || val.toLowerCase() === "other") return true;
       return (v.city || "").toLowerCase().includes(val.toLowerCase());
     }
     if (group === "Demographics") {
-      if (subgroup === "Age") return v.age_group === val;
-      if (subgroup === "Gender") return v.gender === val;
-      if (subgroup === "Income Bracket") return v.income === val;
-      if (subgroup === "Marital Status") return v.marital === val;
+      if (subgroup === "Age") return eq(v.age_group, val);
+      if (subgroup === "Gender") return eq(v.gender, val);
+      if (subgroup === "Income Bracket") return eq(v.income, val);
+      if (subgroup === "Marital Status") return eq(v.marital, val);
       if (subgroup === "Has Kids") return !!v.has_kids === (val === "Yes");
     }
     return true;
