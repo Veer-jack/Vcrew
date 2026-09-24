@@ -587,7 +587,7 @@ export default function AudienceExplorer() {
                       name column, they were indented ~56px further right
                       than Bio, so no amount of spacing between items here
                       could ever line the two up. */}
-                  <div className="row" style={{ alignItems: "center", gap: 28, marginTop: 8 }}>
+                  <div className="row" style={{ alignItems: "center", gap: 10, marginTop: 8 }}>
                     {m.trust > 0 ? (
                       <span className="mtag" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none", flexShrink: 0 }}>
                         <Icon name="shield" size={11} style={{ verticalAlign: -2, marginRight: 3 }} />{t("audience.buildingTrust", null, "Building Trust")}
