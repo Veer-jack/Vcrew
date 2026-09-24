@@ -132,7 +132,7 @@ router.patch("/", async (req, res) => {
   if (!isValidEmail(email)) return res.status(400).json({ error: "Enter a valid email address" });
   if (handle && !handle.startsWith("@")) handle = `@${handle}`;
   if (!Array.isArray(specialties)) return res.status(400).json({ error: "Specialties must be a list" });
-  specialties = specialties.map(s => String(s).trim()).filter(Boolean);
+  specialties = [...new Set(specialties.map(s => String(s).trim()).filter(Boolean))];
 
   if (email !== v.email) {
     const existing = await db.prepare(`SELECT id FROM validators WHERE email = ? AND id != ?`).get(email, v.id);

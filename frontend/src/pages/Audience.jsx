@@ -156,7 +156,7 @@ function ExpertiseChips({ items, t }) {
   const remaining = visibleCount != null ? items.length - visibleCount : 0;
   return (
     <div ref={rowRef} className="aud-tags">
-      {shown.map(e => <span key={e} className="mtag accent">{trFilterLabel(t, e)}</span>)}
+      {shown.map((e, i) => <span key={`${e}-${i}`} className="mtag accent">{trFilterLabel(t, e)}</span>)}
       {/* Plain text, not another chip -- sits right after the last real one
           instead of being pushed out to the row's far edge. */}
       {remaining > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", alignSelf: "center" }}>+{remaining}</span>}
