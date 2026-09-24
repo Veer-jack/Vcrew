@@ -10,6 +10,7 @@ import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../..
 import { detectLangFromCountryCode } from "../../i18n/languages.js";
 import { useTranslation } from "../../i18n/index.jsx";
 import { EMAIL_RE, isPasswordValid } from "../../utils/validators.js";
+import { takePreLoginPath } from "../../utils/authRedirect";
 
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
 
@@ -126,7 +127,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   };
   const emailFormValid = emailOk && isPasswordValid(password) && (mode === "signin" || (name.trim() && agree));
 
-  const goAfterAuth = () => navigate(location.state?.from || homePath, { replace: true });
+  const goAfterAuth = () => navigate(takePreLoginPath() || homePath, { replace: true });
 
   const submitEmail = async (e) => {
     e.preventDefault();

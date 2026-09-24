@@ -71,6 +71,7 @@ import AMissionReview from "./apages/AMissionReview";
 import ASupport from "./apages/ASupport";
 import AWithdrawals from "./apages/AWithdrawals";
 import AAnalytics from "./apages/AAnalytics";
+import { rememberPreLoginPath } from "./utils/authRedirect";
 
 /* ---------------- Builder (existing) ---------------- */
 
@@ -78,7 +79,7 @@ function RequireAuth({ children }) {
   const { builder, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  if (!builder) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!builder) { rememberPreLoginPath(location.pathname); return <Navigate to="/login" replace />; }
   return children;
 }
 
@@ -172,7 +173,7 @@ function RequireVAuth({ children }) {
   const { validator, loading } = useVAuth();
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  if (!validator) return <Navigate to="/validator/login" state={{ from: location.pathname }} replace />;
+  if (!validator) { rememberPreLoginPath(location.pathname); return <Navigate to="/validator/login" replace />; }
   
   if ((!validator.validator_type || !validator.city) && !location.pathname.includes("/validator/onboarding")) {
     return <Navigate to="/validator/onboarding" replace />;
@@ -227,7 +228,7 @@ function RequireAAuth({ children }) {
   const { admin, loading } = useAAuth();
   const location = useLocation();
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
-  if (!admin) return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
+  if (!admin) { rememberPreLoginPath(location.pathname); return <Navigate to="/admin/login" replace />; }
   return children;
 }
 

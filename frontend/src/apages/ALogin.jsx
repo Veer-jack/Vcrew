@@ -1,17 +1,17 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn, PasswordInput } from "../components/ui";
 import { useAAuth } from "../acontext/AAuthContext";
 import { useTranslation } from "../i18n/index.jsx";
 import { isEmailValid, isPasswordValid } from "../utils/validators.js";
+import { takePreLoginPath } from "../utils/authRedirect";
 
 export default function ALogin() {
   const { admin, login, totpSetupStart, totpSetupConfirm, totpVerify } = useAAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [stage, setStage] = useState("credentials"); // credentials | setup | code
   const [email, setEmail] = useState("");
@@ -25,7 +25,7 @@ export default function ALogin() {
   const [busy, setBusy] = useState(false);
   const [touched, setTouched] = useState({});
 
-  const goToApp = () => navigate(location.state?.from || "/admin", { replace: true });
+  const goToApp = () => navigate(takePreLoginPath() || "/admin", { replace: true });
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { if (admin) goToApp(); }, [admin]);
