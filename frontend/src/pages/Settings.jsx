@@ -242,13 +242,13 @@ export default function Settings() {
             a row on wide screens and drop to one column on narrow ones.
             Fields inside each card sit in their own 2-column grid (no boxed
             tile per field -- see ChipField) so short fields like Age/Gender
-            share a row instead of each claiming a full line. alignItems:
-            start stops a grid row's height from being dictated by its
-            tallest sibling (Audience & Demographics' long Country list
-            otherwise stretched Preferences into a tall card full of empty
-            space, since CSS grid items stretch to the row height by
-            default) -- each card now stays only as tall as its own content. */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20, alignItems: "start" }}>
+            share a row instead of each claiming a full line. Default (stretch)
+            alignItems -- Audience & Demographics and Security are both full
+            row (gridColumn 1/-1) with nothing sharing their row, so nothing's
+            left to stretch unevenly; the only pairs left (Company/Verification,
+            Preferences/Validate-summary) are the tester-requested "same size"
+            cards, which stretching is exactly what makes match. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
         {companySummary && (
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
