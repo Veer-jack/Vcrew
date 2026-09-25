@@ -194,6 +194,7 @@ export default function Settings() {
                         <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
                       </a>
                     ),
+                    builder?.phoneVerified && <span key="phone">{builder.phone}</span>,
                   ].filter(Boolean).map((part, i) => (
                     <span key={i} className="row gap-1" style={{ alignItems: "center" }}>
                       {i > 0 && <span style={{ color: "var(--text-faint)" }}>|</span>}
@@ -211,19 +212,29 @@ export default function Settings() {
             <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/personal")}>{t("actions.editProfile", null, "Edit profile")}</Btn>
           </div>
 
-          <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
+          {/* Once verified, the number lives in the identity line above
+              instead (same plain "|"-joined treatment as designation/email/
+              website) -- nothing left to show here, so the divider and the
+              whole PhoneSetup block collapse away rather than dangling over
+              an empty section. */}
+          {!builder?.phoneVerified && (
+            <>
+              <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
 
-          <PhoneSetup bare client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
-            prefillPhone={builder?.profile?.mobile}
-            onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
-            onClearPrefill={async () => {
-              // Actually clears it server-side — without this, prefillPhone
-              // (still sitting in profile.mobile in the DB) just comes right
-              // back on the next reload or tab switch, no matter what local
-              // state says.
-              const res = await api.updateProfile({ profile: { mobile: null } });
-              setBuilder(res.builder);
-            }} />
+              <PhoneSetup bare client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
+                prefillPhone={builder?.profile?.mobile}
+                hideWhenVerified
+                onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
+                onVerified={async (phone) => {
+                  // Syncs profile.mobile to the just-verified number so Edit
+                  // Profile's "Your details" step (which reads from
+                  // profile.mobile) reflects it too, instead of the old
+                  // behavior of nulling it out on verify.
+                  const res = await api.updateProfile({ profile: { mobile: phone } });
+                  setBuilder(res.builder);
+                }} />
+            </>
+          )}
         </div>
 
         {/* Detail cards side by side instead of each stacking full-width for
@@ -231,13 +242,13 @@ export default function Settings() {
             a row on wide screens and drop to one column on narrow ones.
             Fields inside each card sit in their own 2-column grid (no boxed
             tile per field -- see ChipField) so short fields like Age/Gender
-            share a row instead of each claiming a full line. alignItems:
-            start stops a grid row's height from being dictated by its
-            tallest sibling (Audience & Demographics' long Country list
-            otherwise stretched Preferences into a tall card full of empty
-            space, since CSS grid items stretch to the row height by
-            default) -- each card now stays only as tall as its own content. */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20, alignItems: "start" }}>
+            share a row instead of each claiming a full line. Default (stretch)
+            alignItems -- Audience & Demographics and Security are both full
+            row (gridColumn 1/-1) with nothing sharing their row, so nothing's
+            left to stretch unevenly; the only pairs left (Company/Verification,
+            Preferences/Validate-summary) are the tester-requested "same size"
+            cards, which stretching is exactly what makes match. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: 20 }}>
         {companySummary && (
         <div className="card" style={{ padding: "var(--pad-card)" }}>
           <div className="row between" style={{ alignItems: "center", marginBottom: 16 }}>
@@ -260,7 +271,12 @@ export default function Settings() {
               {verifyStepKey && <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${verifyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>}
             </div>
             <p className="faint" style={{ margin: "0 0 16px", fontSize: 13 }}>{t("settings.verificationHint", null, "Submitted during onboarding — used for trust review.")}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {/* Single column, not the 2-up grid every other card here uses --
+                a LinkedIn org URL routinely wraps to 2 lines, and squeezed
+                next to GST in a half-width column it threw this card's
+                height noticeably off from its Company Details neighbor.
+                Stacked, GST sits cleanly below it instead. */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
               {verificationFields.filter(f => builder?.profile?.[f.key]).map(f => (
                 <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={[builder.profile[f.key]]} required={f.required} />
               ))}

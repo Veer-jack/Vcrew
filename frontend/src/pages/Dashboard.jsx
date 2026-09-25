@@ -115,46 +115,29 @@ function ProfileCompletionBanner({ builder, nav }) {
 
   const totalSteps = persona.steps.length;
   const pct = Math.round(((currentStepNum - 1) / totalSteps) * 100);
-  const nextStep = persona.steps[currentStepNum - 1];
 
-  let icName = "rocket";
   let title = t("dashboard.personaTitle.founder", null, "Founder / Startup");
   let desc = t("dashboard.personaDesc.founder", null, "Set up your startup details to unlock all platform features.");
-  if (activePersonaKey === "company") { icName = "building"; title = t("dashboard.personaTitle.company", null, "Company"); desc = t("dashboard.personaDesc.company", null, "Add your company information to build trust and credibility."); }
-  else if (activePersonaKey === "researcher") { icName = "flask"; title = t("dashboard.personaTitle.researcher", null, "Researcher"); desc = t("dashboard.personaDesc.researcher", null, "Tell us about your research interests and goals."); }
-  else if (activePersonaKey === "organization") { icName = "users"; title = t("dashboard.personaTitle.organization", null, "Organization"); desc = t("dashboard.personaDesc.organization", null, "Provide organization details to manage your account."); }
+  if (activePersonaKey === "company") { title = t("dashboard.personaTitle.company", null, "Company"); desc = t("dashboard.personaDesc.company", null, "Add your company information to build trust and credibility."); }
+  else if (activePersonaKey === "researcher") { title = t("dashboard.personaTitle.researcher", null, "Researcher"); desc = t("dashboard.personaDesc.researcher", null, "Tell us about your research interests and goals."); }
+  else if (activePersonaKey === "organization") { title = t("dashboard.personaTitle.organization", null, "Organization"); desc = t("dashboard.personaDesc.organization", null, "Provide organization details to manage your account."); }
 
   return (
     <div className="card" style={{
       border: "1px solid var(--accent)", padding: 24, marginBottom: 20, display: "flex", gap: 32, alignItems: "center"
     }}>
-      {/* Left */}
-      <div style={{ flex: "0 0 160px", textAlign: "center" }}>
-        <div style={{
-          width: 54, height: 54, borderRadius: "50%", background: "var(--accent-weak)", color: "var(--accent)",
-          display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px"
-        }}>
-          <Icon name={icName} size={26} />
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)", marginBottom: 6 }}>{currentStepNum - 1} {t("dashboard.of", null, "of")} {totalSteps} {t("dashboard.completed", null, "completed")}</div>
-        <div style={{ height: 4, background: "var(--border)", borderRadius: 2, marginBottom: 10, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.3s" }} />
-        </div>
-        <a href={`/signup?role=${activePersonaKey}`} className="faint" style={{ fontSize: 12, fontWeight: 500 }}>{t("actions.viewAllSteps", null, "View all steps →")}</a>
-      </div>
-
       {/* Middle */}
       <div style={{ flex: 1 }}>
         <h3 style={{ fontSize: 18, marginBottom: 4, color: "var(--heading)" }}>{t("dashboard.completeProfile", null, "Complete your")} {title} {t("dashboard.profile", null, "profile")}</h3>
         <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 14 }}>{desc}</p>
         <span className="pill" style={{ fontSize: 11, background: "var(--accent-weak)", color: "var(--accent)", fontWeight: 600 }}>{t("dashboard.step", null, "Step")} {currentStepNum} {t("dashboard.of", null, "of")} {totalSteps}</span>
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 4 }}>{t("dashboard.nextStep", null, "Next step")}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Icon name="layout" size={16} style={{ color: "var(--accent)" }} />
-            <b style={{ fontSize: 14 }}>{nextStep ? stepLabel(t, nextStep.key, nextStep.label) : t("dashboard.details", null, "Details")}</b>
-          </div>
-          <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4, marginLeft: 24 }}>{t("dashboard.continueFilling", null, "Continue filling out your")} {nextStep ? stepLabel(t, nextStep.key, nextStep.label).toLowerCase() : t("dashboard.details", null, "details")}.</div>
+        {/* Next-step name/description was just repeating the "current step"
+            row already highlighted in the list on the right -- a plain
+            progress bar (the same one that used to sit in the now-removed
+            icon column) says the same "how far along" thing without the
+            repeated step name. */}
+        <div style={{ marginTop: 14, height: 4, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.3s" }} />
         </div>
       </div>
 
@@ -180,10 +163,10 @@ function ProfileCompletionBanner({ builder, nav }) {
             );
           })}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <Btn variant="primary" block onClick={() => nav(`/signup?role=${activePersonaKey}`)}>{t("actions.continueSetup", null, "Continue Setup →")}</Btn>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn variant="primary" style={{ flex: 1 }} onClick={() => nav(`/signup?role=${activePersonaKey}`)}>{t("actions.continueSetup", null, "Continue Setup →")}</Btn>
           {!builder?.persona && (
-            <Btn variant="ghost" block onClick={() => {
+            <Btn variant="ghost" style={{ flex: 1 }} onClick={() => {
               Object.keys(PERSONA_CONFIG).forEach(k => { try { localStorage.removeItem(onboardingDraftKey(builder?.id, k)); } catch { /* ignore */ } });
               nav(`/get-started/feedback`);
             }}>{t("actions.changeRole", null, "Change role")}</Btn>

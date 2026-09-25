@@ -8,18 +8,25 @@ import { friendlyAuthError } from "./auth/AuthSplitScreen";
 // `client` is either the builder `api` or validator `vapi` object — both expose
 // the same firebaseConfig/phoneLink/phoneRemove methods. `phone`/`phoneVerified`
 // come from the current user. `onClearPrefill` (optional) persists "forget this
-// onboarding-collected number" server-side — without it, prefillPhone comes
-// right back on the next reload/tab-switch since nothing local survives that.
+// onboarding-collected number" server-side after a Remove — without it,
+// prefillPhone comes right back on the next reload/tab-switch since nothing
+// local survives that. `onVerified` (optional) is the counterpart for a
+// successful verify: syncs the caller's own "declared number" field (e.g.
+// builder profile.mobile) to whatever number was just confirmed, so a
+// caller whose editor for that field lives elsewhere (Edit Profile) sees it
+// reflected there too. `hideWhenVerified` lets a caller that displays the
+// verified number itself (e.g. folded into an identity line) suppress this
+// component's own verified-state row entirely.
 // `bare` skips the outer .card wrapper so a caller can fold this into an
 // existing card (Settings merges it under the profile-identity block below,
 // since both come from the same "Your details" onboarding step and the
 // tester flagged them as needlessly split into two separate cards).
-export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill, bare }) {
+export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill, onVerified, hideWhenVerified, bare }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  // Once the user says "use a different number" we must stop re-offering the
-  // stale onboarding number for the rest of this visit — otherwise every
-  // fresh "Add phone" click would silently refill it again.
+  // Once the number's been removed we must stop re-offering the stale
+  // onboarding prefill for the rest of this visit — otherwise a fresh
+  // "Add phone" click would silently refill it again.
   const [prefillDismissed, setPrefillDismissed] = useState(false);
   const [step, setStep] = useState("phone"); // 'phone' | 'code'
   const [phoneInput, setPhoneInput] = useState("");
@@ -77,13 +84,11 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       const idToken = await cred.user.getIdToken();
       const res = await client.phoneLink(idToken);
       onUpdate?.(res.phone);
-      // A real verified number now supersedes whatever onboarding-time
-      // number was sitting in the prefill (whether this is that same
-      // number now confirmed, or a different one typed via Edit Number) --
-      // clearing it here, on actual success, means a later Remove falls
-      // back to a plain "Add phone" instead of resurrecting a now-stale
-      // suggestion.
-      await onClearPrefill?.();
+      // Syncs the declared number (profile.mobile) to whatever was just
+      // verified, rather than clearing it -- a caller whose "declared
+      // number" editor lives elsewhere (Edit Profile, for builders) needs
+      // this to actually reflect the verified number, not go blank.
+      await onVerified?.(res.phone);
       reset();
     } catch (err) {
       setError(friendlyAuthError(err, t, t("auth.couldntVerifyCode", null, "Couldn't verify code")));
@@ -107,18 +112,6 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
     } finally { setBusy(false); }
   };
 
-  const useDifferentNumber = () => {
-    // Just opens the form blank -- doesn't touch the prefill at all. It used
-    // to clear it server-side immediately on this click, before any actual
-    // edit happened: open the form to look, then Cancel with nothing typed,
-    // and the onboarding number was already gone with no way back. Now that
-    // only happens once a new number is actually verified (see verifyCode);
-    // Cancel from here behaves exactly like Cancel from Verify -- the old
-    // number is untouched and the card goes right back to showing it.
-    setPhoneInput("");
-    setEditing(true);
-  };
-
   // Buttons show regardless of firebaseReady — if this environment's Firebase
   // genuinely isn't configured, sendCode's own error handling below already
   // surfaces a friendly message when Send code is actually clicked, so the
@@ -130,23 +123,23 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
   return (
     <div className={bare ? undefined : "card"} style={bare ? undefined : { padding: "var(--pad-card)" }}>
       <div style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
-        {/* showPending crams a longer description alongside a pill and two
-            buttons on one line -- looked cluttered at normal card widths.
-            Its own row below (title/description stay full-width) fixes
-            that; the other two states stay as a single row since they're
-            just one short line each. */}
+        {/* Pending (unverified prefill) used to get its own row below,
+            crammed with a longer description -- tester asked for it to sit
+            on the same title row as the other two states instead, pill and
+            button at the end, so it doesn't read as a visually different
+            "second line" of the card. */}
         <div className="row between" style={{ alignItems: "center" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
-            {!showPending && (
-              <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
-                {phoneVerified
-                  ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
-                  : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
-              </p>
-            )}
+            <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
+              {phoneVerified
+                ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
+                : showPending
+                ? t("auth.verifyPhoneDesc", null, "Verify this number to enable SMS login and extra security.")
+                : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
+            </p>
           </div>
-          {phoneVerified && !editing && (
+          {phoneVerified && !editing && !hideWhenVerified && (
             <div className="row gap-2">
               <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}><Icon name="check" size={12} />{phone}</span>
               <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
@@ -155,17 +148,13 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
           {showAdd && (
             <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
           )}
-        </div>
-        {showPending && (
-          <>
-            <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>{t("auth.verifyPhoneDesc", null, "Verify this number to enable SMS login and extra security.")}</p>
-            <div className="row gap-2" style={{ marginTop: 12, flexWrap: "wrap" }}>
+          {showPending && (
+            <div className="row gap-2" style={{ flexWrap: "wrap" }}>
               <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
               <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
-              <button className="btn btn-ghost" onClick={useDifferentNumber}><Icon name="edit" size={15} />{t("actions.editNumber", null, "Edit Number")}</button>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {editing && (
