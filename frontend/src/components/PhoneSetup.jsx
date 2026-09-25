@@ -123,21 +123,21 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
   return (
     <div className={bare ? undefined : "card"} style={bare ? undefined : { padding: "var(--pad-card)" }}>
       <div style={{ marginBottom: phoneVerified || editing || showPending ? 14 : 0 }}>
-        {/* showPending crams a longer description alongside a pill and two
-            buttons on one line -- looked cluttered at normal card widths.
-            Its own row below (title/description stay full-width) fixes
-            that; the other two states stay as a single row since they're
-            just one short line each. */}
+        {/* Pending (unverified prefill) used to get its own row below,
+            crammed with a longer description -- tester asked for it to sit
+            on the same title row as the other two states instead, pill and
+            button at the end, so it doesn't read as a visually different
+            "second line" of the card. */}
         <div className="row between" style={{ alignItems: "center" }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{t("auth.mobileNumber", null, "Mobile number")}</h3>
-            {!showPending && (
-              <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
-                {phoneVerified
-                  ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
-                  : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
-              </p>
-            )}
+            <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>
+              {phoneVerified
+                ? t("auth.phoneUsedFor", null, "Used for sign-in with a code and to verify sensitive actions.")
+                : showPending
+                ? t("auth.verifyPhoneDesc", null, "Verify this number to enable SMS login and extra security.")
+                : t("auth.addPhoneDesc", null, "Add a mobile number to enable login via SMS code and extra verification for withdrawals.")}
+            </p>
           </div>
           {phoneVerified && !editing && !hideWhenVerified && (
             <div className="row gap-2">
@@ -148,16 +148,13 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
           {showAdd && (
             <button className="btn btn-ghost" onClick={() => { setPhoneInput(""); setEditing(true); }}><Icon name="plus" size={15} />{t("actions.addPhone", null, "Add phone")}</button>
           )}
-        </div>
-        {showPending && (
-          <>
-            <p className="faint" style={{ margin: "4px 0 0", fontSize: 12.5 }}>{t("auth.verifyPhoneDesc", null, "Verify this number to enable SMS login and extra security.")}</p>
-            <div className="row gap-2" style={{ marginTop: 12, flexWrap: "wrap" }}>
+          {showPending && (
+            <div className="row gap-2" style={{ flexWrap: "wrap" }}>
               <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
               <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
             </div>
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {editing && (
