@@ -23,7 +23,12 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // two copies of the same regex drifting apart would mean a value the field
 // itself accepts as valid still silently blocks Continue.
 const WEBSITE_RE = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i;
-const LINKEDIN_ORG_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+\/?$/i;
+// Only anchors on the required "company/<slug>" (or "school/<slug>") prefix
+// -- used to require the string end right there, which rejected the URL a
+// browser's own address bar shows on a company's About/Posts/Jobs tab (e.g.
+// ".../company/acme/about"), the single most common way someone would
+// actually copy this link.
+const LINKEDIN_ORG_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+.*$/i;
 const GST_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 const isAcademicEmail = (v) => {
   if (!v || !EMAIL_RE.test(v)) return false;
