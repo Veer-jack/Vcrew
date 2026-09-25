@@ -271,7 +271,12 @@ export default function Settings() {
               {verifyStepKey && <Btn variant="ghost" icon="edit" onClick={() => navigate(`/settings/edit-step/${verifyStepKey}`)}>{t("actions.edit", null, "Edit")}</Btn>}
             </div>
             <p className="faint" style={{ margin: "0 0 16px", fontSize: 13 }}>{t("settings.verificationHint", null, "Submitted during onboarding — used for trust review.")}</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {/* Single column, not the 2-up grid every other card here uses --
+                a LinkedIn org URL routinely wraps to 2 lines, and squeezed
+                next to GST in a half-width column it threw this card's
+                height noticeably off from its Company Details neighbor.
+                Stacked, GST sits cleanly below it instead. */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16 }}>
               {verificationFields.filter(f => builder?.profile?.[f.key]).map(f => (
                 <ChipField key={f.key} label={t(f.labelKey, null, f.labelFallback)} values={[builder.profile[f.key]]} required={f.required} />
               ))}
