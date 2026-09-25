@@ -8,18 +8,25 @@ import { friendlyAuthError } from "./auth/AuthSplitScreen";
 // `client` is either the builder `api` or validator `vapi` object — both expose
 // the same firebaseConfig/phoneLink/phoneRemove methods. `phone`/`phoneVerified`
 // come from the current user. `onClearPrefill` (optional) persists "forget this
-// onboarding-collected number" server-side — without it, prefillPhone comes
-// right back on the next reload/tab-switch since nothing local survives that.
+// onboarding-collected number" server-side after a Remove — without it,
+// prefillPhone comes right back on the next reload/tab-switch since nothing
+// local survives that. `onVerified` (optional) is the counterpart for a
+// successful verify: syncs the caller's own "declared number" field (e.g.
+// builder profile.mobile) to whatever number was just confirmed, so a
+// caller whose editor for that field lives elsewhere (Edit Profile) sees it
+// reflected there too. `hideWhenVerified` lets a caller that displays the
+// verified number itself (e.g. folded into an identity line) suppress this
+// component's own verified-state row entirely.
 // `bare` skips the outer .card wrapper so a caller can fold this into an
 // existing card (Settings merges it under the profile-identity block below,
 // since both come from the same "Your details" onboarding step and the
 // tester flagged them as needlessly split into two separate cards).
-export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill, bare }) {
+export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone, onUpdate, onClearPrefill, onVerified, hideWhenVerified, bare }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  // Once the user says "use a different number" we must stop re-offering the
-  // stale onboarding number for the rest of this visit — otherwise every
-  // fresh "Add phone" click would silently refill it again.
+  // Once the number's been removed we must stop re-offering the stale
+  // onboarding prefill for the rest of this visit — otherwise a fresh
+  // "Add phone" click would silently refill it again.
   const [prefillDismissed, setPrefillDismissed] = useState(false);
   const [step, setStep] = useState("phone"); // 'phone' | 'code'
   const [phoneInput, setPhoneInput] = useState("");
@@ -77,13 +84,11 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       const idToken = await cred.user.getIdToken();
       const res = await client.phoneLink(idToken);
       onUpdate?.(res.phone);
-      // A real verified number now supersedes whatever onboarding-time
-      // number was sitting in the prefill (whether this is that same
-      // number now confirmed, or a different one typed via Edit Number) --
-      // clearing it here, on actual success, means a later Remove falls
-      // back to a plain "Add phone" instead of resurrecting a now-stale
-      // suggestion.
-      await onClearPrefill?.();
+      // Syncs the declared number (profile.mobile) to whatever was just
+      // verified, rather than clearing it -- a caller whose "declared
+      // number" editor lives elsewhere (Edit Profile, for builders) needs
+      // this to actually reflect the verified number, not go blank.
+      await onVerified?.(res.phone);
       reset();
     } catch (err) {
       setError(friendlyAuthError(err, t, t("auth.couldntVerifyCode", null, "Couldn't verify code")));
@@ -105,18 +110,6 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
       setPrefillDismissed(true);
       await onClearPrefill?.();
     } finally { setBusy(false); }
-  };
-
-  const useDifferentNumber = () => {
-    // Just opens the form blank -- doesn't touch the prefill at all. It used
-    // to clear it server-side immediately on this click, before any actual
-    // edit happened: open the form to look, then Cancel with nothing typed,
-    // and the onboarding number was already gone with no way back. Now that
-    // only happens once a new number is actually verified (see verifyCode);
-    // Cancel from here behaves exactly like Cancel from Verify -- the old
-    // number is untouched and the card goes right back to showing it.
-    setPhoneInput("");
-    setEditing(true);
   };
 
   // Buttons show regardless of firebaseReady — if this environment's Firebase
@@ -146,7 +139,7 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
               </p>
             )}
           </div>
-          {phoneVerified && !editing && (
+          {phoneVerified && !editing && !hideWhenVerified && (
             <div className="row gap-2">
               <span className="tag" style={{ background: "var(--success-weak)", color: "var(--success)" }}><Icon name="check" size={12} />{phone}</span>
               <button className="btn btn-quiet" onClick={remove} disabled={busy}>{t("actions.remove", null, "Remove")}</button>
@@ -162,7 +155,6 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
             <div className="row gap-2" style={{ marginTop: 12, flexWrap: "wrap" }}>
               <span className="tag" style={{ background: "var(--warning-weak)", color: "var(--warning)" }}><Icon name="clock" size={12} />{prefillPhone}</span>
               <button className="btn btn-primary" onClick={() => { setPhoneInput(prefillPhone); setEditing(true); }}>{t("actions.verify", null, "Verify")}</button>
-              <button className="btn btn-ghost" onClick={useDifferentNumber}><Icon name="edit" size={15} />{t("actions.editNumber", null, "Edit Number")}</button>
             </div>
           </>
         )}

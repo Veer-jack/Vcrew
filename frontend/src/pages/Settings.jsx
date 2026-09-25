@@ -194,6 +194,7 @@ export default function Settings() {
                         <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
                       </a>
                     ),
+                    builder?.phoneVerified && <span key="phone">{builder.phone}</span>,
                   ].filter(Boolean).map((part, i) => (
                     <span key={i} className="row gap-1" style={{ alignItems: "center" }}>
                       {i > 0 && <span style={{ color: "var(--text-faint)" }}>|</span>}
@@ -211,19 +212,29 @@ export default function Settings() {
             <Btn variant="ghost" icon="edit" onClick={() => navigate("/settings/edit-step/personal")}>{t("actions.editProfile", null, "Edit profile")}</Btn>
           </div>
 
-          <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
+          {/* Once verified, the number lives in the identity line above
+              instead (same plain "|"-joined treatment as designation/email/
+              website) -- nothing left to show here, so the divider and the
+              whole PhoneSetup block collapse away rather than dangling over
+              an empty section. */}
+          {!builder?.phoneVerified && (
+            <>
+              <div style={{ borderTop: "1px solid var(--border)", margin: "16px 0" }} />
 
-          <PhoneSetup bare client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
-            prefillPhone={builder?.profile?.mobile}
-            onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
-            onClearPrefill={async () => {
-              // Actually clears it server-side — without this, prefillPhone
-              // (still sitting in profile.mobile in the DB) just comes right
-              // back on the next reload or tab switch, no matter what local
-              // state says.
-              const res = await api.updateProfile({ profile: { mobile: null } });
-              setBuilder(res.builder);
-            }} />
+              <PhoneSetup bare client={api} phone={builder?.phone} phoneVerified={builder?.phoneVerified}
+                prefillPhone={builder?.profile?.mobile}
+                hideWhenVerified
+                onUpdate={(phone) => setBuilder(b => ({ ...b, phone, phoneVerified: !!phone }))}
+                onVerified={async (phone) => {
+                  // Syncs profile.mobile to the just-verified number so Edit
+                  // Profile's "Your details" step (which reads from
+                  // profile.mobile) reflects it too, instead of the old
+                  // behavior of nulling it out on verify.
+                  const res = await api.updateProfile({ profile: { mobile: phone } });
+                  setBuilder(res.builder);
+                }} />
+            </>
+          )}
         </div>
 
         {/* Detail cards side by side instead of each stacking full-width for

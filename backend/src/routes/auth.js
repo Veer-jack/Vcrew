@@ -181,6 +181,7 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   // verification claim on every call, which would silently duplicate rows if
   // reused here just to save an unrelated field.
   let profileJson = req.builder.profile_json || null;
+  let phoneVerified = req.builder.phone_verified ? 1 : 0;
   if (req.body?.profile && typeof req.body.profile === "object") {
     let existingProfile = {};
     if (req.builder.profile_json) {
@@ -190,9 +191,18 @@ router.patch("/profile", authMiddleware, async (req, res) => {
     const serialized = JSON.stringify(merged);
     if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
     profileJson = serialized;
+
+    // profile.mobile changing to anything that isn't the currently-verified
+    // phone (including being cleared) demotes it back to unverified --
+    // compared digits-only so re-saving the same number in a different
+    // format (spaces, missing +) never spuriously un-verifies it.
+    if ("mobile" in req.body.profile) {
+      const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
+      if (digitsOnly(merged.mobile) !== digitsOnly(req.builder.phone)) phoneVerified = 0;
+    }
   }
 
-  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ?, profile_json = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, profileJson, req.builder.id);
+  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ?, profile_json = ?, phone_verified = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, profileJson, phoneVerified, req.builder.id);
 
   const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });
@@ -212,6 +222,7 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
   // already customizing Audience & Demographics in Settings silently wiped
   // every field the wizard's own payload didn't happen to include.
   let profileJson = req.builder.profile_json || null;
+  let phoneVerified = req.builder.phone_verified ? 1 : 0;
   if (profile && typeof profile === "object") {
     let existingProfile = {};
     if (req.builder.profile_json) {
@@ -221,11 +232,20 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
     const serialized = JSON.stringify(merged);
     if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
     profileJson = serialized;
+
+    // Same demote-on-mismatch rule as PATCH /profile -- re-running onboarding
+    // (or resuming a draft) with a different mobile number than whatever's
+    // currently verified shouldn't leave a stale verified badge on a number
+    // the account no longer claims.
+    if ("mobile" in profile) {
+      const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
+      if (digitsOnly(merged.mobile) !== digitsOnly(req.builder.phone)) phoneVerified = 0;
+    }
   }
 
   await db.prepare(`
     UPDATE builders
-    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ?, onboarding_completed_at = NOW()
+    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ?, phone_verified = ?, onboarding_completed_at = NOW()
     WHERE id = ?
   `).run(
     org || req.builder.name,
@@ -234,6 +254,7 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
     PERSONA_LABELS[personaKey],
     personaKey,
     profileJson,
+    phoneVerified,
     req.builder.id
   );
 
