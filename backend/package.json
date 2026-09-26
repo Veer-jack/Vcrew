@@ -18,12 +18,12 @@
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.109.0",
+    "@countrystatecity/countries": "^1.0.9",
     "@sentry/node": "^10.59.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "country-state-city-data": "^1.2.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
