@@ -65,6 +65,8 @@ const ur = {
     sendCode: "کوڈ بھیجیں۔",
     sending: "بھیج رہا ہے…",
     enterCode: "{{phone}} پر بھیجا گیا 6 ہندسوں والا کوڈ درج کریں",
+    enterCodeEmail: "{{email}} پر بھیجا گیا 6 ہندسوں والا کوڈ درج کریں",
+    emailCodeHint: "پہنچنے میں ایک منٹ لگ سکتا ہے — اگر نظر نہ آئے تو اسپیم بھی چیک کریں۔",
     didntGetIt: "نہیں ملا؟",
     resendIn: "{{seconds}}s میں دوبارہ بھیجیں۔",
     resendCode: "کوڈ دوبارہ بھیجیں۔",

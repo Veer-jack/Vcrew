@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { hashPassword, comparePassword, createSession, destroySession, authMiddleware, flagFraud } from "../auth.js";
 import { sendBuilderWelcome } from "../email.js";
 import { isValidEmail, isValidPassword } from "../validators.js";
+import { verifyAndConsumeEmailCode } from "../emailVerification.js";
 
 export const router = Router();
 
@@ -46,7 +47,7 @@ export function publicBuilder(b) {
 const PERSONA_LABELS = { founder: "Founder", company: "Company", researcher: "Researcher", organization: "Organization" };
 
 router.post("/signup", async (req, res) => {
-  const { name, email, password, designation, org, website, persona, profile, lang } = req.body || {};
+  const { name, email, password, code, designation, org, website, persona, profile, lang } = req.body || {};
   const preferredLanguage = VALID_LANGS.includes(lang) ? lang : "en";
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
@@ -56,6 +57,12 @@ router.post("/signup", async (req, res) => {
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
   if (existing) return res.status(400).json({ error: "An account with that email already exists", code: "EMAIL_EXISTS" });
+
+  // The email had to be verified via the code sent by POST /auth/email/send-code
+  // before we'll create the account -- see emailVerification.js. The account
+  // never exists in an unverified state, same guarantee phone signup already gives.
+  const verify = await verifyAndConsumeEmailCode(normalizedEmail, code);
+  if (!verify.ok) return res.status(400).json({ error: verify.error });
 
   const personaKey = PERSONA_LABELS[persona] ? persona : null;
   const dbRole = personaKey ? PERSONA_LABELS[personaKey] : "builder";

@@ -3,6 +3,7 @@ import { db } from "../db.js";
 import { hashPassword, comparePassword, createValidatorSession, destroyValidatorSession, validatorAuthMiddleware, flagFraud } from "../auth.js";
 import { sendValidatorWelcome } from "../email.js";
 import { isValidEmail, isValidPassword } from "../validators.js";
+import { verifyAndConsumeEmailCode } from "../emailVerification.js";
 import { levelForCompleted } from "../vmeta.js";
 import { notifyBuilderOfNewMatch } from "../notificationsHelper.js";
 import multer from "multer";
@@ -76,7 +77,7 @@ function publicValidator(v) {
 }
 
 router.post("/signup", async (req, res) => {
-  const { name, email, password, expertise, lang } = req.body || {};
+  const { name, email, password, code, expertise, lang } = req.body || {};
   const preferredLanguage = VALID_LANGS.includes(lang) ? lang : "en";
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
@@ -86,6 +87,11 @@ router.post("/signup", async (req, res) => {
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
   if (existing) return res.status(400).json({ error: "An account with that email already exists", code: "EMAIL_EXISTS" });
+
+  // Same verify-before-create rule as the builder signup route -- see
+  // emailVerification.js.
+  const verify = await verifyAndConsumeEmailCode(normalizedEmail, code);
+  if (!verify.ok) return res.status(400).json({ error: verify.error });
 
   const specialties = expertise && String(expertise).trim() ? [String(expertise).trim()] : [];
   const baseHandle = "@" + String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");

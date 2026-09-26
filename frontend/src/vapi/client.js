@@ -50,6 +50,7 @@ async function request(path, { method = "GET", body, keepalive } = {}) {
 export const vapi = {
   login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
   signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
+  sendSignupCode: (email, name) => request("/auth/email/send-code", { method: "POST", body: { email, name } }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: { email } }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: { token, password } }),
   changePassword: (currentPassword, newPassword) => request("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } }),

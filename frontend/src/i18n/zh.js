@@ -65,6 +65,8 @@ const zh = {
     sendCode: "发送代码",
     sending: "正在发送...",
     enterCode: "输入发送至 {{phone}} 的 6 位数代码",
+    enterCodeEmail: "输入发送至 {{email}} 的 6 位数代码",
+    emailCodeHint: "邮件可能需要一分钟才能送达——如果没看到，请查看垃圾邮件文件夹。",
     didntGetIt: "没明白吗？",
     resendIn: "{{秒}}秒后重新发送",
     resendCode: "重新发送代码",

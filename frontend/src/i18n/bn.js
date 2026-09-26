@@ -65,6 +65,8 @@ const bn = {
     sendCode: "কোড পাঠান",
     sending: "পাঠানো হচ্ছে...",
     enterCode: "{{phone}} এ পাঠানো ৬-সংখ্যার কোডটি লিখুন",
+    enterCodeEmail: "{{email}} এ পাঠানো ৬-সংখ্যার কোডটি লিখুন",
+    emailCodeHint: "পৌঁছাতে এক মিনিট সময় লাগতে পারে — না দেখলে স্প্যামও দেখুন।",
     didntGetIt: "পাননি?",
     resendIn: "{{seconds}} সেকেন্ডের মধ্যে আবার পাঠান",
     resendCode: "কোড আবার পাঠান",

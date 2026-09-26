@@ -70,7 +70,7 @@ export const db = {
     run: async (...params) => {
       const isInsert = /^\s*INSERT/i.test(sql);
       // Only append RETURNING id for tables that have a serial id column
-      const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified/i.test(sql);
+      const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified|INTO email_signup_codes/i.test(sql);
       const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(sql) ? `${sql} RETURNING id` : sql;
       const { rows, rowCount } = await query(finalSql, flat(params));
       return { changes: rowCount, lastInsertRowid: rows[0]?.id ?? null };
@@ -90,7 +90,7 @@ export const db = {
           run: async (...params) => {
             const pgSql = toPostgres(sql);
             const isInsert = /^\s*INSERT/i.test(sql);
-            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified/i.test(sql);
+            const hasIdCol = !/INTO sessions|INTO validator_sessions|INTO admin_sessions|INTO admin_settings|INTO admin_pending_2fa|INTO v_saved|INTO step_up_tokens|INTO password_reset_tokens|INTO mission_match_notified|INTO email_signup_codes/i.test(sql);
             const finalSql = isInsert && hasIdCol && !/RETURNING/i.test(pgSql) ? `${pgSql} RETURNING id` : pgSql;
             const r = await client.query(finalSql, flat(params));
             return { changes: r.rowCount, lastInsertRowid: r.rows[0]?.id ?? null };

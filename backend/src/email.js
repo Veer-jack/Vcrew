@@ -31,6 +31,12 @@ async function send({ from, to, subject, html }) {
   }
 }
 
+export async function sendSignupCode({ name, email, code }) {
+  const greeting = name ? `Hi ${name.split(" ")[0]},` : "Hi,";
+  const html = `<h1>Verify your email</h1><p>${greeting} your ValidationCrew verification code is:</p><p style="font-size:28px;font-weight:700;letter-spacing:6px;">${code}</p><p>This code expires in 10 minutes. If you didn't request this, you can ignore this email.</p>`;
+  return send({ from: FROM_NOREPLY, to: email, subject: `${code} is your ValidationCrew verification code`, html });
+}
+
 export async function sendPasswordReset({ name, email, token, role }) {
   const APP_URL = process.env.APP_URL || "https://www.validationcrew.com";
   const resetUrl = `${APP_URL}/${role === "validator" ? "validator/" : ""}reset-password?token=${token}`;

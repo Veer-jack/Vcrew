@@ -144,6 +144,19 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   used INTEGER DEFAULT 0
 );
 
+-- One pending signup code per email, before any account exists for it --
+-- keyed on email itself (not a user id, since there's no user yet).
+-- expires_at is a plain epoch-ms BIGINT (not TIMESTAMPTZ) so it compares
+-- directly against Date.now() in JS, same as the rest of this app's
+-- short-lived-token checks.
+CREATE TABLE IF NOT EXISTS email_signup_codes (
+  email TEXT PRIMARY KEY,
+  code_hash TEXT NOT NULL,
+  attempts INTEGER DEFAULT 0,
+  expires_at BIGINT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS missions (
   id TEXT PRIMARY KEY,
   builder_id INTEGER NOT NULL REFERENCES builders(id) ON DELETE CASCADE,

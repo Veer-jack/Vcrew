@@ -213,7 +213,14 @@ export default function OnboardingWizard() {
     // local draft that predates that edit -- overlaid last so it wins
     // per-field, while any field only the draft has (genuine in-progress,
     // never-submitted work) still comes through untouched.
-    return { ...merged, ...(builder?.profile || {}) };
+    const result = { ...merged, ...(builder?.profile || {}) };
+    // A phone-signup account already has a real verified number before
+    // onboarding even starts (profile_json doesn't exist yet at that point) --
+    // show it here instead of leaving the field blank and making the user
+    // retype a number they just proved seconds ago. Same rule already applied
+    // in EditAccountStep.jsx for editing after onboarding is done.
+    if (builder?.phoneVerified) result.mobile = builder.phone;
+    return result;
   });
 
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));

@@ -46,6 +46,7 @@ export const api = {
   post: (path, body) => request(path, { method: "POST", body }),
   login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
   signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
+  sendSignupCode: (email, name) => request("/auth/email/send-code", { method: "POST", body: { email, name } }),
   completeOnboarding: (payload) => request("/auth/onboarding", { method: "PATCH", body: payload }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: { email } }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: { token, password } }),

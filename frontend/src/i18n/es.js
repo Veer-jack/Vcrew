@@ -65,6 +65,8 @@ const es = {
     sendCode: "Enviar código",
     sending: "Envío…",
     enterCode: "Ingrese el código de 6 dígitos enviado a {{phone}}",
+    enterCodeEmail: "Ingrese el código de 6 dígitos enviado a {{email}}",
+    emailCodeHint: "Puede tardar un minuto en llegar — revisa la carpeta de spam si no lo ves.",
     didntGetIt: "¿No lo entendiste?",
     resendIn: "Reenviar en {{segundos}}s",
     resendCode: "Reenviar código",

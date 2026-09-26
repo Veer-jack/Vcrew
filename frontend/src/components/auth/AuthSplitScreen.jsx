@@ -155,31 +155,63 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
   const goAfterAuth = () => navigate(takePreLoginPath() || homePath, { replace: true });
 
+  // Signup no longer creates the account directly here -- it first sends a
+  // code to the entered email (below), same verify-before-create guarantee
+  // phone signup already has. Sign-in is untouched.
   const submitEmail = async (e) => {
     e.preventDefault();
     setTouched({ name: true, email: true, password: true, agree: true });
     setError("");
     setExistsPrompt(null);
     if (!emailFormValid) return;
+    if (mode === "signup") { await sendEmailCode(); return; }
     setBusy(true);
     try {
-      if (mode === "signin") await adapter.login(email, password);
-      else {
-        await adapter.signup({ name: name.trim(), org: "", email: email.trim(), password });
-        if (signupHref) { navigate(signupHref, { replace: true }); return; }
-      }
+      await adapter.login(email, password);
       goAfterAuth();
     } catch (err) {
-      if (err.code === "EMAIL_EXISTS") {
-        setExistsPrompt("email");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
       // This is the backend REST signup/login path, not Firebase — the
       // backend already returns clean, specific copy ("An account with that
       // email already exists"), so trust err.message here instead of
       // friendlyAuthError's Firebase-code map, which doesn't apply to these
       // errors and was swallowing them into a generic "Something went wrong."
+      setError(err.message || t("errors.somethingWentWrong"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally { setBusy(false); }
+  };
+
+  // Sends (or resends) the signup verification code to `email`. The backend
+  // checks whether that email is already registered before sending anything
+  // -- same as the phone-exists pre-check -- so an already-used email never
+  // gets a code sent to it, just the same "account exists -> sign in" prompt.
+  const sendEmailCode = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await adapter.sendSignupCode(email.trim(), name.trim());
+      setOtpSent(true);
+      setResendIn(30);
+    } catch (err) {
+      if (err.code === "EMAIL_EXISTS") {
+        setExistsPrompt("email");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        setError(err.message || t("errors.somethingWentWrong"));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } finally { setBusy(false); }
+  };
+
+  // Verifying the code IS what creates the account -- if this fails, no
+  // account exists yet, matching phone's guarantee.
+  const verifyEmailCode = async () => {
+    if (otp.length !== 6) return;
+    setError(""); setBusy(true);
+    try {
+      await adapter.signup({ name: name.trim(), org: "", email: email.trim(), password, code: otp });
+      if (signupHref) { navigate(signupHref, { replace: true }); return; }
+      goAfterAuth();
+    } catch (err) {
       setError(err.message || t("errors.somethingWentWrong"));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally { setBusy(false); }
@@ -344,9 +376,9 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       <div className="asplit-form-col">
         <div className="asplit-form rise">
           <div className="asplit-tabs">
-            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); setExistsPrompt(null); }}>{t("auth.signIn")}</button>
+            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>{t("auth.signIn")}</button>
             <button type="button" className={mode === "signup" ? "on" : ""}
-              onClick={() => { setMode("signup"); setError(""); setExistsPrompt(null); }}>
+              onClick={() => { setMode("signup"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>
               {t("auth.signUp")}
             </button>
           </div>
@@ -360,7 +392,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 ? t("auth.errEmailInUse", null, "An account with this email already exists.")
                 : t("auth.errPhoneInUse", null, "An account with this phone number already exists.")}</span>
               <Btn variant="primary" size="sm" style={{ flexShrink: 0 }}
-                onClick={() => { setExistsPrompt(null); setError(""); setOtpSent(false); setMode("signin"); }}>
+                onClick={() => { setExistsPrompt(null); setError(""); setOtpSent(false); setOtp(""); setMode("signin"); }}>
                 {t("auth.signIn")}
               </Btn>
             </div>
@@ -394,16 +426,30 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
           {smsReady ? (
             <div className="method-tabs">
-              <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); setExistsPrompt(null); }}>
+              <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>
                 <Icon name="mail" size={15} /> {t("auth.emailTab")}
               </button>
-              <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); setExistsPrompt(null); }}>
+              <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>
                 <Icon name="phone" size={15} /> {t("auth.phoneTab")}
               </button>
             </div>
           ) : <div style={{ height: 18 }} />}
 
           {method === "email" ? (
+            mode === "signup" && otpSent ? (
+              <div className="col gap-4">
+                <p className="otp-lead"><span dangerouslySetInnerHTML={{ __html: t("auth.enterCodeEmail", { email: `<b>${email.trim()}</b>` }, "Enter the 6-digit code sent to {{email}}") }} /> <button type="button" className="backlink" onClick={() => { setOtpSent(false); setOtp(""); }}>{t("actions.edit")}</button></p>
+                <OtpBoxes value={otp} onChange={setOtp} />
+                <p className="fhint">{t("auth.emailCodeHint", null, "It can take a minute to arrive — check spam if you don't see it.")}</p>
+                <div className="resend-row">
+                  <span>{t("auth.didntGetIt")}</span>
+                  <button type="button" disabled={resendIn > 0 || busy} onClick={sendEmailCode}>{resendIn > 0 ? t("auth.resendIn", { seconds: resendIn }) : t("auth.resendCode")}</button>
+                </div>
+                <Btn type="button" variant="primary" size="lg" block disabled={busy || otp.length !== 6} onClick={verifyEmailCode}>
+                  {busy ? t("auth.verifying") : t("auth.verifyAndContinue")}
+                </Btn>
+              </div>
+            ) : (
             <form onSubmit={submitEmail} className="col gap-4">
               {mode === "signup" && (
                 <>
@@ -446,9 +492,10 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 </div>
               )}
               <Btn type="submit" variant="primary" size="lg" block disabled={busy}>
-                {busy ? t("auth.pleaseWait") : mode === "signin" ? t("auth.signIn") : t("auth.signUp")}
+                {busy ? t("auth.pleaseWait") : mode === "signin" ? t("auth.signIn") : t("auth.sendCode")}
               </Btn>
             </form>
+            )
           ) : (
             <div className="col gap-4">
               {mode === "signup" && !otpSent && (
