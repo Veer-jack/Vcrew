@@ -114,7 +114,6 @@ const fr = {
     phoneSignInNotConfigured: "La connexion par téléphone n'est pas encore configurée sur ce serveur",
     incorrectCode: "Code incorrect",
     enterEmailForResetLink: "Entrez votre e-mail et nous vous enverrons un lien de réinitialisation si un compte existe.",
-    workEmail: "E-mail professionnel",
   },
   actions: {
     skip: "Ignorer",

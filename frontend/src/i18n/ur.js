@@ -114,7 +114,6 @@ const ur = {
     phoneSignInNotConfigured: "فون سائن ان ابھی تک اس سرور پر کنفیگر نہیں ہوا ہے۔",
     incorrectCode: "غلط کوڈ",
     enterEmailForResetLink: "اپنا ای میل درج کریں اور اگر کوئی اکاؤنٹ موجود ہے تو ہم آپ کو دوبارہ ترتیب دینے کا لنک بھیجیں گے۔",
-    workEmail: "کام کا ای میل",
   },
   actions: {
     skip: "چھوڑیں",

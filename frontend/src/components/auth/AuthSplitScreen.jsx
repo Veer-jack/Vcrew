@@ -24,9 +24,14 @@ const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMa
 // (native <label> behavior otherwise fires both).
 function TermsAgreementLabel({ t }) {
   const sentence = t("auth.agreeToTerms", null, "I agree to the {{terms}} and {{privacy}}");
+  // The global `a` rule inherits the surrounding text color (see theme.css),
+  // which left these looking like plain text inside the faint checkbox
+  // label -- same accent color + no-underline treatment as "Validator sign
+  // in ->" (.asplit-cross a) so they read as links here too.
+  const linkStyle = { color: "var(--accent)", textDecoration: "none" };
   return sentence.split(/(\{\{terms\}\}|\{\{privacy\}\})/).map((part, i) => {
-    if (part === "{{terms}}") return <a key={i} href="/terms" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{t("auth.termsOfServiceLink", null, "Terms of Service")}</a>;
-    if (part === "{{privacy}}") return <a key={i} href="/privacy" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{t("auth.privacyPolicyLink", null, "Privacy Policy")}</a>;
+    if (part === "{{terms}}") return <a key={i} href="/terms" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.termsOfServiceLink", null, "Terms of Service")}</a>;
+    if (part === "{{privacy}}") return <a key={i} href="/privacy" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.privacyPolicyLink", null, "Privacy Policy")}</a>;
     return part;
   });
 }
@@ -284,7 +289,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <form onSubmit={submitForgot} className="col gap-4">
             <div className="fld"><label>{t("auth.email")}</label>
-              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus required />
+              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoFocus required />
             </div>
             <Btn type="submit" variant="primary" size="lg" block disabled={forgotBusy}>{forgotBusy ? t("auth.sending") : t("auth.sendResetLink")}</Btn>
           </form>
@@ -354,10 +359,10 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
               <span>{existsPrompt === "email"
                 ? t("auth.errEmailInUse", null, "An account with this email already exists.")
                 : t("auth.errPhoneInUse", null, "An account with this phone number already exists.")}</span>
-              <button type="button" className="btn btn-ghost" style={{ flexShrink: 0 }}
+              <Btn variant="primary" size="sm" style={{ flexShrink: 0 }}
                 onClick={() => { setExistsPrompt(null); setError(""); setOtpSent(false); setMode("signin"); }}>
                 {t("auth.signIn")}
-              </button>
+              </Btn>
             </div>
           ) : error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -404,15 +409,15 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 <>
                   <div className="fld">
                     <label>{t("auth.fullName")}</label>
-                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" autoFocus />
+                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.fullName")} autoFocus />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 
                 </>
               )}
               <div className="fld">
-                <label>{mode === "signup" ? t("auth.workEmail", null, "Work email") : t("auth.email", null, "Email")}{copy.emailHint && mode === "signup" && <span className="faint"> · {copy.emailHint}</span>}</label>
-                <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@company.com" autoFocus={mode === "signin"} />
+                <label>{t("auth.email", null, "Email")}{copy.emailHint && mode === "signup" && <span className="faint"> · {copy.emailHint}</span>}</label>
+                <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@example.com" autoFocus={mode === "signin"} />
                 {errs.email && <p className="ferr">{errs.email}</p>}
               </div>
               <div className="fld">
@@ -450,7 +455,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 <>
                   <div className="fld">
                     <label>{t("auth.fullName")}</label>
-                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" />
+                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.fullName")} />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 

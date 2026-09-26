@@ -114,7 +114,6 @@ const ar = {
     phoneSignInNotConfigured: "لم يتم تكوين تسجيل الدخول عبر الهاتف على هذا الخادم حتى الآن",
     incorrectCode: "رمز غير صحيح",
     enterEmailForResetLink: "أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين في حالة وجود حساب.",
-    workEmail: "البريد الإلكتروني للعمل",
   },
   actions: {
     skip: "تخطي",

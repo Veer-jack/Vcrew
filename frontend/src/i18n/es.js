@@ -114,7 +114,6 @@ const es = {
     phoneSignInNotConfigured: "El inicio de sesión por teléfono aún no está configurado en este servidor",
     incorrectCode: "código incorrecto",
     enterEmailForResetLink: "Ingrese su correo electrónico y le enviaremos un enlace de restablecimiento si existe una cuenta.",
-    workEmail: "correo electrónico de trabajo",
   },
   actions: {
     skip: "Omitir",

@@ -114,7 +114,6 @@ const pt = {
     phoneSignInNotConfigured: "O login por telefone ainda não está configurado neste servidor",
     incorrectCode: "Código incorreto",
     enterEmailForResetLink: "Digite seu e-mail e enviaremos um link de redefinição se existir uma conta.",
-    workEmail: "E-mail de trabalho",
   },
   actions: {
     skip: "Pular",

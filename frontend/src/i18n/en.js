@@ -114,7 +114,6 @@ const en = {
     phoneSignInNotConfigured: "Phone sign-in isn't configured on this server yet",
     incorrectCode: "Incorrect code",
     enterEmailForResetLink: "Enter your email and we'll send you a reset link if an account exists.",
-    workEmail: "Work email",
   },
   actions: {
     save: "Save",

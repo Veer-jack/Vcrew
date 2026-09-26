@@ -114,7 +114,6 @@ const zh = {
     phoneSignInNotConfigured: "此服务器上尚未配置电话登录",
     incorrectCode: "代码错误",
     enterEmailForResetLink: "输入您的电子邮件，如果帐户存在，我们会向您发送重置链接。",
-    workEmail: "工作邮箱",
   },
   actions: {
     skip: "跳过",

@@ -114,7 +114,6 @@ const bn = {
     phoneSignInNotConfigured: "ফোন সাইন-ইন এখনও এই সার্ভারে কনফিগার করা হয়নি৷",
     incorrectCode: "ভুল কোড",
     enterEmailForResetLink: "আপনার ইমেল লিখুন এবং একটি অ্যাকাউন্ট বিদ্যমান থাকলে আমরা আপনাকে একটি রিসেট লিঙ্ক পাঠাব৷",
-    workEmail: "কাজের ইমেল",
   },
   actions: {
     skip: "এড়িয়ে যান",

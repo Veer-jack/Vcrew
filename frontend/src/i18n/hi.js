@@ -114,7 +114,6 @@ const hi = {
     phoneSignInNotConfigured: "फ़ोन साइन-इन अभी तक इस सर्वर पर कॉन्फ़िगर नहीं किया गया है",
     incorrectCode: "ग़लत कोड",
     enterEmailForResetLink: "अपना ईमेल दर्ज करें और यदि कोई खाता मौजूद है तो हम आपको एक रीसेट लिंक भेजेंगे।",
-    workEmail: "कार्य ईमेल",
   },
   actions: {
     skip: "छोड़ें",
