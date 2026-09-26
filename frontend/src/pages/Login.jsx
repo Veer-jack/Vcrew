@@ -24,7 +24,6 @@ export default function Login() {
     signupSub: t("builder.login.signupSub", null, "Launch your first campaign in minutes."),
     signinSub: t("builder.login.signinSub", null, "Sign in to manage your validation campaigns."),
     field2Label: "Company / product", field2Placeholder: "Helix Labs", field2Error: "Add your company or product",
-    emailHint: t("builder.login.emailHint", null, "use your company domain"),
     crossText: t("builder.login.crossText", null, "Here to earn, not build?"), crossLabel: t("builder.login.crossLabel", null, "Validator sign in"),
     foot: t("builder.login.foot", null, "Protected by SOC 2-grade security. We never share your idea with anyone outside your matched validators."),
   };

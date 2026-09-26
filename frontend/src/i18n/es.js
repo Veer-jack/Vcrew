@@ -452,7 +452,6 @@ const es = {
       signupTitle: "Empieza a validar",
       signupSub: "Lanza tu primera campaña en minutos.",
       signinSub: "Inicia sesión para gestionar tus campañas de validación.",
-      emailHint: "usa el dominio de tu empresa",
       crossText: "¿Vienes a ganar, no a construir?",
       crossLabel: "Inicio de sesión de validador",
       foot: "Protegido con seguridad de nivel SOC 2. Nunca compartimos tu idea con nadie fuera de tus validadores asignados.",

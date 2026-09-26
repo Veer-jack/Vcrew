@@ -24,7 +24,6 @@ export default function VLogin() {
     signupSub: t("validator.login.signupSub", null, "Create your validator profile in minutes."),
     signinSub: t("validator.login.signinSub", null, "Sign in to pick up validation tasks."),
     field2Label: "Primary expertise", field2Placeholder: "AI products, B2B SaaS", field2Error: "Add at least one area of expertise",
-    emailHint: undefined,
     crossText: t("validator.login.crossText", null, "Here to build, not earn?"), crossLabel: t("validator.login.crossLabel", null, "Builder sign in"),
     foot: t("validator.login.foot", null, "Your identity stays private to builders. We only share your expertise tags and feedback quality."),
   };

@@ -416,7 +416,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 </>
               )}
               <div className="fld">
-                <label>{t("auth.email", null, "Email")}{copy.emailHint && mode === "signup" && <span className="faint"> · {copy.emailHint}</span>}</label>
+                <label>{t("auth.email", null, "Email")}</label>
                 <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@example.com" autoFocus={mode === "signin"} />
                 {errs.email && <p className="ferr">{errs.email}</p>}
               </div>

@@ -452,7 +452,6 @@ const en = {
       signupTitle: "Start validating",
       signupSub: "Launch your first campaign in minutes.",
       signinSub: "Sign in to manage your validation campaigns.",
-      emailHint: "use your company domain",
       crossText: "Here to earn, not build?",
       crossLabel: "Validator sign in",
       foot: "Protected by SOC 2-grade security. We never share your idea with anyone outside your matched validators.",

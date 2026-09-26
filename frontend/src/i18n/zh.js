@@ -452,7 +452,6 @@ const zh = {
       signupTitle: "开始验证",
       signupSub: "几分钟内启动你的第一个活动。",
       signinSub: "登录以管理你的验证活动。",
-      emailHint: "使用你的公司域名",
       crossText: "是来赚钱，不是来构建的？",
       crossLabel: "验证员登录",
       foot: "受 SOC 2 级别安全保护。我们绝不会与匹配验证员以外的任何人分享你的想法。",

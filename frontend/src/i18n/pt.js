@@ -452,7 +452,6 @@ const pt = {
       signupTitle: "Comece a validar",
       signupSub: "Lance sua primeira campanha em minutos.",
       signinSub: "Entre para gerenciar suas campanhas de validação.",
-      emailHint: "use o domínio da sua empresa",
       crossText: "Está aqui para ganhar, não construir?",
       crossLabel: "Login de validador",
       foot: "Protegido por segurança de nível SOC 2. Nunca compartilhamos sua ideia com ninguém fora dos seus validadores designados.",
