@@ -53,6 +53,7 @@ export default function Wallet() {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [cardsReady, setCardsReady] = useState(false);
+  const [demoTopupAllowed, setDemoTopupAllowed] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [visibleCount, setVisibleCount] = useState(20);
   const [refetching, setRefetching] = useState(false);
@@ -87,7 +88,7 @@ export default function Wallet() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataVersion]);
-  useEffect(() => { api.paymentsConfig().then(d => setCardsReady(!!d.configured)).catch(() => {}); }, []);
+  useEffect(() => { api.paymentsConfig().then(d => { setCardsReady(!!d.configured); setDemoTopupAllowed(!!d.demoTopupAllowed); }).catch(() => {}); }, []);
 
   const finalizePayment = async (orderId) => {
     try {
@@ -236,19 +237,32 @@ export default function Wallet() {
       {adding && (
         <div className="card rise" style={{ padding: 18, marginBottom: 18 }}>
           {error && <div className="err-banner" style={{ marginBottom: 12 }}>{error}</div>}
-          <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
-            <div className="fld" style={{ flex: 1, minWidth: 180 }}>
-              <label>{t("wallet.amountToAdd", null, "Amount to add")}</label>
-              <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={blockInvalidNumberKeys} /></div>
+          {cardsReady || demoTopupAllowed ? (
+            <>
+              <div className="row gap-3 wrap" style={{ alignItems: "flex-end" }}>
+                <div className="fld" style={{ flex: 1, minWidth: 180 }}>
+                  <label>{t("wallet.amountToAdd", null, "Amount to add")}</label>
+                  <div className="inw has-pre"><span className="pre">₹</span><input className="fin" type="number" min="100" step="100" value={amount} onChange={e => setAmount(e.target.value)} onKeyDown={blockInvalidNumberKeys} /></div>
+                </div>
+                {cardsReady ? (
+                  <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? t("actions.opening", null, "Opening…") : t("actions.payWithCardUpi", null, "Pay with card / UPI")}</Btn>
+                ) : (
+                  <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? t("actions.adding", null, "Adding…") : t("actions.addToWallet", null, "Add to wallet")}</Btn>
+                )}
+                <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
+              </div>
+              {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>{t("wallet.onlinePaymentsNotSetup", null, "Online payments aren't set up yet — this adds funds directly for testing.")}</p>}
+            </>
+          ) : (
+            // Neither a real payment method nor the local-dev demo flag is
+            // configured -- no functional way to add funds, and deliberately
+            // no fallback that would credit money for free. See wallet.js's
+            // own gate on /topup for why this can't silently degrade to that.
+            <div className="row gap-3 wrap" style={{ alignItems: "center" }}>
+              <p className="faint" style={{ margin: 0, flex: 1 }}>{t("wallet.paymentsNotConfigured", null, "Payments aren't set up on this server yet — funds can't be added right now.")}</p>
+              <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
             </div>
-            {cardsReady ? (
-              <Btn variant="primary" icon="creditCard" disabled={busy} onClick={payWithCard}>{busy ? t("actions.opening", null, "Opening…") : t("actions.payWithCardUpi", null, "Pay with card / UPI")}</Btn>
-            ) : (
-              <Btn variant="primary" icon="plus" disabled={busy} onClick={() => addFunds()}>{busy ? t("actions.adding", null, "Adding…") : t("actions.addToWallet", null, "Add to wallet")}</Btn>
-            )}
-            <Btn variant="quiet" onClick={() => { setAdding(false); setError(""); }}>{t("actions.cancel", null, "Cancel")}</Btn>
-          </div>
-          {!cardsReady && <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>{t("wallet.onlinePaymentsNotSetup", null, "Online payments aren't set up yet — this adds funds directly for testing.")}</p>}
+          )}
         </div>
       )}
       {stepUp && (

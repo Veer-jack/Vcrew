@@ -296,12 +296,31 @@ for (const [slug, file] of Object.entries(INTENT_PAGES)) {
   });
 }
 
+// ---- clean URLs for legal pages ----
+// These already have real, permanent content (Terms, Privacy) rather than
+// just living at their /site/*.html fallback -- the documents' own internal
+// cross-links (Terms <-> Privacy, footers) already point at these clean
+// URLs, so they need to actually resolve. A map (not one route per page)
+// so a future addition (Cookie Policy, Refund Policy, ...) is a one-line
+// entry here rather than a new hand-written route each time. No trailing
+// slash on these (unlike /for-builders/<slug>/) since that's the exact form
+// the documents' own links already use; a stray trailing slash still
+// resolves to the same canonical URL rather than 404ing.
+const LEGAL_PAGES = { terms: "terms.html", privacy: "privacy.html" };
+for (const [slug, file] of Object.entries(LEGAL_PAGES)) {
+  app.get(`/${slug}{/}`, (req, res) => {
+    if (req.path.endsWith("/")) return res.redirect(301, `/${slug}`);
+    res.sendFile(path.join(SITE_DIST, file));
+  });
+}
+
 // robots.txt and sitemap.xml previously had no route of their own, so both
 // fell through to the SPA catch-all below and served the app's index.html
 // instead of a real crawl file. Sitemap URLs point at /site/*.html (the
-// marketing pages' actual current location) rather than the clean URLs a
-// future architecture change would use — pointing crawlers at URLs that
-// don't exist yet would be worse than no sitemap at all.
+// marketing pages' actual current location) for pages with no clean URL
+// yet — pointing crawlers at URLs that don't exist would be worse than no
+// sitemap at all. Pages that DO have one (intent pages, legal pages) are
+// listed at that clean URL instead.
 app.get("/robots.txt", (req, res) => {
   res.type("text/plain").send(
     `User-agent: *
@@ -316,14 +335,15 @@ Sitemap: https://www.validationcrew.com/sitemap.xml
 });
 
 app.get("/sitemap.xml", (req, res) => {
-  const pages = ["index", "builders", "validators", "use-cases", "about", "contact", "privacy", "terms"];
+  const pages = ["index", "builders", "validators", "use-cases", "about", "contact"];
   const pageUrls = pages.map(p => `  <url><loc>https://www.validationcrew.com/site/${p}.html</loc></url>`);
-  // These two have real clean URLs (see the /for-builders/* routes above) —
-  // listed there instead of their /site/*.html fallback, which stays
-  // reachable but isn't the one crawlers should index (see the canonical
-  // tag on each page).
+  // These have real clean URLs (see the /for-builders/* and legal-page
+  // routes above) — listed there instead of their /site/*.html fallback,
+  // which stays reachable but isn't the one crawlers should index (see the
+  // canonical tag on each page).
   const intentUrls = Object.keys(INTENT_PAGES).map(slug => `  <url><loc>https://www.validationcrew.com/for-builders/${slug}/</loc></url>`);
-  const urls = [...pageUrls, ...intentUrls].join("\n");
+  const legalUrls = Object.keys(LEGAL_PAGES).map(slug => `  <url><loc>https://www.validationcrew.com/${slug}</loc></url>`);
+  const urls = [...pageUrls, ...intentUrls, ...legalUrls].join("\n");
   res.type("application/xml").send(
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
   );

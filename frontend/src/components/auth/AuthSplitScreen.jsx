@@ -14,6 +14,23 @@ import { takePreLoginPath } from "../../utils/authRedirect";
 
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
 
+// Splits the translated "I agree to the {{terms}} and {{privacy}}" sentence
+// on its two markers and interleaves real links in their place -- plain
+// <a target="_blank">, not <Link>, since /terms and /privacy are static
+// pages served directly by the backend (see server.js), not SPA routes;
+// opening in a new tab means reading them never risks losing whatever's
+// already typed into this in-progress signup form. stopPropagation keeps a
+// click on the link from also toggling the checkbox this text sits inside
+// (native <label> behavior otherwise fires both).
+function TermsAgreementLabel({ t }) {
+  const sentence = t("auth.agreeToTerms", null, "I agree to the {{terms}} and {{privacy}}");
+  return sentence.split(/(\{\{terms\}\}|\{\{privacy\}\})/).map((part, i) => {
+    if (part === "{{terms}}") return <a key={i} href="/terms" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{t("auth.termsOfServiceLink", null, "Terms of Service")}</a>;
+    if (part === "{{privacy}}") return <a key={i} href="/privacy" target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{t("auth.privacyPolicyLink", null, "Privacy Policy")}</a>;
+    return part;
+  });
+}
+
 // Firebase surfaces raw SDK error codes/messages (e.g. "Firebase: Error
 // (auth/error-code:-39)."); map the common ones to copy a user can act on
 // instead of showing the SDK string verbatim.
@@ -384,7 +401,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 <div>
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setTouched((t) => ({ ...t, agree: true })); }} style={{ marginTop: 2 }} />
-                    {t("auth.agreeToTerms")}
+                    <TermsAgreementLabel t={t} />
                   </label>
                   {errs.agree && <p className="ferr">{errs.agree}</p>}
                 </div>
@@ -405,7 +422,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setTouched((t) => ({ ...t, agree: true })); }} style={{ marginTop: 2 }} />
-                    {t("auth.agreeToTerms")}
+                    <TermsAgreementLabel t={t} />
                   </label>
                   {errs.agree && <p className="ferr">{errs.agree}</p>}
                 </>

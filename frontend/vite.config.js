@@ -27,6 +27,16 @@ export default defineConfig({
         target: 'http://localhost:4000',
         changeOrigin: true,
       },
+      // Same reasoning as /for-builders above — Terms/Privacy are static
+      // pages served directly by the backend (see server.js), not SPA routes.
+      '/terms': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
+      '/privacy': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+      },
     },
   },
 })

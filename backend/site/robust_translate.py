@@ -86,10 +86,12 @@ def translate_html_file(filepath, outpath, lang_code, lang_name, api_lang=None):
         soup.html['dir'] = 'rtl'
     if lang_code[:2] in RTL_LANGS:
         font_link = soup.find('link', href=lambda h: h and 'fonts.googleapis.com/css2' in h)
-        if font_link and 'Noto+Sans+Arabic' not in font_link['href']:
+        # Prepend ahead of whatever Latin font the page already loads,
+        # whatever it's named -- hardcoding 'Plus+Jakarta+Sans' silently
+        # no-op'd on any page using a different font.
+        if font_link and 'Noto+Sans+Arabic' not in font_link['href'] and 'family=' in font_link['href']:
             font_link['href'] = font_link['href'].replace(
-                'family=Plus+Jakarta+Sans',
-                'family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Plus+Jakarta+Sans',
+                'family=', 'family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=', 1
             )
 
     # These pages are served from /site/<lang>/<file>.html, so bare relative

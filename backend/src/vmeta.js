@@ -85,6 +85,30 @@ export function levelForCompleted(completed) {
   return [...LEVELS].reverse().find(l => c >= l.min) || LEVELS[0];
 }
 
+// Single source of truth for "how complete is this validator's profile" --
+// used to be a static DB column defaulted to 60 and randomly seeded for
+// test accounts, never actually recalculated from real profile fields.
+// Deliberately no floor (unlike audience.js's builder-facing "match %",
+// which starts at 50 so no one looks bad in an invite list) -- a validator
+// who's filled in nothing should show 0%, since the point here is nudging
+// them to fill things in, not flattering them. Takes a raw `validators`
+// row (any query selecting these columns works, incl. SELECT *).
+export function computeProfileCompletion(v) {
+  let specialties = [];
+  try { specialties = JSON.parse(v.specialties_json || "[]"); } catch { /* ignore */ }
+  const checks = [
+    !!v.avatar,
+    !!(v.bio && v.bio.trim()),
+    !!(v.location || v.city),
+    !!v.occupation,
+    specialties.length > 0,
+    !!v.phone_verified,
+    !!v.payout_vpa,
+    !!(v.linkedin_url || v.portfolio_url),
+  ];
+  return Math.round((checks.filter(Boolean).length / checks.length) * 100);
+}
+
 export const BADGES = [
   { icon: "shield", label: "Identity verified", got: true, desc: "LinkedIn + phone confirmed" },
   { icon: "cpu", label: "AI specialist", got: true, desc: "50+ AI validations at ≥90% accuracy" },
@@ -112,7 +136,7 @@ export const NOTIF_CATS = [
 export const HELP_ARTICLES = [
   { q: "When do my rewards become withdrawable?", a: "Rewards clear to your withdrawable balance once the builder approves your submission — usually within 48 hours. Expert-level validators get 24h payouts.", cat: "Payments" },
   { q: "Why was my application not selected?", a: "Builders pick a limited number of participants per mission based on match score, verification level and past quality. Keep your profile strong to improve your odds.", cat: "Missions" },
-  { q: "How is my Trust Score calculated?", a: "Trust Score blends your approval rate, rating, accuracy, response time and verification level. High-signal, honest feedback raises it fastest.", cat: "Reputation" },
+  { q: "How is my Trust Score calculated?", a: "Trust Score is half your average rating and half your accuracy — the share of your graded responses that get approved rather than rejected. Consistently accurate, well-reviewed work raises it fastest.", cat: "Reputation" },
   { q: "What counts as a low-effort submission?", a: "Vague one-line answers, skipped rubric items, or feedback that ignores the brief. Repeated low-effort work lowers your Trust Score and can pause your account.", cat: "Quality" },
   { q: "How do I withdraw my earnings?", a: "Go to Earnings → Withdraw. Link a UPI ID or bank account, complete KYC once, and request a payout of any amount above ₹200.", cat: "Payments" },
   { q: "Can I work on multiple missions at once?", a: "Yes. There's no cap, but focus on quality — your rating per mission matters more than volume.", cat: "Missions" },
