@@ -62,7 +62,13 @@ function ChipField({ label, values, required, span, dropdown, hideLabel }) {
       {!hideLabel && <label className="faint" style={{ fontSize: 12.5, textTransform: "uppercase", letterSpacing: ".02em" }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>}</label>}
       {values?.length ? (
         <div ref={rowRef} className="row gap-2 wrap" style={{ marginTop: 7, alignItems: "center" }}>
-          {shown.map(v => <span key={v} className="mtag accent">{v}</span>)}
+          {/* Index folded into the key, not just the value -- these are
+              read-only display chips (nothing keyed off identity like
+              per-item state), and a genuine duplicate value in the
+              underlying array (e.g. the same custom "Other" entry saved
+              twice) would otherwise collide as a React key and throw the
+              "two children with the same key" warning. */}
+          {shown.map((v, i) => <span key={`${v}-${i}`} className="mtag accent">{v}</span>)}
           {collapsible && (
             <button type="button" className="backlink row gap-1" style={{ fontSize: 12, alignItems: "center" }} onClick={() => setOpen(o => !o)}>
               {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: values.length }, `Show all (${values.length})`)}

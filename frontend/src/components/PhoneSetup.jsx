@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Icon from "./Icon";
 import { getFirebaseAuth, RecaptchaVerifier, signInWithPhoneNumber } from "../firebaseClient";
 import { COUNTRIES } from "./auth/countries";
@@ -42,6 +42,19 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
   const confirmationRef = useRef(null);
   const recaptchaRef = useRef(null);
   const containerRef = useRef(null);
+  const phoneInputRef = useRef(null);
+  // Set by the phone input's onChange, read back once the DOM actually has
+  // the cleaned value -- restoring the cursor to where it logically belongs
+  // in the new string instead of the default that follows any value change
+  // whose length differs from a simple append (stripping a character mid-
+  // string, e.g. backspacing inside a "+91" a phone's autofill dropped in
+  // here, otherwise snaps the cursor to the end of the field).
+  const pendingCursorRef = useRef(null);
+  useLayoutEffect(() => {
+    if (pendingCursorRef.current == null || !phoneInputRef.current) return;
+    phoneInputRef.current.setSelectionRange(pendingCursorRef.current, pendingCursorRef.current);
+    pendingCursorRef.current = null;
+  }, [phoneInput]);
 
   const reset = () => { setEditing(false); setStep("phone"); setPhoneInput(""); setCode(""); setError(""); setInfo(""); confirmationRef.current = null; };
 
@@ -175,7 +188,12 @@ export default function PhoneSetup({ client, phone, phoneVerified, prefillPhone,
                       than accepted and only caught by sendCode's \D strip
                       on submit. A space stays allowed for grouping, matching
                       the placeholder's "98765 43210" format. */}
-                  <input className="fin" type="tel" placeholder="98765 43210" value={phoneInput} onChange={e => setPhoneInput(e.target.value.replace(/[^\d\s]/g, ""))} required style={{ flex: 1 }} />
+                  <input ref={phoneInputRef} className="fin" type="tel" placeholder="98765 43210" value={phoneInput} onChange={e => {
+                    const raw = e.target.value;
+                    const selStart = e.target.selectionStart ?? raw.length;
+                    pendingCursorRef.current = raw.slice(0, selStart).replace(/[^\d\s]/g, "").length;
+                    setPhoneInput(raw.replace(/[^\d\s]/g, ""));
+                  }} required style={{ flex: 1 }} />
                 </div>
               </div>
               <button className="btn btn-primary" disabled={busy} type="submit">{busy ? t("actions.sending", null, "Sending…") : t("actions.sendCode", null, "Send code")}</button>
