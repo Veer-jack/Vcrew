@@ -132,6 +132,13 @@ export default function EditAccountStep() {
     base.fullName = builder?.name || base.fullName || "";
     base.designation = builder?.designation ?? base.designation ?? "";
     base.email = builder?.email || base.email || "";
+    // Same rule for mobile: once a number is actually verified, that's the
+    // real one -- show it here even if it differs from whatever's still
+    // sitting in the profile_json snapshot (e.g. the user changed the number
+    // inside the verify flow itself instead of the one they originally typed
+    // during onboarding). Unverified, there's no canonical column yet, so
+    // fall back to the declared value as before.
+    base.mobile = builder?.phoneVerified ? builder.phone : (base.mobile ?? "");
     try {
       const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
       if (draft?.d) return { ...draft.d, ...base };

@@ -194,7 +194,11 @@ export default function Settings() {
                         <Icon name="globe" size={12} />{builder.website.replace(/^https?:\/\//, "")}
                       </a>
                     ),
-                    builder?.phoneVerified && <span key="phone">{builder.phone}</span>,
+                    builder?.phoneVerified && (
+                      <span key="phone" className="verif row gap-1" style={{ alignItems: "center" }}>
+                        <Icon name="checkCircle" size={12} />{builder.phone}
+                      </span>
+                    ),
                   ].filter(Boolean).map((part, i) => (
                     <span key={i} className="row gap-1" style={{ alignItems: "center" }}>
                       {i > 0 && <span style={{ color: "var(--text-faint)" }}>|</span>}

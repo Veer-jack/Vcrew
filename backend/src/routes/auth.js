@@ -8,6 +8,22 @@ export const router = Router();
 
 const VALID_LANGS = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
 
+// Used by both PATCH /profile and PATCH /onboarding to decide whether an
+// edited "declared" mobile number is still the same one that's actually
+// verified, so re-saving it doesn't spuriously demote phoneVerified.
+// Digit-only comparison alone isn't enough: the verified column is always
+// full E.164 (from Firebase), but the free-text field's own hint tells
+// Indian users they can type just the 10-digit local number with no country
+// code -- so also treat it as the same number when the verified digits end
+// with the typed digits and the only difference is a short (<=3-digit)
+// country-code prefix.
+function isSamePhone(typed, verified) {
+  const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
+  const a = digitsOnly(typed), b = digitsOnly(verified);
+  if (!a && !b) return true;
+  return a === b || (!!a && b.endsWith(a) && b.length - a.length <= 3);
+}
+
 export function publicBuilder(b) {
   let profile = null;
   if (b.profile_json) {
@@ -193,13 +209,9 @@ router.patch("/profile", authMiddleware, async (req, res) => {
     profileJson = serialized;
 
     // profile.mobile changing to anything that isn't the currently-verified
-    // phone (including being cleared) demotes it back to unverified --
-    // compared digits-only so re-saving the same number in a different
-    // format (spaces, missing +) never spuriously un-verifies it.
-    if ("mobile" in req.body.profile) {
-      const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
-      if (digitsOnly(merged.mobile) !== digitsOnly(req.builder.phone)) phoneVerified = 0;
-    }
+    // phone (including being cleared) demotes it back to unverified -- see
+    // isSamePhone for what still counts as "the same number".
+    if ("mobile" in req.body.profile && !isSamePhone(merged.mobile, req.builder.phone)) phoneVerified = 0;
   }
 
   await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ?, profile_json = ?, phone_verified = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, profileJson, phoneVerified, req.builder.id);
@@ -233,14 +245,11 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
     if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
     profileJson = serialized;
 
-    // Same demote-on-mismatch rule as PATCH /profile -- re-running onboarding
-    // (or resuming a draft) with a different mobile number than whatever's
-    // currently verified shouldn't leave a stale verified badge on a number
-    // the account no longer claims.
-    if ("mobile" in profile) {
-      const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
-      if (digitsOnly(merged.mobile) !== digitsOnly(req.builder.phone)) phoneVerified = 0;
-    }
+    // Same demote-on-mismatch rule as PATCH /profile (see isSamePhone) --
+    // re-running onboarding (or resuming a draft) with a different mobile
+    // number than whatever's currently verified shouldn't leave a stale
+    // verified badge on a number the account no longer claims.
+    if ("mobile" in profile && !isSamePhone(merged.mobile, req.builder.phone)) phoneVerified = 0;
   }
 
   await db.prepare(`
