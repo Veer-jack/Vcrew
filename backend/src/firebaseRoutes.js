@@ -36,6 +36,22 @@ export function buildFirebaseLoginRouter({ table, createSession, publicUser, use
   return router;
 }
 
+// Lets the signup form check for an existing verified account before the
+// browser spends an SMS on a number that's already taken -- avoids sending
+// (and the user waiting on) an OTP just to find out at the end they should
+// have signed in instead.
+// POST / { phone } -> { exists }
+export function buildPhoneExistsRouter({ table }) {
+  const router = Router();
+  router.post("/", async (req, res) => {
+    const phone = String(req.body?.phone || "").trim();
+    if (!phone) return res.status(400).json({ error: "Phone number is required" });
+    const existing = await db.prepare(`SELECT id FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
+    res.json({ exists: !!existing });
+  });
+  return router;
+}
+
 // Add / remove a verified phone number on the logged-in account ("phone setup").
 // POST /link { idToken }, POST /remove
 export function buildPhoneLinkRouter({ table, authMiddleware, userKey }) {

@@ -96,6 +96,10 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   const [touched, setTouched] = useState({});
   const [error, setError] = useState("");
   const [phoneErr, setPhoneErr] = useState("");
+  // Set to "email" | "phone" when a signup hits an already-registered
+  // account, so the banner can offer a Sign in button instead of just
+  // stating the problem -- see submitEmail's catch and sendOtp below.
+  const [existsPrompt, setExistsPrompt] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const [ccIdx, setCcIdx] = useState(() => COUNTRIES.findIndex((c) => c[1] === "+91"));
@@ -150,6 +154,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
     e.preventDefault();
     setTouched({ name: true, email: true, password: true, agree: true });
     setError("");
+    setExistsPrompt(null);
     if (!emailFormValid) return;
     setBusy(true);
     try {
@@ -160,6 +165,11 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       }
       goAfterAuth();
     } catch (err) {
+      if (err.code === "EMAIL_EXISTS") {
+        setExistsPrompt("email");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
       // This is the backend REST signup/login path, not Firebase — the
       // backend already returns clean, specific copy ("An account with that
       // email already exists"), so trust err.message here instead of
@@ -182,6 +192,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
     setTouched((t) => ({ ...t, name: true, agree: true }));
     setError("");
     setPhoneErr("");
+    setExistsPrompt(null);
     if (!phoneOk) {
       setPhoneErr(phoneDigits.length === 0 ? t("errors.required") : t("auth.enterValidPhoneNumber", null, "Please enter a valid mobile number"));
       return;
@@ -189,10 +200,23 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
     if (mode === "signup" && !(name.trim() && agree)) return;
     setBusy(true);
     try {
+      const fullPhone = `${cc}${phoneDigits}`;
+      // Check for an existing verified account before spending an OTP on a
+      // number that already has one — a transient failure here shouldn't
+      // block signup, so fail open into the normal send-code path below.
+      if (mode === "signup" && adapter.phoneExists) {
+        const { exists } = await adapter.phoneExists(fullPhone).catch(() => ({ exists: false }));
+        if (exists) {
+          setExistsPrompt("phone");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          setBusy(false);
+          return;
+        }
+      }
       const auth = await getFirebaseAuth(adapter.firebaseConfig);
       if (!auth) throw new Error(t("auth.phoneSignInNotConfigured", null, "Phone sign-in isn't configured on this server yet"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
-      confirmationRef.current = await signInWithPhoneNumber(auth, `${cc}${phoneDigits}`, recaptchaRef.current);
+      confirmationRef.current = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
       setOtpSent(true);
       setResendIn(30);
     } catch (err) {
@@ -315,9 +339,9 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       <div className="asplit-form-col">
         <div className="asplit-form rise">
           <div className="asplit-tabs">
-            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); }}>{t("auth.signIn")}</button>
+            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); setExistsPrompt(null); }}>{t("auth.signIn")}</button>
             <button type="button" className={mode === "signup" ? "on" : ""}
-              onClick={() => { setMode("signup"); setError(""); }}>
+              onClick={() => { setMode("signup"); setError(""); setExistsPrompt(null); }}>
               {t("auth.signUp")}
             </button>
           </div>
@@ -325,7 +349,17 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
           <h1 style={{ fontSize: 23, margin: "0 0 4px" }}>{mode === "signin" ? t("auth.welcomeBack") : copy.signupTitle}</h1>
           <p className="muted" style={{ fontSize: 13.5, margin: "0 0 20px" }}>{mode === "signin" ? copy.signinSub : copy.signupSub}</p>
 
-          {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
+          {existsPrompt ? (
+            <div className="err-banner" style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span>{existsPrompt === "email"
+                ? t("auth.errEmailInUse", null, "An account with this email already exists.")
+                : t("auth.errPhoneInUse", null, "An account with this phone number already exists.")}</span>
+              <button type="button" className="btn btn-ghost" style={{ flexShrink: 0 }}
+                onClick={() => { setExistsPrompt(null); setError(""); setOtpSent(false); setMode("signin"); }}>
+                {t("auth.signIn")}
+              </button>
+            </div>
+          ) : error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
 
           {activeProviders.length > 0 && (
             <div className="sso-grid">
@@ -355,10 +389,10 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
           {smsReady ? (
             <div className="method-tabs">
-              <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); }}>
+              <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); setExistsPrompt(null); }}>
                 <Icon name="mail" size={15} /> {t("auth.emailTab")}
               </button>
-              <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); }}>
+              <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); setExistsPrompt(null); }}>
                 <Icon name="phone" size={15} /> {t("auth.phoneTab")}
               </button>
             </div>

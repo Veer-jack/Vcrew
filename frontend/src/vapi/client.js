@@ -65,6 +65,7 @@ export const vapi = {
   oauthProviders: () => request("/auth/oauth/providers"),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
   phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
+  phoneExists: (phone) => request("/auth/phone-exists", { method: "POST", body: { phone } }),
   phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
   phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
   stepUpVerify: (idToken) => request("/earnings/stepup/verify", { method: "POST", body: { idToken } }),

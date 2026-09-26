@@ -85,7 +85,7 @@ router.post("/signup", async (req, res) => {
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM validators WHERE email = ?`).get(normalizedEmail);
-  if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+  if (existing) return res.status(400).json({ error: "An account with that email already exists", code: "EMAIL_EXISTS" });
 
   const specialties = expertise && String(expertise).trim() ? [String(expertise).trim()] : [];
   const baseHandle = "@" + String(name).trim().toLowerCase().replace(/[^a-z0-9]+/g, "");

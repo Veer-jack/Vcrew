@@ -55,7 +55,7 @@ import { router as vMessagesRouter } from "./routes/vmessages.js";
 import { HELP_ARTICLES as V_HELP_ARTICLES } from "./vmeta.js";
 
 import { authMiddleware, validatorAuthMiddleware, createSession, createValidatorSession, hashPassword } from "./auth.js";
-import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
+import { buildFirebaseConfigRouter, buildFirebaseLoginRouter, buildPhoneExistsRouter, buildPhoneLinkRouter, buildStepUpRouter } from "./firebaseRoutes.js";
 
 import { rateLimit } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
@@ -214,6 +214,7 @@ app.use("/api/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
     return builder;
   },
 }));
+app.use("/api/auth/phone-exists", phoneLimiter, buildPhoneExistsRouter({ table: "builders" }));
 app.use("/api/auth/phone", buildPhoneLinkRouter({ table: "builders", authMiddleware, userKey: "builder" }));
 app.use("/api/wallet/stepup", buildStepUpRouter({ table: "builders", purpose: "topup", authMiddleware, userKey: "builder" }));
 app.use("/api/firebase", buildFirebaseConfigRouter());
@@ -251,6 +252,7 @@ app.use("/api/v/auth/phone-login", phoneLimiter, buildFirebaseLoginRouter({
     return validator;
   },
 }));
+app.use("/api/v/auth/phone-exists", phoneLimiter, buildPhoneExistsRouter({ table: "validators" }));
 app.use("/api/v/auth/phone", buildPhoneLinkRouter({ table: "validators", authMiddleware: validatorAuthMiddleware, userKey: "validator" }));
 app.use("/api/v/earnings/stepup", buildStepUpRouter({ table: "validators", purpose: "withdraw", authMiddleware: validatorAuthMiddleware, userKey: "validator" }));
 app.use("/api/v/meta", vMetaRouter);

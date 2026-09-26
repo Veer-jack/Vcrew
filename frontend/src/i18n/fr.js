@@ -31,6 +31,7 @@ const fr = {
     signingIn: "Connexion en cours…",
     errCodeExpired: "Ce code a expiré. Veuillez en demander un nouveau.",
     errEmailInUse: "Un compte existe déjà avec cet e-mail.",
+    errPhoneInUse: "Un compte existe déjà avec ce numéro de téléphone.",
     errInvalidCredentials: "E-mail ou mot de passe incorrect.",
     errInvalidPhone: "Veuillez saisir un numéro de mobile valide.",
     errRegionNotEnabled: "La connexion par SMS n'est pas encore disponible dans cette région. Essayez une autre méthode de connexion.",

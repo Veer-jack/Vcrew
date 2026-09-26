@@ -39,7 +39,7 @@ router.post("/signup", async (req, res) => {
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
-  if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+  if (existing) return res.status(400).json({ error: "An account with that email already exists", code: "EMAIL_EXISTS" });
 
   const personaKey = PERSONA_LABELS[persona] ? persona : null;
   const dbRole = personaKey ? PERSONA_LABELS[personaKey] : "builder";

@@ -31,6 +31,7 @@ const zh = {
     signingIn: "正在登录…",
     errCodeExpired: "此验证码已过期，请重新获取。",
     errEmailInUse: "该邮箱已被注册。",
+    errPhoneInUse: "该手机号码已被注册。",
     errInvalidCredentials: "邮箱或密码不正确。",
     errInvalidPhone: "请输入有效的手机号码。",
     errRegionNotEnabled: "该地区暂不支持短信登录，请尝试其他登录方式。",

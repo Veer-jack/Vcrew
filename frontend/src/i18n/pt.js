@@ -31,6 +31,7 @@ const pt = {
     signingIn: "Entrando…",
     errCodeExpired: "Este código expirou. Solicite um novo.",
     errEmailInUse: "Já existe uma conta com este e-mail.",
+    errPhoneInUse: "Já existe uma conta com este número de telefone.",
     errInvalidCredentials: "E-mail ou senha incorretos.",
     errInvalidPhone: "Insira um número de celular válido.",
     errRegionNotEnabled: "O login por SMS ainda não está disponível nesta região. Tente outro método de login.",

@@ -31,6 +31,7 @@ const en = {
     signingIn: "Signing in…",
     errCodeExpired: "This code has expired. Please request a new one.",
     errEmailInUse: "An account with this email already exists.",
+    errPhoneInUse: "An account with this phone number already exists.",
     errInvalidCredentials: "Incorrect email or password.",
     errInvalidPhone: "Please enter a valid mobile number.",
     errRegionNotEnabled: "SMS sign-in isn't available for this region yet. Please try a different sign-in method.",

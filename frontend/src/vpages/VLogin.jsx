@@ -37,6 +37,7 @@ export default function VLogin() {
     oauthBasePath: "/api/v/auth/oauth",
     firebaseConfig: () => vapi.firebaseConfig(),
     phoneLoginVerify: (idToken) => vapi.phoneLoginVerify(idToken),
+    phoneExists: (phone) => vapi.phoneExists(phone),
     login: (email, password) => vapi.login(email, password).then(({ token, validator }) => { setVToken(token); setValidator(validator); }),
     signup: ({ name, org, email, password }) => vapi.signup({ name, expertise: org, email, password, lang }).then(({ token, validator }) => { setVToken(token); setValidator(validator); }),
     forgotPassword: (email) => vapi.forgotPassword(email),

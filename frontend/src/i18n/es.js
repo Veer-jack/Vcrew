@@ -31,6 +31,7 @@ const es = {
     signingIn: "Iniciando sesión…",
     errCodeExpired: "Este código ha caducado. Solicita uno nuevo.",
     errEmailInUse: "Ya existe una cuenta con este correo electrónico.",
+    errPhoneInUse: "Ya existe una cuenta con este número de teléfono.",
     errInvalidCredentials: "Correo electrónico o contraseña incorrectos.",
     errInvalidPhone: "Introduce un número de móvil válido.",
     errRegionNotEnabled: "El inicio de sesión por SMS aún no está disponible en esta región. Prueba otro método de inicio de sesión.",

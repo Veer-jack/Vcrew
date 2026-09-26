@@ -51,6 +51,7 @@ export default function Login() {
     oauthBasePath: "/api/auth/oauth",
     firebaseConfig: () => api.firebaseConfig(),
     phoneLoginVerify: (idToken) => api.phoneLoginVerify(idToken),
+    phoneExists: (phone) => api.phoneExists(phone),
     login: (email, password) => api.login(email, password).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
     signup: ({ name, org, email, password }) => api.signup({ name, org, email, password, lang }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
     forgotPassword: (email) => api.forgotPassword(email),
