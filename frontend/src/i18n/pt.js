@@ -934,6 +934,7 @@ const pt = {
     },
   },
   org: {
+    audienceIssue: "Por favor selecione pelo menos um público-alvo ou faixa etária.",
     rep: {
       step: "Etapa 1 · Representante",
       title: "Quem representa a organização?",

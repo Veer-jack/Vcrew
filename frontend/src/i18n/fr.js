@@ -934,6 +934,7 @@ const fr = {
     },
   },
   org: {
+    audienceIssue: "Veuillez sélectionner au moins un public cible ou une tranche d'âge.",
     rep: {
       step: "Étape 1 · Représentant",
       title: "Qui représente l'organisation ?",
