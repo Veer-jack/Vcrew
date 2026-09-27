@@ -49,6 +49,8 @@ const pt = {
     password: "Senha",
     confirmPassword: "Confirme sua senha",
     fullName: "Nome completo",
+    namePlaceholder: "Digite seu nome",
+    emailPlaceholder: "Digite seu endereço de e-mail",
     forgotPassword: "Esqueceu sua senha?",
     resetPassword: "Redefinir sua senha",
     sendResetLink: "Enviar link de redefinição",

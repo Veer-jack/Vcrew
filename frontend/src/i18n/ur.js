@@ -49,6 +49,8 @@ const ur = {
     password: "پاس ورڈ",
     confirmPassword: "پاس ورڈ کی تصدیق کریں۔",
     fullName: "پورا نام",
+    namePlaceholder: "اپنا نام درج کریں",
+    emailPlaceholder: "اپنا ای میل پتہ درج کریں",
     forgotPassword: "پاس ورڈ بھول گئے؟",
     resetPassword: "اپنا پاس ورڈ دوبارہ ترتیب دیں۔",
     sendResetLink: "ری سیٹ لنک بھیجیں۔",

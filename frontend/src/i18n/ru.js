@@ -49,6 +49,8 @@ const ru = {
     password: "Пароль",
     confirmPassword: "Подтвердите пароль",
     fullName: "Полное имя",
+    namePlaceholder: "Введите ваше имя",
+    emailPlaceholder: "Введите ваш адрес электронной почты",
     forgotPassword: "Забыли пароль?",
     resetPassword: "Сбросить пароль",
     sendResetLink: "Отправить ссылку для сброса",

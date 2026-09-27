@@ -49,6 +49,8 @@ const hi = {
     password: "पासवर्ड",
     confirmPassword: "पासवर्ड की पुष्टि कीजिये",
     fullName: "पूरा नाम",
+    namePlaceholder: "अपना नाम दर्ज करें",
+    emailPlaceholder: "अपना ईमेल पता दर्ज करें",
     forgotPassword: "पासवर्ड भूल गए?",
     resetPassword: "अपना पासवर्ड रीसेट करें",
     sendResetLink: "रीसेट लिंक भेजें",

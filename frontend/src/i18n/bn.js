@@ -49,6 +49,8 @@ const bn = {
     password: "পাসওয়ার্ড",
     confirmPassword: "পাসওয়ার্ড নিশ্চিত করুন",
     fullName: "পুরো নাম",
+    namePlaceholder: "আপনার নাম লিখুন",
+    emailPlaceholder: "আপনার ইমেইল ঠিকানা লিখুন",
     forgotPassword: "পাসওয়ার্ড ভুলে গেছেন?",
     resetPassword: "আপনার পাসওয়ার্ড রিসেট করুন",
     sendResetLink: "রিসেট লিঙ্ক পাঠান",

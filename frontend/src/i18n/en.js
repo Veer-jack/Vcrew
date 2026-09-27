@@ -49,6 +49,8 @@ const en = {
     password: "Password",
     confirmPassword: "Confirm password",
     fullName: "Full name",
+    namePlaceholder: "Enter your name",
+    emailPlaceholder: "Enter your email address",
     forgotPassword: "Forgot password?",
     resetPassword: "Reset your password",
     sendResetLink: "Send reset link",

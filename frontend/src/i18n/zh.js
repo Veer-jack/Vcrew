@@ -49,6 +49,8 @@ const zh = {
     password: "密码",
     confirmPassword: "确认密码",
     fullName: "姓名",
+    namePlaceholder: "请输入您的姓名",
+    emailPlaceholder: "请输入您的电子邮件地址",
     forgotPassword: "忘记密码？",
     resetPassword: "重置您的密码",
     sendResetLink: "发送重置链接",

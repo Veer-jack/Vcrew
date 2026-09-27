@@ -335,7 +335,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <form onSubmit={submitForgot} className="col gap-4">
             <div className="fld"><label>{t("auth.email")}</label>
-              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" autoFocus required />
+              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t("auth.emailPlaceholder", null, "Enter your email address")} autoFocus required />
             </div>
             <Btn type="submit" variant="primary" size="lg" block disabled={forgotBusy}>{forgotBusy ? t("auth.sending") : t("auth.sendResetLink")}</Btn>
           </form>
@@ -474,7 +474,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 <>
                   <div className="fld">
                     <label>{t("auth.fullName")}</label>
-                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.fullName")} autoFocus />
+                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.namePlaceholder", null, "Enter your name")} autoFocus />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 
@@ -482,7 +482,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
               )}
               <div className="fld">
                 <label>{t("auth.email", null, "Email")}</label>
-                <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@example.com" autoFocus={mode === "signin"} />
+                <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder={t("auth.emailPlaceholder", null, "Enter your email address")} autoFocus={mode === "signin"} />
                 {errs.email && <p className="ferr">{errs.email}</p>}
               </div>
               <div className="fld">
@@ -521,7 +521,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 <>
                   <div className="fld">
                     <label>{t("auth.fullName")}</label>
-                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.fullName")} />
+                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.namePlaceholder", null, "Enter your name")} />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 

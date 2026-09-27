@@ -49,6 +49,8 @@ const es = {
     password: "Contraseña",
     confirmPassword: "Confirmar Contraseña",
     fullName: "nombre completo",
+    namePlaceholder: "Ingresa tu nombre",
+    emailPlaceholder: "Ingresa tu dirección de correo electrónico",
     forgotPassword: "¿Has olvidado tu contraseña?",
     resetPassword: "Restablece tu contraseña",
     sendResetLink: "Enviar enlace de reinicio",

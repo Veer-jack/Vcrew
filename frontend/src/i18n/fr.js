@@ -49,6 +49,8 @@ const fr = {
     password: "Mot de passe",
     confirmPassword: "Confirmez le mot de passe",
     fullName: "Nom et prénom",
+    namePlaceholder: "Entrez votre nom",
+    emailPlaceholder: "Entrez votre adresse e-mail",
     forgotPassword: "Mot de passe oublié ?",
     resetPassword: "Réinitialisez votre mot de passe",
     sendResetLink: "Envoyer le lien de réinitialisation",

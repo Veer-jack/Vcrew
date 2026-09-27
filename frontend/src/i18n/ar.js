@@ -49,6 +49,8 @@ const ar = {
     password: "كلمة المرور",
     confirmPassword: "تأكيد كلمة المرور",
     fullName: "الاسم الكامل",
+    namePlaceholder: "أدخل اسمك",
+    emailPlaceholder: "أدخل عنوان بريدك الإلكتروني",
     forgotPassword: "هل نسيت كلمة السر؟",
     resetPassword: "إعادة تعيين كلمة المرور الخاصة بك",
     sendResetLink: "إرسال رابط إعادة التعيين",
