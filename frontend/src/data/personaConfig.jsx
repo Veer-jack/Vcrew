@@ -548,7 +548,7 @@ function ResResearch({ d, set, showErrors, issue }) {
       {/* "Other" itself skipped here once picked -- the inline "please
           specify" input right below already represents it; showing it as
           its own chip too, with nothing to say yet, just duplicated that. */}
-      <ChipsDropdown options={areaOptions} value={selectedAreas} onChange={(v) => set("areas", v)} placeholder={t("onboarding.researcher.research.areaPlaceholder", null, "Select research area(s)")} hideChips={[otherAreaLabel]} />
+      <ChipsDropdown options={areaOptions} value={selectedAreas} onChange={(v) => set("areas", v)} placeholder={t("onboarding.researcher.research.areaPlaceholder", null, "Select research area(s)")} hideChips={[otherAreaLabel]} closeOnPick={[otherAreaLabel]} />
       {customAreas.length > 0 && (
         <div style={{ marginTop: 12 }}>
           <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>

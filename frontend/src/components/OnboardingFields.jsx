@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
@@ -137,14 +137,47 @@ export function Chips({ options, value, onChange, multi = true }) {
 // animation, so a later sibling would paint over it regardless of z-index.
 // Stays open across multiple picks (closes only on an outside click) so
 // picking several options doesn't mean reopening the menu each time.
-export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [] }) {
+export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [] }) {
   const { t } = useTranslation();
   const sel = value || [];
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const btnRef = useRef(null);
 
-  const toggle = (o) => onChange(sel.includes(o) ? sel.filter(x => x !== o) : [...sel, o]);
+  const reposition = () => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+  };
+  // `pos` was only ever computed once, at the moment of opening -- fine
+  // while nothing on the page moves, but this field's own chips render
+  // right below the trigger, so picking something reflows the page under
+  // an already-open menu (and the same happens on any ordinary scroll
+  // while it's open) and the menu stayed wherever it was first drawn,
+  // no longer anywhere near the trigger it belongs to. Recomputes on every
+  // scroll/resize while open instead of once. Capture phase on scroll --
+  // this can be scrolling inside the wizard's own content pane, not just
+  // window-level, and only the capture phase sees a scroll on an ancestor.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const toggle = (o) => {
+    const adding = !sel.includes(o);
+    onChange(adding ? [...sel, o] : sel.filter(x => x !== o));
+    // e.g. "Other" -- picking it opens a text input the menu itself would
+    // otherwise sit on top of (it stays open across ordinary picks so
+    // several can be chosen in one go, but there's nothing left to pick
+    // *for* here until that input is dealt with).
+    if (adding && closeOnPick.includes(o)) setOpen(false);
+  };
   // Only ever removes one of this dropdown's own options -- a caller
   // showing additional, non-preset entries (e.g. a typed-in "Other" value)
   // renders and removes those itself, same as Chips leaves that to callers.
@@ -160,10 +193,7 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
         ref={btnRef}
         type="button"
         onClick={() => {
-          if (!open) {
-            const r = btnRef.current.getBoundingClientRect();
-            setPos({ top: r.bottom + 6, left: r.left, width: r.width });
-          }
+          if (!open) reposition();
           setOpen(o => !o);
         }}
         className="fin"
