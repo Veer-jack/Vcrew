@@ -545,7 +545,10 @@ function ResResearch({ d, set, showErrors, issue }) {
       </div>
       <FSection label={t("onboarding.researcher.research.areaSection", null, "Research area")} count={selectedAreas.length ? t("onboarding.selectedCount", { count: selectedAreas.length }, `${selectedAreas.length} selected`) : null} required
         invalid={showErrors && selectedAreas.filter(a => a !== "Other").length === 0} dataField="areas" issue={issue} />
-      <ChipsDropdown options={areaOptions} value={selectedAreas} onChange={(v) => set("areas", v)} placeholder={t("onboarding.researcher.research.areaPlaceholder", null, "Select research area(s)")} />
+      {/* "Other" itself skipped here once picked -- the inline "please
+          specify" input right below already represents it; showing it as
+          its own chip too, with nothing to say yet, just duplicated that. */}
+      <ChipsDropdown options={areaOptions} value={selectedAreas} onChange={(v) => set("areas", v)} placeholder={t("onboarding.researcher.research.areaPlaceholder", null, "Select research area(s)")} hideChips={[otherAreaLabel]} />
       {customAreas.length > 0 && (
         <div style={{ marginTop: 12 }}>
           <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
@@ -565,7 +568,7 @@ function ResResearch({ d, set, showErrors, issue }) {
         <div style={{ marginTop: 14, maxWidth: 420 }}>
           <Field label={t("onboarding.researcher.research.areaOtherLabel", null, "Please specify")} invalid={showErrors && !areaInput.trim() && customAreas.length === 0}>
             <div className="row gap-2">
-              <TextInput value={areaInput} onChange={setAreaInput} placeholder={t("onboarding.researcher.research.areaOtherPlaceholder", null, "e.g. Urban planning")} />
+              <TextInput value={areaInput} onChange={setAreaInput} placeholder={t("onboarding.researcher.research.areaOtherPlaceholder", null, "e.g. Urban planning")} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveArea(); } }} />
               <button type="button" className="btn btn-primary" disabled={!areaInput.trim()} onClick={saveArea}>{t("actions.save", null, "Save")}</button>
               <button type="button" className="btn btn-ghost" onClick={cancelArea}>{t("actions.cancel", null, "Cancel")}</button>
             </div>

@@ -53,11 +53,11 @@ export function SelectAllToggle({ options, value, onChange }) {
   );
 }
 
-export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength }) {
+export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength, onKeyDown }) {
   if (type === "password") {
     return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
   }
-  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} />;
+  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} onKeyDown={onKeyDown} />;
 }
 
 export function Textarea({ value, onChange, placeholder }) {
@@ -137,7 +137,7 @@ export function Chips({ options, value, onChange, multi = true }) {
 // animation, so a later sibling would paint over it regardless of z-index.
 // Stays open across multiple picks (closes only on an outside click) so
 // picking several options doesn't mean reopening the menu each time.
-export function ChipsDropdown({ options, value, onChange, placeholder }) {
+export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [] }) {
   const { t } = useTranslation();
   const sel = value || [];
   const [open, setOpen] = useState(false);
@@ -148,7 +148,11 @@ export function ChipsDropdown({ options, value, onChange, placeholder }) {
   // Only ever removes one of this dropdown's own options -- a caller
   // showing additional, non-preset entries (e.g. a typed-in "Other" value)
   // renders and removes those itself, same as Chips leaves that to callers.
-  const chipValues = sel.filter(o => options.includes(o));
+  // hideChips additionally skips a picked option here even though it's one
+  // of this dropdown's own -- for a trigger value (e.g. "Other") a caller
+  // already represents with its own follow-up UI (the "please specify"
+  // input), so it isn't shown twice.
+  const chipValues = sel.filter(o => options.includes(o) && !hideChips.includes(o));
 
   return (
     <div>
