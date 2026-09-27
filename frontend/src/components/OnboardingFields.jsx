@@ -314,10 +314,16 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
           }}>
             {/* Its own row, outside the scrolling list below -- otherwise
                 typing to filter would scroll the search box itself out of
-                view along with whatever it just filtered out. */}
-            <div style={{ padding: 8, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-              <input ref={searchRef} className="fin" value={search} onChange={e => setSearch(e.target.value)} placeholder={t("actions.search", null, "Search")} style={{ width: "100%" }} />
-            </div>
+                view along with whatever it just filtered out. Skipped
+                entirely for single-select -- every such field in this app
+                is a short, fixed list (e.g. Sample size's 7 ranges), and a
+                search box over something that short to pick just one from
+                is pure clutter, not a shortcut. */}
+            {multi && (
+              <div style={{ padding: 8, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+                <input ref={searchRef} className="fin" value={search} onChange={e => setSearch(e.target.value)} placeholder={t("actions.search", null, "Search")} style={{ width: "100%" }} />
+              </div>
+            )}
             <div style={{ overflowY: "auto", padding: 6, flex: 1, minHeight: 0 }}>
               {/* Pinned above the (possibly search-filtered) list below, not
                   part of it -- it always acts on every real option regardless
