@@ -895,7 +895,6 @@ const ru = {
       sub: "Это помогает нам подтвердить вас как исследователя.",
       institutionLabel: "Университет / учреждение",
       departmentLabel: "Факультет",
-      designationPlaceholder: "Выберите должность",
       qualificationLabel: "Высшая квалификация",
       qualificationPlaceholder: "Выберите квалификацию",
     },

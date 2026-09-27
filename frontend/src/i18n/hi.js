@@ -895,7 +895,6 @@ const hi = {
       sub: "इससे हमें आपको एक शोधकर्ता के रूप में सत्यापित करने में मदद मिलती है।",
       institutionLabel: "विश्वविद्यालय / संस्थान",
       departmentLabel: "विभाग",
-      designationPlaceholder: "पदनाम चुनें",
       qualificationLabel: "उच्चतम योग्यता",
       qualificationPlaceholder: "योग्यता चुनें",
     },

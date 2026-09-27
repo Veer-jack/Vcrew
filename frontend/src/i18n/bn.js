@@ -895,7 +895,6 @@ const bn = {
       sub: "এটি আমাদের আপনাকে একজন গবেষক হিসেবে যাচাই করতে সাহায্য করে।",
       institutionLabel: "বিশ্ববিদ্যালয় / প্রতিষ্ঠান",
       departmentLabel: "বিভাগ",
-      designationPlaceholder: "পদবি নির্বাচন করুন",
       qualificationLabel: "সর্বোচ্চ যোগ্যতা",
       qualificationPlaceholder: "যোগ্যতা নির্বাচন করুন",
     },

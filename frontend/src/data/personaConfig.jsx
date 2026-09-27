@@ -424,8 +424,10 @@ function ResAcademic({ d, set }) {
       <StepHead step={t("onboarding.researcher.academic.step", null, "Step 2 · Academic")} title={t("onboarding.researcher.academic.title", null, "Your academic background")} sub={t("onboarding.researcher.academic.sub", null, "This helps us verify you as a researcher.")} />
       <div className="fgrid c2">
         <Field label={t("onboarding.researcher.academic.institutionLabel", null, "University / institution")} span><TextInput value={d.institution} onChange={(v) => set("institution", v)} placeholder="Indian Institute of Science" /></Field>
-        <Field label={t("onboarding.researcher.academic.departmentLabel", null, "Department")} optional><TextInput value={d.department} onChange={(v) => set("department", v)} placeholder="Management Studies" /></Field>
-        <Field label={t("onboarding.researcher.personal.roleLabel", null, "Designation")}><SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={RES_DESIGNATIONS(t)} placeholder={t("onboarding.researcher.academic.designationPlaceholder", null, "Select designation")} /></Field>
+        {/* Designation lives on Step 1 (personal) now, same as every other
+            persona's role/job-title field -- this step used to ask for it a
+            second time, right after already asking on the previous step. */}
+        <Field label={t("onboarding.researcher.academic.departmentLabel", null, "Department")} optional span><TextInput value={d.department} onChange={(v) => set("department", v)} placeholder="Management Studies" /></Field>
         <Field label={t("onboarding.researcher.academic.qualificationLabel", null, "Highest qualification")} span><SelectInput options={QUALIFICATIONS(t)} value={d.qualification} onChange={(v) => set("qualification", v)} placeholder={t("onboarding.researcher.academic.qualificationPlaceholder", null, "Select qualification")} /></Field>
       </div>
     </div>
@@ -568,8 +570,12 @@ function ResEthics({ d, set, showErrors }) {
 }
 function resValid(key, d) {
   switch (key) {
-    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile);
-    case "academic": return !!(d.institution && d.institution.trim()) && !!d.designation && !!d.qualification;
+    // Designation moved here from "academic" -- it's the same field
+    // PersonalFields already showed a required `*` on for this step, but
+    // this check was missing, so Continue never actually enforced it until
+    // the academic step's own (now-removed) duplicate field caught it.
+    case "personal": return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
+    case "academic": return !!(d.institution && d.institution.trim()) && !!d.qualification;
     // "Other" alone (with no real area chosen and nothing saved into it yet)
     // is a bare trigger, not a real selection -- same phantom-count guard as
     // CreateMissionWizard's own audience filters use for the same marker.

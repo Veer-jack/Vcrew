@@ -895,7 +895,6 @@ const ur = {
       sub: "اس سے ہمیں آپ کو ایک محقق کے طور پر تصدیق کرنے میں مدد ملتی ہے۔",
       institutionLabel: "یونیورسٹی / ادارہ",
       departmentLabel: "شعبہ",
-      designationPlaceholder: "عہدہ منتخب کریں",
       qualificationLabel: "اعلیٰ ترین قابلیت",
       qualificationPlaceholder: "قابلیت منتخب کریں",
     },

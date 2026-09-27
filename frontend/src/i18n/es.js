@@ -895,7 +895,6 @@ const es = {
       sub: "Esto nos ayuda a verificarte como investigador.",
       institutionLabel: "Universidad / institución",
       departmentLabel: "Departamento",
-      designationPlaceholder: "Selecciona el cargo",
       qualificationLabel: "Nivel de estudios más alto",
       qualificationPlaceholder: "Selecciona la titulación",
     },

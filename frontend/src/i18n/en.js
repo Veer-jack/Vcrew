@@ -916,7 +916,6 @@ const en = {
       sub: "This helps us verify you as a researcher.",
       institutionLabel: "University / institution",
       departmentLabel: "Department",
-      designationPlaceholder: "Select designation",
       qualificationLabel: "Highest qualification",
       qualificationPlaceholder: "Select qualification",
     },

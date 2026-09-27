@@ -895,7 +895,6 @@ const zh = {
       sub: "这有助于我们验证您的研究者身份。",
       institutionLabel: "大学 / 机构",
       departmentLabel: "院系",
-      designationPlaceholder: "选择职位",
       qualificationLabel: "最高学历",
       qualificationPlaceholder: "选择学历",
     },

@@ -895,7 +895,6 @@ const fr = {
       sub: "Cela nous aide à vous vérifier en tant que chercheur.",
       institutionLabel: "Université / institution",
       departmentLabel: "Département",
-      designationPlaceholder: "Sélectionnez une fonction",
       qualificationLabel: "Diplôme le plus élevé",
       qualificationPlaceholder: "Sélectionner un diplôme",
     },

@@ -895,7 +895,6 @@ const ar = {
       sub: "هذا يساعدنا على التحقق منك كباحث.",
       institutionLabel: "الجامعة / المؤسسة",
       departmentLabel: "القسم",
-      designationPlaceholder: "اختر المسمى الوظيفي",
       qualificationLabel: "أعلى مؤهل",
       qualificationPlaceholder: "اختر المؤهل",
     },

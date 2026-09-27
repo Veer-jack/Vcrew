@@ -895,7 +895,6 @@ const pt = {
       sub: "Isso nos ajuda a verificar você como pesquisador.",
       institutionLabel: "Universidade / instituição",
       departmentLabel: "Departamento",
-      designationPlaceholder: "Selecione o cargo",
       qualificationLabel: "Maior qualificação",
       qualificationPlaceholder: "Selecione a qualificação",
     },
