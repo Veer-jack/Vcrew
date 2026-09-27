@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
@@ -8,17 +9,30 @@ import { isValidMobile } from "../data/onboarding";
 
 const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
 
-export function Field({ label, optional, span, hint, invalid, action, children }) {
+export function Field({ label, optional, span, hint, invalid, action, children, dataField, issue }) {
   return (
-    <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`}>
+    <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`} data-field={dataField}>
       <div className="row between" style={{ alignItems: "center" }}>
         <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
         {action}
       </div>
       {children}
+      <FieldIssue id={dataField} issue={issue} />
       {hint && <p className="fhint">{hint}</p>}
     </div>
   );
+}
+
+// Placed inline wherever a step wants the "please fill this in" message to
+// show once the wizard has identified the single field that's actually
+// missing (see OnboardingWizard's goNext / EditAccountStep's handleSave) --
+// renders nothing unless this field is specifically the one currently
+// reported (a boolean `invalid` can be true for every empty required field
+// at once; `issue` only ever names one, so its message isn't repeated on
+// every field that happens to also be empty).
+export function FieldIssue({ id, issue }) {
+  if (!issue || !id || issue.id !== id) return null;
+  return <p className="ferr">{issue.message}</p>;
 }
 
 // "Select all"/"Clear all" for a plain Chips multi-select -- Country
@@ -60,15 +74,18 @@ export function SelectInput({ value, onChange, options, placeholder }) {
   );
 }
 
-export function FSection({ label, count, required, action }) {
+export function FSection({ label, count, required, action, invalid, dataField, issue }) {
   return (
-    <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }}>
-      <div className="eyebrow" style={{ fontSize: 12 }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
-      <div className="row gap-3" style={{ alignItems: "center" }}>
-        {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
-        {action}
+    <>
+      <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }} data-field={dataField}>
+        <div className="eyebrow" style={{ fontSize: 12, color: invalid ? "var(--danger)" : undefined }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
+        <div className="row gap-3" style={{ alignItems: "center" }}>
+          {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+          {action}
+        </div>
       </div>
-    </div>
+      <FieldIssue id={dataField} issue={issue} />
+    </>
   );
 }
 
@@ -104,6 +121,90 @@ export function Chips({ options, value, onChange, multi = true }) {
           {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: options.length }, `Show all (${options.length})`)}
           <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
         </button>
+      )}
+    </div>
+  );
+}
+
+// Multi-select as a collapsed dropdown + removable chips below, instead of
+// an always-expanded checkbox grid (Chips, above) -- same underlying
+// selection (still just an array in d), different presentation for a field
+// where the option list itself doesn't need to stay visible once picked.
+// The popover is portal-rendered to document.body and positioned via the
+// trigger's own getBoundingClientRect(), same fix as the Discover/Audience
+// Explorer Sort dropdowns: an absolutely-positioned menu inside a .rise-
+// animated step container gets its own stacking context from the entrance
+// animation, so a later sibling would paint over it regardless of z-index.
+// Stays open across multiple picks (closes only on an outside click) so
+// picking several options doesn't mean reopening the menu each time.
+export function ChipsDropdown({ options, value, onChange, placeholder }) {
+  const { t } = useTranslation();
+  const sel = value || [];
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+
+  const toggle = (o) => onChange(sel.includes(o) ? sel.filter(x => x !== o) : [...sel, o]);
+  // Only ever removes one of this dropdown's own options -- a caller
+  // showing additional, non-preset entries (e.g. a typed-in "Other" value)
+  // renders and removes those itself, same as Chips leaves that to callers.
+  const chipValues = sel.filter(o => options.includes(o));
+
+  return (
+    <div>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => {
+          if (!open) {
+            const r = btnRef.current.getBoundingClientRect();
+            setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+          }
+          setOpen(o => !o);
+        }}
+        className="fin"
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", width: "100%" }}
+      >
+        {/* Always the placeholder, never restated as "N selected" here --
+            callers already show that count in their own FSection header
+            above this field, and the picked values themselves are right
+            below as chips. */}
+        <span className="faint">{placeholder || t("onboardingFields.selectPlaceholder", null, "Select…")}</span>
+        <Icon name={open ? "chevronUp" : "chevronDown"} size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+      </button>
+      {open && pos && createPortal(
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
+          <div role="menu" style={{
+            position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 50, maxHeight: 280, overflowY: "auto",
+            background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+            boxShadow: "var(--shadow-md)", padding: 6,
+          }}>
+            {options.map(o => {
+              const on = sel.includes(o);
+              return (
+                <button key={o} type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(o)}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                >
+                  {o}
+                </button>
+              );
+            })}
+          </div>
+        </>,
+        document.body
+      )}
+      {chipValues.length > 0 && (
+        <div className="row gap-2" style={{ flexWrap: "wrap", marginTop: 10 }}>
+          {chipValues.map(o => (
+            <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {o}
+              <button type="button" onClick={() => toggle(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -157,7 +258,7 @@ export function ReachMeter({ reach, base, firstLoad, updating }) {
   );
 }
 
-export function LocationFields({ d, set, withCity, showErrors }) {
+export function LocationFields({ d, set, withCity, showErrors, dataField, issue }) {
   const { t } = useTranslation();
   // Older saved profiles still have `country` as a single string — coerce
   // to an array so this keeps working for builders who onboarded before
@@ -167,7 +268,7 @@ export function LocationFields({ d, set, withCity, showErrors }) {
   const countrySel = new Set(countries);
   return (
     <div className="fgrid c2">
-      <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
+      <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }} data-field={dataField}>
         <FilterGroup
           title={t("onboardingFields.country", null, "Country")}
           required
@@ -182,6 +283,7 @@ export function LocationFields({ d, set, withCity, showErrors }) {
           // open, unlike a shorter list where collapsed-by-default declutters.
           initialExpanded
         />
+        <FieldIssue id={dataField} issue={issue} />
       </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
         <TextInput value={d.state} onChange={(v) => set("state", v)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
@@ -195,23 +297,23 @@ export function LocationFields({ d, set, withCity, showErrors }) {
   );
 }
 
-export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender }) {
+export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender, issue }) {
   const { t } = useTranslation();
   const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
   const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")];
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
+      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} dataField={requireAge ? "ageBands" : undefined} issue={issue} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
         <Chips options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
-      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
+      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} dataField={requireGender ? "genders" : undefined} issue={issue} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
         <Chips options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
   );
 }
 
-export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions, showErrors, requireOccupation }) {
+export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions, showErrors, requireOccupation, issue }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
 
@@ -267,7 +369,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
         const hasOther = occupationOptions.includes("Other");
         const mainOpts = hasOther ? occupationOptions.filter(o => o !== "Other") : occupationOptions;
         return (
-          <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined}>
+          <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined} data-field={requireOccupation ? "occupations" : undefined}>
             <FilterGroup
               title={t("onboardingFields.occupation", null, "Occupation")}
               required
@@ -285,6 +387,7 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
               // selections -- same override Country already gets.
               initialExpanded
             />
+            {requireOccupation && <FieldIssue id="occupations" issue={issue} />}
             {hasOther && (
               <FilterGroup
                 title={t("onboardingFields.other", null, "Other")}
@@ -358,14 +461,14 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
 // see it again short of hitting Edit — same shape as every other field in
 // the wizard now: a plain, always-visible, always-editable input with its
 // error (if any) shown live underneath, no separate submit step.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate }) {
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate, dataField, issue }) {
   const trimmed = (value || "").trim();
   const liveError = validate ? validate(value) : null;
   const missingRequired = showErrors && !optional && !trimmed;
   const invalid = missingRequired || (!!trimmed && !!liveError);
 
   return (
-    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }}>
+    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }} data-field={dataField}>
       <span className="intent-ic" style={{ background: "var(--accent-weak)", color: "var(--accent)", flex: "none" }}>
         <Icon name={icon} size={16} />
       </span>
@@ -374,12 +477,13 @@ export function VerifyRow({ icon, title, desc, placeholder, value, onChange, opt
         <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
         <input className={`fin ${invalid ? "fin-invalid" : ""}`} style={{ width: "100%" }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
         {trimmed && liveError && <div className="err" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>{liveError}</div>}
+        <FieldIssue id={dataField} issue={issue} />
       </div>
     </div>
   );
 }
 
-export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
+export function PersonalFields({ d, set, roleField, showErrors, emailLocked, issue }) {
   const { t } = useTranslation();
   const otherLabel = t("onboardingFields.roleOther", null, "Other");
   const defaultOptions = [t("onboardingFields.roleFounderCeo", null, "Founder & CEO"), t("onboardingFields.roleCofounder", null, "Co-founder"), t("onboardingFields.roleProductManager", null, "Product Manager"), t("onboardingFields.roleHeadOfProduct", null, "Head of Product"), t("onboardingFields.roleGrowthMarketing", null, "Growth / Marketing"), t("onboardingFields.roleDesignLead", null, "Design Lead"), t("onboardingFields.roleEngineeringLead", null, "Engineering Lead"), t("onboardingFields.roleOperations", null, "Operations"), otherLabel];
@@ -387,24 +491,25 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
   const isOther = d.designation === otherLabel;
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()}>
+      <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()} dataField="fullName" issue={issue}>
         <TextInput value={d.fullName} onChange={(v) => set("fullName", v)} placeholder={t("onboardingFields.fullNamePlaceholder", null, "Aarav Mehta")} />
       </Field>
-      <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")}>
+      <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")} dataField="email" issue={issue}>
         <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder={t("onboardingFields.emailPlaceholder", null, "you@company.com")} disabled={emailLocked} />
       </Field>
       <Field
         label={t("onboardingFields.mobileNumber", null, "Mobile number")}
         invalid={showErrors && !isValidMobile(d.mobile)}
+        dataField="mobile" issue={issue}
         hint={t("onboardingFields.mobileNumberHint", null, "A 10-digit Indian mobile number, or add a country code (e.g. +1 555 123 4567) if you're outside India.")}
       >
         <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
       </Field>
-      <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation}>
+      <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation} dataField="designation" issue={issue}>
         <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={roleOptions} placeholder={t("onboardingFields.selectRole", null, "Select role")} />
       </Field>
       {isOther && (
-        <Field label={t("onboardingFields.customRole", null, "Your role")} span invalid={showErrors && !(d.designationOther || "").trim()}>
+        <Field label={t("onboardingFields.customRole", null, "Your role")} span invalid={showErrors && !(d.designationOther || "").trim()} dataField="designationOther" issue={issue}>
           <TextInput value={d.designationOther} onChange={(v) => set("designationOther", v)} placeholder={t("onboardingFields.customRolePlaceholder", null, "Type your role")} />
         </Field>
       )}

@@ -908,6 +908,7 @@ const hi = {
       objectivesLabel: "शोध उद्देश्य",
       completionLabel: "अपेक्षित पूर्णता",
       areaSection: "शोध क्षेत्र",
+      areaPlaceholder: "अनुसंधान क्षेत्र चुनें",
       supportSection: "आपको किस तरह के सहयोग की आवश्यकता है?",
     },
     participants: {
@@ -933,6 +934,7 @@ const hi = {
     },
   },
   org: {
+    audienceIssue: "कृपया कम से कम एक लक्षित दर्शक या आयु वर्ग चुनें।",
     rep: {
       step: "चरण 1 · प्रतिनिधि",
       title: "संगठन का प्रतिनिधित्व कौन कर रहा है?",
@@ -1490,10 +1492,7 @@ const hi = {
     unknownRole: "अज्ञात भूमिका",
     pathNoExist: "वह ऑनबोर्डिंग पथ मौजूद नहीं है.",
     fillRequiredFields: "कृपया जारी रखने से पहले आवश्यक फ़ील्ड भरें।",
-    issueAudienceAge: "जारी रखने के लिए कम से कम एक आयु वर्ग चुनें।",
-    issueAudienceGender: "जारी रखने के लिए कम से कम एक लिंग चुनें।",
-    issueAudienceCountry: "जारी रखने के लिए कम से कम एक देश चुनें।",
-    issueAudienceOccupation: "जारी रखने के लिए कम से कम एक व्यवसाय चुनें।",
+    pleaseFillField: "कृपया {{field}} भरें।",
     couldntSaveProfile: "आपकी प्रोफ़ाइल सहेजी नहीं जा सकी",
     createBuilderAccount: "अपना बिल्डर खाता बनाएं",
     chooseDescFitsBest: "वह विवरण चुनें जो आपके लिए सबसे उपयुक्त हो - हम उसके बाद आने वाले प्रत्येक चरण को अनुकूलित करेंगे।",

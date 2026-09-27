@@ -908,6 +908,7 @@ const zh = {
       objectivesLabel: "研究目标",
       completionLabel: "预计完成时间",
       areaSection: "研究领域",
+      areaPlaceholder: "选择研究领域",
       supportSection: "您需要哪种支持？",
     },
     participants: {
@@ -933,6 +934,7 @@ const zh = {
     },
   },
   org: {
+    audienceIssue: "请至少选择一个目标受众或年龄段。",
     rep: {
       step: "第 1 步 · 代表人",
       title: "谁代表该组织？",
@@ -1490,10 +1492,7 @@ const zh = {
     unknownRole: "未知角色",
     pathNoExist: "该入职路径不存在。",
     fillRequiredFields: "请先填写必填字段，然后再继续。",
-    issueAudienceAge: "请至少选择一个年龄段以继续。",
-    issueAudienceGender: "请至少选择一个性别以继续。",
-    issueAudienceCountry: "请至少选择一个国家以继续。",
-    issueAudienceOccupation: "请至少选择一个职业以继续。",
+    pleaseFillField: "请填写{{field}}。",
     couldntSaveProfile: "无法保存您的个人资料",
     createBuilderAccount: "创建您的构建者帐户",
     chooseDescFitsBest: "选择最适合您的描述 - 我们将量身定制接下来的每一步。",

@@ -4,7 +4,7 @@ import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft, PERSONA_NAME_FIELD, audienceStepIssue } from "../data/personaConfig";
+import { PERSONA_CONFIG, buildAudienceQuery, onboardingDraftKey, stepLabel, getRoles, switchToRoleDraft, PERSONA_NAME_FIELD } from "../data/personaConfig";
 import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
@@ -199,6 +199,11 @@ export default function OnboardingWizard() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
+  // The single field Continue actually rejected on this step, if any -- see
+  // goNext below. Drives both the scroll target and the inline message next
+  // to that one field, replacing the old "scroll to top, generic banner"
+  // behavior with something that points at the actual problem.
+  const [issue, setIssue] = useState(null);
   const [d, setD] = useState(() => {
     // Prefill from what signup already collected instead of making the user
     // retype their own name/email. A draft (e.g. RoleSelect's placeholder
@@ -271,21 +276,35 @@ export default function OnboardingWizard() {
 
   const goNext = async () => {
     if (!isValid) {
-      // Founder/Company's "audience" step silently discards the WHOLE step
-      // if any one of Age/Gender/Country/Occupation is missing (see
-      // audienceStepValid) -- naming only the generic message here left
-      // people fixing one field, hitting Next, getting rejected again for a
-      // DIFFERENT missing field, same trap EditAccountStep's Settings-side
-      // edit already had a specific fix for.
-      const specificIssue = stepKey === "audience" && (role === "founder" || role === "company") ? audienceStepIssue(d, t) : null;
-      setError(specificIssue || t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      // Finds the one specific field actually blocking Continue and scrolls
+      // to it with a message right there, instead of a generic top-of-page
+      // banner that never said which of the step's several fields was the
+      // problem. persona.getIssue is additive to persona.validate (see
+      // foStepIssue in personaConfig.jsx) -- it can never disagree about
+      // whether the step is valid, only about what to say when it isn't.
+      const foundIssue = persona.getIssue ? persona.getIssue(stepKey, d, REGION, t) : null;
       setShowErrors(true);
-      // The warning banner renders at the top of the step — scroll there so
-      // it's actually visible instead of silently appearing above the fold.
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (foundIssue) {
+        setIssue(foundIssue);
+        setError("");
+        // Field visibility (the invalid state showErrors just turned on)
+        // hasn't painted yet on this same tick -- wait a frame so the target
+        // node actually exists (and is at its final position) before scrolling.
+        requestAnimationFrame(() => {
+          document.querySelector(`[data-field="${foundIssue.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      } else {
+        // Defensive fallback only -- every step's getIssue should cover
+        // everything its validate() checks. Falling back to the old
+        // scroll-to-top banner here means a real gap in some step's
+        // getIssue rather than silently doing nothing.
+        setIssue(null);
+        setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       return;
     }
-    setError(""); setShowErrors(false);
+    setError(""); setShowErrors(false); setIssue(null);
     if (!isLast) {
       const next = step + 1;
       const newMax = Math.max(maxReached, next);
@@ -316,7 +335,7 @@ export default function OnboardingWizard() {
   };
 
   const goBack = () => {
-    setError(""); setShowErrors(false);
+    setError(""); setShowErrors(false); setIssue(null);
     // Step 0 has nowhere to decrement to -- back from here leaves the
     // wizard for the role picker instead, so someone who picked the wrong
     // description there can actually see all four again (with descriptions,
@@ -337,6 +356,7 @@ export default function OnboardingWizard() {
 
   const handleJump = (i) => {
     setShowErrors(false);
+    setIssue(null);
     setStep(i);
     saveDraft(i, maxReached, d);
   };
@@ -398,7 +418,7 @@ export default function OnboardingWizard() {
             <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
           </div>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
+          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} issue={issue} />
         </div>
       </div>
 

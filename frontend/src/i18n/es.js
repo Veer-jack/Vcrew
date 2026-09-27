@@ -908,6 +908,7 @@ const es = {
       objectivesLabel: "Objetivo(s) de la investigación",
       completionLabel: "Finalización prevista",
       areaSection: "Área de investigación",
+      areaPlaceholder: "Selecciona área(s) de investigación",
       supportSection: "¿Qué tipo de apoyo necesitas?",
     },
     participants: {
@@ -933,6 +934,7 @@ const es = {
     },
   },
   org: {
+    audienceIssue: "Por favor selecciona al menos un público objetivo o grupo de edad.",
     rep: {
       step: "Paso 1 · Representante",
       title: "¿Quién representa a la organización?",
@@ -1490,10 +1492,7 @@ const es = {
     unknownRole: "Rol desconocido",
     pathNoExist: "Ese camino de incorporación no existe.",
     fillRequiredFields: "Por favor complete los campos requeridos antes de continuar.",
-    issueAudienceAge: "Selecciona al menos un grupo de edad para continuar.",
-    issueAudienceGender: "Selecciona al menos un género para continuar.",
-    issueAudienceCountry: "Selecciona al menos un país para continuar.",
-    issueAudienceOccupation: "Selecciona al menos una ocupación para continuar.",
+    pleaseFillField: "Por favor completa {{field}}.",
     couldntSaveProfile: "No se pudo guardar tu perfil",
     createBuilderAccount: "Crea tu cuenta de constructor",
     chooseDescFitsBest: "Elija la descripción que mejor se adapte a sus necesidades: adaptaremos cada paso a continuación.",

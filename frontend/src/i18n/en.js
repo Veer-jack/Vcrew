@@ -927,6 +927,7 @@ const en = {
       objectivesLabel: "Research objective(s)",
       completionLabel: "Expected completion",
       areaSection: "Research area",
+      areaPlaceholder: "Select research area(s)",
       areaOtherLabel: "Please specify",
       areaOtherPlaceholder: "e.g. Urban planning",
       supportSection: "What kind of support do you need?",
@@ -954,6 +955,7 @@ const en = {
     },
   },
   org: {
+    audienceIssue: "Please select at least one target audience or age group.",
     rep: {
       step: "Step 1 · Representative",
       title: "Who's representing the organization?",
@@ -1490,10 +1492,7 @@ const en = {
     unknownRole: "Unknown role",
     pathNoExist: "That onboarding path doesn't exist.",
     fillRequiredFields: "Please fill in the required fields before continuing.",
-    issueAudienceAge: "Select at least one age group to continue.",
-    issueAudienceGender: "Select at least one gender to continue.",
-    issueAudienceCountry: "Select at least one country to continue.",
-    issueAudienceOccupation: "Select at least one occupation to continue.",
+    pleaseFillField: "Please fill in {{field}}.",
     couldntSaveProfile: "Couldn't save your profile",
     createBuilderAccount: "Create your builder account",
     chooseDescFitsBest: "Choose the description that fits you best — we'll tailor every step that follows.",
