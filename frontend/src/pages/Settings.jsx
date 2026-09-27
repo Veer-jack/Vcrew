@@ -370,9 +370,12 @@ export default function Settings() {
                 { label: t("audience.filterGroupLabel.validationCrewRole", null, "ValidationCrew Role"), values: builder?.profile?.validatorTypes },
                 { label: t("onboardingFields.country", null, "Country"), values: Array.isArray(builder?.profile?.country) ? builder.profile.country : (builder?.profile?.country ? [builder.profile.country] : []), span: true, dropdown: true },
                 // State/City were saved (LocationFields' own State/Region and
-                // City text inputs) but never showed up here at all.
-                { label: t("onboardingFields.stateRegion", null, "State / Region"), values: builder?.profile?.state ? [builder.profile.state] : [] },
-                { label: t("onboardingFields.city", null, "City"), values: builder?.profile?.district ? [builder.profile.district] : [] },
+                // City fields) but never showed up here at all. Both are
+                // multi-select arrays now (were a single free-text value
+                // each before) -- same coercion Country already needed above,
+                // for whichever shape a given saved profile still has.
+                { label: t("onboardingFields.stateRegion", null, "State / Region"), values: Array.isArray(builder?.profile?.state) ? builder.profile.state : (builder?.profile?.state ? [builder.profile.state] : []), span: true, dropdown: true },
+                { label: t("onboardingFields.city", null, "City"), values: Array.isArray(builder?.profile?.city) ? builder.profile.city : (builder?.profile?.district ? [builder.profile.district] : []), span: true, dropdown: true },
                 { label: t("onboardingFields.education", null, "Education"), values: builder?.profile?.educations },
                 { label: t("onboardingFields.incomeBand", null, "Income band"), values: builder?.profile?.incomeBands },
                 { label: t("onboardingFields.languages", null, "Languages"), values: builder?.profile?.languages, span: true, dropdown: true },

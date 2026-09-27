@@ -36,8 +36,9 @@ const GST_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 // step collects. Geography stays free-text (city/state/country as typed) — the backend
 // does a real substring match against actual validator location data.
 export function buildAudienceQuery(d) {
+  const asArray = (v) => Array.isArray(v) ? v : (v ? [v] : []);
   return {
-    Geography: [d.district, d.state, ...(Array.isArray(d.country) ? d.country : [d.country])].filter(Boolean),
+    Geography: [...asArray(d.city), ...asArray(d.district), ...asArray(d.state), ...asArray(d.country)].filter(Boolean),
     Demographics: [...(d.ageBands || []), ...(d.genders || []).filter(g => g !== "Any"), ...(d.incomeBands || [])],
     Professional: (d.occupations || []),
     Interests: (d.interests || []),
@@ -189,7 +190,8 @@ function GenericAudience({ d, set, region, title, sub, showErrors, issue }) {
   if (rawInterests.includes("Other")) interestOptions.push("Other");
   const hasAnyFilter = !!(
     (d.validatorTypes || []).length || (d.ageBands || []).length || (d.genders || []).length ||
-    (Array.isArray(d.country) ? d.country.length : !!d.country) || d.state || d.district ||
+    (Array.isArray(d.country) ? d.country.length : !!d.country) ||
+    (Array.isArray(d.state) ? d.state.length : !!d.state) || (Array.isArray(d.city) ? d.city.length : !!d.city) || d.district ||
     (d.occupations || []).length || (d.educations || []).length || (d.incomeBands || []).length ||
     (d.languages || []).length || (d.interests || []).length
   );
@@ -583,7 +585,8 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
   const { reach, base, firstLoad, updating } = useAudienceReach(d);
   const hasAnyFilter = !!(
     (d.validatorTypes || []).length || !!d.sampleSize || (d.ageBands || []).length || (d.genders || []).length ||
-    (Array.isArray(d.country) ? d.country.length : !!d.country) || d.state || d.district ||
+    (Array.isArray(d.country) ? d.country.length : !!d.country) ||
+    (Array.isArray(d.state) ? d.state.length : !!d.state) || (Array.isArray(d.city) ? d.city.length : !!d.city) || d.district ||
     (d.occupations || []).length || (d.educations || []).length || (d.incomeBands || []).length || (d.filters || []).length
   );
   return (
@@ -753,7 +756,8 @@ function OrgAudience(props) {
   const { filters } = useMeta();
   const { reach, base, firstLoad, updating } = useAudienceReach(d);
   const hasAnyFilter = !!(
-    (d.validatorTypes || []).length || (Array.isArray(d.country) ? d.country.length : !!d.country) || d.state || d.district ||
+    (d.validatorTypes || []).length || (Array.isArray(d.country) ? d.country.length : !!d.country) ||
+    (Array.isArray(d.state) ? d.state.length : !!d.state) || (Array.isArray(d.city) ? d.city.length : !!d.city) || d.district ||
     (d.targetGroups || []).length || (d.ageBands || []).length || (d.genders || []).length ||
     (d.incomeBands || []).length || (d.languages || []).length || !!d.scale
   );

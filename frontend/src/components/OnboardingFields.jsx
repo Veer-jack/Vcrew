@@ -5,6 +5,7 @@ import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
 import { isValidMobile } from "../data/onboarding";
 import countryRegionData from "country-region-data/data.json";
+import { api } from "../api/client";
 
 // Same source the validator side's onboarding already uses (VOnboarding.jsx)
 // -- this used to pull from auth/countries.js instead, a much smaller list
@@ -12,6 +13,10 @@ import countryRegionData from "country-region-data/data.json";
 // package's ~249), so builder and validator onboarding disagreed on which
 // countries even exist.
 const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a.localeCompare(b));
+// Country -> its own state/region names, same source as COUNTRY_NAMES --
+// this is what lets State go from free text to "everywhere the currently
+// selected countries actually have a region for."
+const REGIONS_BY_COUNTRY = Object.fromEntries(countryRegionData.map(c => [c.countryName, c.regions.map(r => r.name)]));
 
 export function Field({ label, optional, span, hint, invalid, action, children, dataField, issue }) {
   return (
@@ -204,7 +209,7 @@ function Checkbox({ on }) {
   );
 }
 
-export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [], multi = true, selectAll = true }) {
+export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [], multi = true, selectAll = true, groupOf }) {
   const { t } = useTranslation();
   const sel = multi ? (value || []) : (value ? [value] : []);
   const [open, setOpen] = useState(false);
@@ -220,7 +225,23 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
     if (!open) { setSearch(""); return; }
     searchRef.current?.focus();
   }, [open]);
-  const filteredOptions = search.trim() ? options.filter(o => o.toLowerCase().includes(search.trim().toLowerCase())) : options;
+  const matchesSearch = search.trim()
+    ? options.filter(o => o.toLowerCase().includes(search.trim().toLowerCase()))
+    : options;
+  // groupOf(option) => its parent's name (e.g. a state's country, a city's
+  // state) -- State/City need this once more than one country/state is
+  // selected at once, so their combined option lists don't read as one
+  // undifferentiated pile. Sorted by [group, option] so groups themselves
+  // land alphabetically too, not just each group's own contents. Ungrouped
+  // callers (Country, Occupation, Interests, Research area, Sample size)
+  // never pass groupOf, so filteredOptions stays the plain sorted-by-caller
+  // list it always was for them.
+  const filteredOptions = groupOf
+    ? [...matchesSearch].sort((a, b) => {
+        const ga = groupOf(a), gb = groupOf(b);
+        return ga === gb ? a.localeCompare(b) : ga.localeCompare(gb);
+      })
+    : matchesSearch;
 
   const reposition = () => {
     if (!btnRef.current) return;
@@ -339,15 +360,25 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
               )}
               {filteredOptions.length === 0 ? (
                 <div className="faint" style={{ padding: "10px 8px", fontSize: 13 }}>{t("onboarding.noMatchesFor", { q: search }, `No matches for "${search}"`)}</div>
-              ) : filteredOptions.map(o => {
+              ) : filteredOptions.map((o, i) => {
                 const on = sel.includes(o);
+                // A header only when this row's group differs from the row
+                // before it -- filteredOptions is already sorted by group,
+                // so that's the one moment a new group actually starts.
+                const g = groupOf?.(o);
+                const showHeader = groupOf && (i === 0 || groupOf(filteredOptions[i - 1]) !== g);
                 return (
-                  <button key={o} type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(o)}
-                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
-                  >
-                    {multi && <Checkbox on={on} />}
-                    {o}
-                  </button>
+                  <div key={o}>
+                    {showHeader && (
+                      <div className="faint" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".03em", padding: "10px 10px 4px" }}>{g}</div>
+                    )}
+                    <button type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(o)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                    >
+                      {multi && <Checkbox on={on} />}
+                      {o}
+                    </button>
+                  </div>
                 );
               })}
             </div>
@@ -426,6 +457,78 @@ export function LocationFields({ d, set, withCity, showErrors, dataField, issue 
   // Country became multi-select.
   const rawCountry = d.country;
   const countries = Array.isArray(rawCountry) ? rawCountry : (rawCountry ? [rawCountry] : []);
+
+  // State options: union of every currently selected country's own regions
+  // -- State used to be a bare free-text box with no idea what country it
+  // was even in. Each name is tagged with which country contributed it, for
+  // the dropdown's own group headers once more than one country is active.
+  // ponytail: a region name that exists in two different countries (rare)
+  // keeps whichever country's copy this loop reaches first rather than
+  // trying to show it under both -- upgrade path is a real per-country-
+  // qualified value if that ever turns out to matter in practice.
+  const stateToCountry = {};
+  const stateOptionsSet = new Set();
+  for (const c of countries) {
+    for (const r of (REGIONS_BY_COUNTRY[c] || [])) {
+      if (!stateOptionsSet.has(r)) { stateOptionsSet.add(r); stateToCountry[r] = c; }
+    }
+  }
+  const stateOptions = [...stateOptionsSet];
+  const rawState = d.state;
+  const states = Array.isArray(rawState) ? rawState : (rawState ? [rawState] : []);
+
+  // Dropping a country shouldn't leave its states still selected -- same
+  // cleanup the City effect below does one level further down for states.
+  useEffect(() => {
+    const stillValid = states.filter(s => stateOptionsSet.has(s));
+    if (stillValid.length !== states.length) set("state", stillValid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(countries)]);
+
+  // City options: the backend's /geo/cities is scoped to one country+state
+  // pair per call, so this fires one request per currently selected state
+  // and merges the results -- tagged with which state each city came from,
+  // same grouping treatment State gets from country. Same rare-collision
+  // simplification as state names above: a city name shared by two selected
+  // states keeps whichever state's copy arrives first.
+  const [cityOptions, setCityOptions] = useState([]);
+  const [cityToState, setCityToState] = useState({});
+  useEffect(() => {
+    if (!withCity || states.length === 0) { setCityOptions([]); setCityToState({}); return; }
+    let cancelled = false;
+    Promise.all(states.map(s =>
+      api.get(`/geo/cities?country=${encodeURIComponent(stateToCountry[s] || "")}&state=${encodeURIComponent(s)}`)
+        .then(res => ({ state: s, cities: res?.cities || [] }))
+        .catch(() => ({ state: s, cities: [] }))
+    )).then(results => {
+      if (cancelled) return;
+      const seen = new Set();
+      const map = {};
+      for (const { state, cities } of results) {
+        for (const city of cities) {
+          if (!seen.has(city)) { seen.add(city); map[city] = state; }
+        }
+      }
+      setCityOptions([...seen]);
+      setCityToState(map);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withCity, JSON.stringify(states)]);
+
+  const rawCity = d.city;
+  const cities = Array.isArray(rawCity) ? rawCity : (rawCity ? [rawCity] : []);
+  // Same cleanup as State's own effect, one level down: a city whose state
+  // got deselected (or whose fetch just came back without it) shouldn't
+  // linger as if it were still a real pick.
+  useEffect(() => {
+    if (!withCity) return;
+    const validSet = new Set(cityOptions);
+    const stillValid = cities.filter(c => validSet.has(c));
+    if (stillValid.length !== cities.length) set("city", stillValid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withCity, JSON.stringify(cityOptions)]);
+
   return (
     <div className="fgrid c2">
       <div style={{ gridColumn: "1 / -1" }}>
@@ -440,13 +543,21 @@ export function LocationFields({ d, set, withCity, showErrors, dataField, issue 
           invalid={showErrors && countries.length === 0} dataField={dataField} issue={issue} />
         <ChipsDropdown options={COUNTRY_NAMES} value={countries} onChange={(v) => set("country", v)} placeholder={t("onboardingFields.selectCountryPlaceholder", null, "Select country(ies)")} />
       </div>
-      <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
-        <TextInput value={d.state} onChange={(v) => set("state", v)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
-      </Field>
+      <div style={{ gridColumn: "1 / -1" }}>
+        <FSection label={t("onboardingFields.stateRegion", null, "State / Region")} optional
+          count={states.length ? t("onboarding.selectedCount", { count: states.length }, `${states.length} selected`) : null} />
+        <ChipsDropdown options={stateOptions} value={states} onChange={(v) => set("state", v)}
+          placeholder={countries.length ? t("onboardingFields.selectStatePlaceholder", null, "Select state(s)") : t("onboardingFields.selectCountryFirstPlaceholder", null, "Select a country first")}
+          groupOf={countries.length > 1 ? (s => stateToCountry[s]) : undefined} />
+      </div>
       {withCity && (
-        <Field label={t("onboardingFields.city", null, "City")} optional>
-          <TextInput value={d.district} onChange={(v) => set("district", v)} placeholder={t("onboardingFields.cityPlaceholder", null, "Bengaluru")} />
-        </Field>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <FSection label={t("onboardingFields.city", null, "City")} optional
+            count={cities.length ? t("onboarding.selectedCount", { count: cities.length }, `${cities.length} selected`) : null} />
+          <ChipsDropdown options={cityOptions} value={cities} onChange={(v) => set("city", v)}
+            placeholder={states.length ? t("onboardingFields.selectCityPlaceholder", null, "Select city(ies)") : t("onboardingFields.selectStateFirstPlaceholder", null, "Select a state first")}
+            groupOf={states.length > 1 ? (c => cityToState[c]) : undefined} />
+        </div>
       )}
     </div>
   );
