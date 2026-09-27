@@ -611,8 +611,8 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.demographicsSection", null, "Demographics")} required />
-        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} showErrors={showErrors} requireAge issue={issue} />
-        <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} />
+        <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} showErrors={showErrors} requireAge requireGender issue={issue} />
+        <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, education: true, income: true }} showErrors={showErrors} requireOccupation issue={issue} />
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.researcher.participants.additionalFiltersSection", null, "Additional filters")} />
@@ -661,7 +661,7 @@ function resValid(key, d) {
     // is a bare trigger, not a real selection -- same phantom-count guard as
     // CreateMissionWizard's own audience filters use for the same marker.
     case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).filter(a => a !== "Other").length >= 1 && (d.support || []).length >= 1;
-    case "participants": return !!d.sampleSize && (d.ageBands || []).length >= 1;
+    case "participants": return !!d.sampleSize && (d.ageBands || []).length >= 1 && (d.genders || []).length >= 1 && (d.occupations || []).length >= 1;
     case "ethics": return !!d.ethics && isAcademicEmail(d.vWebsiteInput);
     default: return true;
   }
@@ -688,6 +688,8 @@ function resStepIssue(key, d, t) {
     case "participants": return firstMissingField([
       { id: "sampleSize", ok: !!d.sampleSize, label: t("onboarding.researcher.participants.sampleSizeSection", null, "Sample size needed") },
       { id: "ageBands", ok: (d.ageBands || []).length >= 1, label: t("onboardingFields.age", null, "Age") },
+      { id: "genders", ok: (d.genders || []).length >= 1, label: t("onboardingFields.gender", null, "Gender") },
+      { id: "occupations", ok: (d.occupations || []).length >= 1, label: t("onboardingFields.occupation", null, "Occupation") },
     ], t);
     case "ethics": return firstMissingField([
       { id: "ethics", ok: !!d.ethics, label: t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?") },
