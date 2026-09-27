@@ -41,14 +41,16 @@ function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, on
       </div>
       <div className="wz-rail-foot">
         <button className="backlink" onClick={onStartFresh} style={{ marginLeft: 8 }}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
-        {current === 0 ? (
-          <button className="btn" onClick={onSkip} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
-        ) : (
-          <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-            <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
-            <button className="btn" onClick={onBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
-          </div>
-        )}
+        {/* Back shows on step 0 too, same as every other step -- it leaves
+            the wizard (there's no step -1 to decrement to), returning to the
+            role picker instead so someone who picked the wrong description
+            there isn't stuck needing to know that's what the "Founder" dropdown
+            up top is for. goBack itself branches on that; this button no
+            longer needs to. */}
+        <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
+          <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
+          <button className="btn" onClick={onBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
+        </div>
       </div>
     </aside>
   );
@@ -315,7 +317,20 @@ export default function OnboardingWizard() {
 
   const goBack = () => {
     setError(""); setShowErrors(false);
-    const prev = Math.max(0, step - 1);
+    // Step 0 has nowhere to decrement to -- back from here leaves the
+    // wizard for the role picker instead, so someone who picked the wrong
+    // description there can actually see all four again (with descriptions,
+    // unlike the terse role-switcher dropdown in the header) rather than
+    // being stuck needing to already know which one they meant. Current
+    // progress is untouched either way -- RoleSelect only wipes the draft
+    // if a *different* role is picked from there than the one it was told
+    // is current.
+    if (step === 0) {
+      saveDraft(step, maxReached, d);
+      navigate(`/get-started/feedback?current=${role}`);
+      return;
+    }
+    const prev = step - 1;
     setStep(prev);
     saveDraft(prev, maxReached, d);
   };
@@ -380,7 +395,7 @@ export default function OnboardingWizard() {
               rail-exclusive there too; Cancel/Back stay reachable). */}
           <div className="wiz-mob-nav">
             <button className="btn" onClick={handleSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
-            {step > 0 && <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>}
+            <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
           </div>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
