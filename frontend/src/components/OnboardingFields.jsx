@@ -142,7 +142,18 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
   const sel = value || [];
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
+  const [search, setSearch] = useState("");
   const btnRef = useRef(null);
+  const searchRef = useRef(null);
+
+  // Fresh search box every time this opens, not whatever was left over from
+  // last time -- and focused immediately, so typing to filter doesn't need
+  // an extra click first.
+  useEffect(() => {
+    if (!open) { setSearch(""); return; }
+    searchRef.current?.focus();
+  }, [open]);
+  const filteredOptions = search.trim() ? options.filter(o => o.toLowerCase().includes(search.trim().toLowerCase())) : options;
 
   const reposition = () => {
     if (!btnRef.current) return;
@@ -210,20 +221,30 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
           <div role="menu" style={{
-            position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 50, maxHeight: 280, overflowY: "auto",
+            position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 50, maxHeight: 320,
             background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
-            boxShadow: "var(--shadow-md)", padding: 6,
+            boxShadow: "var(--shadow-md)", display: "flex", flexDirection: "column",
           }}>
-            {options.map(o => {
-              const on = sel.includes(o);
-              return (
-                <button key={o} type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(o)}
-                  style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
-                >
-                  {o}
-                </button>
-              );
-            })}
+            {/* Its own row, outside the scrolling list below -- otherwise
+                typing to filter would scroll the search box itself out of
+                view along with whatever it just filtered out. */}
+            <div style={{ padding: 8, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+              <input ref={searchRef} className="fin" value={search} onChange={e => setSearch(e.target.value)} placeholder={t("actions.search", null, "Search")} style={{ width: "100%" }} />
+            </div>
+            <div style={{ overflowY: "auto", padding: 6, flex: 1, minHeight: 0 }}>
+              {filteredOptions.length === 0 ? (
+                <div className="faint" style={{ padding: "10px 8px", fontSize: 13 }}>{t("onboarding.noMatchesFor", { q: search }, `No matches for "${search}"`)}</div>
+              ) : filteredOptions.map(o => {
+                const on = sel.includes(o);
+                return (
+                  <button key={o} type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(o)}
+                    style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                  >
+                    {o}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>,
         document.body
