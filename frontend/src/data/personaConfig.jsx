@@ -30,11 +30,6 @@ const WEBSITE_RE = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(:\d{1,5})?(\/.*)?$/i;
 // actually copy this link.
 const LINKEDIN_ORG_RE = /^(https?:\/\/)?(www\.)?linkedin\.com\/(company|school)\/[a-zA-Z0-9-]+.*$/i;
 const GST_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
-const isAcademicEmail = (v) => {
-  if (!v || !EMAIL_RE.test(v)) return false;
-  const domain = v.split("@")[1]?.toLowerCase() || "";
-  return domain.endsWith(".edu") || domain.includes(".ac.");
-};
 
 // Builds the same {Geography, Demographics, Professional, Interests} shape the real
 // Audience Explorer uses, from whatever subset of onboarding fields the current persona
@@ -637,12 +632,11 @@ function ResEthics({ d, set, showErrors, issue }) {
         </div>
       )}
       <FSection label={t("onboarding.researcher.ethics.verifySection", null, "Verify your identity")} />
-      <VerifyRow icon="message" title={t("onboarding.researcher.ethics.uniEmailTitle", null, "University email")} showErrors={showErrors} desc={t("onboarding.researcher.ethics.uniEmailDesc", null, "Confirms your academic affiliation via a .edu / .ac domain.")}
-        placeholder={d.email || "you@university.ac.in"} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} dataField="vWebsiteInput" issue={issue}
+      <VerifyRow icon="message" title={t("onboarding.researcher.ethics.uniEmailTitle", null, "University email")} showErrors={showErrors} desc={t("onboarding.researcher.ethics.uniEmailDesc", null, "Confirms your academic affiliation.")}
+        placeholder={d.email || "you@university.edu"} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} dataField="vWebsiteInput" issue={issue}
         validate={(v) => {
           if (!v) return null;
-          if (!EMAIL_RE.test(v)) return t("errors.invalidEmail", null, "Please enter a valid email address.");
-          return isAcademicEmail(v) ? null : t("errors.notAcademicEmail", null, "Please use your university email (a .edu or .ac domain).");
+          return EMAIL_RE.test(v) ? null : t("errors.invalidEmail", null, "Please enter a valid email address.");
         }} />
       <VerifyRow icon="flask" title={t("onboarding.researcher.ethics.scholarlyTitle", null, "Scholarly profile")} optional desc={t("onboarding.researcher.ethics.scholarlyDesc", null, "Google Scholar, ORCID, Scopus, ResearchGate or LinkedIn.")}
         placeholder="Profile URL" value={d.researchProfile} onChange={(v) => set("researchProfile", v)} />
@@ -662,7 +656,7 @@ function resValid(key, d) {
     // CreateMissionWizard's own audience filters use for the same marker.
     case "research": return !!(d.researchTitle && d.researchTitle.trim()) && (d.areas || []).filter(a => a !== "Other").length >= 1 && (d.support || []).length >= 1;
     case "participants": return !!d.sampleSize && (d.ageBands || []).length >= 1 && (d.genders || []).length >= 1 && (d.occupations || []).length >= 1;
-    case "ethics": return !!d.ethics && isAcademicEmail(d.vWebsiteInput);
+    case "ethics": return !!d.ethics && EMAIL_RE.test(d.vWebsiteInput || "");
     default: return true;
   }
 }
@@ -693,7 +687,7 @@ function resStepIssue(key, d, t) {
     ], t);
     case "ethics": return firstMissingField([
       { id: "ethics", ok: !!d.ethics, label: t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?") },
-      { id: "vWebsiteInput", ok: isAcademicEmail(d.vWebsiteInput), label: t("onboarding.researcher.ethics.uniEmailTitle", null, "University email") },
+      { id: "vWebsiteInput", ok: EMAIL_RE.test(d.vWebsiteInput || ""), label: t("onboarding.researcher.ethics.uniEmailTitle", null, "University email") },
     ], t);
     default: return null;
   }
