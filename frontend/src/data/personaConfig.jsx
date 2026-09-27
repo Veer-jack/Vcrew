@@ -603,7 +603,7 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.researcher.participants.sampleSizeSection", null, "Sample size needed")} />
-        <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")} invalid={showErrors && !d.sampleSize} dataField="sampleSize" issue={issue}><Chips options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} /></Field>
+        <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")} invalid={showErrors && !d.sampleSize} dataField="sampleSize" issue={issue}><ChipsDropdown options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} placeholder={t("onboarding.researcher.participants.sampleSizePlaceholder", null, "Select sample size")} /></Field>
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.locationSection", null, "Location")} />

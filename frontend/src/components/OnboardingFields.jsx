@@ -142,9 +142,9 @@ export function Chips({ options, value, onChange, multi = true }) {
 // animation, so a later sibling would paint over it regardless of z-index.
 // Stays open across multiple picks (closes only on an outside click) so
 // picking several options doesn't mean reopening the menu each time.
-export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [] }) {
+export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [], multi = true }) {
   const { t } = useTranslation();
-  const sel = value || [];
+  const sel = multi ? (value || []) : (value ? [value] : []);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const [search, setSearch] = useState("");
@@ -186,6 +186,11 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
   }, [open]);
 
   const toggle = (o) => {
+    // Single-select: picking replaces the value outright and always closes
+    // -- there's nothing left to pick *for* once one choice is made, same
+    // as a native <select>, unlike multi where several picks in a row is
+    // the whole point of staying open.
+    if (!multi) { onChange(o); setOpen(false); return; }
     const adding = !sel.includes(o);
     onChange(adding ? [...sel, o] : sel.filter(x => x !== o));
     // e.g. "Other" -- picking it opens a text input the menu itself would
@@ -215,11 +220,13 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
         className="fin"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", width: "100%" }}
       >
-        {/* Always the placeholder, never restated as "N selected" here --
-            callers already show that count in their own FSection header
-            above this field, and the picked values themselves are right
-            below as chips. */}
-        <span className="faint">{placeholder || t("onboardingFields.selectPlaceholder", null, "Select…")}</span>
+        {/* Multi: always the placeholder, never restated as "N selected"
+            here -- callers already show that count in their own FSection
+            header above this field, and the picked values themselves are
+            right below as chips. Single: there's only ever the one value
+            and no chip row to show it in, so the trigger shows it directly,
+            same as a native <select> would. */}
+        <span className={multi || !value ? "faint" : undefined}>{multi ? (placeholder || t("onboardingFields.selectPlaceholder", null, "Select…")) : (value || placeholder || t("onboardingFields.selectPlaceholder", null, "Select…"))}</span>
         <Icon name={open ? "chevronUp" : "chevronDown"} size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
       </button>
       {open && pos && createPortal(
@@ -254,7 +261,7 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
         </>,
         document.body
       )}
-      {chipValues.length > 0 && (
+      {multi && chipValues.length > 0 && (
         <div className="row gap-2" style={{ flexWrap: "wrap", marginTop: 10 }}>
           {chipValues.map(o => (
             <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>

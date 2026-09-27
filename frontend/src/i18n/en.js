@@ -938,6 +938,7 @@ const en = {
       sub: "Define your sample — we match you to participants who fit your criteria.",
       sampleSizeSection: "Sample size needed",
       sampleSizeLabel: "How many participants?",
+      sampleSizePlaceholder: "Select sample size",
       additionalFiltersSection: "Additional filters",
     },
     ethics: {

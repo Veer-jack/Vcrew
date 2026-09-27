@@ -917,6 +917,7 @@ const es = {
       sub: "Define tu muestra — te emparejamos con participantes que cumplan tus criterios.",
       sampleSizeSection: "Tamaño de muestra necesario",
       sampleSizeLabel: "¿Cuántos participantes necesitas?",
+      sampleSizePlaceholder: "Selecciona el tamaño de la muestra",
       additionalFiltersSection: "Filtros adicionales",
     },
     ethics: {

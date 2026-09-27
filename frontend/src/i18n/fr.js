@@ -917,6 +917,7 @@ const fr = {
       sub: "Définissez votre échantillon — nous vous mettons en relation avec des participants correspondant à vos critères.",
       sampleSizeSection: "Taille d'échantillon nécessaire",
       sampleSizeLabel: "Combien de participants faut-il ?",
+      sampleSizePlaceholder: "Sélectionnez la taille de l'échantillon",
       additionalFiltersSection: "Filtres supplémentaires",
     },
     ethics: {

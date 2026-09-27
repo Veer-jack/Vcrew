@@ -917,6 +917,7 @@ const hi = {
       sub: "अपना नमूना परिभाषित करें — हम आपको उन प्रतिभागियों से मिलाते हैं जो आपके मानदंडों पर खरे उतरते हैं।",
       sampleSizeSection: "आवश्यक नमूना आकार",
       sampleSizeLabel: "कितने प्रतिभागी चाहिए?",
+      sampleSizePlaceholder: "नमूना आकार चुनें",
       additionalFiltersSection: "अतिरिक्त फ़िल्टर",
     },
     ethics: {

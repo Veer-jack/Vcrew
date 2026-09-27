@@ -917,6 +917,7 @@ const zh = {
       sub: "定义您的样本 — 我们会为您匹配符合条件的参与者。",
       sampleSizeSection: "所需样本量",
       sampleSizeLabel: "需要多少参与者？",
+      sampleSizePlaceholder: "选择样本量",
       additionalFiltersSection: "其他筛选条件",
     },
     ethics: {

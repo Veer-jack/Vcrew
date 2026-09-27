@@ -917,6 +917,7 @@ const ru = {
       sub: "Определите вашу выборку — мы подберём участников, соответствующих вашим критериям.",
       sampleSizeSection: "Необходимый размер выборки",
       sampleSizeLabel: "Сколько участников требуется?",
+      sampleSizePlaceholder: "Выберите размер выборки",
       additionalFiltersSection: "Дополнительные фильтры",
     },
     ethics: {

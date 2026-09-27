@@ -917,6 +917,7 @@ const bn = {
       sub: "আপনার নমুনা নির্ধারণ করুন — আমরা আপনাকে আপনার মানদণ্ডের সাথে মানানসই অংশগ্রহণকারীদের সাথে মেলাই।",
       sampleSizeSection: "প্রয়োজনীয় নমুনার আকার",
       sampleSizeLabel: "কতজন অংশগ্রহণকারী প্রয়োজন?",
+      sampleSizePlaceholder: "নমুনার আকার নির্বাচন করুন",
       additionalFiltersSection: "অতিরিক্ত ফিল্টার",
     },
     ethics: {

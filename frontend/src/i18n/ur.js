@@ -917,6 +917,7 @@ const ur = {
       sub: "اپنا نمونہ متعین کریں — ہم آپ کو ان شرکاء سے ملاتے ہیں جو آپ کے معیار پر پورا اترتے ہیں۔",
       sampleSizeSection: "درکار نمونے کا حجم",
       sampleSizeLabel: "کتنے شرکاء درکار ہیں؟",
+      sampleSizePlaceholder: "نمونے کا سائز منتخب کریں",
       additionalFiltersSection: "اضافی فلٹرز",
     },
     ethics: {

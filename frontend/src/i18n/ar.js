@@ -917,6 +917,7 @@ const ar = {
       sub: "حدد عينتك — نطابقك مع مشاركين يناسبون معاييرك.",
       sampleSizeSection: "حجم العينة المطلوب",
       sampleSizeLabel: "كم عدد المشاركين المطلوب؟",
+      sampleSizePlaceholder: "اختر حجم العينة",
       additionalFiltersSection: "مرشحات إضافية",
     },
     ethics: {

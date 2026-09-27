@@ -917,6 +917,7 @@ const pt = {
       sub: "Defina sua amostra — nós conectamos você a participantes que atendem aos seus critérios.",
       sampleSizeSection: "Tamanho de amostra necessário",
       sampleSizeLabel: "Quantos participantes são necessários?",
+      sampleSizePlaceholder: "Selecione o tamanho da amostra",
       additionalFiltersSection: "Filtros adicionais",
     },
     ethics: {
