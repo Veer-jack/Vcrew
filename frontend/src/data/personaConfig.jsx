@@ -605,7 +605,7 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.locationSection", null, "Location")} />
-        <LocationFields region={region} d={d} set={set} showErrors={showErrors} />
+        <LocationFields region={region} d={d} set={set} withCity showErrors={showErrors} />
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.demographicsSection", null, "Demographics")} required />
