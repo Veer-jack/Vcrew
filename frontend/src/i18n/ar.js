@@ -2720,6 +2720,7 @@ const ar = {
     updating: "جارٍ التحديث…",
     peopleMatchNow: "الناس يتطابقون الآن",
     country: "البلد",
+    selectCountryPlaceholder: "اختر الدولة (الدول)",
     countryIndia: "الهند",
     countryUS: "الولايات المتحدة",
     stateRegion: "الولاية / المنطقة",

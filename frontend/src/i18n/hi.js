@@ -2720,6 +2720,7 @@ const hi = {
     updating: "अपडेट हो रहा है...",
     peopleMatchNow: "लोग अभी मेल खाते हैं",
     country: "देश",
+    selectCountryPlaceholder: "देश चुनें",
     countryIndia: "भारत",
     countryUS: "संयुक्त राज्य अमेरिका",
     stateRegion: "राज्य/क्षेत्र",

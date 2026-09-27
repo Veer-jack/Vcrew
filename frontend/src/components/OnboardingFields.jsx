@@ -3,11 +3,16 @@ import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
-import { COUNTRIES } from "./auth/countries";
 import { FilterGroup } from "../pages/CreateMissionWizard";
 import { isValidMobile } from "../data/onboarding";
+import countryRegionData from "country-region-data/data.json";
 
-const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
+// Same source the validator side's onboarding already uses (VOnboarding.jsx)
+// -- this used to pull from auth/countries.js instead, a much smaller list
+// originally built for the phone country-code picker (~100 entries vs this
+// package's ~249), so builder and validator onboarding disagreed on which
+// countries even exist.
+const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a.localeCompare(b));
 
 export function Field({ label, optional, span, hint, invalid, action, children, dataField, issue }) {
   return (
@@ -320,25 +325,18 @@ export function LocationFields({ d, set, withCity, showErrors, dataField, issue 
   // Country became multi-select.
   const rawCountry = d.country;
   const countries = Array.isArray(rawCountry) ? rawCountry : (rawCountry ? [rawCountry] : []);
-  const countrySel = new Set(countries);
   return (
     <div className="fgrid c2">
-      <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }} data-field={dataField}>
-        <FilterGroup
-          title={t("onboardingFields.country", null, "Country")}
-          required
-          options={COUNTRY_NAMES}
-          sel={countrySel}
-          toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
-          onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
-          trFilterLabel={(t, v) => v}
-          // FilterGroup's own default (options.length <= 10) would leave
-          // this collapsed given ~195 countries -- Country is exactly the
-          // one group people expect to actually browse/pick many from on
-          // open, unlike a shorter list where collapsed-by-default declutters.
-          initialExpanded
-        />
-        <FieldIssue id={dataField} issue={issue} />
+      <div style={{ gridColumn: "1 / -1" }}>
+        {/* Dropdown + chips instead of an always-expanded checkbox grid --
+            same ChipsDropdown the onboarding Research area field uses,
+            better suited to a ~249-option list than a grid that used to
+            need its own "initially expanded" override just to be usable. */}
+        <FSection label={t("onboardingFields.country", null, "Country")} required
+          count={countries.length ? t("onboarding.selectedCount", { count: countries.length }, `${countries.length} selected`) : null}
+          action={<SelectAllToggle options={COUNTRY_NAMES} value={countries} onChange={(v) => set("country", v)} />}
+          invalid={showErrors && countries.length === 0} dataField={dataField} issue={issue} />
+        <ChipsDropdown options={COUNTRY_NAMES} value={countries} onChange={(v) => set("country", v)} placeholder={t("onboardingFields.selectCountryPlaceholder", null, "Select country(ies)")} />
       </div>
       <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
         <TextInput value={d.state} onChange={(v) => set("state", v)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />

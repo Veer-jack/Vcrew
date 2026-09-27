@@ -2720,6 +2720,7 @@ const fr = {
     updating: "Mise à jour…",
     peopleMatchNow: "les gens correspondent en ce moment",
     country: "Pays",
+    selectCountryPlaceholder: "Sélectionnez le(s) pays",
     countryIndia: "Inde",
     countryUS: "États-Unis",
     stateRegion: "État/Région",

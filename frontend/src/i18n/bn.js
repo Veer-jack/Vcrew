@@ -2720,6 +2720,7 @@ const bn = {
     updating: "আপডেট হচ্ছে...",
     peopleMatchNow: "মানুষ এখনই মেলে",
     country: "দেশ",
+    selectCountryPlaceholder: "দেশ নির্বাচন করুন",
     countryIndia: "ভারত",
     countryUS: "মার্কিন যুক্তরাষ্ট্র",
     stateRegion: "রাজ্য / অঞ্চল",

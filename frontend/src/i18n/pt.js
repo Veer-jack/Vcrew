@@ -2720,6 +2720,7 @@ const pt = {
     updating: "Atualizando…",
     peopleMatchNow: "pessoas combinam agora",
     country: "País",
+    selectCountryPlaceholder: "Selecione o(s) país(es)",
     countryIndia: "Índia",
     countryUS: "Estados Unidos",
     stateRegion: "Estado/Região",

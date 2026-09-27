@@ -2720,6 +2720,7 @@ const ru = {
     updating: "Обновление…",
     peopleMatchNow: "люди подходят прямо сейчас",
     country: "Страна",
+    selectCountryPlaceholder: "Выберите страну(ы)",
     countryIndia: "Индия",
     countryUS: "Соединенные Штаты",
     stateRegion: "Штат/Регион",

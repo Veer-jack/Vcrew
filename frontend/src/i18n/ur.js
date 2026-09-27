@@ -2720,6 +2720,7 @@ const ur = {
     updating: "اپ ڈیٹ ہو رہا ہے…",
     peopleMatchNow: "لوگ ابھی میچ کر رہے ہیں۔",
     country: "ملک",
+    selectCountryPlaceholder: "ملک منتخب کریں",
     countryIndia: "انڈیا",
     countryUS: "ریاستہائے متحدہ",
     stateRegion: "ریاست / علاقہ",

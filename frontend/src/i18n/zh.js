@@ -2720,6 +2720,7 @@ const zh = {
     updating: "正在更新…",
     peopleMatchNow: "人们现在就匹配",
     country: "国家",
+    selectCountryPlaceholder: "选择国家",
     countryIndia: "印度",
     countryUS: "美国",
     stateRegion: "州/地区",
