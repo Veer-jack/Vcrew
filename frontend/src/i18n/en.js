@@ -2744,7 +2744,6 @@ const en = {
     any: "Any",
     genderFemale: "Female",
     genderMale: "Male",
-    genderNonBinary: "Non-binary",
     notYetTrackedHint: "Not yet tracked on validator profiles — doesn't affect the match count.",
     occupation: "Occupation",
     occStudent: "Student",
@@ -3229,8 +3228,7 @@ const en = {
       genders: {
         "0": "Male",
         "1": "Female",
-        "2": "Non-binary",
-        "3": "Prefer not to say",
+        "2": "Prefer not to say",
       },
       income: {
         "0": "Under Rs2.5L",

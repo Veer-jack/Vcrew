@@ -2745,7 +2745,6 @@ const fr = {
     any: "N'importe lequel",
     genderFemale: "Femme",
     genderMale: "Mâle",
-    genderNonBinary: "Non binaire",
     notYetTrackedHint: "Pas encore suivi sur les profils des validateurs — n'affecte pas le nombre de correspondances.",
     occupation: "Profession",
     occStudent: "Étudiant",
@@ -3230,8 +3229,7 @@ const fr = {
       genders: {
         "0": "Mâle",
         "1": "Femme",
-        "2": "Non binaire",
-        "3": "Je préfère ne pas dire",
+        "2": "Je préfère ne pas dire",
       },
       income: {
         "0": "Moins de Rs2,5L",

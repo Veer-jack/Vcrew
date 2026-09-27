@@ -233,7 +233,7 @@ export const LANGUAGES = {
 };
 
 export const AGE_BANDS = ["18–24", "25–34", "35–44", "45–54", "55+"];
-export const GENDERS = ["Any", "Female", "Male", "Non-binary"];
+export const GENDERS = ["Any", "Female", "Male"];
 export const OCCUPATIONS = ["Students", "Software engineers", "Product managers", "Designers", "Founders", "Marketers", "Researchers", "Healthcare pros", "Educators", "Finance pros", "Homemakers", "Retired"];
 export const EDUCATIONS = ["High school", "Diploma", "Undergraduate", "Postgraduate", "PhD / Doctorate"];
 export const INTERESTS = ["AI", "Startups", "Fitness", "Healthcare", "Education", "Finance", "Gaming", "Parenting", "Travel", "Fashion", "Food", "Sustainability"];

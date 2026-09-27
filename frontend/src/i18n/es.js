@@ -2745,7 +2745,6 @@ const es = {
     any: "Cualquiera",
     genderFemale: "Mujer",
     genderMale: "masculino",
-    genderNonBinary: "no binario",
     notYetTrackedHint: "Aún no rastreado en los perfiles de validador: no afecta el recuento de coincidencias.",
     occupation: "Ocupación",
     occStudent: "estudiante",
@@ -3230,8 +3229,7 @@ const es = {
       genders: {
         "0": "masculino",
         "1": "Mujer",
-        "2": "no binario",
-        "3": "Prefiero no decir",
+        "2": "Prefiero no decir",
       },
       income: {
         "0": "Menos de 2,5 litros",

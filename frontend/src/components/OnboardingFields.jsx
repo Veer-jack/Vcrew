@@ -360,7 +360,7 @@ export function LocationFields({ d, set, withCity, showErrors, dataField, issue 
 export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender, issue }) {
   const { t } = useTranslation();
   const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
-  const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")];
+  const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male")];
   return (
     <div className="fgrid c2">
       <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} dataField={requireAge ? "ageBands" : undefined} issue={issue} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>

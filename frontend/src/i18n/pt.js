@@ -2745,7 +2745,6 @@ const pt = {
     any: "Qualquer",
     genderFemale: "Feminino",
     genderMale: "Masculino",
-    genderNonBinary: "Não binário",
     notYetTrackedHint: "Ainda não rastreado nos perfis do validador — não afeta a contagem de correspondências.",
     occupation: "Ocupação",
     occStudent: "Estudante",
@@ -3230,8 +3229,7 @@ const pt = {
       genders: {
         "0": "Masculino",
         "1": "Feminino",
-        "2": "Não binário",
-        "3": "Prefiro não dizer",
+        "2": "Prefiro não dizer",
       },
       income: {
         "0": "Abaixo de Rs2,5L",

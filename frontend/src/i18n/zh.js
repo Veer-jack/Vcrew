@@ -2745,7 +2745,6 @@ const zh = {
     any: "任意",
     genderFemale: "女",
     genderMale: "男",
-    genderNonBinary: "非二元",
     notYetTrackedHint: "尚未在验证器配置文件上进行跟踪 - 不会影响匹配计数。",
     occupation: "职业",
     occStudent: "学生",
@@ -3230,8 +3229,7 @@ const zh = {
       genders: {
         "0": "男",
         "1": "女",
-        "2": "非二元",
-        "3": "宁愿不说",
+        "2": "宁愿不说",
       },
       income: {
         "0": "低于Rs2.5L",
