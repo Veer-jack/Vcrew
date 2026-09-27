@@ -58,6 +58,7 @@ export const api = {
   updateProfile: (body) => request("/auth/profile", { method: "PATCH", body }),
   phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
   phoneExists: (phone) => request("/auth/phone-exists", { method: "POST", body: { phone } }),
+  phoneStatus: (phone) => request("/auth/phone-status", { method: "POST", body: { phone } }),
   phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
   phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
   reapplyVerification: () => request("/auth/reapply-verification", { method: "POST" }),

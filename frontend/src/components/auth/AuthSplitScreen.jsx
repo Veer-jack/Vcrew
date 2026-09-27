@@ -250,6 +250,20 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
           return;
         }
       }
+      // Sign-in gets a different check: a number that's declared (typed
+      // somewhere) but never actually verified doesn't match any account for
+      // login purposes, so entering a real OTP for it would otherwise
+      // silently create a brand-new, disconnected account instead of
+      // reaching the one it's sitting on. Same fail-open rule as above.
+      if (mode === "signin" && adapter.phoneStatus) {
+        const { declaredUnverified } = await adapter.phoneStatus(fullPhone).catch(() => ({ declaredUnverified: false }));
+        if (declaredUnverified) {
+          setExistsPrompt("phone-unverified");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          setBusy(false);
+          return;
+        }
+      }
       const auth = await getFirebaseAuth(adapter.firebaseConfig);
       if (!auth) throw new Error(t("auth.phoneSignInNotConfigured", null, "Phone sign-in isn't configured on this server yet"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
@@ -390,10 +404,15 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
             <div className="err-banner" style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <span>{existsPrompt === "email"
                 ? t("auth.errEmailInUse", null, "An account with this email already exists.")
+                : existsPrompt === "phone-unverified"
+                ? t("auth.phoneDeclaredUnverified", null, "This number is on file but not verified. Sign in with your email, then verify it from Settings.")
                 : t("auth.errPhoneInUse", null, "An account with this phone number already exists.")}</span>
               <Btn variant="primary" size="sm" style={{ flexShrink: 0 }}
-                onClick={() => { setExistsPrompt(null); setError(""); setOtpSent(false); setOtp(""); setMode("signin"); }}>
-                {t("auth.signIn")}
+                onClick={() => {
+                  setExistsPrompt(null); setError(""); setOtpSent(false); setOtp("");
+                  if (existsPrompt === "phone-unverified") setMethod("email"); else setMode("signin");
+                }}>
+                {existsPrompt === "phone-unverified" ? t("auth.useEmailInstead", null, "Use email instead") : t("auth.signIn")}
               </Btn>
             </div>
           ) : error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}

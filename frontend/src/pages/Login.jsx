@@ -51,6 +51,7 @@ export default function Login() {
     firebaseConfig: () => api.firebaseConfig(),
     phoneLoginVerify: (idToken) => api.phoneLoginVerify(idToken),
     phoneExists: (phone) => api.phoneExists(phone),
+    phoneStatus: (phone) => api.phoneStatus(phone),
     sendSignupCode: (email, name) => api.sendSignupCode(email, name),
     login: (email, password) => api.login(email, password).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),
     signup: ({ name, org, email, password, code }) => api.signup({ name, org, email, password, code, lang }).then(({ token, builder }) => { setToken(token); setBuilder(builder); }),

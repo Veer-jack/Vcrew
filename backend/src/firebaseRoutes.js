@@ -6,6 +6,20 @@ import { handleFirebaseError } from "./outage.js";
 
 const STEP_UP_TTL_MS = 10 * 60 * 1000;
 
+// A declared (never-verified) mobile number is stored and looked up as pure
+// digits, but "declared" always comes from the free-text mobile field whose
+// own hint tells Indian users to type just the 10-digit local number with no
+// country code -- while a lookup here always sends the full number with
+// country code attached (see AuthSplitScreen's fullPhone). Without this,
+// "9123456780" (as typed) would never match a lookup for "+919123456780" (as
+// queried), even though they're the same number. Normalizing a bare <=10
+// digit number to its implied +91 form on both the write and read side keeps
+// the comparison an exact, index-friendly match.
+export function normalizePhoneDigits(v) {
+  const d = String(v || "").replace(/\D/g, "");
+  return d && d.length <= 10 ? `91${d}` : d;
+}
+
 // GET /api/firebase/config — public web config + whether phone auth is usable
 export function buildFirebaseConfigRouter() {
   const router = Router();
@@ -48,6 +62,27 @@ export function buildPhoneExistsRouter({ table }) {
     if (!phone) return res.status(400).json({ error: "Phone number is required" });
     const existing = await db.prepare(`SELECT id FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
     res.json({ exists: !!existing });
+  });
+  return router;
+}
+
+// Lets phone sign-in catch a number that's saved on some account's profile
+// (typed during onboarding/Edit Profile) but was never actually verified
+// there -- without this, entering a real OTP for that number wouldn't match
+// the account it's declared on (only a *verified* phone counts for login),
+// so it would silently spin up a brand-new, disconnected account instead of
+// telling the person to sign in with their email. Builder-only: validators
+// have no separate "declared" mobile field to fall out of sync with.
+// POST / { phone } -> { declaredUnverified }
+export function buildPhoneStatusRouter({ table }) {
+  const router = Router();
+  router.post("/", async (req, res) => {
+    const phone = String(req.body?.phone || "").trim();
+    if (!phone) return res.status(400).json({ error: "Phone number is required" });
+    const verified = await db.prepare(`SELECT id FROM ${table} WHERE phone = ? AND phone_verified = 1`).get(phone);
+    if (verified) return res.json({ declaredUnverified: false });
+    const declared = await db.prepare(`SELECT id FROM ${table} WHERE declared_phone_digits = ?`).get(normalizePhoneDigits(phone));
+    res.json({ declaredUnverified: !!declared });
   });
   return router;
 }

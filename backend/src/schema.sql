@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS builders (
   oauth_id TEXT,
   phone TEXT,
   phone_verified INTEGER DEFAULT 0,
+  -- Digits-only copy of profile_json's declared (never-verified) mobile
+  -- number, kept in sync whenever it's saved -- lets phone sign-in look up
+  -- "is this number on file but unverified" without scanning every builder's
+  -- profile_json. See auth.js's PATCH /profile and /onboarding.
+  declared_phone_digits TEXT,
   role TEXT DEFAULT 'Founder',
   plan TEXT DEFAULT 'Growth',
   color TEXT DEFAULT '#4f46e5',

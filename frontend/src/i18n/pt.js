@@ -32,6 +32,8 @@ const pt = {
     errCodeExpired: "Este código expirou. Solicite um novo.",
     errEmailInUse: "Já existe uma conta com este e-mail.",
     errPhoneInUse: "Já existe uma conta com este número de telefone.",
+    phoneDeclaredUnverified: "Este número está registrado, mas não verificado. Entre com seu e-mail e depois verifique-o nas Configurações.",
+    useEmailInstead: "Usar e-mail em vez disso",
     errInvalidCredentials: "E-mail ou senha incorretos.",
     errInvalidPhone: "Insira um número de celular válido.",
     errRegionNotEnabled: "O login por SMS ainda não está disponível nesta região. Tente outro método de login.",

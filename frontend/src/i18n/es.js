@@ -32,6 +32,8 @@ const es = {
     errCodeExpired: "Este código ha caducado. Solicita uno nuevo.",
     errEmailInUse: "Ya existe una cuenta con este correo electrónico.",
     errPhoneInUse: "Ya existe una cuenta con este número de teléfono.",
+    phoneDeclaredUnverified: "Este número está registrado pero no verificado. Inicia sesión con tu correo electrónico y luego verifícalo desde Configuración.",
+    useEmailInstead: "Usar correo electrónico en su lugar",
     errInvalidCredentials: "Correo electrónico o contraseña incorrectos.",
     errInvalidPhone: "Introduce un número de móvil válido.",
     errRegionNotEnabled: "El inicio de sesión por SMS aún no está disponible en esta región. Prueba otro método de inicio de sesión.",

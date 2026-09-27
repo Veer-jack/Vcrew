@@ -32,6 +32,8 @@ const en = {
     errCodeExpired: "This code has expired. Please request a new one.",
     errEmailInUse: "An account with this email already exists.",
     errPhoneInUse: "An account with this phone number already exists.",
+    phoneDeclaredUnverified: "This number is on file but not verified. Sign in with your email, then verify it from Settings.",
+    useEmailInstead: "Use email instead",
     errInvalidCredentials: "Incorrect email or password.",
     errInvalidPhone: "Please enter a valid mobile number.",
     errRegionNotEnabled: "SMS sign-in isn't available for this region yet. Please try a different sign-in method.",

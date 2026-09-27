@@ -325,6 +325,13 @@ export async function initDb() {
           ))
       `);
     }
+    if (!bColNames.includes('declared_phone_digits')) {
+      await client.query(`ALTER TABLE builders ADD COLUMN declared_phone_digits TEXT`);
+    }
+    // Created here rather than in schema.sql's static index block -- that
+    // block runs before this migration on an existing database, so it would
+    // fail trying to index a column that doesn't exist yet on first upgrade.
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_builders_declared_phone_digits ON builders(declared_phone_digits)`);
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS admin_notifications (
