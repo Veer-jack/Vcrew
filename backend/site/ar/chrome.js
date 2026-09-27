@@ -139,8 +139,13 @@
   const initialCta = (bToken || vToken) ? `<div style="width:200px"></div><button class="nav-burger" aria-label="Menu">${ic.menu}</button>` : defaultCta;
 
   const navRoot = document.getElementById("vc-nav");
+  // ?embed=1 (used by the signup form's Terms/Privacy links, which open
+  // these pages in a fresh tab purely for reference) skips the site nav --
+  // a standalone reference read has no use for site navigation, and it
+  // keeps the page from looking like an orphaned half-loaded marketing page.
+  const hideNav = new URLSearchParams(location.search).has("embed");
   if (navRoot) {
-    navRoot.innerHTML = `
+    navRoot.innerHTML = hideNav ? "" : `
       <header class="nav">
         <div class="wrap nav-in" id="nav-in-wrapper">
           <div class="stagger-item" style="opacity:0; transform:translateY(-10px); transition:all 0.5s ease;">${brand}</div>

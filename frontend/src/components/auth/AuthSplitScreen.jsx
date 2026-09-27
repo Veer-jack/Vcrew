@@ -19,9 +19,11 @@ const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMa
 // <a target="_blank">, not <Link>, since /terms and /privacy are static
 // pages served directly by the backend (see server.js), not SPA routes;
 // opening in a new tab means reading them never risks losing whatever's
-// already typed into this in-progress signup form. stopPropagation keeps a
-// click on the link from also toggling the checkbox this text sits inside
-// (native <label> behavior otherwise fires both).
+// already typed into this in-progress signup form. ?embed=1 tells chrome.js
+// to skip the site nav bar there, since this is a standalone reference read,
+// not someone browsing the marketing site. stopPropagation keeps a click on
+// the link from also toggling the checkbox this text sits inside (native
+// <label> behavior otherwise fires both).
 function TermsAgreementLabel({ t }) {
   const sentence = t("auth.agreeToTerms", null, "I agree to the {{terms}} and {{privacy}}");
   // The global `a` rule inherits the surrounding text color (see theme.css),
@@ -30,8 +32,8 @@ function TermsAgreementLabel({ t }) {
   // in ->" (.asplit-cross a) so they read as links here too.
   const linkStyle = { color: "var(--accent)", textDecoration: "none" };
   return sentence.split(/(\{\{terms\}\}|\{\{privacy\}\})/).map((part, i) => {
-    if (part === "{{terms}}") return <a key={i} href="/terms" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.termsOfServiceLink", null, "Terms of Service")}</a>;
-    if (part === "{{privacy}}") return <a key={i} href="/privacy" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.privacyPolicyLink", null, "Privacy Policy")}</a>;
+    if (part === "{{terms}}") return <a key={i} href="/terms?embed=1" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.termsOfServiceLink", null, "Terms of Service")}</a>;
+    if (part === "{{privacy}}") return <a key={i} href="/privacy?embed=1" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.privacyPolicyLink", null, "Privacy Policy")}</a>;
     return part;
   });
 }
