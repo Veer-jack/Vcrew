@@ -501,7 +501,7 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .asplit-brand {
   background: linear-gradient(155deg, var(--panel) 0%, var(--bg) 100%);
   border-right: var(--hairline) solid var(--border);
-  padding: 56px 56px 40px; display: flex; flex-direction: column; justify-content: center;
+  padding: 64px 56px 40px; display: flex; flex-direction: column; justify-content: flex-start;
 }
 .asplit-brand-logo { margin-bottom: 36px; }
 .asplit-headline { font-size: 34px; font-weight: 800; letter-spacing: -.025em; line-height: 1.12; margin: 0 0 14px; }
