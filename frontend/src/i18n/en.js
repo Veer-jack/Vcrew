@@ -236,7 +236,7 @@ const en = {
     startOver: "Start over",
     skipForNow: "Skip",
     creatingAccount: "Creating account…",
-    createWorkspace: "Create my workspace",
+    createWorkspace: "Find my people \u2192",
     continueAsRole: "Continue as {{role}}",
     editProfile: "Edit profile",
     updatePassword: "Update password",
@@ -791,7 +791,7 @@ const en = {
   final: {
     step: "Almost done · Preferences",
     title: "How will you use ValidationCrew?",
-    sub: "A couple of quick preferences so we can shape your workspace.",
+    sub: "A couple of quick preferences so we can shape your workspace and suggest the right way to collect feedback.",
     frequencyLabel: "How often will you need feedback?",
     methodsLabel: "Preferred methods",
   },
@@ -826,7 +826,7 @@ const en = {
     company: {
       step: "Step 2 · Company",
       title: "About your company",
-      sub: "This shapes the benchmarks we compare your results against.",
+      sub: "This shapes the benchmarks we compare your results against — a seed-stage app and an enterprise rollout aren't judged the same way.",
       nameLabel: "Company / product name",
       websiteLabel: "Website",
       industryLabel: "Industry",
@@ -839,7 +839,7 @@ const en = {
     validate: {
       step: "Step 3 · What to validate",
       title: "What do you want to put in front of people?",
-      sub: "Pick everything you expect to validate — this tailors the reviewer pools we line up for you.",
+      sub: "Pick everything you expect to validate. You can run a separate campaign for each — this just tailors the reviewer pools we line up for you.",
       surfacesSection: "Validation surfaces",
     },
     audience: {
@@ -857,15 +857,17 @@ const en = {
   validatorTypeSection: "Validator Type",
   verify: {
     step: "Verification",
-    title: "Build trust",
-    sub: "Verified accounts get better reviewers and faster matches.",
-    websiteTitle: "Website",
+    title: "Build trust with validators",
+    sub: "Verified builders get better reviewers and faster matches. Verify what you can now — you can finish the rest anytime from your dashboard.",
+    websiteTitle: "Company website",
     websiteDesc: "Confirms you own the domain via a meta tag or DNS record.",
-    linkedinTitle: "LinkedIn page",
+    linkedinTitle: "LinkedIn company page",
     linkedinDescCampaigns: "Links your campaigns to a real, public organisation.",
-    footer: "Submitted details are reviewed by our trust team and never shared with validators.",
+    footer: "Verification is optional to finish setup, but unverified accounts can only run limited campaigns. Your documents are checked by our trust team and never shared with validators.",
     gstTitle: "GST registration",
-    registryBadgeDesc: "Adds a business-registry badge.",
+    registryBadgeDesc: "Adds a business-registry badge. Speeds up enterprise matching.",
+    cinTitle: "CIN",
+    cinDesc: "Corporate Identification Number — for registered companies.",
     taxIdTitle: "Business / Tax ID",
     taxIdDesc: "EIN, VAT or company number.",
     gstNumberTitle: "GST number",
@@ -874,13 +876,13 @@ const en = {
     personal: {
       step: "Step 1 · About you",
       title: "Let's start with you",
-      sub: "This stays private to your workspace.",
+      sub: "This stays private to your workspace. We use it to set up your account and route results to the right person.",
       roleLabel: "Job title / designation",
     },
     company: {
       step: "Step 2 · Company",
       title: "About your company",
-      sub: "This helps validators recognise who they're giving feedback to.",
+      sub: "This shapes the benchmarks we compare your results against and helps validators recognise who they're giving feedback to.",
       nameLabel: "Company name",
       websiteLabel: "Website",
       industryLabel: "Industry",
@@ -907,13 +909,13 @@ const en = {
   researcher: {
     personal: {
       step: "Step 1 · About you",
-      sub: "This stays private. We use it to set up your researcher account.",
+      sub: "This stays private. We use it to set up your researcher account and contact you about your study.",
       roleLabel: "Designation",
     },
     academic: {
       step: "Step 2 · Academic",
       title: "Your academic background",
-      sub: "This helps us verify you as a researcher.",
+      sub: "This helps us verify you as a researcher and lets participants see the institution behind a study.",
       institutionLabel: "University / institution",
       departmentLabel: "Department",
       qualificationLabel: "Highest qualification",
@@ -935,7 +937,7 @@ const en = {
     participants: {
       step: "Step 4 · Participants",
       title: "Who should take part?",
-      sub: "Define your sample — we match you to participants who fit your criteria.",
+      sub: "Define your sample. We match you to participants who fit your criteria — recruitment without the legwork.",
       sampleSizeSection: "Sample size needed",
       sampleSizeLabel: "How many participants?",
       sampleSizePlaceholder: "Select sample size",
@@ -944,15 +946,16 @@ const en = {
     ethics: {
       step: "Step 5 · Ethics & verification",
       title: "Ethics & verification",
-      sub: "Approved, transparent studies get higher participation.",
+      sub: "Approved, transparent studies get higher participation. Verify what you can — the rest can follow later.",
       approvalSection: "Does your study have institutional approval?",
       approvalHint: "This means sign-off from your university's Institutional Review Board (IRB) or ethics committee, confirming your study protects participants and follows standard research-ethics guidelines. If your institution doesn't require this for your kind of study, or you haven't applied yet, pick whichever option below actually matches — it won't block you from continuing.",
       refLabel: "Approval reference",
       verifySection: "Verify your identity",
       uniEmailTitle: "University email",
-      uniEmailDesc: "Confirms your academic affiliation.",
-      scholarlyTitle: "Scholarly profile",
-      scholarlyDesc: "Google Scholar, ORCID, Scopus, ResearchGate or LinkedIn.",
+      uniEmailDesc: "Confirms your academic affiliation via a .edu / .ac domain.",
+      scholarlyTitle: "Research profile",
+      scholarlyDesc: "Link a scholarly profile so participants can see your track record.",
+      trustBox: "Your approval documents are reviewed by our trust team and never shared with participants. Verification raises your study to the top of participants' invitations.",
     },
   },
   org: {
@@ -960,13 +963,13 @@ const en = {
     rep: {
       step: "Step 1 · Representative",
       title: "Who's representing the organization?",
-      sub: "This stays private. We use it to set up your account.",
+      sub: "This stays private. We use it to set up your account and contact the right person about your initiatives.",
       roleLabel: "Your designation",
     },
     info: {
       step: "Step 2 · Organization",
       title: "About your organization",
-      sub: "This helps participants recognise who they're contributing to.",
+      sub: "This helps participants recognise who they're contributing to, and lets us tailor your workspace.",
       nameLabel: "Organization name",
       yearLabel: "Year established",
       typeSection: "Organization type",
@@ -976,7 +979,7 @@ const en = {
     goals: {
       step: "Step 3 · Goals",
       title: "What would you like to learn?",
-      sub: "Pick everything you'd like to understand.",
+      sub: "Pick everything you'd like to understand, and tell us about the initiative behind it.",
       initiativeSection: "Initiative details",
       initiativeNameLabel: "Initiative / program name",
       programDescLabel: "Program description",
@@ -993,7 +996,7 @@ const en = {
     verify: {
       step: "Step 5 · Verification",
       title: "Build trust with participants",
-      sub: "Verified organizations get higher participation.",
+      sub: "Verified organizations get higher participation and reach sensitive communities more easily.",
       websiteDesc: "Confirms you own the domain.",
       linkedinDesc: "Links initiatives to a real, public organisation.",
       regNoTitle: "Registration number",
@@ -2137,7 +2140,7 @@ const en = {
   unsavedMissionDraft: "You have an unsaved mission in progress — it's kept in this browser until you continue or explicitly save it as a draft.",
   draftSavedBackNav: "Your mission draft was saved — Continue from here anytime.",
   personaTitle: {
-    founder: "Founder / Startup",
+    founder: "Founder",
     company: "Company",
     researcher: "Researcher",
     organization: "Organization",
@@ -2192,7 +2195,7 @@ const en = {
     live: "Live",
   },
   role: {
-    founder: "Founder / Startup",
+    founder: "Founder",
     founderDesc: "Validate your startup ideas, get feedback and grow faster.",
     company: "Company",
     companyDesc: "Test products, understand users and make data-driven decisions.",
@@ -2585,7 +2588,7 @@ const en = {
     signingIn: "Signing you in…",
   },
   roles: {
-    founder: "Founder / Startup",
+    founder: "Founder",
     founderDesc: "Validate your startup — product feedback, user opinions, beta testing, idea & pricing validation.",
     company: "Company",
     companyDesc: "Evaluate products, packaging, pricing, brand perception and customer experience.",
@@ -2762,7 +2765,7 @@ const en = {
     eduUndergraduate: "Undergraduate",
     eduPostgraduate: "Postgraduate",
     eduPhd: "PhD / Doctorate",
-    incomeBand: "Income band",
+    incomeBand: "Income range (annual)",
     languages: "Languages",
     langHindi: "Hindi",
     langEnglish: "English",
@@ -3592,6 +3595,14 @@ const en = {
     submittedDesc: "₹{{reward}} will clear to your pending balance once the builder reviews it.",
     submitting: "Submitting…",
   },
+  matchingEngine: {
+    label: "THE MATCHING ENGINE",
+    title: "Let's find the right people",
+    desc: "Tell us whose opinion matters. Your reach updates live as you go — the sharper you are, the higher the signal.",
+    matchText: "people match right now",
+    findBtn: "Find my people →",
+    privacyText: "We invite matched people on your behalf — you never see their personal data."
+  }
 };
 
 export default en;

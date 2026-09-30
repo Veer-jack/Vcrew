@@ -18,13 +18,15 @@ const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a
 // selected countries actually have a region for."
 const REGIONS_BY_COUNTRY = Object.fromEntries(countryRegionData.map(c => [c.countryName, c.regions.map(r => r.name)]));
 
-export function Field({ label, optional, span, hint, invalid, action, children, dataField, issue }) {
+export function Field({ label, optional, required, span, hint, invalid, action, children, dataField, issue }) {
   return (
     <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`} data-field={dataField}>
-      <div className="row between" style={{ alignItems: "center" }}>
-        <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
-        {action}
-      </div>
+      {(label || action) && (
+        <div className="row between" style={{ alignItems: "center", marginBottom: 8 }}>
+          <label style={{ fontWeight: 800, color: "var(--text-strong)", fontSize: 14 }}>{label}{required && <span style={{ color: "var(--danger)" }}> *</span>} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : null}</label>
+          {action}
+        </div>
+      )}
       {children}
       <FieldIssue id={dataField} issue={issue} />
       {hint && <p className="fhint">{hint}</p>}
@@ -112,36 +114,72 @@ export function SelectAllToggle({ options, value, onChange }) {
   );
 }
 
-export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength, onKeyDown }) {
+// Same "Clear all" a ChipsDropdown's own internal Select all row already
+// does when everything is selected -- placed outside the menu too, next to
+// the field's "N selected" count, so clearing doesn't require opening the
+// dropdown first. Only clears this field's real options, same as the
+// internal one leaves any custom "Other" value (not in `options`) alone.
+export function ClearAllAction({ options, value, onChange, closeOnPick = [], multi = true }) {
+  const { t } = useTranslation();
+  const sel = multi ? (value || []) : (value ? [value] : []);
+  const bulkTargets = options.filter(o => !closeOnPick.includes(o));
+  const anySelected = bulkTargets.some(o => sel.includes(o));
+  if (!anySelected) return null;
+  return (
+    <button type="button" className="backlink" style={{ margin: 0, fontSize: 12, flexShrink: 0 }}
+      onClick={() => onChange(multi ? sel.filter(x => !bulkTargets.includes(x)) : "")}>
+      {t("createMission.clearAll", null, "Clear all")}
+    </button>
+  );
+}
+
+export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength, onKeyDown, style, icon }) {
   if (type === "password") {
-    return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
+    return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={style} />;
   }
-  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} onKeyDown={onKeyDown} />;
+  if (icon) {
+    return (
+      <div className="inw has-pre">
+        <span className="pre"><Icon name={icon} size={15} /></span>
+        <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} onKeyDown={onKeyDown} style={style} />
+      </div>
+    );
+  }
+  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} onKeyDown={onKeyDown} style={style} />;
 }
 
 export function Textarea({ value, onChange, placeholder }) {
   return <textarea className="fin" rows={3} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
 }
 
-export function SelectInput({ value, onChange, options, placeholder }) {
-  const { t } = useTranslation();
+export function SelectInput({ value, onChange, options, placeholder, style, ...props }) {
   return (
-    <select className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)}>
-      <option value="" disabled>{placeholder || t("onboardingFields.selectPlaceholder", null, "Select…")}</option>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
-    </select>
+    <ChipsDropdown 
+      multi={false}
+      value={value}
+      onChange={onChange}
+      options={options}
+      placeholder={placeholder}
+      style={style}
+      {...props}
+    />
   );
 }
 
 export function FSection({ label, count, required, action, invalid, dataField, issue }) {
   return (
     <>
-      <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }} data-field={dataField}>
-        <div className="eyebrow" style={{ fontSize: 12, color: invalid ? "var(--danger)" : undefined }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
-        <div className="row gap-3" style={{ alignItems: "center" }}>
-          {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
-          {action}
-        </div>
+      <div className={invalid ? "fsection-invalid" : ""} style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12, marginBottom: 16 }} data-field={dataField}>
+        <span style={{ fontWeight: 700, fontSize: 14, color: invalid ? "var(--danger)" : "var(--text-strong)", whiteSpace: "nowrap" }}>
+          {label}{required && <span style={{ color: "var(--danger)" }}> *</span>}
+        </span>
+        <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        {(count || action) && (
+          <div className="row gap-3" style={{ alignItems: "center" }}>
+            {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+            {action}
+          </div>
+        )}
       </div>
       <FieldIssue id={dataField} issue={issue} />
     </>
@@ -153,7 +191,7 @@ export function FSection({ label, count, required, action, invalid, dataField, i
 // threshold FilterGroup already uses for its own default expanded/collapsed
 // state) -- a currently-selected option never hides, even past the cutoff,
 // so a collapsed view can never look like a selection silently vanished.
-export function Chips({ options, value, onChange, multi = true }) {
+export function Chips({ options, value, onChange, multi = true, hideCheck = false }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const sel = value || (multi ? [] : "");
@@ -172,7 +210,7 @@ export function Chips({ options, value, onChange, multi = true }) {
         // missing it, so a selection only read as "selected" via the border
         // color, not the checkmark every other filter chip in the app has.
         <button key={o} type="button" className={`chip${isOn(o) ? " on" : ""}`} onClick={() => toggle(o)}>
-          <span className="ck"><Icon name="check" size={10} /></span>{o}
+          {!hideCheck && <span className="ck"><Icon name="check" size={10} /></span>}{o}
         </button>
       ))}
       {collapsible && (
@@ -209,7 +247,7 @@ function Checkbox({ on }) {
   );
 }
 
-export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [], multi = true, selectAll = true, groupOf }) {
+export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [], multi = true, selectAll = true, groupOf, style, disabled }) {
   const { t } = useTranslation();
   const sel = multi ? (value || []) : (value ? [value] : []);
   const [open, setOpen] = useState(false);
@@ -222,7 +260,10 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
   // last time -- and focused immediately, so typing to filter doesn't need
   // an extra click first.
   useEffect(() => {
-    if (!open) { setSearch(""); return; }
+    if (!open) { 
+      const timer = setTimeout(() => setSearch(""), 0);
+      return () => clearTimeout(timer);
+    }
     searchRef.current?.focus();
   }, [open]);
   const matchesSearch = search.trim()
@@ -265,7 +306,6 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
       window.removeEventListener("scroll", reposition, true);
       window.removeEventListener("resize", reposition);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const toggle = (o) => {
@@ -309,12 +349,14 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
       <button
         ref={btnRef}
         type="button"
+        disabled={disabled}
         onClick={() => {
+          if (disabled) return;
           if (!open) reposition();
           setOpen(o => !o);
         }}
         className="fin"
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", width: "100%" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: disabled ? "default" : "pointer", textAlign: "left", width: "100%", ...style }}
       >
         {/* Multi: always the placeholder, never restated as "N selected"
             here -- callers already show that count in their own FSection
@@ -323,7 +365,9 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
             and no chip row to show it in, so the trigger shows it directly,
             same as a native <select> would. */}
         <span className={multi || !value ? "faint" : undefined}>{multi ? (placeholder || t("onboardingFields.selectPlaceholder", null, "Select…")) : (value || placeholder || t("onboardingFields.selectPlaceholder", null, "Select…"))}</span>
-        <Icon name={open ? "chevronUp" : "chevronDown"} size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+        <svg viewBox="0 0 10 7" width="10" height="7" style={{ flexShrink: 0, color: "#94a3b8", transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}>
+          <path d="M0 0 L10 0 L5 7 Z" fill="currentColor" />
+        </svg>
       </button>
       {open && pos && createPortal(
         <>
@@ -388,7 +432,7 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
       )}
       {multi && chipValues.length > 0 && (
         <div className="row gap-2" style={{ flexWrap: "wrap", marginTop: 10 }}>
-          {chipValues.map(o => (
+          {chipValues.slice(0, 3).map(o => (
             <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {o}
               <button type="button" onClick={() => toggle(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
@@ -396,6 +440,11 @@ export function ChipsDropdown({ options, value, onChange, placeholder, hideChips
               </button>
             </div>
           ))}
+          {chipValues.length > 3 && (
+            <div className="chip faint" style={{ display: "flex", alignItems: "center", gap: 6, cursor: "default", background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)", fontSize: 13, fontWeight: 500 }}>
+              +{chipValues.length - 3} more
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -414,9 +463,34 @@ export function SelCards({ options, value, onChange, multi = false, cols = 2 }) 
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 10 }} className="selcard-grid">
       {options.map((o) => (
         <button key={o.v} type="button" className={`card selcard${isOn(o.v) ? " selcard-on" : ""}`}
-          style={{ textAlign: "left", padding: 14, cursor: "pointer" }} onClick={() => toggle(o.v)}>
-          <b style={{ fontSize: 13.5 }}>{o.t}</b>
-          <p className="faint" style={{ fontSize: 12, margin: "3px 0 0" }}>{o.d}</p>
+          style={{ textAlign: "left", padding: o.icon ? "16px 16px 14px 16px" : 14, cursor: "pointer", display: "flex", flexDirection: o.icon ? "column" : "row", justifyContent: "space-between", alignItems: o.icon ? "flex-start" : "center" }} onClick={() => toggle(o.v)}>
+          
+          {o.icon ? (
+            <>
+              <div style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: isOn(o.v) ? "var(--accent)" : "var(--panel-inset)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: isOn(o.v) ? "#fff" : "var(--text-strong)", transition: "all 0.2s" }}>
+                  <Icon name={o.icon} size={16} />
+                </div>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", border: isOn(o.v) ? "none" : "1.5px solid var(--border-strong)", background: isOn(o.v) ? "var(--accent)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>
+                  {isOn(o.v) && <Icon name="check" size={10} />}
+                </div>
+              </div>
+              <div style={{ width: "100%" }}>
+                <b style={{ fontSize: 13.5, display: "block" }}>{o.t}</b>
+                <p className="faint" style={{ fontSize: 12, margin: "3px 0 0", display: "block" }}>{o.d}</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <b style={{ fontSize: 13.5 }}>{o.t}</b>
+                <p className="faint" style={{ fontSize: 12, margin: "3px 0 0" }}>{o.d}</p>
+              </div>
+              <div style={{ width: 18, height: 18, borderRadius: "50%", border: isOn(o.v) ? "none" : "1.5px solid var(--border-strong)", background: isOn(o.v) ? "var(--accent)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: 10 }}>
+                {isOn(o.v) && <Icon name="check" size={10} />}
+              </div>
+            </>
+          )}
         </button>
       ))}
     </div>
@@ -431,21 +505,24 @@ export function ReachMeter({ reach, base, firstLoad, updating }) {
   const { t } = useTranslation();
   const pct = firstLoad ? 0 : Math.max(4, Math.min(100, Math.round((reach / base) * 100)));
   return (
-    <div className="reach" style={{ marginBottom: 16 }}>
+    <div className="reach" style={{ 
+      marginBottom: 32, 
+      position: "sticky", 
+      top: 0, 
+      zIndex: 10 
+    }}>
       <div className="reach-top">
         <span className="r-ic"><Icon name="users" size={22} /></span>
         <div style={{ flex: 1, opacity: updating ? 0.5 : 1, transition: "opacity .2s" }}>
           <div className="r-num">{firstLoad ? "—" : reach.toLocaleString("en-US")}</div>
-          <div className="r-lab">{firstLoad ? t("onboardingFields.findingAudience", null, "Finding your audience…") : t("onboardingFields.peopleMatchNow", null, "people match right now")}</div>
+          <div className="r-lab">{firstLoad ? t("onboardingFields.findingAudience", null, "Finding your audience…") : t("onboardingFields.validatorsMatch", null, "validators match this audience")}</div>
         </div>
-        {updating ? (
+        {updating && (
           <span className="pill" style={{ background: "var(--panel)", color: "var(--text-muted)", border: "none" }}><Icon name="clock" size={13} /> {t("onboardingFields.updating", null, "Updating…")}</span>
-        ) : (
-          <span className="pill" style={{ background: "var(--success-weak)", color: "var(--success)", border: "none" }}><Icon name="bolt" size={13} /> {t("createMission.live", null, "Live")}</span>
         )}
       </div>
       <div className="r-bar"><i style={{ width: Math.max(4, pct) + "%" }} /></div>
-      <div className="r-foot"><span>{t("createMission.narrowerHigherQuality", null, "Narrower = higher quality")}</span><span>{t("createMission.pctOfTotalPool", { pct }, `${pct}% of total pool`)}</span></div>
+      <div className="r-foot"><span>{t("createMission.highlyTargeted", null, "Highly targeted pool")}</span><span>{t("createMission.pctOfNetwork", { pct }, `${pct}% of network`)}</span></div>
     </div>
   );
 }
@@ -494,7 +571,10 @@ export function LocationFields({ d, set, withCity, showErrors, dataField, issue 
   const [cityOptions, setCityOptions] = useState([]);
   const [cityToState, setCityToState] = useState({});
   useEffect(() => {
-    if (!withCity || states.length === 0) { setCityOptions([]); setCityToState({}); return; }
+    if (!withCity || states.length === 0) { 
+      const timer = setTimeout(() => { setCityOptions([]); setCityToState({}); }, 0);
+      return () => clearTimeout(timer);
+    }
     let cancelled = false;
     Promise.all(states.map(s =>
       api.get(`/geo/cities?country=${encodeURIComponent(stateToCountry[s] || "")}&state=${encodeURIComponent(s)}`)
@@ -528,36 +608,22 @@ export function LocationFields({ d, set, withCity, showErrors, dataField, issue 
     if (stillValid.length !== cities.length) set("city", stillValid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [withCity, JSON.stringify(cityOptions)]);
-
   return (
     <div className="fgrid c2">
-      <div style={{ gridColumn: "1 / -1" }}>
-        {/* Dropdown + chips instead of an always-expanded checkbox grid --
-            same ChipsDropdown the onboarding Research area field uses,
-            better suited to a ~249-option list than a grid that used to
-            need its own "initially expanded" override just to be usable.
-            No external Select all action here anymore -- ChipsDropdown
-            grew its own, pinned inside the menu itself. */}
-        <FSection label={t("onboardingFields.country", null, "Country")} required
-          count={countries.length ? t("onboarding.selectedCount", { count: countries.length }, `${countries.length} selected`) : null}
-          invalid={showErrors && countries.length === 0} dataField={dataField} issue={issue} />
+      <Field label={t("onboardingFields.country", null, "Country")} required invalid={showErrors && countries.length === 0} dataField={dataField} issue={issue} action={<ClearAllAction options={COUNTRY_NAMES} value={countries} onChange={(v) => set("country", v)} />}>
         <ChipsDropdown options={COUNTRY_NAMES} value={countries} onChange={(v) => set("country", v)} placeholder={t("onboardingFields.selectCountryPlaceholder", null, "Select country(ies)")} />
-      </div>
-      <div style={{ gridColumn: "1 / -1" }}>
-        <FSection label={t("onboardingFields.stateRegion", null, "State / Region")} optional
-          count={states.length ? t("onboarding.selectedCount", { count: states.length }, `${states.length} selected`) : null} />
+      </Field>
+      <Field label={t("onboardingFields.stateRegion", null, "State")} action={<ClearAllAction options={stateOptions} value={states} onChange={(v) => set("state", v)} />}>
         <ChipsDropdown options={stateOptions} value={states} onChange={(v) => set("state", v)}
           placeholder={countries.length ? t("onboardingFields.selectStatePlaceholder", null, "Select state(s)") : t("onboardingFields.selectCountryFirstPlaceholder", null, "Select a country first")}
           groupOf={countries.length > 1 ? (s => stateToCountry[s]) : undefined} />
-      </div>
+      </Field>
       {withCity && (
-        <div style={{ gridColumn: "1 / -1" }}>
-          <FSection label={t("onboardingFields.city", null, "City")} optional
-            count={cities.length ? t("onboarding.selectedCount", { count: cities.length }, `${cities.length} selected`) : null} />
+        <Field label={t("onboardingFields.city", null, "City")} optional action={<ClearAllAction options={cityOptions} value={cities} onChange={(v) => set("city", v)} />}>
           <ChipsDropdown options={cityOptions} value={cities} onChange={(v) => set("city", v)}
             placeholder={states.length ? t("onboardingFields.selectCityPlaceholder", null, "Select city(ies)") : t("onboardingFields.selectStateFirstPlaceholder", null, "Select a state first")}
             groupOf={states.length > 1 ? (c => cityToState[c]) : undefined} />
-        </div>
+        </Field>
       )}
     </div>
   );
@@ -568,11 +634,11 @@ export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors,
   const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
   const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male")];
   return (
-    <div className="fgrid c2">
-      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} dataField={requireAge ? "ageBands" : undefined} issue={issue} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
+    <div className="col gap-3">
+      <Field label={t("onboardingFields.age", null, "Age range")} invalid={showErrors && requireAge && !(d.ageBands || []).length} dataField={requireAge ? "ageBands" : undefined} issue={issue}>
         <Chips options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
-      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} dataField={requireGender ? "genders" : undefined} issue={issue} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
+      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} dataField={requireGender ? "genders" : undefined} issue={issue}>
         <Chips options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
@@ -627,8 +693,9 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
     <div className="col gap-3">
       {show.occupation && (
         <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined} data-field={requireOccupation ? "occupations" : undefined}>
-          <FSection label={t("onboardingFields.occupation", null, "Occupation")} required
+          <FSection label={t("onboardingFields.occupation", null, "Occupation")} required={requireOccupation}
             count={occSel.size ? t("onboarding.selectedCount", { count: occSel.size }, `${occSel.size} selected`) : null}
+            action={<ClearAllAction options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} closeOnPick={hasOtherOcc ? ["Other"] : []} />}
             invalid={showErrors && requireOccupation && !occSel.size} dataField={requireOccupation ? "occupations" : undefined} issue={issue} />
           <ChipsDropdown options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} placeholder={t("onboardingFields.selectOccupationPlaceholder", null, "Select occupation(s)")} hideChips={hasOtherOcc ? ["Other"] : []} closeOnPick={hasOtherOcc ? ["Other"] : []} />
           {hasOtherOcc && (
@@ -637,14 +704,13 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
         </div>
       )}
       {show.education && (
-        <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}
+        <Field label={t("onboardingFields.education", null, "Education")} optional
           action={<SelectAllToggle options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />}>
           <Chips options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />
         </Field>
       )}
       {show.income && (
-        <Field label={t("onboardingFields.incomeBand", null, "Income band")} optional
-          action={<SelectAllToggle options={incomeBandOptions} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />}>
+        <Field label={t("onboardingFields.incomeBand", null, "Income range (annual)")}>
           <Chips options={incomeBandOptions} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
         </Field>
       )}
@@ -657,7 +723,8 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
       {show.interests && (
         <div>
           <FSection label={t("onboardingFields.interests", null, "Interests")}
-            count={intSel.size ? t("onboarding.selectedCount", { count: intSel.size }, `${intSel.size} selected`) : null} />
+            count={intSel.size ? t("onboarding.selectedCount", { count: intSel.size }, `${intSel.size} selected`) : null}
+            action={<ClearAllAction options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} closeOnPick={hasOtherInt ? ["Other"] : []} />} />
           <ChipsDropdown options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} placeholder={t("onboardingFields.selectInterestsPlaceholder", null, "Select interest(s)")} hideChips={hasOtherInt ? ["Other"] : []} closeOnPick={hasOtherInt ? ["Other"] : []} />
           {hasOtherInt && (
             <OtherEntryField isOpen={intSel.has("Other")} customValues={customInts} onSave={saveOtherInt} onRemove={removeOtherInt} onCancel={cancelOtherInt} placeholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")} showErrors={showErrors} />
@@ -675,23 +742,118 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
 // see it again short of hitting Edit — same shape as every other field in
 // the wizard now: a plain, always-visible, always-editable input with its
 // error (if any) shown live underneath, no separate submit step.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate, dataField, issue }) {
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate, dataField, issue, submitLabel = "Submit for review", submittedLabel = "Sent for review", submittedIcon = "clock", submittedTheme = "warning" }) {
+  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const trimmed = (value || "").trim();
   const liveError = validate ? validate(value) : null;
   const missingRequired = showErrors && !optional && !trimmed;
   const invalid = missingRequired || (!!trimmed && !!liveError);
+  
+  const canSubmit = !!trimmed && !invalid && !isSubmitting;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setSubmitted(true);
+    }, 1500);
+  };
+
+  const isSuccess = submittedTheme === "success";
 
   return (
-    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }} data-field={dataField}>
-      <span className="intent-ic" style={{ background: "var(--accent-weak)", color: "var(--accent)", flex: "none" }}>
-        <Icon name={icon} size={16} />
-      </span>
-      <div style={{ flex: 1 }}>
-        <b style={{ fontSize: 13.5 }}>{title} {optional ? <span className="faint" style={{ fontWeight: 400 }}>(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</b>
-        <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
-        <input className={`fin ${invalid ? "fin-invalid" : ""}`} style={{ width: "100%" }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+    <div className="card" style={{ padding: 20, marginBottom: 16, display: "flex", gap: 20, alignItems: "center", border: invalid ? "1px solid var(--danger)" : undefined }} data-field={dataField}>
+      <div style={{ width: 36, height: 36, borderRadius: 8, background: submitted ? "#ecfdf5" : "var(--panel-inset)", color: submitted ? "#10b981" : "var(--text-strong)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon name={submitted ? "check" : icon} size={18} />
+      </div>
+      
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <b style={{ fontSize: 13.5, color: "var(--text-strong)", marginBottom: 10 }}>{title} {optional && <span className="faint" style={{ fontWeight: 400 }}>optional</span>}</b>
+        
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <input 
+              className={`fin ${invalid ? "fin-invalid" : ""}`} 
+              style={{ width: "100%", padding: "8px 12px", background: (submitted || isSubmitting) ? "var(--bg)" : undefined, color: (submitted || isSubmitting) ? "var(--text-strong)" : undefined }} 
+              value={value || ""} 
+              onChange={(e) => { onChange(e.target.value); setSubmitted(false); }} 
+              placeholder={placeholder} 
+              disabled={submitted || isSubmitting}
+            />
+            {submittedTheme === "success" && <div style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }}><Icon name="chevronDown" size={16} /></div>}
+          </div>
+          
+          {submitted ? (
+            <div style={{ background: isSuccess ? "#ecfdf5" : "#fffbeb", color: isSuccess ? "#10b981" : "#d97706", padding: "8px 16px", borderRadius: 100, fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+              <Icon name={submittedIcon} size={14} />
+              {submittedLabel}
+            </div>
+          ) : isSubmitting ? (
+            <button 
+              disabled
+              style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, padding: "8px 16px", fontSize: 13, fontWeight: 500, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6, cursor: "default" }}>
+              <Icon name="loader" className="spin" size={14} style={{ color: "#8b5cf6" }} />
+              Submitting
+            </button>
+          ) : (
+            <button 
+              onClick={handleSubmit} 
+              disabled={!canSubmit} 
+              style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 6, padding: "8px 16px", fontSize: 13, fontWeight: 500, color: canSubmit ? "var(--text-strong)" : "var(--text-muted)", opacity: canSubmit ? 1 : 0.5, cursor: canSubmit ? "pointer" : "default" }}>
+              {submitLabel}
+            </button>
+          )}
+        </div>
+        
         {trimmed && liveError && <div className="err" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>{liveError}</div>}
+        <p className="faint" style={{ fontSize: 12, margin: "8px 0 0" }}>{desc}</p>
         <FieldIssue id={dataField} issue={issue} />
+      </div>
+    </div>
+  );
+}
+
+const TrustProfileRow = ({ label, desc, added, last }) => (
+  <div className="row between" style={{ alignItems: "center", paddingBottom: last ? 0 : 12, borderBottom: last ? "none" : "1px solid var(--border)" }}>
+    <div className="row gap-2" style={{ alignItems: "center" }}>
+      <div style={{ width: 20, height: 20, borderRadius: "50%", background: added ? "var(--accent)" : "transparent", border: added ? "none" : "1.5px solid var(--border-strong)", color: added ? "#fff" : "var(--border-strong)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon name="check" size={12} />
+      </div>
+      <span style={{ fontSize: 13.5, fontWeight: added ? 700 : 400, color: added ? "inherit" : "var(--text-muted)" }}>{label}</span>
+    </div>
+    {added ? (
+      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", background: "var(--accent-weak)", padding: "2px 8px", borderRadius: 12 }}>Added</span>
+    ) : (
+      <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{desc}</span>
+    )}
+  </div>
+);
+
+export function TrustProfileWidget({ d }) {
+  const hasDomain = !!(d?.vWebsiteInput || d?.website);
+  const hasCompanyPage = !!d?.vCompanyInput;
+  const hasRegistry = !!(d?.gst || d?.cin || d?.taxId);
+
+  return (
+    <div className="card" style={{ padding: "20px 24px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent-weak)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon name="shieldCheck" size={16} />
+        </div>
+        <b style={{ fontSize: 15 }}>Trust profile</b>
+      </div>
+      
+      <div className="col gap-3">
+        <TrustProfileRow label="Identity" desc="" added={!!d?.fullName} />
+        <TrustProfileRow label="Email" desc="Company domain" added={!!d?.email} />
+        <TrustProfileRow label="LinkedIn" desc="Verified profile" added={!!d?.linkedin} />
+        <TrustProfileRow label="Domain" desc="Website ownership" added={hasDomain} />
+        <TrustProfileRow label="Company page" desc="LinkedIn company" added={hasCompanyPage} />
+        <TrustProfileRow label="Business registry" desc="GST / CIN / Tax ID" added={hasRegistry} last={true} />
       </div>
     </div>
   );
@@ -704,24 +866,64 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked, iss
   const roleOptions = roleField?.options ? [...roleField.options, otherLabel] : defaultOptions;
   const isOther = d.designation === otherLabel;
   return (
-    <div className="fgrid c2">
+    <div className="col gap-4">
       <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()} dataField="fullName" issue={issue}>
-        <TextInput value={d.fullName} onChange={(v) => set("fullName", v)} placeholder={t("onboardingFields.fullNamePlaceholder", null, "Aarav Mehta")} />
+        <div style={{ position: "relative" }}>
+          <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
+            <Icon name="user" size={16} />
+          </div>
+          <TextInput value={d.fullName} onChange={(v) => set("fullName", v)} placeholder="RK" style={{ paddingLeft: 42 }} />
+        </div>
       </Field>
-      <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")} dataField="email" issue={issue}>
-        <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder={t("onboardingFields.emailPlaceholder", null, "you@company.com")} disabled={emailLocked} />
-      </Field>
-      <Field
-        label={t("onboardingFields.mobileNumber", null, "Mobile number")}
-        invalid={showErrors && !isValidMobile(d.mobile)}
-        dataField="mobile" issue={issue}
-        hint={t("onboardingFields.mobileNumberHint", null, "A 10-digit Indian mobile number, or add a country code (e.g. +1 555 123 4567) if you're outside India.")}
-      >
-        <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
-      </Field>
-      <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation} dataField="designation" issue={issue}>
-        <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={roleOptions} placeholder={t("onboardingFields.selectRole", null, "Select role")} />
-      </Field>
+      
+      <div className="fgrid c2">
+        <Field label={t("onboardingFields.email", null, "Work email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")} dataField="email" issue={issue}
+          action={<span style={{ fontSize: 12, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}><Icon name="lock" size={12} /> private</span>}
+          hint={t("onboardingFields.emailHint", null, "A work domain raises your trust tier")}
+        >
+          <div style={{ position: "relative" }}>
+            <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
+              <Icon name="mail" size={16} />
+            </div>
+            <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder="rkgit7767@gmail.com" disabled={emailLocked} style={{ paddingLeft: 42, paddingRight: 42 }} />
+            <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", color: "var(--success)" }}>
+              <Icon name="check" size={16} />
+            </div>
+          </div>
+        </Field>
+        
+        <Field label={t("onboardingFields.mobileNumber", null, "Mobile number")} optional hint="Used only for verification">
+          <div className="fin opt-pill" style={{ display: "flex", padding: 0, overflow: "hidden", background: "var(--panel-inset)" }}>
+            <div style={{ padding: "0 16px", borderRight: "1px solid var(--border)", display: "flex", alignItems: "center", fontSize: 15, color: "var(--text-muted)" }}>
+              +91
+            </div>
+            <div style={{ flex: 1 }}>
+              <TextInput value={d.mobile} onChange={(v) => set("mobile", v)} placeholder="7032982932" style={{ border: "none", boxShadow: "none", background: "transparent", borderRadius: 0, width: "100%", height: "100%" }} />
+            </div>
+          </div>
+        </Field>
+      </div>
+
+      <div className="fgrid c2">
+        <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation} dataField="designation" issue={issue}>
+          <div style={{ position: "relative" }}>
+            <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", zIndex: 1, pointerEvents: "none" }}>
+              <Icon name="briefcase" size={16} />
+            </div>
+            <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={roleOptions} placeholder={t("onboardingFields.selectRole", null, "Select role")} style={{ paddingLeft: 42 }} />
+          </div>
+        </Field>
+        
+        <Field label={t("onboardingFields.linkedin", null, "LinkedIn profile")} optional hint="Speeds up reviewer trust">
+          <div style={{ position: "relative" }}>
+            <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
+              <Icon name="link" size={16} />
+            </div>
+            <TextInput value={d.linkedin} onChange={(v) => set("linkedin", v)} placeholder="linkedin.com/in/..." style={{ paddingLeft: 42 }} />
+          </div>
+        </Field>
+      </div>
+
       {isOther && (
         <Field label={t("onboardingFields.customRole", null, "Your role")} span invalid={showErrors && !(d.designationOther || "").trim()} dataField="designationOther" issue={issue}>
           <TextInput value={d.designationOther} onChange={(v) => set("designationOther", v)} placeholder={t("onboardingFields.customRolePlaceholder", null, "Type your role")} />

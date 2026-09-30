@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
-import { BrandMark } from "../components/BrandMark";
+import { BrandLogoFull } from "../components/BrandMark";
 import { useTranslation } from "../i18n/index.jsx";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { api } from "../api/client";
@@ -19,15 +19,14 @@ export default function RoleSelect() {
   const current = params.get("current");
 
   return (
-    <div className="auth-shell">
-      <div style={{ position: "absolute", top: 16, right: 24, zIndex: 10 }}>
-        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ background: "var(--panel)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "4px 8px" }} />
+    <div className="auth-shell" style={{ background: "var(--panel-inset)" }}>
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 72, background: "var(--panel-inset)", borderBottom: "1px solid var(--border)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 24px" }}>
+        <BrandLogoFull height={32} />
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ background: "transparent", border: "none", padding: "4px 8px" }} />
       </div>
-      <div className="rise" style={{ width: "100%", maxWidth: 860, textAlign: "center" }}>
-        <div style={{ margin: "0 auto 18px" }}><BrandMark size={80} /></div>
-        <div className="eyebrow" style={{ marginBottom: 10 }}>{t("onboarding.iNeedFeedback", null, "I need feedback")}</div>
-        <h1 style={{ fontSize: 26, marginBottom: 8 }}>{t("onboarding.createBuilderAccount", null, "Create your builder account")}</h1>
-        <p className="muted" style={{ marginBottom: 30, fontSize: 14.5 }}>
+      <div className="rise" style={{ width: "100%", maxWidth: 860, textAlign: "center", paddingTop: 56, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 44, letterSpacing: "-1px", marginBottom: 12, fontWeight: 700, color: "var(--text)" }}>{t("onboarding.pickYourRole", null, "Pick your role")}</h1>
+        <p className="muted" style={{ marginBottom: 44, fontSize: 16 }}>
           {t("onboarding.chooseDescFitsBest", null, "Choose the description that fits you best — we'll tailor every step that follows.")}
         </p>
 
@@ -39,7 +38,7 @@ export default function RoleSelect() {
               key={r.key}
               type="button"
               className={`card role-card ${!r.live ? "role-card-soon" : ""}`}
-              style={{ "--rc-accent": r.accent, textAlign: "left", cursor: r.live ? "pointer" : "default", position: "relative", borderColor: isCurrent ? r.accent : undefined, boxShadow: isCurrent ? `0 0 0 1px ${r.accent}` : undefined }}
+              style={{ "--rc-accent": r.accent, textAlign: "left", cursor: r.live ? "pointer" : "default", position: "relative", borderColor: isCurrent ? r.accent : undefined, boxShadow: isCurrent ? `var(--shadow-lg), 0 0 0 1px ${r.accent}` : undefined }}
               disabled={!r.live}
               onClick={() => {
                 if (!r.live) return;
@@ -52,27 +51,40 @@ export default function RoleSelect() {
                 navigate(`/signup?role=${r.key}`);
               }}
             >
-              <div className="row between" style={{ alignItems: "flex-start" }}>
-                <span className="intent-ic" style={{ background: `${r.accent}1a`, color: r.accent }}>
-                  <Icon name={r.icon} size={18} />
-                </span>
+              <div className="row between" style={{ alignItems: "center", marginBottom: 12 }}>
+                <div className="row" style={{ gap: 12 }}>
+                  <span className="intent-ic" style={{ background: `${r.accent}1a`, color: r.accent, width: 44, height: 44, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Icon name={r.icon} size={20} />
+                  </span>
+                  <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{r.name}</h3>
+                </div>
                 {!r.live && <span className="pill" style={{ fontSize: 11 }}>{t("status.comingSoon", null, "Coming soon")}</span>}
               </div>
-              {isCurrent && (
-                <span style={{ position: "absolute", top: -10, left: 18, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, background: r.accent, color: "#fff" }}>
-                  <Icon name="check" size={11} />{t("onboarding.currentRole", null, "Current role")}
+
+              <p className="muted" style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>{r.desc}</p>
+              
+              {r.pills && (
+                <div style={{ display: "flex", flexWrap: "nowrap", overflow: "hidden", gap: 6, marginTop: 16 }}>
+                  {r.pills.map((pill, i) => (
+                    <span key={i} style={{ fontSize: 11, background: "var(--bg)", border: "1px solid var(--border)", color: "var(--text-muted)", fontWeight: 600, padding: "3px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                      {pill}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {r.live && (
+                <span className="intent-cta" style={{ marginTop: 24, display: "flex", alignItems: "center", gap: 6, color: r.accent, fontWeight: 700, fontSize: 14 }}>
+                  {t("actions.continueAsRole", { role: r.name }, `Continue as ${r.name}`)} <Icon name="arrowRight" size={18} />
                 </span>
               )}
-              <h3 style={{ margin: "12px 0 4px", fontSize: 15.5 }}>{r.name}</h3>
-              <p className="faint" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>{r.desc}</p>
-              {r.live && <span className="intent-cta">{t("actions.continueAsRole", { role: r.name }, `Continue as ${r.name}`)} <Icon name="arrowRight" size={14} /></span>}
             </button>
             );
           })}
         </div>
 
-        <p className="faint" style={{ marginTop: 26, fontSize: 12.5 }}>
-          <a href="/get-started">{t("actions.skip", null, "Skip")} &rarr;</a>
+        <p className="muted" style={{ marginTop: 32, fontSize: 13 }}>
+          {t("auth.alreadyMember", null, "Already a member?")} <a href="/login" style={{ marginLeft: 6, color: "var(--accent)", fontWeight: 700 }}>{t("auth.signIn", null, "Sign in")}</a>
         </p>
       </div>
     </div>

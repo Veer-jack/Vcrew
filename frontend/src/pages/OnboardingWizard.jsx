@@ -9,61 +9,95 @@ import { api } from "../api/client";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
 import LanguageSwitcher from "../components/LanguageSwitcher";
+import StandaloneAudience from "../components/StandaloneAudience";
 
 const REGION = "india"; // ValidationCrew's primary market today; no region switcher yet.
 
-// Start over / Skip / Back live at the rail's bottom, same spot and the
-// same .wz-rail-foot styling CreateMissionWizard's own rail uses for its
-// Start fresh/Cancel/Back trio -- moved out of the top navbar so both
-// wizards read the same way. Skip stands in for Cancel there; Back keeps
-// its existing name and only appears past the first step, same condition
-// the old inline Back button used.
-function StepRail({ steps, current, maxReached, onJump, onStartFresh, onSkip, onBack }) {
+// The new top progress bar matching the horizontal step segment design.
+// Displays individual top line segments above step labels/icons and allows jumping to completed steps.
+function TopProgressBar({ steps, current, maxReached, onJump }) {
   const { t } = useTranslation();
+  // Calculate percentage: completed steps / total steps
+  const pct = steps.length > 0 ? Math.round((current / steps.length) * 100) : 0;
+  
   return (
-    <aside className="wiz-rail scroll-hover">
-      <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
-      <div className="col gap-1">
+    <div style={{ display: "flex", alignItems: "center", flex: 1, margin: "0 32px", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", flex: 1, gap: 12 }}>
         {steps.map((s, i) => {
           const state = i < current ? "done" : i === current ? "current" : "upcoming";
           const reachable = i <= maxReached;
+          const isCompletedOrActive = i <= current;
+          
           return (
-            <button
-              key={s.key} type="button" disabled={!reachable}
-              onClick={() => reachable && onJump(i)}
-              className={`wiz-step wiz-step-${state}`}
-            >
-              <span className="wiz-step-dot">{i < current ? <Icon name="check" size={12} /> : i + 1}</span>
-              <span>{stepLabel(t, s.key, s.label)}</span>
-            </button>
+            <div key={s.key} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+              {/* Top progress segment line above the step text/icon */}
+              <div
+                style={{
+                  height: 3,
+                  borderRadius: 2,
+                  background: isCompletedOrActive ? "var(--accent, #4f46e5)" : "var(--border, #e2e8f0)",
+                  width: "100%",
+                  transition: "background 0.2s ease"
+                }}
+              />
+              {/* Step indicator button */}
+              <button
+                type="button"
+                disabled={!reachable}
+                onClick={() => reachable && onJump(i)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: reachable ? "pointer" : "default",
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  color: state === "upcoming" ? "var(--text-muted, #94a3b8)" : "var(--text, #0f172a)",
+                  fontWeight: state === "current" ? 700 : state === "done" ? 600 : 500,
+                  fontSize: 13,
+                  whiteSpace: "nowrap",
+                  textAlign: "left"
+                }}
+              >
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    background:
+                      state === "done"
+                        ? "var(--success, #16a34a)"
+                        : state === "current"
+                        ? "var(--accent, #4f46e5)"
+                        : "#ffffff",
+                    border: state === "upcoming" ? "1.5px solid #cbd5e1" : "none",
+                    color: state === "upcoming" ? "#94a3b8" : "#ffffff",
+                    fontSize: 11,
+                    fontWeight: 700
+                  }}
+                >
+                  {state === "done" ? <Icon name="check" size={11} strokeWidth={2.6} /> : i + 1}
+                </div>
+                <span>{stepLabel(t, s.key, s.label)}</span>
+              </button>
+            </div>
           );
         })}
       </div>
-      <div className="wz-rail-foot">
-        <button className="backlink" onClick={onStartFresh} style={{ marginLeft: 8 }}><Icon name="refresh" size={16} /> {t("actions.startOver", null, "Start over")}</button>
-        {/* Back shows on step 0 too, same as every other step -- it leaves
-            the wizard (there's no step -1 to decrement to), returning to the
-            role picker instead so someone who picked the wrong description
-            there isn't stuck needing to know that's what the "Founder" dropdown
-            up top is for. goBack itself branches on that; this button no
-            longer needs to. */}
-        <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-          <button className="btn" onClick={onSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
-          <button className="btn" onClick={onBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
-        </div>
+
+      <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text, #0f172a)", minWidth: 36, textAlign: "right" }}>
+        {pct}%
       </div>
-    </aside>
+    </div>
   );
 }
 
-// Inline role switcher — lets the user jump straight to another persona's
-// onboarding without leaving to the full-page selector. Switching wipes every
-// role's draft and seeds a fresh one for the picked role (same reset
-// RoleSelect uses), so the dashboard's progress banner always points at
-// exactly one unambiguous, freshly-created draft afterwards. A full page
-// navigation (not client-side routing) is used deliberately: this component's
-// step/draft state is only initialized on mount, so a same-route search-param
-// change alone wouldn't pick up the new role's data.
+// Inline role switcher dropdown styled seamlessly as "{Role} setup" next to vertical divider
 function RoleSwitcher({ currentKey, currentName, builder }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -72,23 +106,28 @@ function RoleSwitcher({ currentKey, currentName, builder }) {
   const pick = (key) => {
     setOpen(false);
     if (key === currentKey) return;
+    // eslint-disable-next-line react-hooks/immutability
     window.__bypassUnload = true;
     switchToRoleDraft(builder?.id, key, builder);
+    // eslint-disable-next-line react-hooks/immutability
     window.location.href = `/signup?role=${key}`;
   };
 
   return (
-    <div style={{ position: "relative", marginLeft: 10 }}>
+    <div style={{ position: "relative" }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="pill"
-        style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", border: "none" }}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer",
+          background: "transparent", border: "none", padding: 0,
+          fontWeight: 700, fontSize: 14, color: "var(--text)"
+        }}
         aria-expanded={open}
         aria-haspopup="listbox"
         title={t("actions.changeRole", null, "Change role")}
       >
-        {currentName} <Icon name="chevronDown" size={12} />
+        {currentName} <Icon name="chevronDown" size={12} style={{ color: "var(--text-muted)", marginLeft: 2 }} />
       </button>
       {open && (
         <>
@@ -96,10 +135,10 @@ function RoleSwitcher({ currentKey, currentName, builder }) {
           <div
             role="listbox"
             style={{
-              position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 50,
-              background: "var(--bg)", border: "1px solid var(--border)",
+              position: "absolute", top: "calc(100% + 8px)", left: 0, zIndex: 50,
+              background: "var(--bg, #ffffff)", border: "1px solid var(--border)",
               borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)",
-              minWidth: 260, padding: "6px 0",
+              minWidth: 240, padding: "6px 0",
             }}
           >
             {roles.map((r) => (
@@ -133,11 +172,15 @@ function RoleSwitcher({ currentKey, currentName, builder }) {
   );
 }
 
-function SuccessScreen({ persona, d, builder, onFinish }) {
+function SuccessScreen({ persona, d, builder, onFinish, onReview, busy, error }) {
   const { t } = useTranslation();
   const items = persona.summary(d, t);
   const [matched, setMatched] = useState(null);
-  const matchedNounLabel = persona.matchedNoun === "people" ? t("onboarding.matchedNounPeople", null, "people") : t("onboarding.matchedNounValidators", null, "validators");
+  const matchedNounLabel = persona.matchedNoun === "people" 
+    ? t("onboarding.matchedNounPeople", null, "people") 
+    : persona.matchedNoun === "participants" 
+      ? t("onboarding.matchedNounParticipants", null, "participants")
+      : t("onboarding.matchedNounValidators", null, "validators");
 
   useEffect(() => {
     if (!persona.matchedNoun) return;
@@ -146,27 +189,110 @@ function SuccessScreen({ persona, d, builder, onFinish }) {
   }, []);
 
   const allItems = persona.matchedNoun
-    ? [...items, { label: t("onboarding.matchedAudience", null, "Matched audience"), value: matched === null ? t("onboarding.counting", null, "Counting…") : `${matched.toLocaleString("en-US")} ${matchedNounLabel}` }]
+    ? [...items, { 
+        icon: "users", 
+        label: persona.matchedNoun === "participants" ? t("onboarding.matchedParticipants", null, "Matched participants") : t("onboarding.matchedAudience", null, "Matched audience"), 
+        value: matched === null ? t("onboarding.counting", null, "Counting…") : `${matched.toLocaleString("en-US")} ${matchedNounLabel}` 
+      }]
     : items;
+    
+  if (d.region) {
+    allItems.push({ icon: "mapPin", label: "Region", value: "India" });
+  }
+
+  const name = (builder?.name || d.fullName || "").split(" ")[0] || "there";
 
   return (
-    <div className="rise" style={{ textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
-      <div className="brand-mark" style={{ margin: "0 auto 18px", background: "var(--success-weak)", color: "var(--success)" }}>
-        <Icon name="checkCircle" size={20} />
+    <div className="rise" style={{ textAlign: "center", maxWidth: 640, margin: "40px auto 0" }}>
+      <div style={{ margin: "0 auto 24px", width: 80, height: 80, borderRadius: "50%", background: "var(--accent-weak)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#ffffff", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
+          <Icon name="shieldCheck" size={24} />
+        </div>
       </div>
-      <h1 style={{ fontSize: 24, marginBottom: 8 }}>{t("onboarding.youreAllSet", null, "You're all set,")} {(builder?.name || d.fullName || "").split(" ")[0] || t("onboarding.thereFallback", null, "there")}</h1>
-      <p className="muted" style={{ marginBottom: 24, fontSize: 14 }}>
-        {persona.workspace(d, t)} {t("onboarding.isReadyLiningUp", { noun: persona.noun === "study" ? t("onboarding.participants", null, "participants") : t("onboarding.validators", null, "validators") }, `is ready. We're already lining up ${persona.noun === "study" ? "participants" : "validators"} who match your audience.`)}
+      
+      <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 16, color: "#0f172a", letterSpacing: "-0.02em" }}>
+        Submitted for verification, {name}
+      </h1>
+      
+      <p style={{ fontSize: 15, color: "#64748b", maxWidth: 500, margin: "0 auto 48px", lineHeight: 1.6 }}>
+        Our trust team is reviewing your details. You don't have to wait — you can publish up to 3 missions before your account is verified.
       </p>
-      <div className="card" style={{ padding: 18, textAlign: "left", marginBottom: 22 }}>
+      
+      {/* Stepper */}
+      <div style={{ display: "flex", alignItems: "flex-start", position: "relative", marginBottom: 48 }}>
+        {/* Background line connecting centers (16.66% to 83.33%) */}
+        <div style={{ position: "absolute", top: 12, left: "16.66%", width: "66.66%", height: 2, background: "#f1f5f9", zIndex: 0 }} />
+        {/* Green line from 1 to 2 (16.66% to 50%) */}
+        <div style={{ position: "absolute", top: 12, left: "16.66%", width: "33.33%", height: 2, background: "#10b981", zIndex: 1 }} />
+        {/* Accent line from 2 to 3 (50% to 83.33%) */}
+        <div style={{ position: "absolute", top: 12, left: "50%", width: "33.33%", height: 2, background: "var(--accent)", zIndex: 1 }} />
+        
+        <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flex: 1 }}>
+          <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#10b981", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="check" size={14} />
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Details submitted</div>
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>Received just now</div>
+          </div>
+        </div>
+        
+        <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flex: 1 }}>
+          <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
+            2
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>Admin verification</div>
+            <div style={{ fontSize: 12, color: "#94a3b8" }}>Usually within 24 hours</div>
+          </div>
+        </div>
+        
+        <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flex: 1 }}>
+          <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#fff", border: "2px solid #e2e8f0", color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700 }}>
+            3
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#94a3b8", marginBottom: 4 }}>Account activated</div>
+            <div style={{ fontSize: 12, color: "#cbd5e1" }}>Unlocks after approval</div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Summary Card */}
+      <div style={{ background: "#ffffff", border: "1px solid #f1f5f9", borderRadius: 16, padding: "8px 24px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", marginBottom: 32 }}>
         {allItems.map((it, i) => (
-          <div key={i} className="row between" style={{ padding: "9px 0", borderTop: i ? "1px solid var(--border)" : "none" }}>
-            <span className="faint" style={{ fontSize: 13 }}>{it.label}</span>
-            <b style={{ fontSize: 13 }}>{it.value}</b>
+          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0", borderTop: i ? "1px solid #f1f5f9" : "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              {it.icon && (
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--accent-weak)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Icon name={it.icon} size={16} />
+                </div>
+              )}
+              <span style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>{it.label}</span>
+            </div>
+            <b style={{ fontSize: 14, color: "#0f172a", fontWeight: 700 }}>{it.value}</b>
           </div>
         ))}
       </div>
-      <Btn variant="primary" block onClick={onFinish}>{t("actions.goToDashboard", null, "Go to my dashboard")}</Btn>
+      
+      {/* Actions */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        {error && <div style={{ color: "#ef4444", fontSize: 13, background: "#fef2f2", padding: "8px 16px", borderRadius: 8 }}>{error}</div>}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          <button type="button" disabled={busy} onClick={onFinish} style={{ background: "var(--accent)", color: "#fff", border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
+            {busy && <Icon name="loader" size={16} className="spin" />}
+            {t("onboarding.createFirst", { noun: persona.noun || "initiative" }, `Create first ${persona.noun || "initiative"}`)} 
+            {!busy && <Icon name="arrowRight" size={16} />}
+          </button>
+          <button type="button" disabled={busy} onClick={onReview} style={{ background: "transparent", color: "#0f172a", border: "none", padding: "12px 24px", borderRadius: 8, fontSize: 15, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1 }}>
+            <Icon name="arrowLeft" size={16} /> Review answers
+          </button>
+        </div>
+      </div>
+
+      <p style={{ marginTop: 24, fontSize: 13, color: "#94a3b8" }}>
+        Prototype: approve or reject this in Admin → Verification — this screen updates live.
+      </p>
     </div>
   );
 }
@@ -195,10 +321,27 @@ export default function OnboardingWizard() {
     } catch { return 0; }
   });
   
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DRAFT_KEY));
+      return saved ? !!saved.done : false;
+    } catch { return false; }
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
+  
+  useEffect(() => {
+    if (builder?.onboardingCompleted && !done) {
+      navigate("/", { replace: true });
+      return;
+    }
+    if (role) {
+      document.documentElement.setAttribute("data-role", role);
+      return () => document.documentElement.removeAttribute("data-role");
+    }
+  }, [role, builder?.onboardingCompleted, done, navigate]);
+
   // The single field Continue actually rejected on this step, if any -- see
   // goNext below. Drives both the scroll target and the inline message next
   // to that one field, replacing the old "scroll to top, generic banner"
@@ -230,16 +373,19 @@ export default function OnboardingWizard() {
     return result;
   });
 
-  const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
+  const set = (k, v) => {
+    setError("");
+    setIssue(null);
+    setD((s) => ({ ...s, [k]: v }));
+  };
 
   // Prevent accidental reload or back button if they've made progress
   const isDirty = !done && (step > 0 || Object.keys(d).length > 0);
   useUnsavedChangesWarning(isDirty, t("onboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
 
-  const saveDraft = (newStep, newMaxReached, currentD) => {
-    if (done) return;
+  const saveDraft = (newStep, newMaxReached, currentD, isDone = done) => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: newStep, maxReached: newMaxReached, d: currentD }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ step: newStep, maxReached: newMaxReached, d: currentD, done: isDone }));
     } catch { /* ignore */ }
   };
 
@@ -252,16 +398,25 @@ export default function OnboardingWizard() {
   // keeps the saved draft caught up with every keystroke instead, so no exit
   // path can lose more than what the debounce hasn't flushed yet.
   useEffect(() => {
-    if (done) return;
-    const timer = setTimeout(() => saveDraft(step, maxReached, d), 400);
+    const timer = setTimeout(() => saveDraft(step, maxReached, d, done), 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, maxReached, d, done]);
 
-  const stepKey = persona ? persona.steps[step].key : null;
-  const StepComponent = persona ? persona.components[stepKey] : null;
-  const isValid = useMemo(() => persona ? persona.validate(stepKey, d, REGION) : false, [persona, stepKey, d]);
-  const isLast = persona ? step === persona.steps.length - 1 : false;
+  const stepKey = persona ? (step < persona.steps.length ? persona.steps[step].key : "standalone_audience") : null;
+  const StepComponent = persona && step < persona.steps.length ? persona.components[stepKey] : null;
+  // If at standalone audience, use persona validate for audience/participants if available
+  const isValid = useMemo(() => {
+    if (!persona) return false;
+    if (step < persona.steps.length) return persona.validate(stepKey, d, REGION);
+    // Standalone audience validation
+    if (persona.components.audience) return persona.validate("audience", d, REGION);
+    if (persona.components.participants) return persona.validate("participants", d, REGION);
+    return true;
+  }, [persona, step, stepKey, d]);
+
+  const isPreferencesStep = persona ? step === persona.steps.length - 1 : false;
+  const isAudienceStep = persona ? step === persona.steps.length : false;
 
   if (!persona) {
     return (
@@ -276,36 +431,36 @@ export default function OnboardingWizard() {
 
   const goNext = async () => {
     if (!isValid) {
-      // Finds the one specific field actually blocking Continue and scrolls
-      // to it with a message right there, instead of a generic top-of-page
-      // banner that never said which of the step's several fields was the
-      // problem. persona.getIssue is additive to persona.validate (see
-      // foStepIssue in personaConfig.jsx) -- it can never disagree about
-      // whether the step is valid, only about what to say when it isn't.
-      const foundIssue = persona.getIssue ? persona.getIssue(stepKey, d, REGION, t) : null;
+      let foundIssue = null;
+      if (step < persona.steps.length && persona.getIssue) {
+        foundIssue = persona.getIssue(stepKey, d, REGION, t);
+      } else if (isAudienceStep && persona.getIssue) {
+        if (persona.components.audience) foundIssue = persona.getIssue("audience", d, REGION, t);
+        else if (persona.components.participants) foundIssue = persona.getIssue("participants", d, REGION, t);
+      }
       setShowErrors(true);
       if (foundIssue) {
         setIssue(foundIssue);
         setError("");
-        // Field visibility (the invalid state showErrors just turned on)
-        // hasn't painted yet on this same tick -- wait a frame so the target
-        // node actually exists (and is at its final position) before scrolling.
         requestAnimationFrame(() => {
           document.querySelector(`[data-field="${foundIssue.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
       } else {
-        // Defensive fallback only -- every step's getIssue should cover
-        // everything its validate() checks. Falling back to the old
-        // scroll-to-top banner here means a real gap in some step's
-        // getIssue rather than silently doing nothing.
         setIssue(null);
         setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
-        window.scrollTo({ top: 0, behavior: "smooth" });
+        requestAnimationFrame(() => {
+          const firstInvalid = document.querySelector(".fld-invalid, .fsection-invalid");
+          if (firstInvalid) {
+            firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
       }
       return;
     }
     setError(""); setShowErrors(false); setIssue(null);
-    if (!isLast) {
+    if (!isAudienceStep) {
       const next = step + 1;
       const newMax = Math.max(maxReached, next);
       setStep(next);
@@ -314,7 +469,13 @@ export default function OnboardingWizard() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    // final step submit
+    // final step submit (from standalone audience)
+    setDone(true);
+    saveDraft(step, maxReached, d, true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFinalSubmit = async () => {
     setBusy(true);
     try {
       const nameField = PERSONA_NAME_FIELD[role];
@@ -326,7 +487,7 @@ export default function OnboardingWizard() {
         profile: d,
       });
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-      setDone(true);
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err.message || t("onboarding.couldntSaveProfile", null, "Couldn't save your profile"));
     } finally {
@@ -336,14 +497,6 @@ export default function OnboardingWizard() {
 
   const goBack = () => {
     setError(""); setShowErrors(false); setIssue(null);
-    // Step 0 has nowhere to decrement to -- back from here leaves the
-    // wizard for the role picker instead, so someone who picked the wrong
-    // description there can actually see all four again (with descriptions,
-    // unlike the terse role-switcher dropdown in the header) rather than
-    // being stuck needing to already know which one they meant. Current
-    // progress is untouched either way -- RoleSelect only wipes the draft
-    // if a *different* role is picked from there than the one it was told
-    // is current.
     if (step === 0) {
       saveDraft(step, maxReached, d);
       navigate(`/get-started/feedback?current=${role}`);
@@ -364,6 +517,7 @@ export default function OnboardingWizard() {
   // Reset (not remove) the draft: this stays on the same role, just restarts
   // progress within it, so the dashboard's "which role / how far" banner
   // stays in sync instead of reporting no role picked.
+  // eslint-disable-next-line no-unused-vars
   const startFresh = () => {
     window.__bypassUnload = true;
     try {
@@ -371,13 +525,8 @@ export default function OnboardingWizard() {
     } catch { /* ignore */ }
     window.location.reload();
   };
-  // A real navigation (not react-router's navigate), same as the old plain
-  // <a href="/"> -- preserves "same functionality" exactly rather than
-  // switching to a soft SPA route change as a side effect of relocating it.
+
   const handleSkip = () => {
-    // Flush synchronously -- the debounced autosave effect above might not
-    // have fired yet, and this navigation (a real page load) doesn't wait
-    // around for it the way an in-app route change would.
     saveDraft(step, maxReached, d);
     window.__bypassUnload = true;
     window.location.href = "/";
@@ -386,54 +535,63 @@ export default function OnboardingWizard() {
   if (done) {
     return (
       <div className="auth-shell">
-        <SuccessScreen persona={persona} d={d} builder={builder} onFinish={() => navigate("/", { replace: true })} />
+        <SuccessScreen 
+          persona={persona} 
+          d={d} 
+          builder={builder} 
+          onFinish={handleFinalSubmit} 
+          onReview={() => { setDone(false); setStep(0); saveDraft(0, maxReached, d, false); }} 
+          busy={busy}
+          error={error}
+        />
       </div>
     );
   }
 
+  const handleValidateAudience = () => {
+    if (!isValid) {
+      goNext();
+      return false;
+    }
+    return true;
+  };
+
+  if (isAudienceStep) {
+    return <StandaloneAudience d={d} set={set} region={REGION} roleName={persona.name} accent={persona.accent} onSkip={handleSkip} onSubmit={goNext} onValidate={handleValidateAudience} showErrors={showErrors} issue={issue} error={error} busy={busy} />;
+  }
+
   return (
-    <div className="wiz-shell">
-      <header className="wiz-top">
-        <BrandMark size={28} />
-        <span style={{ fontWeight: 800 }}>ValidationCrew</span>
-        <RoleSwitcher currentKey={role} currentName={t(`onboarding.persona.${role}.name`, null, persona.name)} builder={builder} />
-        <div style={{ flex: 1 }} />
-        {/* Same fix as EditAccountStep's switcher -- every other usage
-            (AppLayout topbar, RoleSelect, IntentFork) persists the choice
-            via onSave; this one didn't, so it only changed the session's
-            UI language and reverted on the next real reload. */}
-        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 16 }} />
+    <div className="wiz-shell" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#f8fafc" }}>
+      <header className="wiz-top" style={{ padding: "0 24px", height: 64, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", background: "#fff" }}>
+        <BrandMark size={36} />
+        <span style={{ color: "#cbd5e1", margin: "0 14px", fontSize: 14, fontWeight: 300 }}>|</span>
+        <RoleSwitcher currentKey={role} currentName={`${t(`onboarding.persona.${role}.name`, null, persona.name)} setup`} builder={builder} />
+        
+        <TopProgressBar steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} />
+        
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} />
       </header>
 
-      <div className="wiz-body-grid">
-        <StepRail steps={persona.steps} current={step} maxReached={maxReached} onJump={handleJump} onStartFresh={startFresh} onSkip={handleSkip} onBack={goBack} />
-        <div className="wiz-content">
-          {/* .wiz-rail (Start over/Skip/Back's only other home) hides below
-              760px -- this keeps Skip and Back reachable on mobile without
-              duplicating the desktop rail's Start over too, matching the
-              mission wizard's own mobile behavior (Start fresh is
-              rail-exclusive there too; Cancel/Back stay reachable). */}
-          <div className="wiz-mob-nav">
-            <button className="btn" onClick={handleSkip} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.skipForNow", null, "Skip")}</button>
-            <button className="btn" onClick={goBack} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
-          </div>
-          {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} issue={issue} />
-        </div>
+      <div style={{ flex: 1, padding: "32px 40px", maxWidth: 1200, margin: "0 auto", width: "100%", paddingBottom: 100 }}>
+        {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
+        <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} issue={issue} />
       </div>
 
-      {/* Fixed to the right regardless of scroll or step content height --
-          previously part of the normal flow right after each step's own
-          content, so it landed at a different screen position on every step
-          depending on how tall that step was. Not the mission wizard's own
-          full-width bottom bar (.wz-foot) -- just this one button, anchored
-          to a corner, since Back/Skip/Start over already moved into the rail.
-          right: 110 (not a tighter 32) clears the support-chat bubble that
-          also docks bottom-right, which otherwise sits on top of it. */}
-      <div style={{ position: "fixed", bottom: 28, right: 110, zIndex: 40 }}>
-        <Btn variant="primary" onClick={goNext} disabled={busy} style={{ boxShadow: "var(--shadow-lg)" }}>
-          {busy ? t("actions.creatingAccount", null, "Creating account…") : isLast ? t("actions.createWorkspace", null, "Create my workspace") : t("actions.continue", null, "Continue")}
-        </Btn>
+      {/* New Footer replacing the rail buttons and floating right button */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--border)", zIndex: 40 }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%", padding: "16px 40px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="row gap-3" style={{ alignItems: "center" }}>
+            <button className="btn" onClick={goBack} style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "1px solid var(--border)", color: "var(--text)", padding: "8px 14px", borderRadius: 8, fontWeight: 500 }}>
+              <Icon name="arrowLeft" size={14} /> {step === 0 ? t("actions.roles", null, "Roles") : t("actions.back", null, "Back")}
+            </button>
+            <button className="btn" onClick={handleSkip} style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontWeight: 500, padding: "8px 14px" }}>
+              {t("actions.skip", null, "Skip")}
+            </button>
+          </div>
+          <Btn variant="primary" onClick={goNext} disabled={busy} style={{ boxShadow: "var(--shadow-sm)", padding: "10px 24px", borderRadius: 8 }}>
+            {busy ? t("actions.creatingAccount", null, "Creating account…") : isPreferencesStep ? t("actions.createWorkspace", null, "Find my people \u2192") : t("actions.continueArrow", null, "Continue →")}
+          </Btn>
+        </div>
       </div>
     </div>
   );

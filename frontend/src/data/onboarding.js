@@ -69,17 +69,17 @@ export const INDUSTRIES = (t) => [
   t("onboarding.opts.industries.12", null, "Other"),
 ];
 export const VALIDATION_TYPES = (t) => [
-  { v: "idea", t: t("onboarding.opts.validationTypes.idea.t", null, "Idea"), d: t("onboarding.opts.validationTypes.idea.d", null, "Concept & positioning") },
-  { v: "product", t: t("onboarding.opts.validationTypes.product.t", null, "Product"), d: t("onboarding.opts.validationTypes.product.d", null, "Features & experience") },
-  { v: "app", t: t("onboarding.opts.validationTypes.app.t", null, "Mobile app"), d: t("onboarding.opts.validationTypes.app.d", null, "iOS / Android flows") },
-  { v: "web", t: t("onboarding.opts.validationTypes.web.t", null, "Website"), d: t("onboarding.opts.validationTypes.web.d", null, "Landing & funnel") },
-  { v: "saas", t: t("onboarding.opts.validationTypes.saas.t", null, "SaaS platform"), d: t("onboarding.opts.validationTypes.saas.d", null, "Onboarding & retention") },
-  { v: "ai", t: t("onboarding.opts.validationTypes.ai.t", null, "AI product"), d: t("onboarding.opts.validationTypes.ai.d", null, "Output quality & trust") },
-  { v: "physical", t: t("onboarding.opts.validationTypes.physical.t", null, "Physical product"), d: t("onboarding.opts.validationTypes.physical.d", null, "Form, fit & function") },
-  { v: "packaging", t: t("onboarding.opts.validationTypes.packaging.t", null, "Packaging"), d: t("onboarding.opts.validationTypes.packaging.d", null, "Shelf appeal & clarity") },
-  { v: "pricing", t: t("onboarding.opts.validationTypes.pricing.t", null, "Pricing"), d: t("onboarding.opts.validationTypes.pricing.d", null, "Willingness to pay") },
-  { v: "campaign", t: t("onboarding.opts.validationTypes.campaign.t", null, "Marketing campaign"), d: t("onboarding.opts.validationTypes.campaign.d", null, "Message & creative") },
-  { v: "cx", t: t("onboarding.opts.validationTypes.cx.t", null, "Customer experience"), d: t("onboarding.opts.validationTypes.cx.d", null, "Support & journey") },
+  { v: "idea", icon: "lightbulb", t: t("onboarding.opts.validationTypes.idea.t", null, "Idea"), d: t("onboarding.opts.validationTypes.idea.d", null, "Concept & positioning") },
+  { v: "product", icon: "box", t: t("onboarding.opts.validationTypes.product.t", null, "Product"), d: t("onboarding.opts.validationTypes.product.d", null, "Features & experience") },
+  { v: "app", icon: "phone", t: t("onboarding.opts.validationTypes.app.t", null, "Mobile app"), d: t("onboarding.opts.validationTypes.app.d", null, "iOS / Android flows") },
+  { v: "web", icon: "browser", t: t("onboarding.opts.validationTypes.web.t", null, "Website"), d: t("onboarding.opts.validationTypes.web.d", null, "Landing & funnel") },
+  { v: "saas", icon: "layout", t: t("onboarding.opts.validationTypes.saas.t", null, "SaaS platform"), d: t("onboarding.opts.validationTypes.saas.d", null, "Onboarding & retention") },
+  { v: "ai", icon: "cpu", t: t("onboarding.opts.validationTypes.ai.t", null, "AI product"), d: t("onboarding.opts.validationTypes.ai.d", null, "Output quality & trust") },
+  { v: "physical", icon: "cube", t: t("onboarding.opts.validationTypes.physical.t", null, "Physical product"), d: t("onboarding.opts.validationTypes.physical.d", null, "Form, fit & function") },
+  { v: "packaging", icon: "image", t: t("onboarding.opts.validationTypes.packaging.t", null, "Packaging"), d: t("onboarding.opts.validationTypes.packaging.d", null, "Shelf appeal & clarity") },
+  { v: "pricing", icon: "coins", t: t("onboarding.opts.validationTypes.pricing.t", null, "Pricing"), d: t("onboarding.opts.validationTypes.pricing.d", null, "Willingness to pay") },
+  { v: "campaign", icon: "mic", t: t("onboarding.opts.validationTypes.campaign.t", null, "Marketing campaign"), d: t("onboarding.opts.validationTypes.campaign.d", null, "Message & creative") },
+  { v: "cx", icon: "heart", t: t("onboarding.opts.validationTypes.cx.t", null, "Customer experience"), d: t("onboarding.opts.validationTypes.cx.d", null, "Support & journey") },
 ];
 
 export const COMPANY_INDUSTRIES = (t) => [
@@ -103,19 +103,19 @@ export const EMP_SIZES = (t) => [
   { v: "1000+", t: t("onboarding.opts.empSizes.1000plus.t", null, "1000+"), d: t("onboarding.opts.empSizes.1000plus.d", null, "Enterprise") },
 ];
 export const COMPANY_LOOKING = (t) => [
-  { v: "product-fb", t: t("onboarding.opts.companyLooking.productFb.t", null, "Product feedback"), d: t("onboarding.opts.companyLooking.productFb.d", null, "Features & experience") },
-  { v: "product-test", t: t("onboarding.opts.companyLooking.productTest.t", null, "Product testing"), d: t("onboarding.opts.companyLooking.productTest.d", null, "Hands-on trials") },
-  { v: "customer-fb", t: t("onboarding.opts.companyLooking.customerFb.t", null, "Customer feedback"), d: t("onboarding.opts.companyLooking.customerFb.d", null, "From real buyers") },
-  { v: "packaging", t: t("onboarding.opts.companyLooking.packaging.t", null, "Packaging evaluation"), d: t("onboarding.opts.companyLooking.packaging.d", null, "Shelf appeal & clarity") },
-  { v: "brand", t: t("onboarding.opts.companyLooking.brand.t", null, "Brand perception"), d: t("onboarding.opts.companyLooking.brand.d", null, "How you're seen") },
-  { v: "pricing", t: t("onboarding.opts.companyLooking.pricing.t", null, "Pricing validation"), d: t("onboarding.opts.companyLooking.pricing.d", null, "Willingness to pay") },
-  { v: "ad", t: t("onboarding.opts.companyLooking.ad.t", null, "Advertising feedback"), d: t("onboarding.opts.companyLooking.ad.d", null, "Message & creative") },
-  { v: "ux", t: t("onboarding.opts.companyLooking.ux.t", null, "UX evaluation"), d: t("onboarding.opts.companyLooking.ux.d", null, "Usability & flow") },
-  { v: "csat", t: t("onboarding.opts.companyLooking.csat.t", null, "Customer satisfaction"), d: t("onboarding.opts.companyLooking.csat.d", null, "Loyalty studies") },
-  { v: "market", t: t("onboarding.opts.companyLooking.market.t", null, "Market research"), d: t("onboarding.opts.companyLooking.market.d", null, "Trends & demand") },
-  { v: "focus", t: t("onboarding.opts.companyLooking.focus.t", null, "Focus groups"), d: t("onboarding.opts.companyLooking.focus.d", null, "Moderated discussion") },
-  { v: "interview", t: t("onboarding.opts.companyLooking.interview.t", null, "Interview participants"), d: t("onboarding.opts.companyLooking.interview.d", null, "1:1 conversations") },
-  { v: "other-c", t: t("onboarding.opts.companyLooking.other.t", null, "Other"), d: t("onboarding.opts.companyLooking.other.d", null, "Something else") },
+  { v: "product-fb", icon: "box", t: t("onboarding.opts.companyLooking.productFb.t", null, "Product feedback"), d: t("onboarding.opts.companyLooking.productFb.d", null, "Features & experience") },
+  { v: "product-test", icon: "settings", t: t("onboarding.opts.companyLooking.productTest.t", null, "Product testing"), d: t("onboarding.opts.companyLooking.productTest.d", null, "Hands-on trials") },
+  { v: "customer-fb", icon: "heart", t: t("onboarding.opts.companyLooking.customerFb.t", null, "Customer feedback"), d: t("onboarding.opts.companyLooking.customerFb.d", null, "From real buyers") },
+  { v: "packaging", icon: "image", t: t("onboarding.opts.companyLooking.packaging.t", null, "Packaging evaluation"), d: t("onboarding.opts.companyLooking.packaging.d", null, "Shelf appeal & clarity") },
+  { v: "brand", icon: "star", t: t("onboarding.opts.companyLooking.brand.t", null, "Brand perception"), d: t("onboarding.opts.companyLooking.brand.d", null, "How you're seen") },
+  { v: "pricing", icon: "coins", t: t("onboarding.opts.companyLooking.pricing.t", null, "Pricing validation"), d: t("onboarding.opts.companyLooking.pricing.d", null, "Willingness to pay") },
+  { v: "ad", icon: "mic", t: t("onboarding.opts.companyLooking.ad.t", null, "Advertising feedback"), d: t("onboarding.opts.companyLooking.ad.d", null, "Message & creative") },
+  { v: "ux", icon: "layout", t: t("onboarding.opts.companyLooking.ux.t", null, "UX evaluation"), d: t("onboarding.opts.companyLooking.ux.d", null, "Usability & flow") },
+  { v: "csat", icon: "award", t: t("onboarding.opts.companyLooking.csat.t", null, "Customer satisfaction"), d: t("onboarding.opts.companyLooking.csat.d", null, "Loyalty studies") },
+  { v: "market", icon: "chart", t: t("onboarding.opts.companyLooking.market.t", null, "Market research"), d: t("onboarding.opts.companyLooking.market.d", null, "Trends & demand") },
+  { v: "focus", icon: "users", t: t("onboarding.opts.companyLooking.focus.t", null, "Focus groups"), d: t("onboarding.opts.companyLooking.focus.d", null, "Moderated discussion") },
+  { v: "interview", icon: "phone", t: t("onboarding.opts.companyLooking.interview.t", null, "Interview participants"), d: t("onboarding.opts.companyLooking.interview.d", null, "1:1 conversations") },
+  { v: "other-c", icon: "plus", t: t("onboarding.opts.companyLooking.other.t", null, "Other"), d: t("onboarding.opts.companyLooking.other.d", null, "Something else") },
 ];
 export const PRODUCT_STAGES = (t) => [
   { v: "concept", t: t("onboarding.opts.productStages.concept.t", null, "Concept"), d: t("onboarding.opts.productStages.concept.d", null, "Still an idea") },
@@ -157,13 +157,13 @@ export const RESEARCH_AREAS = (t) => [
   t("onboarding.opts.researchAreas.11", null, "Other"),
 ];
 export const SUPPORT_TYPES = (t) => [
-  { v: "survey", t: t("onboarding.opts.supportTypes.survey.t", null, "Survey respondents"), d: t("onboarding.opts.supportTypes.survey.d", null, "Structured questionnaires") },
-  { v: "interview", t: t("onboarding.opts.supportTypes.interview.t", null, "Interview participants"), d: t("onboarding.opts.supportTypes.interview.d", null, "In-depth 1:1s") },
-  { v: "focus", t: t("onboarding.opts.supportTypes.focus.t", null, "Focus group participants"), d: t("onboarding.opts.supportTypes.focus.d", null, "Moderated groups") },
-  { v: "experiment", t: t("onboarding.opts.supportTypes.experiment.t", null, "Experimental participants"), d: t("onboarding.opts.supportTypes.experiment.d", null, "Controlled studies") },
-  { v: "eval", t: t("onboarding.opts.supportTypes.eval.t", null, "Product evaluation"), d: t("onboarding.opts.supportTypes.eval.d", null, "Test & assess") },
-  { v: "longitudinal", t: t("onboarding.opts.supportTypes.longitudinal.t", null, "Longitudinal study"), d: t("onboarding.opts.supportTypes.longitudinal.d", null, "Repeated over time") },
-  { v: "case", t: t("onboarding.opts.supportTypes.case.t", null, "Case study participants"), d: t("onboarding.opts.supportTypes.case.d", null, "Deep single cases") },
+  { v: "survey", icon: "fileText", t: t("onboarding.opts.supportTypes.survey.t", null, "Survey respondents"), d: t("onboarding.opts.supportTypes.survey.d", null, "Structured questionnaires") },
+  { v: "interview", icon: "mail", t: t("onboarding.opts.supportTypes.interview.t", null, "Interview participants"), d: t("onboarding.opts.supportTypes.interview.d", null, "In-depth 1:1s") },
+  { v: "focus", icon: "users", t: t("onboarding.opts.supportTypes.focus.t", null, "Focus group participants"), d: t("onboarding.opts.supportTypes.focus.d", null, "Moderated groups") },
+  { v: "experiment", icon: "settings", t: t("onboarding.opts.supportTypes.experiment.t", null, "Experimental participants"), d: t("onboarding.opts.supportTypes.experiment.d", null, "Controlled studies") },
+  { v: "eval", icon: "box", t: t("onboarding.opts.supportTypes.eval.t", null, "Product evaluation"), d: t("onboarding.opts.supportTypes.eval.d", null, "Test & assess") },
+  { v: "longitudinal", icon: "clock", t: t("onboarding.opts.supportTypes.longitudinal.t", null, "Longitudinal study"), d: t("onboarding.opts.supportTypes.longitudinal.d", null, "Repeated over time") },
+  { v: "case", icon: "book", t: t("onboarding.opts.supportTypes.case.t", null, "Case study participants"), d: t("onboarding.opts.supportTypes.case.d", null, "Deep single cases") },
 ];
 export const ETHICS_OPTIONS = (t) => [
   { v: "yes", t: t("onboarding.opts.ethics.yes.t", null, "Yes"), d: t("onboarding.opts.ethics.yes.d", null, "Already approved") },
@@ -195,16 +195,16 @@ export const ORG_TYPES = (t) => [
   t("onboarding.opts.orgTypes.8", null, "Other"),
 ];
 export const ORG_LEARN = (t) => [
-  { v: "community", t: t("onboarding.opts.orgLearn.community.t", null, "Community feedback"), d: t("onboarding.opts.orgLearn.community.d", null, "From the people you serve") },
-  { v: "policy", t: t("onboarding.opts.orgLearn.policy.t", null, "Policy feedback"), d: t("onboarding.opts.orgLearn.policy.d", null, "On rules & schemes") },
-  { v: "opinion", t: t("onboarding.opts.orgLearn.opinion.t", null, "Public opinion"), d: t("onboarding.opts.orgLearn.opinion.d", null, "Sentiment at scale") },
-  { v: "awareness", t: t("onboarding.opts.orgLearn.awareness.t", null, "Awareness assessment"), d: t("onboarding.opts.orgLearn.awareness.d", null, "What people know") },
-  { v: "program", t: t("onboarding.opts.orgLearn.program.t", null, "Program evaluation"), d: t("onboarding.opts.orgLearn.program.d", null, "Is it working?") },
-  { v: "impact", t: t("onboarding.opts.orgLearn.impact.t", null, "Impact assessment"), d: t("onboarding.opts.orgLearn.impact.d", null, "Outcomes & change") },
-  { v: "beneficiary", t: t("onboarding.opts.orgLearn.beneficiary.t", null, "Beneficiary feedback"), d: t("onboarding.opts.orgLearn.beneficiary.d", null, "From recipients") },
-  { v: "citizen", t: t("onboarding.opts.orgLearn.citizen.t", null, "Citizen feedback"), d: t("onboarding.opts.orgLearn.citizen.d", null, "Civic voices") },
-  { v: "social", t: t("onboarding.opts.orgLearn.social.t", null, "Social research"), d: t("onboarding.opts.orgLearn.social.d", null, "Studies & surveys") },
-  { v: "needs", t: t("onboarding.opts.orgLearn.needs.t", null, "Needs assessment"), d: t("onboarding.opts.orgLearn.needs.d", null, "Gaps & priorities") },
+  { v: "community", icon: "users", t: t("onboarding.opts.orgLearn.community.t", null, "Community feedback"), d: t("onboarding.opts.orgLearn.community.d", null, "From the people you serve") },
+  { v: "policy", icon: "fileText", t: t("onboarding.opts.orgLearn.policy.t", null, "Policy feedback"), d: t("onboarding.opts.orgLearn.policy.d", null, "On rules & schemes") },
+  { v: "opinion", icon: "mic", t: t("onboarding.opts.orgLearn.opinion.t", null, "Public opinion"), d: t("onboarding.opts.orgLearn.opinion.d", null, "Sentiment at scale") },
+  { v: "awareness", icon: "lightbulb", t: t("onboarding.opts.orgLearn.awareness.t", null, "Awareness assessment"), d: t("onboarding.opts.orgLearn.awareness.d", null, "What people know") },
+  { v: "program", icon: "target", t: t("onboarding.opts.orgLearn.program.t", null, "Program evaluation"), d: t("onboarding.opts.orgLearn.program.d", null, "Is it working?") },
+  { v: "impact", icon: "sparkle", t: t("onboarding.opts.orgLearn.impact.t", null, "Impact assessment"), d: t("onboarding.opts.orgLearn.impact.d", null, "Outcomes & change") },
+  { v: "beneficiary", icon: "heart", t: t("onboarding.opts.orgLearn.beneficiary.t", null, "Beneficiary feedback"), d: t("onboarding.opts.orgLearn.beneficiary.d", null, "From recipients") },
+  { v: "citizen", icon: "landmark", t: t("onboarding.opts.orgLearn.citizen.t", null, "Citizen feedback"), d: t("onboarding.opts.orgLearn.citizen.d", null, "Civic voices") },
+  { v: "social", icon: "flask", t: t("onboarding.opts.orgLearn.social.t", null, "Social research"), d: t("onboarding.opts.orgLearn.social.d", null, "Studies & surveys") },
+  { v: "needs", icon: "info", t: t("onboarding.opts.orgLearn.needs.t", null, "Needs assessment"), d: t("onboarding.opts.orgLearn.needs.d", null, "Gaps & priorities") },
 ];
 export const GEO_AREA = (t) => [
   { v: "local", t: t("onboarding.opts.geoArea.local.t", null, "Local"), d: t("onboarding.opts.geoArea.local.d", null, "Neighbourhood / town") },
@@ -308,11 +308,11 @@ export const FREQUENCY = (t) => [
   { v: "frequent", t: t("onboarding.opts.frequency.frequent.t", null, "Frequently"), d: t("onboarding.opts.frequency.frequent.d", null, "Always-on") },
 ];
 export const PREFERRED_METHODS = (t) => [
-  { v: "surveys", t: t("onboarding.opts.preferredMethods.surveys.t", null, "Online surveys"), d: t("onboarding.opts.preferredMethods.surveys.d", null, "Quick & scalable") },
-  { v: "testing", t: t("onboarding.opts.preferredMethods.testing.t", null, "Product testing"), d: t("onboarding.opts.preferredMethods.testing.d", null, "Hands-on trials") },
-  { v: "interviews", t: t("onboarding.opts.preferredMethods.interviews.t", null, "Interviews"), d: t("onboarding.opts.preferredMethods.interviews.d", null, "Deep 1:1s") },
-  { v: "focus", t: t("onboarding.opts.preferredMethods.focus.t", null, "Focus groups"), d: t("onboarding.opts.preferredMethods.focus.d", null, "Moderated groups") },
-  { v: "samples", t: t("onboarding.opts.preferredMethods.samples.t", null, "Sample distribution"), d: t("onboarding.opts.preferredMethods.samples.d", null, "Ship products out") },
-  { v: "video", t: t("onboarding.opts.preferredMethods.video.t", null, "Video calls"), d: t("onboarding.opts.preferredMethods.video.d", null, "Face to face") },
-  { v: "community", t: t("onboarding.opts.preferredMethods.community.t", null, "Community discussions"), d: t("onboarding.opts.preferredMethods.community.d", null, "Ongoing threads") },
+  { v: "surveys", icon: "fileText", t: t("onboarding.opts.preferredMethods.surveys.t", null, "Online surveys"), d: t("onboarding.opts.preferredMethods.surveys.d", null, "Quick & scalable") },
+  { v: "testing", icon: "settings", t: t("onboarding.opts.preferredMethods.testing.t", null, "Product testing"), d: t("onboarding.opts.preferredMethods.testing.d", null, "Hands-on trials") },
+  { v: "interviews", icon: "mail", t: t("onboarding.opts.preferredMethods.interviews.t", null, "Interviews"), d: t("onboarding.opts.preferredMethods.interviews.d", null, "Deep 1:1s") },
+  { v: "focus", icon: "users", t: t("onboarding.opts.preferredMethods.focus.t", null, "Focus groups"), d: t("onboarding.opts.preferredMethods.focus.d", null, "Moderated groups") },
+  { v: "samples", icon: "box", t: t("onboarding.opts.preferredMethods.samples.t", null, "Sample distribution"), d: t("onboarding.opts.preferredMethods.samples.d", null, "Ship products out") },
+  { v: "video", icon: "video", t: t("onboarding.opts.preferredMethods.video.t", null, "Video calls"), d: t("onboarding.opts.preferredMethods.video.d", null, "Face to face") },
+  { v: "community", icon: "mic", t: t("onboarding.opts.preferredMethods.community.t", null, "Community discussions"), d: t("onboarding.opts.preferredMethods.community.d", null, "Ongoing threads") },
 ];

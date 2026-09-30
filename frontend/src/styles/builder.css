@@ -179,6 +179,7 @@ html[data-direction="mono"] .utabs button.on::after { background: var(--text); }
 
 /* ============ FORM PRIMITIVES (wizard) ============ */
 .fld { margin-bottom: 0; }
+.fld-span { grid-column: 1 / -1; }
 /* Descendant, not direct-child -- Field's optional `action` slot (a
    "Select all" toggle) wraps the label in its own row div, so the label is
    no longer .fld's direct child everywhere this component is used. */
@@ -230,7 +231,7 @@ select.fin:focus { box-shadow: none; border-color: var(--border); }
 .selcard-grid { margin: 8px 0; }
 .selcard { transition: all .14s; border: var(--hairline) solid var(--border); }
 .selcard:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.selcard.selcard-on { border-color: var(--tc, var(--accent)); background: color-mix(in srgb, var(--tc, var(--accent)) 7%, var(--panel)); box-shadow: 0 0 0 1px var(--tc, var(--accent)); }
+.selcard.selcard-on { border-color: var(--tc, var(--accent)); background: color-mix(in srgb, var(--tc, var(--accent)) 12%, var(--panel)); box-shadow: 0 0 0 1px var(--tc, var(--accent)); }
 
 /* chips */
 .chips { display: flex; flex-wrap: wrap; gap: 9px; }
@@ -242,7 +243,7 @@ html[data-direction="mono"] .chip { border-radius: 6px; }
 /* Square by default (checkbox: chip groups are multi-select unless marked
    .radio) — a circular mark read as a radio button on genuinely multi-select
    groups like Platform/Validation goals, implying only one could be picked. */
-.chip .ck { width: 15px; height: 15px; border-radius: 4px; display: grid; place-items: center;
+.chip .ck { width: 15px; height: 15px; border-radius: 50%; display: grid; place-items: center;
   border: 1.6px solid var(--border-strong); color: transparent; transition: all .13s; flex: none; }
 .chip .ck.radio { border-radius: 50%; }
 .chip .ck svg { width: 10px; height: 10px; }

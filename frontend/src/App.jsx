@@ -113,7 +113,7 @@ function BuilderRoutes() {
           distinction personaConfig.jsx's resolveActivePersonaKey already
           documents and relies on. */}
       <Route path="/get-started/feedback" element={builder?.onboardingCompleted ? <Navigate to="/" replace /> : <RoleSelect />} />
-      <Route path="/signup" element={builder?.onboardingCompleted ? <Navigate to="/" replace /> : <OnboardingWizard />} />
+      <Route path="/signup" element={<OnboardingWizard />} />
       <Route path="/oauth-callback" element={<BuilderOAuthCallback />} />
       {/* key={location.pathname} forces a real unmount/remount whenever the
           URL moves between /missions/new and /missions/:id/edit, or between

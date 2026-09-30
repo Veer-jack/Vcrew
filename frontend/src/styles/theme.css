@@ -41,6 +41,24 @@
   --u: 4px; --pad-card: 20px; --pad-page: 32px; --fs-base: 15px;
 }
 
+html[data-role="researcher"] {
+  --accent: #0f766e;
+  --accent-2: #115e59;
+  --accent-weak: rgba(15, 118, 110, 0.1);
+}
+
+html[data-role="company"] {
+  --accent: #0ea5e9;
+  --accent-2: #0284c7;
+  --accent-weak: rgba(14, 165, 233, 0.1);
+}
+
+html[data-role="organization"] {
+  --accent: #c2710c;
+  --accent-2: #9a5909;
+  --accent-weak: rgba(194, 113, 12, 0.1);
+}
+
 /* ============================================================
    BASE
    ============================================================ */
@@ -312,6 +330,7 @@ textarea.field::placeholder { color: var(--text-faint); }
 .rise { animation: rise .34s cubic-bezier(.2,.7,.2,1) both; }
 
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
 .rise-2 { animation: rise .34s cubic-bezier(.2,.7,.2,1) .05s both; }
 .rise-3 { animation: rise .34s cubic-bezier(.2,.7,.2,1) .1s both; }
 @media (prefers-reduced-motion: reduce) { .rise, .rise-2, .rise-3 { animation: none; } }
@@ -410,9 +429,11 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
   color: var(--text); background: var(--panel-inset); border: var(--hairline) solid var(--border);
   border-radius: var(--radius-sm); outline: none;
 }
-.fin:focus { border-color: var(--accent); box-shadow: var(--ring); background: var(--panel); }
+.fin:focus, .opt-pill:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--panel); outline: none !important; }
+.opt-pill input:focus, .opt-pill input:focus-visible { outline: none !important; box-shadow: none !important; border-color: transparent !important; }
 .fin::placeholder { color: var(--text-faint); }
 .fin:disabled { opacity: .6; cursor: not-allowed; }
+select.fin { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 36px; }
 .req-star { color: var(--danger); font-weight: 700; }
 .fld-invalid .fin, .fld-invalid .field { border-color: var(--danger); }
 .ferr { color: var(--danger); font-size: 12px; margin: 6px 0 0; }
@@ -430,7 +451,8 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 }
 .intent-card:hover, .role-card:not(:disabled):hover {
   border-color: var(--ic-accent, var(--rc-accent, var(--border-strong)));
-  transform: translateY(-1px); box-shadow: var(--shadow-sm);
+  transform: translateY(-2px); 
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--ic-accent, var(--rc-accent, var(--border-strong)));
 }
 .role-card-soon { opacity: .55; cursor: default; }
 .role-card-soon:hover { transform: none; box-shadow: none; border-color: var(--border); }
@@ -440,6 +462,12 @@ input::placeholder, textarea::placeholder { color: var(--text-faint); opacity: 1
 .intent-cta {
   margin-top: 14px; display: inline-flex; align-items: center; gap: 6px;
   font-size: 13px; font-weight: 700; color: var(--ic-accent, var(--rc-accent, var(--accent)));
+}
+.intent-cta svg {
+  transition: transform .2s ease;
+}
+.intent-card:hover .intent-cta svg, .role-card:not(:disabled):hover .intent-cta svg {
+  transform: translateX(4px);
 }
 @media (max-width: 640px) {
   .intent-grid, .role-grid { grid-template-columns: 1fr !important; }

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Field, TextInput, Textarea, SelectInput, FSection, Chips, ChipsDropdown, SelCards,
-  ReachMeter, LocationFields, DemographicsRow, ProfileChips, VerifyRow, PersonalFields, SelectAllToggle,
+  ReachMeter, LocationFields, DemographicsRow, ProfileChips, VerifyRow, PersonalFields, SelectAllToggle, TrustProfileWidget,
 } from "../components/OnboardingFields";
 import {
   COMPANY_SIZES, COMPANY_STAGES, INDUSTRIES, VALIDATION_TYPES,
@@ -52,7 +52,7 @@ export function buildAudienceQuery(d) {
 // `reach` deliberately keeps showing the last known number while a refetch is in
 // flight (never drops to 0/blank mid-typing) — `loading` tells the caller a fetch
 // is running so it can show a subtle "Updating…" cue instead of a jarring reset.
-function useAudienceReach(d) {
+export function useAudienceReach(d) {
   const [reach, setReach] = useState(null);
   const [base, setBase] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -76,29 +76,41 @@ function useAudienceReach(d) {
   return { reach: reach ?? 0, base: base ?? 1, firstLoad: reach === null, updating: loading && reach !== null };
 }
 
-function StepHead({ step, title, sub }) {
+function StepLayout({ step, title, sub, children, d, showTrustProfile = true }) {
   return (
-    <div className="rise" style={{ marginBottom: 18 }}>
-      <div className="eyebrow" style={{ marginBottom: 6 }}>{step}</div>
-      <h1 style={{ fontSize: 22, margin: "0 0 6px" }}>{title}</h1>
-      <p className="muted" style={{ fontSize: 13.5, maxWidth: 560 }}>{sub}</p>
+    <div className="rise" style={{ display: "flex", gap: 32, alignItems: "flex-start" }}>
+      <div className="card" style={{ flex: 1, padding: "40px 48px", minWidth: 0 }}>
+        {(step || title || sub) && (
+          <div style={{ paddingBottom: 24, marginBottom: 24, borderBottom: "1px solid var(--border)" }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px 0", letterSpacing: "-0.02em" }}>{title}</h2>
+            {sub && <p className="muted" style={{ fontSize: 15, lineHeight: 1.5, margin: 0 }}>{sub}</p>}
+          </div>
+        )}
+        {children}
+      </div>
+      {showTrustProfile && (
+        <div style={{ width: 360, flexShrink: 0, position: "sticky", top: 100 }} className="hide-mobile">
+          <TrustProfileWidget d={d} />
+        </div>
+      )}  
     </div>
   );
 }
+
+
 
 // shared final "preferences" step, used by all 4 personas
 function StepFinal({ d, set }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.final.step", null, "Almost done · Preferences")} title={t("onboarding.final.title", null, "How will you use ValidationCrew?")}
-        sub={t("onboarding.final.sub", null, "A couple of quick preferences so we can shape your workspace.")} />
+    <StepLayout step={t("onboarding.final.step", null, "Almost done · Preferences")} title={t("onboarding.final.title", null, "How will you use ValidationCrew?")}
+      sub={t("onboarding.final.sub", null, "A couple of quick preferences so we can shape your workspace.")} d={d}>
       <FSection label={t("onboarding.final.frequencyLabel", null, "How often will you need feedback?")} />
       <SelCards options={FREQUENCY(t)} value={d.frequency} onChange={(v) => set("frequency", v)} cols={2} />
       <FSection label={t("onboarding.final.methodsLabel", null, "Preferred methods")} count={(d.methods || []).length ? t("onboarding.selectedCount", { count: d.methods.length }, `${d.methods.length} selected`) : null}
         action={<SelectAllToggle options={PREFERRED_METHODS(t).map(o => o.v)} value={d.methods} onChange={(v) => set("methods", v)} />} />
       <SelCards options={PREFERRED_METHODS(t)} value={d.methods || []} onChange={(v) => set("methods", v)} multi cols={2} />
-    </div>
+    </StepLayout>
   );
 }
 
@@ -106,11 +118,10 @@ function StepFinal({ d, set }) {
 function FoPersonal({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.founder.personal.step", null, "Step 1 · Your details")} title={t("onboarding.founder.personal.title", null, "Let's start with you")}
-        sub={t("onboarding.founder.personal.sub", null, "This stays private to your workspace. We use it to set up your account and route campaign results to the right person.")} />
+    <StepLayout step={t("onboarding.founder.personal.step", null, "Step 1 · Your details")} title={t("onboarding.founder.personal.title", null, "Let's start with you")}
+        sub={t("onboarding.founder.personal.sub", null, "This stays private to your workspace. We use it to set up your account and route campaign results to the right person.")}  d={d}>
       <PersonalFields d={d} set={set} roleField={null} showErrors={showErrors} emailLocked issue={issue} />
-    </div>
+    </StepLayout>
   );
 }
 function FoCompany({ d, set, showErrors, issue }) {
@@ -118,9 +129,8 @@ function FoCompany({ d, set, showErrors, issue }) {
   const industryOptions = INDUSTRIES(t);
   const isOtherIndustry = d.industry === industryOptions[industryOptions.length - 1];
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.founder.company.step", null, "Step 2 · Company")} title={t("onboarding.founder.company.title", null, "About your company")}
-        sub={t("onboarding.founder.company.sub", null, "This shapes the benchmarks we compare your results against.")} />
+    <StepLayout step={t("onboarding.founder.company.step", null, "Step 2 · Company")} title={t("onboarding.founder.company.title", null, "About your company")}
+        sub={t("onboarding.founder.company.sub", null, "This shapes the benchmarks we compare your results against.")}  d={d}>
       <div className="fgrid c2">
         <Field label={t("onboarding.founder.company.nameLabel", null, "Company / product name")} invalid={showErrors && !(d.companyName && d.companyName.trim())} dataField="companyName" issue={issue}><TextInput value={d.companyName} onChange={(v) => set("companyName", v)} placeholder="Helix Labs" /></Field>
         <Field label={t("onboarding.founder.company.websiteLabel", null, "Website")} optional><TextInput value={d.website} onChange={(v) => set("website", v)} placeholder="helixlabs.com" /></Field>
@@ -135,28 +145,27 @@ function FoCompany({ d, set, showErrors, issue }) {
       <SelCards options={COMPANY_SIZES(t)} value={d.size} onChange={(v) => set("size", v)} cols={3} />
       <FSection label={t("onboarding.founder.company.stageSection", null, "Stage")} required invalid={showErrors && !d.stage} dataField="stage" issue={issue} />
       <SelCards options={COMPANY_STAGES(t)} value={d.stage} onChange={(v) => set("stage", v)} cols={3} />
-    </div>
+    </StepLayout>
   );
 }
 function FoValidate({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   const sel = d.vTypes || [];
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.founder.validate.step", null, "Step 3 · What to validate")} title={t("onboarding.founder.validate.title", null, "What do you want to put in front of people?")}
-        sub={t("onboarding.founder.validate.sub", null, "Pick everything you expect to validate — this tailors the reviewer pools we line up for you.")} />
+    <StepLayout step={t("onboarding.founder.validate.step", null, "Step 3 · What to validate")} title={t("onboarding.founder.validate.title", null, "What do you want to put in front of people?")}
+        sub={t("onboarding.founder.validate.sub", null, "Pick everything you expect to validate — this tailors the reviewer pools we line up for you.")}  d={d}>
       <FSection label={t("onboarding.founder.validate.surfacesSection", null, "Validation surfaces")} count={sel.length ? t("onboarding.selectedCount", { count: sel.length }, `${sel.length} selected`) : null}
         action={<SelectAllToggle options={VALIDATION_TYPES(t).map(o => o.v)} value={sel} onChange={(v) => set("vTypes", v)} />}
         invalid={showErrors && sel.length === 0} dataField="vTypes" issue={issue} />
       <SelCards options={VALIDATION_TYPES(t)} value={sel} onChange={(v) => set("vTypes", v)} multi cols={2} />
-    </div>
+    </StepLayout>
   );
 }
 // Same per-category bordered card CreateMissionWizard's own StepAudience
 // wraps each filter group in -- previously each section here was just a
 // bare FSection heading floating in the page with nothing to visually group
 // it with its own controls, unlike the mission-creation audience step.
-const GROUP_CARD = { border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px 16px 4px", margin: "18px 0" };
+const GROUP_CARD = { margin: "32px 0 0" };
 
 // Same two warning banners StepAudience shows (verbatim copy, so they read
 // as the same feature in both places): nothing picked yet vs. picked
@@ -196,8 +205,7 @@ function GenericAudience({ d, set, region, title, sub, showErrors, issue }) {
     (d.languages || []).length || (d.interests || []).length
   );
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.audienceStep", null, "Audience")} title={title} sub={sub} />
+    <StepLayout step={t("onboarding.audienceStep", null, "Audience")} title={title} sub={sub}  d={d}>
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
       <div style={GROUP_CARD}>
@@ -220,7 +228,7 @@ function GenericAudience({ d, set, region, title, sub, showErrors, issue }) {
           show={{ occupation: true, education: true, income: true, languages: true, interests: true }}
           showErrors={showErrors} requireOccupation issue={issue} />
       </div>
-    </div>
+    </StepLayout>
   );
 }
 function FoAudience(props) {
@@ -237,8 +245,7 @@ function GenericVerify({ d, set, websiteHint, docs, showErrors, issue }) {
   const { t } = useTranslation();
   const websiteValue = d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "");
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.verify.step", null, "Verification")} title={t("onboarding.verify.title", null, "Build trust")} sub={t("onboarding.verify.sub", null, "Verified accounts get better reviewers and faster matches.")} />
+    <StepLayout step={t("onboarding.verify.step", null, "Verification")} title={t("onboarding.verify.title", null, "Build trust")} sub={t("onboarding.verify.sub", null, "Verified accounts get better reviewers and faster matches.")}  d={d}>
       <VerifyRow icon="browser" title={t("onboarding.verify.websiteTitle", null, "Website")} showErrors={showErrors} desc={t("onboarding.verify.websiteDesc", null, "Confirms you own the domain via a meta tag or DNS record.")}
         placeholder={websiteHint} value={websiteValue} onChange={(v) => set("vWebsiteInput", v)} dataField="vWebsiteInput" issue={issue}
         validate={(v) => (!v || WEBSITE_RE.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
@@ -247,20 +254,20 @@ function GenericVerify({ d, set, websiteHint, docs, showErrors, issue }) {
         validate={(v) => (!v || LINKEDIN_ORG_RE.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
       {docs.map((doc) => (
         <VerifyRow key={doc.key} icon="fileText" title={doc.title} showErrors={showErrors} desc={doc.desc} placeholder={doc.placeholder} validate={doc.validate}
-          value={d[doc.key]} onChange={(v) => set(doc.key, v)} dataField={doc.key} issue={issue} />
+          value={d[doc.key]} onChange={(v) => set(doc.key, v)} dataField={doc.key} issue={issue} optional={doc.optional} />
       ))}
       <p className="faint" style={{ fontSize: 12, marginTop: 4 }}>
         {t("onboarding.verify.footer", null, "Submitted details are reviewed by our trust team and never shared with validators.")}
       </p>
-    </div>
+    </StepLayout>
   );
 }
 function FoVerify({ d, set, region, showErrors, issue }) {
   const { t } = useTranslation();
   return <GenericVerify d={d} set={set} region={region} showErrors={showErrors} issue={issue} websiteHint={d.website || "helixlabs.com"}
     docs={region === "india"
-      ? [{ key: "gst", title: t("onboarding.verify.gstTitle", null, "GST registration"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || GST_RE.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
-      : [{ key: "taxId", title: t("onboarding.verify.taxIdTitle", null, "Business / Tax ID"), desc: t("onboarding.verify.taxIdDesc", null, "EIN, VAT or company number."), placeholder: "e.g. 12-3456789", validate: (v) => (!v || (v.trim().length >= 4 && /\d/.test(v))) ? null : t("errors.invalidTaxId", null, "Please enter a valid business/tax ID.") }]} />;
+      ? [{ key: "gst", optional: true, title: t("onboarding.verify.gstTitle", null, "GST registration"), desc: t("onboarding.verify.registryBadgeDesc", null, "Adds a business-registry badge."), placeholder: "22AAAAA0000A1Z5", validate: (v) => (!v || GST_RE.test(v.toUpperCase().trim())) ? null : t("errors.invalidGst", null, "Please enter a valid GST number.") }]
+      : [{ key: "taxId", optional: true, title: t("onboarding.verify.taxIdTitle", null, "Business / Tax ID"), desc: t("onboarding.verify.taxIdDesc", null, "EIN, VAT or company number."), placeholder: "e.g. 12-3456789", validate: (v) => (!v || (v.trim().length >= 4 && /\d/.test(v))) ? null : t("errors.invalidTaxId", null, "Please enter a valid business/tax ID.") }]} />;
 }
 // "verify" no longer gates on a separate submitted/verified flag (removed
 // along with VerifyRow's old Submit button) -- a step counts as complete
@@ -273,10 +280,10 @@ function verifyStepValid(d, region) {
   const liOk = !li || LINKEDIN_ORG_RE.test(li); // optional
   if (region === "india") {
     const gst = (d.gst || "").trim();
-    return webOk && liOk && !!gst && GST_RE.test(gst.toUpperCase());
+    return webOk && liOk && (!gst || GST_RE.test(gst.toUpperCase()));
   }
   const taxId = (d.taxId || "").trim();
-  return webOk && liOk && taxId.length >= 4 && /\d/.test(taxId);
+  return webOk && liOk && (!taxId || (taxId.length >= 4 && /\d/.test(taxId)));
 }
 // GenericAudience (Founder/Company personas) marks Country, Age, Gender and
 // Occupation required in the UI (Field defaults to required unless passed
@@ -320,10 +327,10 @@ function verifyIssue(d, region, t, gstLabel, taxIdLabel) {
   const checks = [{ id: "vWebsiteInput", ok: !!web && WEBSITE_RE.test(web), label: t("onboarding.verify.websiteTitle", null, "Website") }];
   if (region === "india") {
     const gst = (d.gst || "").trim();
-    checks.push({ id: "gst", ok: !!gst && GST_RE.test(gst.toUpperCase()), label: gstLabel });
+    if (gst) checks.push({ id: "gst", ok: GST_RE.test(gst.toUpperCase()), label: gstLabel });
   } else {
     const taxId = (d.taxId || "").trim();
-    checks.push({ id: "taxId", ok: taxId.length >= 4 && /\d/.test(taxId), label: taxIdLabel });
+    if (taxId) checks.push({ id: "taxId", ok: taxId.length >= 4 && /\d/.test(taxId), label: taxIdLabel });
   }
   return firstMissingField(checks, t);
 }
@@ -369,10 +376,9 @@ function foStepIssue(key, d, region, t) {
 function CoPersonal({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.company.personal.step", null, "Step 1 · About you")} title={t("onboarding.company.personal.title", null, "Let's start with you")} sub={t("onboarding.company.personal.sub", null, "This stays private to your workspace.")} />
+    <StepLayout step={t("onboarding.company.personal.step", null, "Step 1 · About you")} title={t("onboarding.company.personal.title", null, "Let's start with you")} sub={t("onboarding.company.personal.sub", null, "This stays private to your workspace.")}  d={d}>
       <PersonalFields d={d} set={set} roleField={{ label: t("onboarding.company.personal.roleLabel", null, "Job title / designation") }} showErrors={showErrors} emailLocked issue={issue} />
-    </div>
+    </StepLayout>
   );
 }
 function CoCompany({ d, set, showErrors, issue }) {
@@ -380,8 +386,7 @@ function CoCompany({ d, set, showErrors, issue }) {
   const industryOptions = COMPANY_INDUSTRIES(t);
   const isOtherIndustry = d.industry === industryOptions[industryOptions.length - 1];
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.company.company.step", null, "Step 2 · Company")} title={t("onboarding.company.company.title", null, "About your company")} sub={t("onboarding.company.company.sub", null, "This helps validators recognise who they're giving feedback to.")} />
+    <StepLayout step={t("onboarding.company.company.step", null, "Step 2 · Company")} title={t("onboarding.company.company.title", null, "About your company")} sub={t("onboarding.company.company.sub", null, "This helps validators recognise who they're giving feedback to.")}  d={d}>
       <div className="fgrid c2">
         <Field label={t("onboarding.company.company.nameLabel", null, "Company name")} invalid={showErrors && !(d.companyName && d.companyName.trim())} dataField="companyName" issue={issue}><TextInput value={d.companyName} onChange={(v) => set("companyName", v)} placeholder="Acme Foods" /></Field>
         <Field label={t("onboarding.company.company.websiteLabel", null, "Website")} optional><TextInput value={d.website} onChange={(v) => set("website", v)} placeholder="acmefoods.com" /></Field>
@@ -396,7 +401,7 @@ function CoCompany({ d, set, showErrors, issue }) {
       </div>
       <FSection label={t("onboarding.founder.company.sizeSection", null, "Company size")} required invalid={showErrors && !d.size} dataField="size" issue={issue} />
       <SelCards options={EMP_SIZES(t)} value={d.size} onChange={(v) => set("size", v)} cols={3} />
-    </div>
+    </StepLayout>
   );
 }
 function CoNeeds({ d, set, showErrors, issue }) {
@@ -404,12 +409,11 @@ function CoNeeds({ d, set, showErrors, issue }) {
   const look = d.looking || [];
   const isOtherLooking = look.includes("other-c");
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.company.needs.step", null, "Step 3 · Your needs")} title={t("onboarding.company.needs.title", null, "What are you looking for?")} sub={t("onboarding.company.needs.sub", null, "Pick everything you might want feedback on.")} />
+    <StepLayout step={t("onboarding.company.needs.step", null, "Step 3 · Your needs")} title={t("onboarding.company.needs.title", null, "What are you looking for?")} sub={t("onboarding.company.needs.sub", null, "Pick everything you might want feedback on.")}  d={d}>
       <FSection label={t("onboarding.company.needs.title", null, "What are you looking for?")} count={look.length ? t("onboarding.selectedCount", { count: look.length }, `${look.length} selected`) : null} required
         action={<SelectAllToggle options={COMPANY_LOOKING(t).map(o => o.v)} value={look} onChange={(v) => set("looking", v)} />}
         invalid={showErrors && look.length === 0} dataField="looking" issue={issue} />
-      <SelCards options={COMPANY_LOOKING(t)} value={look} onChange={(v) => set("looking", v)} multi cols={2} />
+      <SelCards options={COMPANY_LOOKING(t)} value={look} onChange={(v) => set("looking", v)} multi cols={3} />
       {isOtherLooking && (
         <div style={{ marginTop: 14, maxWidth: 360 }}>
           <Field label={t("onboarding.company.needs.otherLabel", null, "Please specify")} invalid={showErrors && !(d.lookingOther || "").trim()} dataField="lookingOther" issue={issue}>
@@ -425,7 +429,7 @@ function CoNeeds({ d, set, showErrors, issue }) {
       </div>
       <FSection label={t("onboarding.company.needs.stageSection", null, "Current stage")} />
       <SelCards options={PRODUCT_STAGES(t)} value={d.stage} onChange={(v) => set("stage", v)} cols={3} />
-    </div>
+    </StepLayout>
   );
 }
 function CoAudience(props) {
@@ -480,26 +484,22 @@ function coStepIssue(key, d, region, t) {
 function ResPersonal({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.researcher.personal.step", null, "Step 1 · About you")} title={t("onboarding.company.personal.title", null, "Let's start with you")} sub={t("onboarding.researcher.personal.sub", null, "This stays private. We use it to set up your researcher account.")} />
-      <PersonalFields d={d} set={set} roleField={{ label: t("onboarding.researcher.personal.roleLabel", null, "Designation"), options: RES_DESIGNATIONS(t) }} showErrors={showErrors} emailLocked issue={issue} />
-    </div>
+    <StepLayout step={t("onboarding.researcher.personal.step", null, "Step 1 · About you")} title={t("onboarding.company.personal.title", null, "Let's start with you")} sub={t("onboarding.researcher.personal.sub", null, "This stays private. We use it to set up your researcher account and contact you about your study.")}  d={d}>
+      <PersonalFields d={d} set={set} showErrors={showErrors} emailLocked issue={issue} />
+    </StepLayout>
   );
 }
 function ResAcademic({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.researcher.academic.step", null, "Step 2 · Academic")} title={t("onboarding.researcher.academic.title", null, "Your academic background")} sub={t("onboarding.researcher.academic.sub", null, "This helps us verify you as a researcher.")} />
+    <StepLayout step={t("onboarding.researcher.academic.step", null, "Step 2 · Academic")} title={t("onboarding.researcher.academic.title", null, "Your academic background")} sub={t("onboarding.researcher.academic.sub", null, "This helps us verify you as a researcher and lets participants see the institution behind a study.")}  d={d}>
       <div className="fgrid c2">
-        <Field label={t("onboarding.researcher.academic.institutionLabel", null, "University / institution")} span invalid={showErrors && !(d.institution && d.institution.trim())} dataField="institution" issue={issue}><TextInput value={d.institution} onChange={(v) => set("institution", v)} placeholder="Indian Institute of Science" /></Field>
-        {/* Designation lives on Step 1 (personal) now, same as every other
-            persona's role/job-title field -- this step used to ask for it a
-            second time, right after already asking on the previous step. */}
-        <Field label={t("onboarding.researcher.academic.departmentLabel", null, "Department")} optional span><TextInput value={d.department} onChange={(v) => set("department", v)} placeholder="Management Studies" /></Field>
-        <Field label={t("onboarding.researcher.academic.qualificationLabel", null, "Highest qualification")} span invalid={showErrors && !d.qualification} dataField="qualification" issue={issue}><SelectInput options={QUALIFICATIONS(t)} value={d.qualification} onChange={(v) => set("qualification", v)} placeholder={t("onboarding.researcher.academic.qualificationPlaceholder", null, "Select qualification")} /></Field>
+        <Field label={t("onboarding.researcher.academic.institutionLabel", null, "University / Institution")} span invalid={showErrors && !(d.institution && d.institution.trim())} dataField="institution" issue={issue}><TextInput value={d.institution} onChange={(v) => set("institution", v)} placeholder="Indian Institute of Science" /></Field>
+        <Field label={t("onboarding.researcher.academic.departmentLabel", null, "Department")} optional><TextInput value={d.department} onChange={(v) => set("department", v)} placeholder="Management Studies" /></Field>
+        <Field label={t("onboarding.researcher.personal.roleLabel", null, "Designation")} invalid={showErrors && !d.designation} dataField="designation" issue={issue}><SelectInput options={RES_DESIGNATIONS(t)} value={d.designation} onChange={(v) => set("designation", v)} placeholder="Select designation" /></Field>
+        <Field label={t("onboarding.researcher.academic.qualificationLabel", null, "Highest qualification")} span invalid={showErrors && !d.qualification} dataField="qualification" issue={issue}><Chips options={QUALIFICATIONS(t)} value={d.qualification} onChange={(v) => set("qualification", v)} multi={false} hideCheck /></Field>
       </div>
-    </div>
+    </StepLayout>
   );
 }
 // Research areas can have more than one "something else" (e.g. both "Urban
@@ -533,8 +533,7 @@ function ResResearch({ d, set, showErrors, issue }) {
   const removeCustomArea = (val) => set("areas", selectedAreas.filter(a => a !== val));
 
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.researcher.research.step", null, "Step 3 · Research")} title={t("onboarding.researcher.research.title", null, "Tell us about your research")} sub={t("onboarding.researcher.research.sub", null, "Enough to match you with participants who genuinely fit it.")} />
+    <StepLayout step={t("onboarding.researcher.research.step", null, "Step 3 · Research")} title={t("onboarding.researcher.research.title", null, "Tell us about your research")} sub={t("onboarding.researcher.research.sub", null, "Enough to match you with participants who genuinely fit it.")}  d={d}>
       <div className="fgrid c2">
         <Field label={t("onboarding.researcher.research.titleLabel", null, "Research title")} span invalid={showErrors && !(d.researchTitle && d.researchTitle.trim())} dataField="researchTitle" issue={issue}><TextInput value={d.researchTitle} onChange={(v) => set("researchTitle", v)} placeholder="Adoption of AI tools among early-stage founders" /></Field>
         <Field label={t("onboarding.researcher.research.objectivesLabel", null, "Research objective(s)")} optional span><Textarea value={d.objectives} onChange={(v) => set("objectives", v)} placeholder="What are you trying to find out?" /></Field>
@@ -576,7 +575,7 @@ function ResResearch({ d, set, showErrors, issue }) {
         action={<SelectAllToggle options={SUPPORT_TYPES(t).map(o => o.v)} value={support} onChange={(v) => set("support", v)} />}
         invalid={showErrors && support.length === 0} dataField="support" issue={issue} />
       <SelCards options={SUPPORT_TYPES(t)} value={support} onChange={(v) => set("support", v)} multi cols={2} />
-    </div>
+    </StepLayout>
   );
 }
 function ResParticipants({ d, set, region, showErrors, issue }) {
@@ -590,8 +589,7 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
     (d.occupations || []).length || (d.educations || []).length || (d.incomeBands || []).length || (d.filters || []).length
   );
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.researcher.participants.step", null, "Step 4 · Participants")} title={t("onboarding.researcher.participants.title", null, "Who should take part?")} sub={t("onboarding.researcher.participants.sub", null, "Define your sample — we match you to participants who fit your criteria.")} />
+    <StepLayout step={t("onboarding.researcher.participants.step", null, "Step 4 · Participants")} title={t("onboarding.researcher.participants.title", null, "Who should take part?")} sub={t("onboarding.researcher.participants.sub", null, "Define your sample. We match you to participants who fit your criteria — recruitment without the legwork.")}  d={d}>
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
       <div style={GROUP_CARD}>
@@ -601,7 +599,7 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.researcher.participants.sampleSizeSection", null, "Sample size needed")} />
-        <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")} invalid={showErrors && !d.sampleSize} dataField="sampleSize" issue={issue}><ChipsDropdown options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} placeholder={t("onboarding.researcher.participants.sampleSizePlaceholder", null, "Select sample size")} /></Field>
+        <Field label={t("onboarding.researcher.participants.sampleSizeLabel", null, "How many participants?")} invalid={showErrors && !d.sampleSize} dataField="sampleSize" issue={issue}><Chips options={SAMPLE_SIZES} value={d.sampleSize} onChange={(v) => set("sampleSize", v)} multi={false} hideCheck /></Field>
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.locationSection", null, "Location")} />
@@ -616,34 +614,89 @@ function ResParticipants({ d, set, region, showErrors, issue }) {
         <FSection label={t("onboarding.researcher.participants.additionalFiltersSection", null, "Additional filters")} />
         <Chips options={ADDITIONAL_FILTERS(t)} value={d.filters} onChange={(v) => set("filters", v)} />
       </div>
+    </StepLayout>
+  );
+}
+function ApprovalUploader({ value, onChange, t }) {
+  const inputRef = useRef(null);
+  const [hovered, setHovered] = useState(false);
+  
+  const handleFile = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      onChange({ name: e.target.files[0].name, size: Math.round(e.target.files[0].size / 1024) + " KB" });
+    }
+  };
+
+  if (value) {
+    return (
+      <div style={{ background: "var(--success-weak)", border: "1px solid var(--success)", borderRadius: 12, padding: "16px 20px", display: "flex", gap: 16, alignItems: "center" }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: "#fff", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--success)" }}>
+          <Icon name="fileText" size={20} />
+        </div>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-strong)" }}>{value.name}</div>
+          <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("onboarding.researcher.ethics.uploadedSub", { size: value.size }, `Uploaded · ${value.size}`)}</div>
+        </div>
+        <button onClick={() => inputRef.current?.click()} style={{ background: "#fff", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, color: "var(--text-strong)", cursor: "pointer" }}>
+          {t("actions.replace", null, "Replace")}
+        </button>
+        <input ref={inputRef} type="file" accept="application/pdf" style={{ display: "none" }} onChange={handleFile} />
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      onClick={() => inputRef.current?.click()} 
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ 
+        background: hovered ? "var(--success-weak)" : "var(--panel-inset)", 
+        border: hovered ? "1px dashed var(--success)" : "1px dashed var(--border)", 
+        borderRadius: 12, padding: "16px 20px", display: "flex", gap: 16, alignItems: "center", cursor: "pointer", transition: "all 0.2s" 
+      }}
+    >
+      <div style={{ width: 44, height: 44, borderRadius: 10, background: "#fff", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--text-faint)" }}>
+        <Icon name="fileText" size={20} />
+      </div>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, color: "var(--text-strong)" }}>{t("onboarding.researcher.ethics.uploadHint", null, "Drop a file or click to upload")}</div>
+        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>{t("onboarding.researcher.ethics.uploadSub", null, "IRB / ethics committee letter — PDF up to 10 MB")}</div>
+      </div>
+      <input ref={inputRef} type="file" accept="application/pdf" style={{ display: "none" }} onChange={handleFile} />
     </div>
   );
 }
+
 function ResEthics({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.researcher.ethics.step", null, "Step 5 · Ethics & verification")} title={t("onboarding.researcher.ethics.title", null, "Ethics & verification")} sub={t("onboarding.researcher.ethics.sub", null, "Approved, transparent studies get higher participation.")} />
-      <FSection label={t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?")} required invalid={showErrors && !d.ethics} dataField="ethics" issue={issue} />
-      <p className="faint" style={{ fontSize: 12.5, margin: "-4px 0 12px", maxWidth: 560 }}>
-        {t("onboarding.researcher.ethics.approvalHint", null, "This means sign-off from your university's Institutional Review Board (IRB) or ethics committee, confirming your study protects participants and follows standard research-ethics guidelines. If your institution doesn't require this for your kind of study, or you haven't applied yet, pick whichever option below actually matches — it won't block you from continuing.")}
-      </p>
+    <StepLayout step={t("onboarding.researcher.ethics.step", null, "Step 5 · Ethics & verification")} title={t("onboarding.researcher.ethics.title", null, "Ethics & verification")} sub={t("onboarding.researcher.ethics.sub", null, "Approved, transparent studies get higher participation. Verify what you can — the rest can follow later.")}  d={d}>
+      <FSection label={t("onboarding.researcher.ethics.approvalSection", null, "Does your study have institutional approval?")} invalid={showErrors && !d.ethics} dataField="ethics" issue={issue} />
       <SelCards options={ETHICS_OPTIONS(t)} value={d.ethics} onChange={(v) => set("ethics", v)} cols={3} />
       {d.ethics === "yes" && (
         <div style={{ marginTop: 14 }}>
-          <Field label={t("onboarding.researcher.ethics.refLabel", null, "Approval reference")} optional><TextInput value={d.ethicsRef} onChange={(v) => set("ethicsRef", v)} placeholder="IRB / ethics committee reference number" /></Field>
+          <Field label={t("onboarding.researcher.ethics.uploadLabel", null, "Upload approval document")} optional>
+            <ApprovalUploader value={d.ethicsFile} onChange={(v) => set("ethicsFile", v)} t={t} />
+          </Field>
         </div>
       )}
       <FSection label={t("onboarding.researcher.ethics.verifySection", null, "Verify your identity")} />
-      <VerifyRow icon="message" title={t("onboarding.researcher.ethics.uniEmailTitle", null, "University email")} showErrors={showErrors} desc={t("onboarding.researcher.ethics.uniEmailDesc", null, "Confirms your academic affiliation.")}
+      <VerifyRow icon="message" title={t("onboarding.researcher.ethics.uniEmailTitle", null, "University email")} showErrors={showErrors} desc={t("onboarding.researcher.ethics.uniEmailDesc", null, "Confirms your academic affiliation via a .edu / .ac domain.")}
         placeholder={d.email || "you@university.edu"} value={d.vWebsiteInput} onChange={(v) => set("vWebsiteInput", v)} dataField="vWebsiteInput" issue={issue}
         validate={(v) => {
           if (!v) return null;
           return EMAIL_RE.test(v) ? null : t("errors.invalidEmail", null, "Please enter a valid email address.");
         }} />
-      <VerifyRow icon="flask" title={t("onboarding.researcher.ethics.scholarlyTitle", null, "Scholarly profile")} optional desc={t("onboarding.researcher.ethics.scholarlyDesc", null, "Google Scholar, ORCID, Scopus, ResearchGate or LinkedIn.")}
-        placeholder="Profile URL" value={d.researchProfile} onChange={(v) => set("researchProfile", v)} />
-    </div>
+      <VerifyRow icon="flask" title={t("onboarding.researcher.ethics.scholarlyTitle", null, "Research profile")} desc={t("onboarding.researcher.ethics.scholarlyDesc", null, "Link a scholarly profile so participants can see your track record.")}
+        placeholder="Google Scholar, ORCID, Scopus..." value={d.researchProfile} onChange={(v) => set("researchProfile", v)} submittedLabel="Linked" submittedIcon="check" submittedTheme="success" />
+      <div style={{ background: "var(--panel-inset)", borderRadius: 8, padding: "16px 20px", display: "flex", gap: 12, alignItems: "flex-start", color: "var(--text-muted)", fontSize: 13, marginTop: 16, border: "1px solid var(--border)" }}>
+        <Icon name="lock" size={16} style={{ marginTop: 2, flexShrink: 0 }} />
+        <div style={{ lineHeight: 1.5 }}>
+          {t("onboarding.researcher.ethics.trustBox", null, "Your approval documents are reviewed by our trust team and never shared with participants. Verification raises your study to the top of participants' invitations.")}
+        </div>
+      </div>
+    </StepLayout>
   );
 }
 function resValid(key, d) {
@@ -700,23 +753,21 @@ function resStepIssue(key, d, t) {
 function OrgRep({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.org.rep.step", null, "Step 1 · Representative")} title={t("onboarding.org.rep.title", null, "Who's representing the organization?")} sub={t("onboarding.org.rep.sub", null, "This stays private. We use it to set up your account.")} />
+    <StepLayout step={t("onboarding.org.rep.step", null, "Step 1 · Representative")} title={t("onboarding.org.rep.title", null, "Who's representing the organization?")} sub={t("onboarding.org.rep.sub", null, "This stays private. We use it to set up your account and contact the right person about your initiatives.")}  d={d}>
       <PersonalFields d={d} set={set} roleField={{ label: t("onboarding.org.rep.roleLabel", null, "Your designation") }} showErrors={showErrors} emailLocked issue={issue} />
-    </div>
+    </StepLayout>
   );
 }
 function OrgInfo({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   const isOtherType = d.orgType === t("onboarding.opts.orgTypes.8", null, "Other");
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.org.info.step", null, "Step 2 · Organization")} title={t("onboarding.org.info.title", null, "About your organization")} sub={t("onboarding.org.info.sub", null, "This helps participants recognise who they're contributing to.")} />
+    <StepLayout step={t("onboarding.org.info.step", null, "Step 2 · Organization")} title={t("onboarding.org.info.title", null, "About your organization")} sub={t("onboarding.org.info.sub", null, "This helps participants recognise who they're contributing to, and lets us tailor your workspace.")}  d={d}>
       <div className="fgrid c2">
-        <Field label={t("onboarding.org.info.nameLabel", null, "Organization name")} span invalid={showErrors && !(d.orgName && d.orgName.trim())} dataField="orgName" issue={issue}><TextInput value={d.orgName} onChange={(v) => set("orgName", v)} placeholder="Saksham Foundation" /></Field>
-        <Field label={t("onboarding.founder.company.websiteLabel", null, "Website")} optional><TextInput value={d.website} onChange={(v) => set("website", v)} placeholder="saksham.org" /></Field>
-        <Field label={t("onboarding.org.info.yearLabel", null, "Year established")} optional><TextInput value={d.yearFounded} onChange={(v) => set("yearFounded", v.replace(/\D/g, "").slice(0, 4))} placeholder="2012" /></Field>
-        <Field label={t("onboarding.company.company.hqLabel", null, "Headquarters")} optional span><TextInput value={d.hq} onChange={(v) => set("hq", v)} placeholder="City, Country" /></Field>
+        <Field label={t("onboarding.org.info.nameLabel", null, "Organization name")} span invalid={showErrors && !(d.orgName && d.orgName.trim())} dataField="orgName" issue={issue}><TextInput icon="landmark" value={d.orgName} onChange={(v) => set("orgName", v)} placeholder="Saksham Foundation" /></Field>
+        <Field label={t("onboarding.founder.company.websiteLabel", null, "Website")} optional><TextInput icon="globe" value={d.website} onChange={(v) => set("website", v)} placeholder="saksham.org" /></Field>
+        <Field label={t("onboarding.org.info.yearLabel", null, "Year established")} optional><TextInput icon="clock" value={d.yearFounded} onChange={(v) => set("yearFounded", v.replace(/\D/g, "").slice(0, 4))} placeholder="2012" /></Field>
+        <Field label={t("onboarding.company.company.hqLabel", null, "Headquarters")} optional span><TextInput icon="mapPin" value={d.hq} onChange={(v) => set("hq", v)} placeholder="City, Country" /></Field>
       </div>
       <FSection label={t("onboarding.org.info.typeSection", null, "Organization type")} required invalid={showErrors && !d.orgType} dataField="orgType" issue={issue} />
       <Chips options={ORG_TYPES(t)} value={d.orgType} onChange={(v) => set("orgType", v)} multi={false} />
@@ -727,27 +778,26 @@ function OrgInfo({ d, set, showErrors, issue }) {
           </Field>
         </div>
       )}
-    </div>
+    </StepLayout>
   );
 }
 function OrgGoals({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   const learn = d.learn || [];
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.org.goals.step", null, "Step 3 · Goals")} title={t("onboarding.org.goals.title", null, "What would you like to learn?")} sub={t("onboarding.org.goals.sub", null, "Pick everything you'd like to understand.")} />
+    <StepLayout step={t("onboarding.org.goals.step", null, "Step 3 · Goals")} title={t("onboarding.org.goals.title", null, "What would you like to learn?")} sub={t("onboarding.org.goals.sub", null, "Pick everything you'd like to understand, and tell us about the initiative behind it.")}  d={d}>
       <FSection label={t("onboarding.org.goals.title", null, "What would you like to learn?")} count={learn.length ? t("onboarding.selectedCount", { count: learn.length }, `${learn.length} selected`) : null} required
         action={<SelectAllToggle options={ORG_LEARN(t).map(o => o.v)} value={learn} onChange={(v) => set("learn", v)} />}
         invalid={showErrors && learn.length === 0} dataField="learn" issue={issue} />
       <SelCards options={ORG_LEARN(t)} value={learn} onChange={(v) => set("learn", v)} multi cols={2} />
       <FSection label={t("onboarding.org.goals.initiativeSection", null, "Initiative details")} />
       <div className="fgrid">
-        <Field label={t("onboarding.org.goals.initiativeNameLabel", null, "Initiative / program name")} invalid={showErrors && !(d.initiativeName && d.initiativeName.trim())} dataField="initiativeName" issue={issue}><TextInput value={d.initiativeName} onChange={(v) => set("initiativeName", v)} placeholder="Rural Digital Literacy Drive" /></Field>
+        <Field label={t("onboarding.org.goals.initiativeNameLabel", null, "Initiative / program name")} invalid={showErrors && !(d.initiativeName && d.initiativeName.trim())} dataField="initiativeName" issue={issue}><TextInput icon="settings" value={d.initiativeName} onChange={(v) => set("initiativeName", v)} placeholder="Rural Digital Literacy Drive" /></Field>
         <Field label={t("onboarding.org.goals.programDescLabel", null, "Program description")} optional><Textarea value={d.programDesc} onChange={(v) => set("programDesc", v)} placeholder="A short description of the initiative and its goals…" /></Field>
       </div>
       <FSection label={t("onboarding.org.goals.geoAreaSection", null, "Geographic area covered")} />
       <SelCards options={GEO_AREA(t)} value={d.geoArea} onChange={(v) => set("geoArea", v)} cols={3} />
-    </div>
+    </StepLayout>
   );
 }
 function OrgAudience(props) {
@@ -762,8 +812,7 @@ function OrgAudience(props) {
     (d.incomeBands || []).length || (d.languages || []).length || !!d.scale
   );
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.org.audience.step", null, "Step 4 · Audience")} title={t("onboarding.company.audience.title", null, "Who would you like to hear from?")} sub={t("onboarding.org.audience.sub", null, "Define the community you want feedback from.")} />
+    <StepLayout step={t("onboarding.org.audience.step", null, "Step 4 · Audience")} title={t("onboarding.company.audience.title", null, "Who would you like to hear from?")} sub={t("onboarding.org.audience.sub", null, "Define the community you want feedback from.")}  d={d}>
       <ReachMeter reach={reach} base={base} firstLoad={firstLoad} updating={updating} />
       <AudienceWarning hasAnyFilter={hasAnyFilter} reach={reach} firstLoad={firstLoad} updating={updating} t={t} />
       <div style={GROUP_CARD}>
@@ -783,33 +832,38 @@ function OrgAudience(props) {
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.org.audience.demographicFiltersSection", null, "Demographic filters")} />
         <DemographicsRow d={d} set={set} ageOptions={filters.Demographics?.Age} genderOptions={filters.Demographics?.Gender} />
-        <ProfileChips d={d} set={set} region={region} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ income: true, languages: true }} />
+        <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} incomeOptions={filters.Demographics?.["Income Bracket"]} show={{ occupation: true, income: true, languages: true }} />
       </div>
       <div style={GROUP_CARD}>
         <FSection label={t("onboarding.org.audience.scaleSection", null, "Scale requirements")} />
         <Field label={t("onboarding.org.audience.scaleLabel", null, "How many participants are typically needed?")}><Chips options={ORG_SCALE} value={d.scale} onChange={(v) => set("scale", v)} multi={false} /></Field>
       </div>
-    </div>
+    </StepLayout>
   );
 }
 function OrgVerify({ d, set, showErrors, issue }) {
   const { t } = useTranslation();
   const websiteValue = d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "");
   return (
-    <div className="rise">
-      <StepHead step={t("onboarding.org.verify.step", null, "Step 5 · Verification")} title={t("onboarding.org.verify.title", null, "Build trust with participants")} sub={t("onboarding.org.verify.sub", null, "Verified organizations get higher participation.")} />
+    <StepLayout step={t("onboarding.org.verify.step", null, "Step 5 · Verification")} title={t("onboarding.org.verify.title", null, "Build trust with participants")} sub={t("onboarding.org.verify.sub", null, "Verified organizations get higher participation and reach sensitive communities more easily.")}  d={d}>
       <VerifyRow icon="browser" title={t("onboarding.verify.websiteTitle", null, "Website")} showErrors={showErrors} desc={t("onboarding.org.verify.websiteDesc", null, "Confirms you own the domain.")} placeholder={d.website || "saksham.org"}
         value={websiteValue} onChange={(v) => set("vWebsiteInput", v)} dataField="vWebsiteInput" issue={issue}
         validate={(v) => (!v || WEBSITE_RE.test(v)) ? null : t("errors.invalidWebsite", null, "Please enter a valid website URL.")} />
       <VerifyRow icon="link" title={t("onboarding.verify.linkedinTitle", null, "LinkedIn page")} optional showErrors={showErrors} desc={t("onboarding.org.verify.linkedinDesc", null, "Links initiatives to a real, public organisation.")} placeholder="linkedin.com/company/…"
         value={d.vCompanyInput} onChange={(v) => set("vCompanyInput", v)}
         validate={(v) => (!v || LINKEDIN_ORG_RE.test(v)) ? null : t("errors.invalidLinkedin", null, "Please enter a valid public LinkedIn organization page URL.")} />
-      <VerifyRow icon="fileText" title={t("onboarding.org.verify.regNoTitle", null, "Registration number")} showErrors={showErrors} desc={t("onboarding.org.verify.regNoDesc", null, "NGO / society / trust registration.")} placeholder="e.g. 80G / 12A / Society reg."
+      <VerifyRow icon="fileText" title={t("onboarding.org.verify.regNoTitle", null, "Registration number")} optional showErrors={showErrors} desc={t("onboarding.org.verify.regNoDesc", null, "NGO / society / trust registration.")} placeholder="e.g. 80G / 12A / Society reg."
         value={d.regNo} onChange={(v) => set("regNo", v)} dataField="regNo" issue={issue}
         validate={(v) => (!v || (v.trim().length >= 6 && /\d/.test(v))) ? null : t("errors.invalidRegNo", null, "Please enter a valid registration number (at least 6 characters, including a number).")} />
-      <VerifyRow icon="building" title={t("onboarding.org.verify.govTitle", null, "Government affiliation")} optional desc={t("onboarding.org.verify.govDesc", null, "If applicable — department, scheme or ministry linkage.")} placeholder="e.g. Ministry of Rural Development"
+      <VerifyRow icon="landmark" title={t("onboarding.org.verify.govTitle", null, "Government affiliation")} optional desc={t("onboarding.org.verify.govDesc", null, "If applicable — department, scheme or ministry linkage.")} placeholder="e.g. Ministry of Rural Development"
         value={d.govAffiliation} onChange={(v) => set("govAffiliation", v)} />
-    </div>
+      <div style={{ marginTop: 24, padding: "16px 20px", display: "flex", gap: 12, alignItems: "center", background: "var(--panel-inset)", border: "1px solid var(--border)", color: "var(--text-secondary)", borderRadius: 12 }}>
+        <Icon name="lock" size={18} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+        <span style={{ fontSize: 13, lineHeight: 1.5 }}>
+          {t("onboarding.org.verify.trustNotice", null, "Documents are reviewed by our trust team and never shared with participants. Verified organizations can run large-scale and sensitive studies.")}
+        </span>
+      </div>
+    </StepLayout>
   );
 }
 function orgValid(key, d) {
@@ -824,7 +878,7 @@ function orgValid(key, d) {
       const li = (d.vCompanyInput || "").trim();
       const liOk = !li || LINKEDIN_ORG_RE.test(li);
       const reg = (d.regNo || "").trim();
-      const regOk = reg.length >= 6 && /\d/.test(reg);
+      const regOk = !reg || (reg.length >= 6 && /\d/.test(reg));
       return webOk && liOk && regOk;
     }
     default: return true;
@@ -855,7 +909,7 @@ function orgStepIssue(key, d, t) {
     }
     case "verify": return firstMissingField([
       { id: "vWebsiteInput", ok: (() => { const web = (d.vWebsiteInput !== undefined ? d.vWebsiteInput : (d.website || "")).trim(); return !!web && WEBSITE_RE.test(web); })(), label: t("onboarding.verify.websiteTitle", null, "Website") },
-      { id: "regNo", ok: (() => { const reg = (d.regNo || "").trim(); return reg.length >= 6 && /\d/.test(reg); })(), label: t("onboarding.org.verify.regNoTitle", null, "Registration number") },
+      { id: "regNo", ok: (() => { const reg = (d.regNo || "").trim(); return !reg || (reg.length >= 6 && /\d/.test(reg)); })(), label: t("onboarding.org.verify.regNoTitle", null, "Registration number") },
     ], t);
     default: return null;
   }
@@ -878,6 +932,12 @@ export const onboardingDraftKey = (builderId, role) => `vc_onboarding_draft_${bu
 export function resolveActivePersonaKey(builder) {
   let activePersonaKey = builder?.persona;
   if (!activePersonaKey) {
+    try {
+      const lastActive = localStorage.getItem(`vc_last_active_role_${builder?.id || "anon"}`);
+      if (lastActive && JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, lastActive)))?.step >= 0) {
+        return lastActive;
+      }
+    } catch { /* ignore */ }
     for (const key of Object.keys(PERSONA_CONFIG)) {
       try {
         const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, key)));
@@ -914,18 +974,35 @@ export const getRoles = (t) => [
   },
 ];
 
-// Wipes every role's draft then seeds a fresh, immediately-detectable one for
-// `key` — same reset used when picking a role on the full-page selector and
-// when switching roles mid-onboarding, so the dashboard's "which role / how
-// far" banner is never left pointing at a stale or ambiguous draft.
+// Preserves all existing drafts but sets `key` as the actively resumed role.
+// It also gathers all data you've filled out across ANY role and merges it
+// into the new role's draft so you never have to type common fields twice.
 export function switchToRoleDraft(builderId, key, builder) {
-  Object.keys(PERSONA_CONFIG).forEach((k) => {
-    try { localStorage.removeItem(onboardingDraftKey(builderId, k)); } catch { /* ignore */ }
-  });
   try {
-    localStorage.setItem(onboardingDraftKey(builderId, key), JSON.stringify({
-      step: 0, maxReached: 0, d: { fullName: builder?.name || "", email: builder?.email || "" },
-    }));
+    localStorage.setItem(`vc_last_active_role_${builderId || "anon"}`, key);
+    
+    let mergedData = { fullName: builder?.name || "", email: builder?.email || "" };
+    Object.keys(PERSONA_CONFIG).forEach(k => {
+      try {
+        const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builderId, k)));
+        if (draft && draft.d) {
+          mergedData = { ...mergedData, ...draft.d };
+        }
+      } catch { /* ignore */ }
+    });
+
+    const existingStr = localStorage.getItem(onboardingDraftKey(builderId, key));
+    if (!existingStr) {
+      localStorage.setItem(onboardingDraftKey(builderId, key), JSON.stringify({
+        step: 0, maxReached: 0, d: mergedData,
+      }));
+    } else {
+      try {
+        const parsed = JSON.parse(existingStr);
+        parsed.d = { ...mergedData, ...(parsed.d || {}) };
+        localStorage.setItem(onboardingDraftKey(builderId, key), JSON.stringify(parsed));
+      } catch { /* ignore */ }
+    }
   } catch { /* ignore */ }
 }
 
@@ -964,7 +1041,6 @@ export const PERSONA_CONFIG = {
       { key: "personal", label: "Your details" },
       { key: "company", label: "Company" },
       { key: "validate", label: "Validate" },
-      { key: "audience", label: "Audience" },
       { key: "verify", label: "Verification" },
       { key: "final", label: "Preferences" },
     ],
@@ -975,8 +1051,8 @@ export const PERSONA_CONFIG = {
     noun: "campaign",
     matchedNoun: "validators",
     summary: (d, t) => [
-      { label: t("onboarding.summary.company", null, "Company"), value: d.companyName || "—" },
-      { label: t("onboarding.summary.validating", null, "Validating"), value: foLabelList(VALIDATION_TYPES(t), d.vTypes) },
+      { icon: "building", label: t("onboarding.summary.company", null, "Company"), value: d.companyName || "—" },
+      { icon: "layers", label: t("onboarding.summary.validating", null, "Validating"), value: foLabelList(VALIDATION_TYPES(t), d.vTypes) },
     ],
   },
   company: {
@@ -985,7 +1061,6 @@ export const PERSONA_CONFIG = {
       { key: "personal", label: "Your details" },
       { key: "company", label: "Company" },
       { key: "needs", label: "Your needs" },
-      { key: "audience", label: "Audience" },
       { key: "verify", label: "Verification" },
       { key: "final", label: "Preferences" },
     ],
@@ -996,8 +1071,8 @@ export const PERSONA_CONFIG = {
     noun: "campaign",
     matchedNoun: "people",
     summary: (d, t) => [
-      { label: t("onboarding.summary.company", null, "Company"), value: d.companyName || "—" },
-      { label: t("onboarding.summary.lookingFor", null, "Looking for"), value: foLabelList(COMPANY_LOOKING(t), d.looking) },
+      { icon: "building", label: t("onboarding.summary.company", null, "Company"), value: d.companyName || "—" },
+      { icon: "layers", label: t("onboarding.summary.lookingFor", null, "Looking for"), value: foLabelList(COMPANY_LOOKING(t), d.looking) },
     ],
   },
   researcher: {
@@ -1006,7 +1081,6 @@ export const PERSONA_CONFIG = {
       { key: "personal", label: "Your details" },
       { key: "academic", label: "Academic" },
       { key: "research", label: "Research" },
-      { key: "participants", label: "Participants" },
       { key: "ethics", label: "Ethics" },
       { key: "final", label: "Preferences" },
     ],
@@ -1015,10 +1089,11 @@ export const PERSONA_CONFIG = {
     getIssue: (key, d, region, t) => resStepIssue(key, d, t),
     workspace: (d, t) => d.institution || t("onboarding.yourResearchWorkspace", null, "Your research workspace"),
     noun: "study",
+    matchedNoun: "participants",
     summary: (d, t) => [
-      { label: t("onboarding.summary.study", null, "Study"), value: d.researchTitle || "—" },
-      { label: t("onboarding.summary.institution", null, "Institution"), value: d.institution || "—" },
-      { label: t("onboarding.summary.ethics", null, "Ethics"), value: d.ethics === "yes" ? t("onboarding.summary.ethicsApproved", null, "Approved") : d.ethics === "process" ? t("onboarding.summary.ethicsInProcess", null, "In process") : t("onboarding.summary.ethicsNotRequired", null, "Not required") },
+      { icon: "flask", label: t("onboarding.summary.study", null, "Study"), value: d.researchTitle || "—" },
+      { icon: "landmark", label: t("onboarding.summary.institution", null, "Institution"), value: d.institution || "—" },
+      { icon: "shieldCheck", label: t("onboarding.summary.ethics", null, "Ethics"), value: d.ethics === "yes" ? t("onboarding.summary.ethicsApproved", null, "Approved") : d.ethics === "process" ? t("onboarding.summary.ethicsInProcess", null, "In process") : t("onboarding.summary.ethicsNotRequired", null, "Not required") },
     ],
   },
   organization: {
@@ -1027,7 +1102,6 @@ export const PERSONA_CONFIG = {
       { key: "personal", label: "Your details" },
       { key: "organization", label: "Organization" },
       { key: "goals", label: "Goals" },
-      { key: "audience", label: "Audience" },
       { key: "verify", label: "Verification" },
       { key: "final", label: "Preferences" },
     ],
@@ -1038,8 +1112,8 @@ export const PERSONA_CONFIG = {
     noun: "initiative",
     matchedNoun: "people",
     summary: (d, t) => [
-      { label: t("onboarding.summary.organization", null, "Organization"), value: d.orgName || "—" },
-      { label: t("onboarding.summary.learning", null, "Learning"), value: foLabelList(ORG_LEARN(t), d.learn) },
+      { icon: "landmark", label: t("onboarding.summary.organization", null, "Organization"), value: d.orgName || "—" },
+      { icon: "layers", label: t("onboarding.summary.learning", null, "Learning"), value: foLabelList(ORG_LEARN(t), d.learn) },
     ],
   },
 };
@@ -1130,17 +1204,17 @@ export const VERIFICATION_SUMMARY = {
   founder: [
     { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
     { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
-    { key: "gst", labelKey: "onboarding.verify.gstTitle", labelFallback: "GST registration", required: true },
+    { key: "gst", labelKey: "onboarding.verify.gstTitle", labelFallback: "GST registration" },
   ],
   company: [
     { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
     { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
-    { key: "gst", labelKey: "onboarding.verify.gstNumberTitle", labelFallback: "GST number", required: true },
+    { key: "gst", labelKey: "onboarding.verify.gstNumberTitle", labelFallback: "GST number" },
   ],
   organization: [
     { key: "vWebsiteInput", labelKey: "onboarding.verify.websiteTitle", labelFallback: "Website", required: true },
     { key: "vCompanyInput", labelKey: "onboarding.verify.linkedinTitle", labelFallback: "LinkedIn page" },
-    { key: "regNo", labelKey: "onboarding.org.verify.regNoTitle", labelFallback: "Registration number", required: true },
+    { key: "regNo", labelKey: "onboarding.org.verify.regNoTitle", labelFallback: "Registration number" },
     { key: "govAffiliation", labelKey: "onboarding.org.verify.govTitle", labelFallback: "Government affiliation" },
   ],
   researcher: [
