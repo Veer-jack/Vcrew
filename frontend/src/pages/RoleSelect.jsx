@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Icon from "../components/Icon";
 import { BrandMark } from "../components/BrandMark";
 import { useTranslation } from "../i18n/index.jsx";
@@ -11,6 +11,12 @@ export default function RoleSelect() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { builder } = useAuth();
+  // Set when the wizard's own step-0 Back button lands here (see
+  // OnboardingWizard's goBack) -- highlights whichever role that draft
+  // already belongs to, so someone who just wants to double-check the
+  // description isn't left wondering which card was theirs.
+  const [params] = useSearchParams();
+  const current = params.get("current");
 
   return (
     <div className="auth-shell">
@@ -26,16 +32,23 @@ export default function RoleSelect() {
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="role-grid">
-          {getRoles(t).map((r) => (
+          {getRoles(t).map((r) => {
+            const isCurrent = r.key === current;
+            return (
             <button
               key={r.key}
               type="button"
               className={`card role-card ${!r.live ? "role-card-soon" : ""}`}
-              style={{ "--rc-accent": r.accent, textAlign: "left", cursor: r.live ? "pointer" : "default" }}
+              style={{ "--rc-accent": r.accent, textAlign: "left", cursor: r.live ? "pointer" : "default", position: "relative", borderColor: isCurrent ? r.accent : undefined, boxShadow: isCurrent ? `0 0 0 1px ${r.accent}` : undefined }}
               disabled={!r.live}
               onClick={() => {
                 if (!r.live) return;
-                switchToRoleDraft(builder?.id, r.key, builder);
+                // Re-picking the same role this draft is already for isn't a
+                // role change -- switchToRoleDraft wipes every draft
+                // unconditionally, which would erase whatever was already
+                // typed in on step 0 just for glancing at the description
+                // again. Only an actual switch to a *different* role resets.
+                if (r.key !== current) switchToRoleDraft(builder?.id, r.key, builder);
                 navigate(`/signup?role=${r.key}`);
               }}
             >
@@ -45,11 +58,17 @@ export default function RoleSelect() {
                 </span>
                 {!r.live && <span className="pill" style={{ fontSize: 11 }}>{t("status.comingSoon", null, "Coming soon")}</span>}
               </div>
+              {isCurrent && (
+                <span style={{ position: "absolute", top: -10, left: 18, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, background: r.accent, color: "#fff" }}>
+                  <Icon name="check" size={11} />{t("onboarding.currentRole", null, "Current role")}
+                </span>
+              )}
               <h3 style={{ margin: "12px 0 4px", fontSize: 15.5 }}>{r.name}</h3>
               <p className="faint" style={{ fontSize: 12.5, lineHeight: 1.5, margin: 0 }}>{r.desc}</p>
               {r.live && <span className="intent-cta">{t("actions.continueAsRole", { role: r.name }, `Continue as ${r.name}`)} <Icon name="arrowRight" size={14} /></span>}
             </button>
-          ))}
+            );
+          })}
         </div>
 
         <p className="faint" style={{ marginTop: 26, fontSize: 12.5 }}>

@@ -9,7 +9,7 @@ import { authMiddleware } from "../auth.js";
 import { catOf, ptypeOf, REWARDS, matchCount, buildTaskPrompt, TASK_GUIDANCE, PLATFORM_FEE_PCT } from "../meta.js";
 import { getRealMatchCount } from "./audience.js";
 import { fetchUrlContext } from "../urlContext.js";
-import { levelForCompleted } from "../vmeta.js";
+import { levelForCompleted, computeProfileCompletion } from "../vmeta.js";
 import { sendMissionPublished, sendMissionUpdated } from "../email.js";
 import { recalcMissionStats, getRealJoinedCount } from "../stats.js";
 import { notifyMatchingValidators } from "../notificationsHelper.js";
@@ -241,7 +241,10 @@ router.get("/invitations", async (req, res) => {
       mi.mission_id, m.name AS mission_name, m.status AS mission_status, m.category AS mission_category,
       mi.validator_id, v.name AS validator_name, v.city AS validator_city,
       v.occupation AS validator_occupation, v.role AS validator_role, v.validator_type,
-      v.rating AS validator_rating, v.profile_completion AS validator_profile_completion,
+      v.rating AS validator_rating,
+      v.avatar AS validator_avatar, v.bio AS validator_bio, v.location AS validator_location,
+      v.specialties_json AS validator_specialties_json, v.phone_verified AS validator_phone_verified,
+      v.payout_vpa AS validator_payout_vpa, v.linkedin_url AS validator_linkedin_url, v.portfolio_url AS validator_portfolio_url,
       (vs.validator_id IS NOT NULL) AS is_waitlist
     FROM mission_invitations mi
     JOIN missions m ON m.id = mi.mission_id
@@ -269,7 +272,13 @@ router.get("/invitations", async (req, res) => {
       // Same formulas audience.js uses for the same two stats, so a
       // validator's trust/completion reads the same everywhere they show up.
       validator: { id: r.validator_id, name: r.validator_name, city: r.validator_city, occ: r.validator_occupation, role,
-        trust: Math.round((r.validator_rating || 0) * 20), profileCompletion: r.validator_profile_completion || 60 },
+        trust: Math.round((r.validator_rating || 0) * 20),
+        profileCompletion: computeProfileCompletion({
+          avatar: r.validator_avatar, bio: r.validator_bio, location: r.validator_location, city: r.validator_city,
+          occupation: r.validator_occupation, specialties_json: r.validator_specialties_json,
+          phone_verified: r.validator_phone_verified, payout_vpa: r.validator_payout_vpa,
+          linkedin_url: r.validator_linkedin_url, portfolio_url: r.validator_portfolio_url,
+        }) },
     };
   });
 

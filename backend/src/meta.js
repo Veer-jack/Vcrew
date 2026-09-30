@@ -468,7 +468,7 @@ export const FILTERS = {
   },
   Demographics: {
     "Age": ["Under 18", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"],
-    "Gender": ["Male", "Female", "Non-binary", "Prefer not to say"],
+    "Gender": ["Male", "Female", "Prefer not to say"],
     "Income Bracket": ["Under Rs2.5L", "Rs2.5L-5L", "Rs5L-10L", "Rs10L-20L", "Rs20L-50L", "Above Rs50L"],
     "Marital Status": ["Single", "Married", "Divorced", "Widowed", "In a relationship"],
     "Has Kids": ["Yes", "No"]

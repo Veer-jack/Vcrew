@@ -230,7 +230,15 @@ export default function Profile() {
       <div className="rise-2" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 22 }}>
         <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 16 }}>
           <ScoreRing value={trustScore} size={60} />
-          <div style={{ minWidth: 0 }}><span className="eyebrow">{t("profile.trustScore", null, "Trust Score")}</span><div className="faint" style={{ fontSize: 12, marginTop: 4 }}>{t("profile.top5", null, "Top 5% on platform")}</div></div>
+          <div style={{ minWidth: 0 }}>
+            <span className="eyebrow">{t("profile.trustScore", null, "Trust Score")}</span>
+            {/* Real percentile now (backend ranks this validator's own trust
+                score against everyone else who's completed a mission) --
+                used to be a hardcoded "Top 5%" shown to every validator
+                regardless of standing. No completed missions yet means no
+                real score to rank, so nothing shows instead of a fake claim. */}
+            {data.trustPercentile != null && <div className="faint" style={{ fontSize: 12, marginTop: 4 }}>{t("profile.topPercent", { pct: data.trustPercentile }, `Top ${data.trustPercentile}% on platform`)}</div>}
+          </div>
         </div>
         <div className="card" style={{ padding: "var(--pad-card)", display: "flex", alignItems: "center", gap: 16 }}>
           <ScoreRing value={avgExpertise} size={60} />

@@ -14,6 +14,30 @@ import { takePreLoginPath } from "../../utils/authRedirect";
 
 const SSO_MARKS = { google: GoogleMark, github: GithubMark, linkedin: LinkedInMark };
 
+// Splits the translated "I agree to the {{terms}} and {{privacy}}" sentence
+// on its two markers and interleaves real links in their place -- plain
+// <a target="_blank">, not <Link>, since /terms and /privacy are static
+// pages served directly by the backend (see server.js), not SPA routes;
+// opening in a new tab means reading them never risks losing whatever's
+// already typed into this in-progress signup form. ?embed=1 tells chrome.js
+// to skip the site nav bar there, since this is a standalone reference read,
+// not someone browsing the marketing site. stopPropagation keeps a click on
+// the link from also toggling the checkbox this text sits inside (native
+// <label> behavior otherwise fires both).
+function TermsAgreementLabel({ t }) {
+  const sentence = t("auth.agreeToTerms", null, "I agree to the {{terms}} and {{privacy}}");
+  // The global `a` rule inherits the surrounding text color (see theme.css),
+  // which left these looking like plain text inside the faint checkbox
+  // label -- same accent color + no-underline treatment as "Validator sign
+  // in ->" (.asplit-cross a) so they read as links here too.
+  const linkStyle = { color: "var(--accent)", textDecoration: "none" };
+  return sentence.split(/(\{\{terms\}\}|\{\{privacy\}\})/).map((part, i) => {
+    if (part === "{{terms}}") return <a key={i} href="/terms?embed=1" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.termsOfServiceLink", null, "Terms of Service")}</a>;
+    if (part === "{{privacy}}") return <a key={i} href="/privacy?embed=1" target="_blank" rel="noopener noreferrer" style={linkStyle} onClick={(e) => e.stopPropagation()}>{t("auth.privacyPolicyLink", null, "Privacy Policy")}</a>;
+    return part;
+  });
+}
+
 // Firebase surfaces raw SDK error codes/messages (e.g. "Firebase: Error
 // (auth/error-code:-39)."); map the common ones to copy a user can act on
 // instead of showing the SDK string verbatim.
@@ -79,6 +103,10 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
   const [touched, setTouched] = useState({});
   const [error, setError] = useState("");
   const [phoneErr, setPhoneErr] = useState("");
+  // Set to "email" | "phone" when a signup hits an already-registered
+  // account, so the banner can offer a Sign in button instead of just
+  // stating the problem -- see submitEmail's catch and sendOtp below.
+  const [existsPrompt, setExistsPrompt] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const [ccIdx, setCcIdx] = useState(() => COUNTRIES.findIndex((c) => c[1] === "+91"));
@@ -129,18 +157,19 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
   const goAfterAuth = () => navigate(takePreLoginPath() || homePath, { replace: true });
 
+  // Signup no longer creates the account directly here -- it first sends a
+  // code to the entered email (below), same verify-before-create guarantee
+  // phone signup already has. Sign-in is untouched.
   const submitEmail = async (e) => {
     e.preventDefault();
     setTouched({ name: true, email: true, password: true, agree: true });
     setError("");
+    setExistsPrompt(null);
     if (!emailFormValid) return;
+    if (mode === "signup") { await sendEmailCode(); return; }
     setBusy(true);
     try {
-      if (mode === "signin") await adapter.login(email, password);
-      else {
-        await adapter.signup({ name: name.trim(), org: "", email: email.trim(), password });
-        if (signupHref) { navigate(signupHref, { replace: true }); return; }
-      }
+      await adapter.login(email, password);
       goAfterAuth();
     } catch (err) {
       // This is the backend REST signup/login path, not Firebase — the
@@ -148,6 +177,43 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       // email already exists"), so trust err.message here instead of
       // friendlyAuthError's Firebase-code map, which doesn't apply to these
       // errors and was swallowing them into a generic "Something went wrong."
+      setError(err.message || t("errors.somethingWentWrong"));
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } finally { setBusy(false); }
+  };
+
+  // Sends (or resends) the signup verification code to `email`. The backend
+  // checks whether that email is already registered before sending anything
+  // -- same as the phone-exists pre-check -- so an already-used email never
+  // gets a code sent to it, just the same "account exists -> sign in" prompt.
+  const sendEmailCode = async () => {
+    setError("");
+    setBusy(true);
+    try {
+      await adapter.sendSignupCode(email.trim(), name.trim());
+      setOtpSent(true);
+      setResendIn(30);
+    } catch (err) {
+      if (err.code === "EMAIL_EXISTS") {
+        setExistsPrompt("email");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } else {
+        setError(err.message || t("errors.somethingWentWrong"));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } finally { setBusy(false); }
+  };
+
+  // Verifying the code IS what creates the account -- if this fails, no
+  // account exists yet, matching phone's guarantee.
+  const verifyEmailCode = async () => {
+    if (otp.length !== 6) return;
+    setError(""); setBusy(true);
+    try {
+      await adapter.signup({ name: name.trim(), org: "", email: email.trim(), password, code: otp });
+      if (signupHref) { navigate(signupHref, { replace: true }); return; }
+      goAfterAuth();
+    } catch (err) {
       setError(err.message || t("errors.somethingWentWrong"));
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally { setBusy(false); }
@@ -165,6 +231,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
     setTouched((t) => ({ ...t, name: true, agree: true }));
     setError("");
     setPhoneErr("");
+    setExistsPrompt(null);
     if (!phoneOk) {
       setPhoneErr(phoneDigits.length === 0 ? t("errors.required") : t("auth.enterValidPhoneNumber", null, "Please enter a valid mobile number"));
       return;
@@ -172,10 +239,37 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
     if (mode === "signup" && !(name.trim() && agree)) return;
     setBusy(true);
     try {
+      const fullPhone = `${cc}${phoneDigits}`;
+      // Check for an existing verified account before spending an OTP on a
+      // number that already has one — a transient failure here shouldn't
+      // block signup, so fail open into the normal send-code path below.
+      if (mode === "signup" && adapter.phoneExists) {
+        const { exists } = await adapter.phoneExists(fullPhone).catch(() => ({ exists: false }));
+        if (exists) {
+          setExistsPrompt("phone");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          setBusy(false);
+          return;
+        }
+      }
+      // Sign-in gets a different check: a number that's declared (typed
+      // somewhere) but never actually verified doesn't match any account for
+      // login purposes, so entering a real OTP for it would otherwise
+      // silently create a brand-new, disconnected account instead of
+      // reaching the one it's sitting on. Same fail-open rule as above.
+      if (mode === "signin" && adapter.phoneStatus) {
+        const { declaredUnverified } = await adapter.phoneStatus(fullPhone).catch(() => ({ declaredUnverified: false }));
+        if (declaredUnverified) {
+          setExistsPrompt("phone-unverified");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          setBusy(false);
+          return;
+        }
+      }
       const auth = await getFirebaseAuth(adapter.firebaseConfig);
       if (!auth) throw new Error(t("auth.phoneSignInNotConfigured", null, "Phone sign-in isn't configured on this server yet"));
       if (!recaptchaRef.current) recaptchaRef.current = new RecaptchaVerifier(auth, containerRef.current, { size: "invisible" });
-      confirmationRef.current = await signInWithPhoneNumber(auth, `${cc}${phoneDigits}`, recaptchaRef.current);
+      confirmationRef.current = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current);
       setOtpSent(true);
       setResendIn(30);
     } catch (err) {
@@ -243,7 +337,7 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
           <form onSubmit={submitForgot} className="col gap-4">
             <div className="fld"><label>{t("auth.email")}</label>
-              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoFocus required />
+              <input className="fin" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t("auth.emailPlaceholder", null, "Enter your email address")} autoFocus required />
             </div>
             <Btn type="submit" variant="primary" size="lg" block disabled={forgotBusy}>{forgotBusy ? t("auth.sending") : t("auth.sendResetLink")}</Btn>
           </form>
@@ -298,9 +392,9 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
       <div className="asplit-form-col">
         <div className="asplit-form rise">
           <div className="asplit-tabs">
-            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); }}>{t("auth.signIn")}</button>
+            <button type="button" className={mode === "signin" ? "on" : ""} onClick={() => { setMode("signin"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>{t("auth.signIn")}</button>
             <button type="button" className={mode === "signup" ? "on" : ""}
-              onClick={() => { setMode("signup"); setError(""); }}>
+              onClick={() => { setMode("signup"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>
               {t("auth.signUp")}
             </button>
           </div>
@@ -308,7 +402,22 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
           <h1 style={{ fontSize: 23, margin: "0 0 4px" }}>{mode === "signin" ? t("auth.welcomeBack") : copy.signupTitle}</h1>
           <p className="muted" style={{ fontSize: 13.5, margin: "0 0 20px" }}>{mode === "signin" ? copy.signinSub : copy.signupSub}</p>
 
-          {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
+          {existsPrompt ? (
+            <div className="err-banner" style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span>{existsPrompt === "email"
+                ? t("auth.errEmailInUse", null, "An account with this email already exists.")
+                : existsPrompt === "phone-unverified"
+                ? t("auth.phoneDeclaredUnverified", null, "This number is on file but not verified. Sign in with your email, then verify it from Settings.")
+                : t("auth.errPhoneInUse", null, "An account with this phone number already exists.")}</span>
+              <Btn variant="primary" size="sm" style={{ flexShrink: 0 }}
+                onClick={() => {
+                  setExistsPrompt(null); setError(""); setOtpSent(false); setOtp("");
+                  if (existsPrompt === "phone-unverified") setMethod("email"); else setMode("signin");
+                }}>
+                {existsPrompt === "phone-unverified" ? t("auth.useEmailInstead", null, "Use email instead") : t("auth.signIn")}
+              </Btn>
+            </div>
+          ) : error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
 
           {activeProviders.length > 0 && (
             <div className="sso-grid">
@@ -338,30 +447,44 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
 
           {smsReady ? (
             <div className="method-tabs">
-              <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); }}>
+              <button type="button" className={`method-tab ${method === "email" ? "on" : ""}`} onClick={() => { setMethod("email"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>
                 <Icon name="mail" size={15} /> {t("auth.emailTab")}
               </button>
-              <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); }}>
+              <button type="button" className={`method-tab ${method === "phone" ? "on" : ""}`} onClick={() => { setMethod("phone"); setError(""); setExistsPrompt(null); setOtpSent(false); setOtp(""); }}>
                 <Icon name="phone" size={15} /> {t("auth.phoneTab")}
               </button>
             </div>
           ) : <div style={{ height: 18 }} />}
 
           {method === "email" ? (
+            mode === "signup" && otpSent ? (
+              <div className="col gap-4">
+                <p className="otp-lead"><span dangerouslySetInnerHTML={{ __html: t("auth.enterCodeEmail", { email: `<b>${email.trim()}</b>` }, "Enter the 6-digit code sent to {{email}}") }} /> <button type="button" className="backlink" onClick={() => { setOtpSent(false); setOtp(""); }}>{t("actions.edit")}</button></p>
+                <OtpBoxes value={otp} onChange={setOtp} />
+                <p className="fhint">{t("auth.emailCodeHint", null, "It can take a minute to arrive — check spam if you don't see it.")}</p>
+                <div className="resend-row">
+                  <span>{t("auth.didntGetIt")}</span>
+                  <button type="button" disabled={resendIn > 0 || busy} onClick={sendEmailCode}>{resendIn > 0 ? t("auth.resendIn", { seconds: resendIn }) : t("auth.resendCode")}</button>
+                </div>
+                <Btn type="button" variant="primary" size="lg" block disabled={busy || otp.length !== 6} onClick={verifyEmailCode}>
+                  {busy ? t("auth.verifying") : t("auth.verifyAndContinue")}
+                </Btn>
+              </div>
+            ) : (
             <form onSubmit={submitEmail} className="col gap-4">
               {mode === "signup" && (
                 <>
                   <div className="fld">
                     <label>{t("auth.fullName")}</label>
-                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" autoFocus />
+                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.namePlaceholder", null, "Enter your name")} autoFocus />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 
                 </>
               )}
               <div className="fld">
-                <label>{mode === "signup" ? t("auth.workEmail", null, "Work email") : t("auth.email", null, "Email")}{copy.emailHint && mode === "signup" && <span className="faint"> · {copy.emailHint}</span>}</label>
-                <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder="you@company.com" autoFocus={mode === "signin"} />
+                <label>{t("auth.email", null, "Email")}</label>
+                <input className="fin" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, email: true }))} placeholder={t("auth.emailPlaceholder", null, "Enter your email address")} autoFocus={mode === "signin"} />
                 {errs.email && <p className="ferr">{errs.email}</p>}
               </div>
               <div className="fld">
@@ -384,28 +507,29 @@ export default function AuthSplitScreen({ copy, adapter, homePath, otherRole, si
                 <div>
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setTouched((t) => ({ ...t, agree: true })); }} style={{ marginTop: 2 }} />
-                    {t("auth.agreeToTerms")}
+                    <TermsAgreementLabel t={t} />
                   </label>
                   {errs.agree && <p className="ferr">{errs.agree}</p>}
                 </div>
               )}
               <Btn type="submit" variant="primary" size="lg" block disabled={busy}>
-                {busy ? t("auth.pleaseWait") : mode === "signin" ? t("auth.signIn") : t("auth.signUp")}
+                {busy ? t("auth.pleaseWait") : mode === "signin" ? t("auth.signIn") : t("auth.sendCode")}
               </Btn>
             </form>
+            )
           ) : (
             <div className="col gap-4">
               {mode === "signup" && !otpSent && (
                 <>
                   <div className="fld">
                     <label>{t("auth.fullName")}</label>
-                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder="Ananya Sharma" />
+                    <input className="fin" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched((t) => ({ ...t, name: true }))} placeholder={t("auth.namePlaceholder", null, "Enter your name")} />
                     {errs.name && <p className="ferr">{errs.name}</p>}
                   </div>
 
                   <label className="row gap-2" style={{ fontSize: 12.5, color: "var(--text-faint)", alignItems: "flex-start" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setTouched((t) => ({ ...t, agree: true })); }} style={{ marginTop: 2 }} />
-                    {t("auth.agreeToTerms")}
+                    <TermsAgreementLabel t={t} />
                   </label>
                   {errs.agree && <p className="ferr">{errs.agree}</p>}
                 </>

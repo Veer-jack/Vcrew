@@ -50,6 +50,7 @@ async function request(path, { method = "GET", body, keepalive } = {}) {
 export const vapi = {
   login: (email, password) => request("/auth/login", { method: "POST", body: { email, password } }),
   signup: (payload) => request("/auth/signup", { method: "POST", body: payload }),
+  sendSignupCode: (email, name) => request("/auth/email/send-code", { method: "POST", body: { email, name } }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: { email } }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: { token, password } }),
   changePassword: (currentPassword, newPassword) => request("/auth/change-password", { method: "POST", body: { currentPassword, newPassword } }),
@@ -65,6 +66,7 @@ export const vapi = {
   oauthProviders: () => request("/auth/oauth/providers"),
   firebaseConfig: () => fetch("/api/firebase/config").then(r => r.json()),
   phoneLoginVerify: (idToken) => request("/auth/phone-login", { method: "POST", body: { idToken } }),
+  phoneExists: (phone) => request("/auth/phone-exists", { method: "POST", body: { phone } }),
   phoneLink: (idToken) => request("/auth/phone/link", { method: "POST", body: { idToken } }),
   phoneRemove: () => request("/auth/phone/remove", { method: "POST" }),
   stepUpVerify: (idToken) => request("/earnings/stepup/verify", { method: "POST", body: { idToken } }),

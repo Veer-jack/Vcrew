@@ -1,23 +1,96 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Icon from "./Icon";
 import { PasswordInput } from "./ui";
 import { useTranslation } from "../i18n/index.jsx";
-import { COUNTRIES } from "./auth/countries";
-import { FilterGroup } from "../pages/CreateMissionWizard";
 import { isValidMobile } from "../data/onboarding";
+import countryRegionData from "country-region-data/data.json";
+import { api } from "../api/client";
 
-const COUNTRY_NAMES = COUNTRIES.map(([, , name]) => name);
+// Same source the validator side's onboarding already uses (VOnboarding.jsx)
+// -- this used to pull from auth/countries.js instead, a much smaller list
+// originally built for the phone country-code picker (~100 entries vs this
+// package's ~249), so builder and validator onboarding disagreed on which
+// countries even exist.
+const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a.localeCompare(b));
+// Country -> its own state/region names, same source as COUNTRY_NAMES --
+// this is what lets State go from free text to "everywhere the currently
+// selected countries actually have a region for."
+const REGIONS_BY_COUNTRY = Object.fromEntries(countryRegionData.map(c => [c.countryName, c.regions.map(r => r.name)]));
 
-export function Field({ label, optional, span, hint, invalid, action, children }) {
+export function Field({ label, optional, span, hint, invalid, action, children, dataField, issue }) {
   return (
-    <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`}>
+    <div className={`fld${span ? " fld-span" : ""}${invalid ? " fld-invalid" : ""}`} data-field={dataField}>
       <div className="row between" style={{ alignItems: "center" }}>
         <label>{label} {optional ? <span className="faint">(optional)</span> : <span className="req-star" aria-hidden="true"> *</span>}</label>
         {action}
       </div>
       {children}
+      <FieldIssue id={dataField} issue={issue} />
       {hint && <p className="fhint">{hint}</p>}
     </div>
+  );
+}
+
+// Placed inline wherever a step wants the "please fill this in" message to
+// show once the wizard has identified the single field that's actually
+// missing (see OnboardingWizard's goNext / EditAccountStep's handleSave) --
+// renders nothing unless this field is specifically the one currently
+// reported (a boolean `invalid` can be true for every empty required field
+// at once; `issue` only ever names one, so its message isn't repeated on
+// every field that happens to also be empty).
+export function FieldIssue({ id, issue }) {
+  if (!issue || !id || issue.id !== id) return null;
+  return <p className="ferr">{issue.message}</p>;
+}
+
+// The "Other, please specify" follow-up for a ChipsDropdown whose option
+// list includes an "Other" sentinel (paired with hideChips/closeOnPick on
+// that dropdown) -- typing a value and saving replaces the sentinel with
+// the real typed text as its own independently-removable chip, same shape
+// as CreateMissionWizard's own d.otherEntries[key] and the onboarding
+// Research area field's identical pattern. Deliberately simpler than
+// FilterGroup's own "Other" handling (no separate remembered-but-currently-
+// unchecked pool a custom entry can be toggled back into without retyping)
+// -- onSave/onRemove decide what that means for the caller's own fields.
+function OtherEntryField({ isOpen, customValues, onSave, onRemove, onCancel, placeholder, showErrors }) {
+  const { t } = useTranslation();
+  const [input, setInput] = useState("");
+  const save = () => {
+    const v = input.trim();
+    if (!v) return;
+    onSave(v);
+    setInput("");
+  };
+  return (
+    <>
+      {customValues.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div className="eyebrow" style={{ fontSize: 11, marginBottom: 6 }}>{t("onboardingFields.other", null, "Other")}</div>
+          <div className="row gap-2" style={{ flexWrap: "wrap" }}>
+            {customValues.map(v => (
+              <div key={v} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {v}
+                <button type="button" onClick={() => onRemove(v)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+                  <Icon name="x" size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {isOpen && (
+        <div style={{ marginTop: 14, maxWidth: 420 }}>
+          <Field label={t("onboardingFields.pleaseSpecify", null, "Please specify")} invalid={showErrors && !input.trim() && customValues.length === 0}>
+            <div className="row gap-2">
+              <TextInput value={input} onChange={setInput} placeholder={placeholder} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); save(); } }} />
+              <button type="button" className="btn btn-primary" disabled={!input.trim()} onClick={save}>{t("actions.save", null, "Save")}</button>
+              <button type="button" className="btn btn-ghost" onClick={() => { setInput(""); onCancel(); }}>{t("actions.cancel", null, "Cancel")}</button>
+            </div>
+          </Field>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -39,11 +112,11 @@ export function SelectAllToggle({ options, value, onChange }) {
   );
 }
 
-export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength }) {
+export function TextInput({ value, onChange, placeholder, type = "text", disabled, maxLength, onKeyDown }) {
   if (type === "password") {
     return <PasswordInput className="fin" value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />;
   }
-  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} />;
+  return <input className="fin" type={type} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={disabled} maxLength={maxLength} onKeyDown={onKeyDown} />;
 }
 
 export function Textarea({ value, onChange, placeholder }) {
@@ -60,15 +133,18 @@ export function SelectInput({ value, onChange, options, placeholder }) {
   );
 }
 
-export function FSection({ label, count, required, action }) {
+export function FSection({ label, count, required, action, invalid, dataField, issue }) {
   return (
-    <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }}>
-      <div className="eyebrow" style={{ fontSize: 12 }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
-      <div className="row gap-3" style={{ alignItems: "center" }}>
-        {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
-        {action}
+    <>
+      <div className="row between" style={{ margin: "18px 0 10px", alignItems: "center" }} data-field={dataField}>
+        <div className="eyebrow" style={{ fontSize: 12, color: invalid ? "var(--danger)" : undefined }}>{label}{required && <span className="req-star" aria-hidden="true"> *</span>}</div>
+        <div className="row gap-3" style={{ alignItems: "center" }}>
+          {count && <span className="faint" style={{ fontSize: 12 }}>{count}</span>}
+          {action}
+        </div>
       </div>
-    </div>
+      <FieldIssue id={dataField} issue={issue} />
+    </>
   );
 }
 
@@ -104,6 +180,223 @@ export function Chips({ options, value, onChange, multi = true }) {
           {open ? t("actions.showLess", null, "Show less") : t("actions.showAllCount", { count: options.length }, `Show all (${options.length})`)}
           <Icon name={open ? "chevronUp" : "chevronDown"} size={12} />
         </button>
+      )}
+    </div>
+  );
+}
+
+// Multi-select as a collapsed dropdown + removable chips below, instead of
+// an always-expanded checkbox grid (Chips, above) -- same underlying
+// selection (still just an array in d), different presentation for a field
+// where the option list itself doesn't need to stay visible once picked.
+// The popover is portal-rendered to document.body and positioned via the
+// trigger's own getBoundingClientRect(), same fix as the Discover/Audience
+// Explorer Sort dropdowns: an absolutely-positioned menu inside a .rise-
+// animated step container gets its own stacking context from the entrance
+// animation, so a later sibling would paint over it regardless of z-index.
+// Stays open across multiple picks (closes only on an outside click) so
+// picking several options doesn't mean reopening the menu each time.
+
+// A menu row's checked state used to be conveyed only by bolder text + a
+// tinted background -- a tester flagged that as easy to miss at a glance
+// compared to an explicit checkbox, the same signal every other multi-
+// select in this app (Chips' own .ck square) already gives.
+function Checkbox({ on }) {
+  return (
+    <span style={{ width: 15, height: 15, borderRadius: 4, flexShrink: 0, display: "grid", placeItems: "center", border: "1.5px solid " + (on ? "var(--accent)" : "var(--border-strong)"), background: on ? "var(--accent)" : "transparent", color: "#fff" }}>
+      {on && <Icon name="check" size={10} />}
+    </span>
+  );
+}
+
+export function ChipsDropdown({ options, value, onChange, placeholder, hideChips = [], closeOnPick = [], multi = true, selectAll = true, groupOf }) {
+  const { t } = useTranslation();
+  const sel = multi ? (value || []) : (value ? [value] : []);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const [search, setSearch] = useState("");
+  const btnRef = useRef(null);
+  const searchRef = useRef(null);
+
+  // Fresh search box every time this opens, not whatever was left over from
+  // last time -- and focused immediately, so typing to filter doesn't need
+  // an extra click first.
+  useEffect(() => {
+    if (!open) { setSearch(""); return; }
+    searchRef.current?.focus();
+  }, [open]);
+  const matchesSearch = search.trim()
+    ? options.filter(o => o.toLowerCase().includes(search.trim().toLowerCase()))
+    : options;
+  // groupOf(option) => its parent's name (e.g. a state's country, a city's
+  // state) -- State/City need this once more than one country/state is
+  // selected at once, so their combined option lists don't read as one
+  // undifferentiated pile. Sorted by [group, option] so groups themselves
+  // land alphabetically too, not just each group's own contents. Ungrouped
+  // callers (Country, Occupation, Interests, Research area, Sample size)
+  // never pass groupOf, so filteredOptions stays the plain sorted-by-caller
+  // list it always was for them.
+  const filteredOptions = groupOf
+    ? [...matchesSearch].sort((a, b) => {
+        const ga = groupOf(a), gb = groupOf(b);
+        return ga === gb ? a.localeCompare(b) : ga.localeCompare(gb);
+      })
+    : matchesSearch;
+
+  const reposition = () => {
+    if (!btnRef.current) return;
+    const r = btnRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+  };
+  // `pos` was only ever computed once, at the moment of opening -- fine
+  // while nothing on the page moves, but this field's own chips render
+  // right below the trigger, so picking something reflows the page under
+  // an already-open menu (and the same happens on any ordinary scroll
+  // while it's open) and the menu stayed wherever it was first drawn,
+  // no longer anywhere near the trigger it belongs to. Recomputes on every
+  // scroll/resize while open instead of once. Capture phase on scroll --
+  // this can be scrolling inside the wizard's own content pane, not just
+  // window-level, and only the capture phase sees a scroll on an ancestor.
+  useEffect(() => {
+    if (!open) return;
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const toggle = (o) => {
+    // Single-select: picking replaces the value outright and always closes
+    // -- there's nothing left to pick *for* once one choice is made, same
+    // as a native <select>, unlike multi where several picks in a row is
+    // the whole point of staying open.
+    if (!multi) { onChange(o); setOpen(false); return; }
+    const adding = !sel.includes(o);
+    onChange(adding ? [...sel, o] : sel.filter(x => x !== o));
+    // e.g. "Other" -- picking it opens a text input the menu itself would
+    // otherwise sit on top of (it stays open across ordinary picks so
+    // several can be chosen in one go, but there's nothing left to pick
+    // *for* here until that input is dealt with).
+    if (adding && closeOnPick.includes(o)) setOpen(false);
+  };
+  // Only ever removes one of this dropdown's own options -- a caller
+  // showing additional, non-preset entries (e.g. a typed-in "Other" value)
+  // renders and removes those itself, same as Chips leaves that to callers.
+  // hideChips additionally skips a picked option here even though it's one
+  // of this dropdown's own -- for a trigger value (e.g. "Other") a caller
+  // already represents with its own follow-up UI (the "please specify"
+  // input), so it isn't shown twice.
+  const chipValues = sel.filter(o => options.includes(o) && !hideChips.includes(o));
+
+  // Select all/none toggles every *real* option, same as the option list a
+  // Select all click on Country/Occupation/Interests always excluded --
+  // closeOnPick already marks the one value here (e.g. "Other") that isn't
+  // a real category to bulk-select into, it just opens a follow-up input.
+  const bulkTargets = options.filter(o => !closeOnPick.includes(o));
+  const allSelected = multi && bulkTargets.length > 0 && bulkTargets.every(o => sel.includes(o));
+  const toggleSelectAll = () => {
+    if (allSelected) { onChange(sel.filter(x => !bulkTargets.includes(x))); return; }
+    const merged = new Set(sel);
+    bulkTargets.forEach(o => merged.add(o));
+    onChange([...merged]);
+  };
+
+  return (
+    <div>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={() => {
+          if (!open) reposition();
+          setOpen(o => !o);
+        }}
+        className="fin"
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", textAlign: "left", width: "100%" }}
+      >
+        {/* Multi: always the placeholder, never restated as "N selected"
+            here -- callers already show that count in their own FSection
+            header above this field, and the picked values themselves are
+            right below as chips. Single: there's only ever the one value
+            and no chip row to show it in, so the trigger shows it directly,
+            same as a native <select> would. */}
+        <span className={multi || !value ? "faint" : undefined}>{multi ? (placeholder || t("onboardingFields.selectPlaceholder", null, "Select…")) : (value || placeholder || t("onboardingFields.selectPlaceholder", null, "Select…"))}</span>
+        <Icon name={open ? "chevronUp" : "chevronDown"} size={14} style={{ flexShrink: 0, color: "var(--text-muted)" }} />
+      </button>
+      {open && pos && createPortal(
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 49 }} onClick={() => setOpen(false)} />
+          <div role="menu" style={{
+            position: "fixed", top: pos.top, left: pos.left, width: pos.width, zIndex: 50, maxHeight: 320,
+            background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)",
+            boxShadow: "var(--shadow-md)", display: "flex", flexDirection: "column",
+          }}>
+            {/* Its own row, outside the scrolling list below -- otherwise
+                typing to filter would scroll the search box itself out of
+                view along with whatever it just filtered out. Skipped
+                entirely for single-select -- every such field in this app
+                is a short, fixed list (e.g. Sample size's 7 ranges), and a
+                search box over something that short to pick just one from
+                is pure clutter, not a shortcut. */}
+            {multi && (
+              <div style={{ padding: 8, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+                <input ref={searchRef} className="fin" value={search} onChange={e => setSearch(e.target.value)} placeholder={t("actions.search", null, "Search")} style={{ width: "100%" }} />
+              </div>
+            )}
+            <div style={{ overflowY: "auto", padding: 6, flex: 1, minHeight: 0 }}>
+              {/* Pinned above the (possibly search-filtered) list below, not
+                  part of it -- it always acts on every real option regardless
+                  of what's currently typed into search, so it stays put
+                  instead of disappearing/reappearing as you filter. */}
+              {multi && selectAll && bulkTargets.length > 1 && (
+                <button type="button" role="menuitemcheckbox" aria-checked={allSelected} onClick={toggleSelectAll}
+                  style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: 700, color: "var(--accent)", background: "transparent", marginBottom: 4, borderBottom: "1px solid var(--border)" }}
+                >
+                  <Checkbox on={allSelected} />
+                  {allSelected ? t("createMission.clearAll", null, "Clear all") : t("createMission.selectAll", null, "Select all")}
+                </button>
+              )}
+              {filteredOptions.length === 0 ? (
+                <div className="faint" style={{ padding: "10px 8px", fontSize: 13 }}>{t("onboarding.noMatchesFor", { q: search }, `No matches for "${search}"`)}</div>
+              ) : filteredOptions.map((o, i) => {
+                const on = sel.includes(o);
+                // A header only when this row's group differs from the row
+                // before it -- filteredOptions is already sorted by group,
+                // so that's the one moment a new group actually starts.
+                const g = groupOf?.(o);
+                const showHeader = groupOf && (i === 0 || groupOf(filteredOptions[i - 1]) !== g);
+                return (
+                  <div key={o}>
+                    {showHeader && (
+                      <div className="faint" style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".03em", padding: "10px 10px 4px" }}>{g}</div>
+                    )}
+                    <button type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => toggle(o)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: "none", cursor: "pointer", fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? "var(--accent)" : "var(--text)", background: on ? "var(--accent-weak)" : "transparent" }}
+                    >
+                      {multi && <Checkbox on={on} />}
+                      {o}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </>,
+        document.body
+      )}
+      {multi && chipValues.length > 0 && (
+        <div className="row gap-2" style={{ flexWrap: "wrap", marginTop: 10 }}>
+          {chipValues.map(o => (
+            <div key={o} className="chip on" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {o}
+              <button type="button" onClick={() => toggle(o)} style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "pointer", color: "inherit", display: "flex" }}>
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -157,85 +450,157 @@ export function ReachMeter({ reach, base, firstLoad, updating }) {
   );
 }
 
-export function LocationFields({ d, set, withCity, showErrors }) {
+export function LocationFields({ d, set, withCity, showErrors, dataField, issue }) {
   const { t } = useTranslation();
   // Older saved profiles still have `country` as a single string — coerce
   // to an array so this keeps working for builders who onboarded before
   // Country became multi-select.
   const rawCountry = d.country;
   const countries = Array.isArray(rawCountry) ? rawCountry : (rawCountry ? [rawCountry] : []);
-  const countrySel = new Set(countries);
+
+  // State options: union of every currently selected country's own regions
+  // -- State used to be a bare free-text box with no idea what country it
+  // was even in. Each name is tagged with which country contributed it, for
+  // the dropdown's own group headers once more than one country is active.
+  // ponytail: a region name that exists in two different countries (rare)
+  // keeps whichever country's copy this loop reaches first rather than
+  // trying to show it under both -- upgrade path is a real per-country-
+  // qualified value if that ever turns out to matter in practice.
+  const stateToCountry = {};
+  const stateOptionsSet = new Set();
+  for (const c of countries) {
+    for (const r of (REGIONS_BY_COUNTRY[c] || [])) {
+      if (!stateOptionsSet.has(r)) { stateOptionsSet.add(r); stateToCountry[r] = c; }
+    }
+  }
+  const stateOptions = [...stateOptionsSet];
+  const rawState = d.state;
+  const states = Array.isArray(rawState) ? rawState : (rawState ? [rawState] : []);
+
+  // Dropping a country shouldn't leave its states still selected -- same
+  // cleanup the City effect below does one level further down for states.
+  useEffect(() => {
+    const stillValid = states.filter(s => stateOptionsSet.has(s));
+    if (stillValid.length !== states.length) set("state", stillValid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(countries)]);
+
+  // City options: the backend's /geo/cities is scoped to one country+state
+  // pair per call, so this fires one request per currently selected state
+  // and merges the results -- tagged with which state each city came from,
+  // same grouping treatment State gets from country. Same rare-collision
+  // simplification as state names above: a city name shared by two selected
+  // states keeps whichever state's copy arrives first.
+  const [cityOptions, setCityOptions] = useState([]);
+  const [cityToState, setCityToState] = useState({});
+  useEffect(() => {
+    if (!withCity || states.length === 0) { setCityOptions([]); setCityToState({}); return; }
+    let cancelled = false;
+    Promise.all(states.map(s =>
+      api.get(`/geo/cities?country=${encodeURIComponent(stateToCountry[s] || "")}&state=${encodeURIComponent(s)}`)
+        .then(res => ({ state: s, cities: res?.cities || [] }))
+        .catch(() => ({ state: s, cities: [] }))
+    )).then(results => {
+      if (cancelled) return;
+      const seen = new Set();
+      const map = {};
+      for (const { state, cities } of results) {
+        for (const city of cities) {
+          if (!seen.has(city)) { seen.add(city); map[city] = state; }
+        }
+      }
+      setCityOptions([...seen]);
+      setCityToState(map);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withCity, JSON.stringify(states)]);
+
+  const rawCity = d.city;
+  const cities = Array.isArray(rawCity) ? rawCity : (rawCity ? [rawCity] : []);
+  // Same cleanup as State's own effect, one level down: a city whose state
+  // got deselected (or whose fetch just came back without it) shouldn't
+  // linger as if it were still a real pick.
+  useEffect(() => {
+    if (!withCity) return;
+    const validSet = new Set(cityOptions);
+    const stillValid = cities.filter(c => validSet.has(c));
+    if (stillValid.length !== cities.length) set("city", stillValid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [withCity, JSON.stringify(cityOptions)]);
+
   return (
     <div className="fgrid c2">
-      <div className={`fld${showErrors && countries.length === 0 ? " fld-invalid" : ""}`} style={{ gridColumn: "1 / -1" }}>
-        <FilterGroup
-          title={t("onboardingFields.country", null, "Country")}
-          required
-          options={COUNTRY_NAMES}
-          sel={countrySel}
-          toggle={(_, o) => set("country", countrySel.has(o) ? countries.filter(c => c !== o) : [...countries, o])}
-          onSelectAll={(opts) => set("country", opts.every(o => countrySel.has(o)) ? [] : [...opts])}
-          trFilterLabel={(t, v) => v}
-          // FilterGroup's own default (options.length <= 10) would leave
-          // this collapsed given ~195 countries -- Country is exactly the
-          // one group people expect to actually browse/pick many from on
-          // open, unlike a shorter list where collapsed-by-default declutters.
-          initialExpanded
-        />
+      <div style={{ gridColumn: "1 / -1" }}>
+        {/* Dropdown + chips instead of an always-expanded checkbox grid --
+            same ChipsDropdown the onboarding Research area field uses,
+            better suited to a ~249-option list than a grid that used to
+            need its own "initially expanded" override just to be usable.
+            No external Select all action here anymore -- ChipsDropdown
+            grew its own, pinned inside the menu itself. */}
+        <FSection label={t("onboardingFields.country", null, "Country")} required
+          count={countries.length ? t("onboarding.selectedCount", { count: countries.length }, `${countries.length} selected`) : null}
+          invalid={showErrors && countries.length === 0} dataField={dataField} issue={issue} />
+        <ChipsDropdown options={COUNTRY_NAMES} value={countries} onChange={(v) => set("country", v)} placeholder={t("onboardingFields.selectCountryPlaceholder", null, "Select country(ies)")} />
       </div>
-      <Field label={t("onboardingFields.stateRegion", null, "State / Region")} optional>
-        <TextInput value={d.state} onChange={(v) => set("state", v)} placeholder={t("onboardingFields.stateRegionPlaceholder", null, "Karnataka")} />
-      </Field>
+      <div style={{ gridColumn: "1 / -1" }}>
+        <FSection label={t("onboardingFields.stateRegion", null, "State / Region")} optional
+          count={states.length ? t("onboarding.selectedCount", { count: states.length }, `${states.length} selected`) : null} />
+        <ChipsDropdown options={stateOptions} value={states} onChange={(v) => set("state", v)}
+          placeholder={countries.length ? t("onboardingFields.selectStatePlaceholder", null, "Select state(s)") : t("onboardingFields.selectCountryFirstPlaceholder", null, "Select a country first")}
+          groupOf={countries.length > 1 ? (s => stateToCountry[s]) : undefined} />
+      </div>
       {withCity && (
-        <Field label={t("onboardingFields.city", null, "City")} optional>
-          <TextInput value={d.district} onChange={(v) => set("district", v)} placeholder={t("onboardingFields.cityPlaceholder", null, "Bengaluru")} />
-        </Field>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <FSection label={t("onboardingFields.city", null, "City")} optional
+            count={cities.length ? t("onboarding.selectedCount", { count: cities.length }, `${cities.length} selected`) : null} />
+          <ChipsDropdown options={cityOptions} value={cities} onChange={(v) => set("city", v)}
+            placeholder={states.length ? t("onboardingFields.selectCityPlaceholder", null, "Select city(ies)") : t("onboardingFields.selectStateFirstPlaceholder", null, "Select a state first")}
+            groupOf={states.length > 1 ? (c => cityToState[c]) : undefined} />
+        </div>
       )}
     </div>
   );
 }
 
-export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender }) {
+export function DemographicsRow({ d, set, ageOptions, genderOptions, showErrors, requireAge, requireGender, issue }) {
   const { t } = useTranslation();
   const ageOpts = ageOptions || ["18–24", "25–34", "35–44", "45–54", "55+"];
-  const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male"), t("onboardingFields.genderNonBinary", null, "Non-binary")];
+  const genderOpts = genderOptions || [t("onboardingFields.any", null, "Any"), t("onboardingFields.genderFemale", null, "Female"), t("onboardingFields.genderMale", null, "Male")];
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
+      <Field label={t("onboardingFields.age", null, "Age")} invalid={showErrors && requireAge && !(d.ageBands || []).length} dataField={requireAge ? "ageBands" : undefined} issue={issue} action={<SelectAllToggle options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />}>
         <Chips options={ageOpts} value={d.ageBands} onChange={(v) => set("ageBands", v)} />
       </Field>
-      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
+      <Field label={t("onboardingFields.gender", null, "Gender")} invalid={showErrors && requireGender && !(d.genders || []).length} dataField={requireGender ? "genders" : undefined} issue={issue} action={<SelectAllToggle options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />}>
         <Chips options={genderOpts} value={d.genders} onChange={(v) => set("genders", v)} />
       </Field>
     </div>
   );
 }
 
-export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions, showErrors, requireOccupation }) {
+export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOptions, interestOptions, showErrors, requireOccupation, issue }) {
   const { t } = useTranslation();
   const notYetTrackedHint = t("onboardingFields.notYetTrackedHint", null, "Not yet tracked on validator profiles — doesn't affect the match count.");
 
   const defaultOccOptions = occOptions || [t("onboardingFields.occStudent", null, "Student"), t("onboardingFields.occWorkingProfessional", null, "Working Professional"), t("onboardingFields.occEntrepreneur", null, "Entrepreneur"), t("onboardingFields.occHomemaker", null, "Homemaker"), t("onboardingFields.occRetired", null, "Retired"), t("onboardingFields.any", null, "Any")];
-  // A saved custom entry needs to stay listed (so it can be re-checked)
-  // even while unchecked -- deriving this list from d.occupations itself
-  // (the old approach) meant unchecking it via Clear all also deleted it
-  // outright, since the same array tracked both "known" and "currently
-  // selected". occupationsOther is its own independent field, exactly
-  // like CreateMissionWizard's own d.otherEntries[key], so Clear all only
-  // ever touches selection.
+  // occupationsOther mirrors whichever of the current selection's entries
+  // aren't one of the preset options -- exposed separately because Settings
+  // reads it back that way (profile.occupationsOther) alongside occupations
+  // itself, same shape Interests already persists.
   const customOccs = d.occupationsOther || [];
   const occupationOptions = defaultOccOptions;
   const occSel = new Set(d.occupations || []);
-  // Same {toggle, onSelectAll} shape LocationFields' Country uses -- title
-  // arg is ignored (one group per call here, unlike CreateMissionWizard's
-  // shared multi-group filters object).
-  const toggleOcc = (_, o) => set("occupations", occSel.has(o) ? (d.occupations || []).filter(x => x !== o) : [...(d.occupations || []), o]);
-  const selectAllOcc = (opts) => {
-    const s = new Set(d.occupations || []);
-    const allIn = opts.every(o => s.has(o));
-    if (allIn) { opts.forEach(o => s.delete(o)); s.delete("Other"); } else { opts.forEach(o => s.add(o)); }
-    set("occupations", [...s]);
+  const hasOtherOcc = occupationOptions.includes("Other");
+  const saveOtherOcc = (val) => {
+    set("occupations", [...(d.occupations || []).filter(o => o !== "Other"), val]);
+    set("occupationsOther", [...customOccs, val]);
   };
+  const removeOtherOcc = (val) => {
+    set("occupations", (d.occupations || []).filter(o => o !== val));
+    set("occupationsOther", customOccs.filter(v => v !== val));
+  };
+  const cancelOtherOcc = () => set("occupations", (d.occupations || []).filter(o => o !== "Other"));
 
   const educationOptions = [t("onboardingFields.eduHighSchool", null, "High school"), t("onboardingFields.eduDiploma", null, "Diploma"), t("onboardingFields.eduUndergraduate", null, "Undergraduate"), t("onboardingFields.eduPostgraduate", null, "Postgraduate"), t("onboardingFields.eduPhd", null, "PhD / Doctorate")];
   const incomeBandOptions = incomeOptions || (region === "india" ? ["< ₹3L", "₹3–6L", "₹6–12L", "₹12–25L", "₹25L–1Cr", "₹1Cr+"] : ["< $25k", "$25–50k", "$50–100k", "$100–200k", "$200k+"]);
@@ -247,59 +612,30 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
   const customInts = d.interestsOther || [];
   const finalIntOptions = defaultIntOptions;
   const intSel = new Set(d.interests || []);
-  const toggleInt = (_, o) => set("interests", intSel.has(o) ? (d.interests || []).filter(x => x !== o) : [...(d.interests || []), o]);
-  const selectAllInt = (opts) => {
-    const s = new Set(d.interests || []);
-    const allIn = opts.every(o => s.has(o));
-    if (allIn) { opts.forEach(o => s.delete(o)); s.delete("Other"); } else { opts.forEach(o => s.add(o)); }
-    set("interests", [...s]);
+  const hasOtherInt = finalIntOptions.includes("Other");
+  const saveOtherInt = (val) => {
+    set("interests", [...(d.interests || []).filter(o => o !== "Other"), val]);
+    set("interestsOther", [...customInts, val]);
   };
+  const removeOtherInt = (val) => {
+    set("interests", (d.interests || []).filter(o => o !== val));
+    set("interestsOther", customInts.filter(v => v !== val));
+  };
+  const cancelOtherInt = () => set("interests", (d.interests || []).filter(o => o !== "Other"));
 
   return (
     <div className="col gap-3">
-      {show.occupation && (() => {
-        // Matches CreateMissionWizard's own audience filters exactly: a
-        // literal "Other" option gets split into its own trailing
-        // FilterGroup section (its own header, count, Select all, collapse)
-        // instead of living as a trigger chip inside the main grid -- that
-        // inline-trigger version is what shipped first here and wasn't what
-        // was actually asked for.
-        const hasOther = occupationOptions.includes("Other");
-        const mainOpts = hasOther ? occupationOptions.filter(o => o !== "Other") : occupationOptions;
-        return (
-          <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined}>
-            <FilterGroup
-              title={t("onboardingFields.occupation", null, "Occupation")}
-              required
-              options={mainOpts}
-              sel={occSel}
-              toggle={toggleOcc}
-              // Read-only here -- this group doesn't grow its own "add
-              // other" input; it just needs to know about the sibling
-              // Other section's saved entries so this header's own
-              // selected-count/Select all account for them too.
-              otherEntries={hasOther ? customOccs : undefined}
-              onSelectAll={selectAllOcc}
-              // FilterGroup's own default (collapsed past 10 options) hid
-              // this by default even when someone already has 20+ real
-              // selections -- same override Country already gets.
-              initialExpanded
-            />
-            {hasOther && (
-              <FilterGroup
-                title={t("onboardingFields.other", null, "Other")}
-                options={["Other"]}
-                sel={occSel}
-                toggle={toggleOcc}
-                otherEntries={customOccs}
-                onOtherEntriesChange={(entries) => set("occupationsOther", entries)}
-                onSelectAll={selectAllOcc}
-                otherPlaceholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")}
-              />
-            )}
-          </div>
-        );
-      })()}
+      {show.occupation && (
+        <div className={showErrors && requireOccupation && !occSel.size ? "fld-invalid" : undefined} data-field={requireOccupation ? "occupations" : undefined}>
+          <FSection label={t("onboardingFields.occupation", null, "Occupation")} required
+            count={occSel.size ? t("onboarding.selectedCount", { count: occSel.size }, `${occSel.size} selected`) : null}
+            invalid={showErrors && requireOccupation && !occSel.size} dataField={requireOccupation ? "occupations" : undefined} issue={issue} />
+          <ChipsDropdown options={occupationOptions} value={d.occupations} onChange={(v) => set("occupations", v)} placeholder={t("onboardingFields.selectOccupationPlaceholder", null, "Select occupation(s)")} hideChips={hasOtherOcc ? ["Other"] : []} closeOnPick={hasOtherOcc ? ["Other"] : []} />
+          {hasOtherOcc && (
+            <OtherEntryField isOpen={occSel.has("Other")} customValues={customOccs} onSave={saveOtherOcc} onRemove={removeOtherOcc} onCancel={cancelOtherOcc} placeholder={t("onboardingFields.occupationOtherPlaceholder", null, "e.g. Product Designer")} showErrors={showErrors} />
+          )}
+        </div>
+      )}
       {show.education && (
         <Field label={t("onboardingFields.education", null, "Education")} optional hint={notYetTrackedHint}
           action={<SelectAllToggle options={educationOptions} value={d.educations} onChange={(v) => set("educations", v)} />}>
@@ -318,35 +654,16 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
           <Chips options={languageOptions} value={d.languages} onChange={(v) => set("languages", v)} />
         </Field>
       )}
-      {show.interests && (() => {
-        const hasOther = finalIntOptions.includes("Other");
-        const mainOpts = hasOther ? finalIntOptions.filter(o => o !== "Other") : finalIntOptions;
-        return (
-          <>
-            <FilterGroup
-              title={t("onboardingFields.interests", null, "Interests")}
-              options={mainOpts}
-              sel={intSel}
-              toggle={toggleInt}
-              otherEntries={hasOther ? customInts : undefined}
-              onSelectAll={selectAllInt}
-              initialExpanded
-            />
-            {hasOther && (
-              <FilterGroup
-                title={t("onboardingFields.other", null, "Other")}
-                options={["Other"]}
-                sel={intSel}
-                toggle={toggleInt}
-                otherEntries={customInts}
-                onOtherEntriesChange={(entries) => set("interestsOther", entries)}
-                onSelectAll={selectAllInt}
-                otherPlaceholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")}
-              />
-            )}
-          </>
-        );
-      })()}
+      {show.interests && (
+        <div>
+          <FSection label={t("onboardingFields.interests", null, "Interests")}
+            count={intSel.size ? t("onboarding.selectedCount", { count: intSel.size }, `${intSel.size} selected`) : null} />
+          <ChipsDropdown options={finalIntOptions} value={d.interests} onChange={(v) => set("interests", v)} placeholder={t("onboardingFields.selectInterestsPlaceholder", null, "Select interest(s)")} hideChips={hasOtherInt ? ["Other"] : []} closeOnPick={hasOtherInt ? ["Other"] : []} />
+          {hasOtherInt && (
+            <OtherEntryField isOpen={intSel.has("Other")} customValues={customInts} onSave={saveOtherInt} onRemove={removeOtherInt} onCancel={cancelOtherInt} placeholder={t("onboardingFields.interestOtherPlaceholder", null, "e.g. Photography")} showErrors={showErrors} />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -358,14 +675,14 @@ export function ProfileChips({ d, set, region, show = {}, occOptions, incomeOpti
 // see it again short of hitting Edit — same shape as every other field in
 // the wizard now: a plain, always-visible, always-editable input with its
 // error (if any) shown live underneath, no separate submit step.
-export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate }) {
+export function VerifyRow({ icon, title, desc, placeholder, value, onChange, optional, showErrors, validate, dataField, issue }) {
   const trimmed = (value || "").trim();
   const liveError = validate ? validate(value) : null;
   const missingRequired = showErrors && !optional && !trimmed;
   const invalid = missingRequired || (!!trimmed && !!liveError);
 
   return (
-    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }}>
+    <div className="card" style={{ padding: 14, marginBottom: 10, display: "flex", gap: 12, alignItems: "flex-start", border: invalid ? "1px solid var(--danger)" : undefined }} data-field={dataField}>
       <span className="intent-ic" style={{ background: "var(--accent-weak)", color: "var(--accent)", flex: "none" }}>
         <Icon name={icon} size={16} />
       </span>
@@ -374,12 +691,13 @@ export function VerifyRow({ icon, title, desc, placeholder, value, onChange, opt
         <p className="faint" style={{ fontSize: 12, margin: "2px 0 8px" }}>{desc}</p>
         <input className={`fin ${invalid ? "fin-invalid" : ""}`} style={{ width: "100%" }} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
         {trimmed && liveError && <div className="err" style={{ fontSize: 12, color: "var(--danger)", marginTop: 6 }}>{liveError}</div>}
+        <FieldIssue id={dataField} issue={issue} />
       </div>
     </div>
   );
 }
 
-export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
+export function PersonalFields({ d, set, roleField, showErrors, emailLocked, issue }) {
   const { t } = useTranslation();
   const otherLabel = t("onboardingFields.roleOther", null, "Other");
   const defaultOptions = [t("onboardingFields.roleFounderCeo", null, "Founder & CEO"), t("onboardingFields.roleCofounder", null, "Co-founder"), t("onboardingFields.roleProductManager", null, "Product Manager"), t("onboardingFields.roleHeadOfProduct", null, "Head of Product"), t("onboardingFields.roleGrowthMarketing", null, "Growth / Marketing"), t("onboardingFields.roleDesignLead", null, "Design Lead"), t("onboardingFields.roleEngineeringLead", null, "Engineering Lead"), t("onboardingFields.roleOperations", null, "Operations"), otherLabel];
@@ -387,24 +705,25 @@ export function PersonalFields({ d, set, roleField, showErrors, emailLocked }) {
   const isOther = d.designation === otherLabel;
   return (
     <div className="fgrid c2">
-      <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()}>
+      <Field label={t("onboardingFields.fullName", null, "Full name")} invalid={showErrors && !(d.fullName || "").trim()} dataField="fullName" issue={issue}>
         <TextInput value={d.fullName} onChange={(v) => set("fullName", v)} placeholder={t("onboardingFields.fullNamePlaceholder", null, "Aarav Mehta")} />
       </Field>
-      <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")}>
+      <Field label={t("onboardingFields.email", null, "Email")} invalid={showErrors && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email || "")} dataField="email" issue={issue}>
         <TextInput type="email" value={d.email} onChange={(v) => set("email", v)} placeholder={t("onboardingFields.emailPlaceholder", null, "you@company.com")} disabled={emailLocked} />
       </Field>
       <Field
         label={t("onboardingFields.mobileNumber", null, "Mobile number")}
         invalid={showErrors && !isValidMobile(d.mobile)}
+        dataField="mobile" issue={issue}
         hint={t("onboardingFields.mobileNumberHint", null, "A 10-digit Indian mobile number, or add a country code (e.g. +1 555 123 4567) if you're outside India.")}
       >
         <TextInput value={d.mobile} onChange={(v) => set("mobile", v.replace(/[^\d+ ]/g, "").slice(0, 15))} maxLength={15} placeholder={t("onboardingFields.mobileNumberPlaceholder", null, "+91 98765 43210")} />
       </Field>
-      <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation}>
+      <Field label={roleField?.label || t("onboardingFields.jobTitle", null, "Job title")} invalid={showErrors && !d.designation} dataField="designation" issue={issue}>
         <SelectInput value={d.designation} onChange={(v) => set("designation", v)} options={roleOptions} placeholder={t("onboardingFields.selectRole", null, "Select role")} />
       </Field>
       {isOther && (
-        <Field label={t("onboardingFields.customRole", null, "Your role")} span invalid={showErrors && !(d.designationOther || "").trim()}>
+        <Field label={t("onboardingFields.customRole", null, "Your role")} span invalid={showErrors && !(d.designationOther || "").trim()} dataField="designationOther" issue={issue}>
           <TextInput value={d.designationOther} onChange={(v) => set("designationOther", v)} placeholder={t("onboardingFields.customRolePlaceholder", null, "Type your role")} />
         </Field>
       )}

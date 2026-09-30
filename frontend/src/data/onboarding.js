@@ -233,7 +233,7 @@ export const LANGUAGES = {
 };
 
 export const AGE_BANDS = ["18–24", "25–34", "35–44", "45–54", "55+"];
-export const GENDERS = ["Any", "Female", "Male", "Non-binary"];
+export const GENDERS = ["Any", "Female", "Male"];
 export const OCCUPATIONS = ["Students", "Software engineers", "Product managers", "Designers", "Founders", "Marketers", "Researchers", "Healthcare pros", "Educators", "Finance pros", "Homemakers", "Retired"];
 export const EDUCATIONS = ["High school", "Diploma", "Undergraduate", "Postgraduate", "PhD / Doctorate"];
 export const INTERESTS = ["AI", "Startups", "Fitness", "Healthcare", "Education", "Finance", "Gaming", "Parenting", "Travel", "Fashion", "Food", "Sustainability"];
@@ -276,9 +276,15 @@ export function foReach(d, region) {
   const narrow = (arr, perPick, floor) => { if (arr && arr.length) pool *= Math.max(floor, Math.min(1, arr.length * perPick)); };
   narrow(d.ageBands, 0.26, 0.18);
   if (d.genders && d.genders.length && !d.genders.includes("Any")) pool *= 0.55;
-  if (d.country) pool *= 0.62;
-  if (d.state) pool *= 0.4;
-  if (d.district) pool *= 0.55;
+  // State/City are now multi-select arrays like Country already was --
+  // `if ([])` is truthy in JS, so a plain truthy check here would narrow
+  // the pool even with nothing actually picked. Country had this same gap
+  // already; fixed here for all three while touching this.
+  const hasAny = (v) => Array.isArray(v) ? v.length > 0 : !!v;
+  if (hasAny(d.country)) pool *= 0.62;
+  if (hasAny(d.state)) pool *= 0.4;
+  if (hasAny(d.district)) pool *= 0.55;
+  if (hasAny(d.city)) pool *= 0.55;
   narrow(d.occupations, 0.2, 0.12);
   narrow(d.educations, 0.34, 0.3);
   narrow(d.incomeBands, 0.3, 0.22);

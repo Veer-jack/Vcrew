@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "../db.js";
 import { authMiddleware } from "../auth.js";
 import { FILTERS } from "../meta.js";
-import { BADGES, levelForCompleted } from "../vmeta.js";
+import { BADGES, levelForCompleted, computeProfileCompletion } from "../vmeta.js";
 
 export const router = Router();
 router.use(authMiddleware);
@@ -132,7 +132,7 @@ router.get("/", async (req, res) => {
       income: v.income_bracket,
       marital: v.marital_status,
       has_kids: v.has_kids,
-      profileCompletion: v.profile_completion || 60,
+      profileCompletion: computeProfileCompletion(v),
       activeThisWeek,
       invitedStatus: invitedMap[v.id] || null,
       // Both already sit on the validator row (missions_done is the same

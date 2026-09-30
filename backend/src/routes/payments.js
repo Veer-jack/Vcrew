@@ -9,7 +9,13 @@ export const router = Router();
 // GET /api/payments/config — is card top-up available on this server.
 // No public key needed for Cashfree's hosted checkout (unlike Razorpay) —
 // the frontend uses the payment_session_id returned from /order instead.
-router.get("/config", async (req, res) => res.json({ configured: isCashfreeConfigured() }));
+// demoTopupAllowed mirrors wallet.js's own gate on /topup, so the frontend
+// only offers that free-credit fallback button when the backend would
+// actually accept it.
+router.get("/config", async (req, res) => res.json({
+  configured: isCashfreeConfigured(),
+  demoTopupAllowed: process.env.ALLOW_DEMO_WALLET_TOPUP === "true",
+}));
 
 router.use(authMiddleware);
 

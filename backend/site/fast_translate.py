@@ -31,6 +31,7 @@ RTL_LANGS = {'ar', 'ur'}
 TARGET_FILES = [
     'index.html', 'builders.html', 'validators.html',
     'idea-validation.html', 'user-testing.html',
+    'terms.html', 'privacy.html',
 ]
 
 WORKERS = 8
@@ -119,10 +120,14 @@ def translate_html_file(filepath, outpath, lang_code, api_lang):
         soup.html['dir'] = 'rtl'
     if lang_code[:2] in RTL_LANGS:
         font_link = soup.find('link', href=lambda h: h and 'fonts.googleapis.com/css2' in h)
-        if font_link and 'Noto+Sans+Arabic' not in font_link['href']:
+        # Prepend Noto Sans Arabic ahead of whatever Latin font the page
+        # already loads, whatever it's actually named -- hardcoding
+        # 'Plus+Jakarta+Sans' here silently no-op'd on any page using a
+        # different font (e.g. the new terms.html/privacy.html use Inter),
+        # shipping an RTL page with no RTL-appropriate font at all.
+        if font_link and 'Noto+Sans+Arabic' not in font_link['href'] and 'family=' in font_link['href']:
             font_link['href'] = font_link['href'].replace(
-                'family=Plus+Jakarta+Sans',
-                'family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=Plus+Jakarta+Sans',
+                'family=', 'family=Noto+Sans+Arabic:wght@400;500;600;700;800&family=', 1
             )
 
     for link in soup.find_all('link', href=True):

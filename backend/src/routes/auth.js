@@ -3,10 +3,31 @@ import { db } from "../db.js";
 import { hashPassword, comparePassword, createSession, destroySession, authMiddleware, flagFraud } from "../auth.js";
 import { sendBuilderWelcome } from "../email.js";
 import { isValidEmail, isValidPassword } from "../validators.js";
+import { verifyAndConsumeEmailCode } from "../emailVerification.js";
+import { normalizePhoneDigits } from "../firebaseRoutes.js";
 
 export const router = Router();
 
 const VALID_LANGS = ["en","hi","zh","es","ar","fr","bn","pt","ru","ur"];
+
+function digitsOnly(v) {
+  return String(v || "").replace(/\D/g, "");
+}
+
+// Used by both PATCH /profile and PATCH /onboarding to decide whether an
+// edited "declared" mobile number is still the same one that's actually
+// verified, so re-saving it doesn't spuriously demote phoneVerified.
+// Digit-only comparison alone isn't enough: the verified column is always
+// full E.164 (from Firebase), but the free-text field's own hint tells
+// Indian users they can type just the 10-digit local number with no country
+// code -- so also treat it as the same number when the verified digits end
+// with the typed digits and the only difference is a short (<=3-digit)
+// country-code prefix.
+function isSamePhone(typed, verified) {
+  const a = digitsOnly(typed), b = digitsOnly(verified);
+  if (!a && !b) return true;
+  return a === b || (!!a && b.endsWith(a) && b.length - a.length <= 3);
+}
 
 export function publicBuilder(b) {
   let profile = null;
@@ -30,7 +51,7 @@ export function publicBuilder(b) {
 const PERSONA_LABELS = { founder: "Founder", company: "Company", researcher: "Researcher", organization: "Organization" };
 
 router.post("/signup", async (req, res) => {
-  const { name, email, password, designation, org, website, persona, profile, lang } = req.body || {};
+  const { name, email, password, code, designation, org, website, persona, profile, lang } = req.body || {};
   const preferredLanguage = VALID_LANGS.includes(lang) ? lang : "en";
 
   if (!name || !String(name).trim()) return res.status(400).json({ error: "Name is required" });
@@ -39,7 +60,13 @@ router.post("/signup", async (req, res) => {
 
   const normalizedEmail = String(email).toLowerCase().trim();
   const existing = await db.prepare(`SELECT id FROM builders WHERE email = ?`).get(normalizedEmail);
-  if (existing) return res.status(400).json({ error: "An account with that email already exists" });
+  if (existing) return res.status(400).json({ error: "An account with that email already exists", code: "EMAIL_EXISTS" });
+
+  // The email had to be verified via the code sent by POST /auth/email/send-code
+  // before we'll create the account -- see emailVerification.js. The account
+  // never exists in an unverified state, same guarantee phone signup already gives.
+  const verify = await verifyAndConsumeEmailCode(normalizedEmail, code);
+  if (!verify.ok) return res.status(400).json({ error: verify.error });
 
   const personaKey = PERSONA_LABELS[persona] ? persona : null;
   const dbRole = personaKey ? PERSONA_LABELS[personaKey] : "builder";
@@ -182,6 +209,8 @@ router.patch("/profile", authMiddleware, async (req, res) => {
   // reused here just to save an unrelated field.
   let profileJson = req.builder.profile_json || null;
   let phoneVerified = req.builder.phone_verified ? 1 : 0;
+  let phoneValue = req.builder.phone;
+  let declaredPhoneDigits = req.builder.declared_phone_digits;
   if (req.body?.profile && typeof req.body.profile === "object") {
     let existingProfile = {};
     if (req.builder.profile_json) {
@@ -191,18 +220,27 @@ router.patch("/profile", authMiddleware, async (req, res) => {
     const serialized = JSON.stringify(merged);
     if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
     profileJson = serialized;
+    // Kept in sync with whatever's currently declared, regardless of which
+    // field this particular save touched -- lets phone sign-in look up "is
+    // this number on file but unverified" (see buildPhoneStatusRouter)
+    // without ever drifting out of date. Normalized the same way that lookup
+    // is, not just digitsOnly, so a bare 10-digit number and its +91 form
+    // are stored/matched identically.
+    declaredPhoneDigits = normalizePhoneDigits(merged.mobile) || null;
 
     // profile.mobile changing to anything that isn't the currently-verified
-    // phone (including being cleared) demotes it back to unverified --
-    // compared digits-only so re-saving the same number in a different
-    // format (spaces, missing +) never spuriously un-verifies it.
-    if ("mobile" in req.body.profile) {
-      const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
-      if (digitsOnly(merged.mobile) !== digitsOnly(req.builder.phone)) phoneVerified = 0;
+    // phone (including being cleared) demotes it back to unverified -- see
+    // isSamePhone for what still counts as "the same number". The stale
+    // verified number is cleared too, not just marked unverified -- left in
+    // place, it could later be silently claimed by an unrelated signup that
+    // proves real ownership via OTP, orphaning this account's phone login.
+    if ("mobile" in req.body.profile && !isSamePhone(merged.mobile, req.builder.phone)) {
+      phoneVerified = 0;
+      phoneValue = null;
     }
   }
 
-  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ?, profile_json = ?, phone_verified = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, profileJson, phoneVerified, req.builder.id);
+  await db.prepare(`UPDATE builders SET name = ?, org = ?, email = ?, website = ?, designation = ?, profile_json = ?, phone = ?, phone_verified = ?, declared_phone_digits = ? WHERE id = ?`).run(name, org, email, website || null, designation || null, profileJson, phoneValue, phoneVerified, declaredPhoneDigits, req.builder.id);
 
   const updated = await db.prepare(`SELECT * FROM builders WHERE id = ?`).get(req.builder.id);
   res.json({ builder: publicBuilder(updated) });
@@ -223,6 +261,8 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
   // every field the wizard's own payload didn't happen to include.
   let profileJson = req.builder.profile_json || null;
   let phoneVerified = req.builder.phone_verified ? 1 : 0;
+  let phoneValue = req.builder.phone;
+  let declaredPhoneDigits = req.builder.declared_phone_digits;
   if (profile && typeof profile === "object") {
     let existingProfile = {};
     if (req.builder.profile_json) {
@@ -232,20 +272,23 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
     const serialized = JSON.stringify(merged);
     if (serialized.length > 20000) return res.status(400).json({ error: "Profile data is too large" });
     profileJson = serialized;
+    // Same "always kept in sync, same normalization" rule as PATCH /profile.
+    declaredPhoneDigits = normalizePhoneDigits(merged.mobile) || null;
 
-    // Same demote-on-mismatch rule as PATCH /profile -- re-running onboarding
-    // (or resuming a draft) with a different mobile number than whatever's
-    // currently verified shouldn't leave a stale verified badge on a number
-    // the account no longer claims.
-    if ("mobile" in profile) {
-      const digitsOnly = (v) => String(v || "").replace(/\D/g, "");
-      if (digitsOnly(merged.mobile) !== digitsOnly(req.builder.phone)) phoneVerified = 0;
+    // Same demote-on-mismatch rule as PATCH /profile (see isSamePhone) --
+    // re-running onboarding (or resuming a draft) with a different mobile
+    // number than whatever's currently verified shouldn't leave a stale
+    // verified badge on a number the account no longer claims. Clears the
+    // stale verified number itself too, same reasoning as PATCH /profile.
+    if ("mobile" in profile && !isSamePhone(merged.mobile, req.builder.phone)) {
+      phoneVerified = 0;
+      phoneValue = null;
     }
   }
 
   await db.prepare(`
     UPDATE builders
-    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ?, phone_verified = ?, onboarding_completed_at = NOW()
+    SET org = ?, designation = ?, website = ?, role = ?, persona = ?, profile_json = ?, phone = ?, phone_verified = ?, declared_phone_digits = ?, onboarding_completed_at = NOW()
     WHERE id = ?
   `).run(
     org || req.builder.name,
@@ -254,7 +297,9 @@ router.patch("/onboarding", authMiddleware, async (req, res) => {
     PERSONA_LABELS[personaKey],
     personaKey,
     profileJson,
+    phoneValue,
     phoneVerified,
+    declaredPhoneDigits,
     req.builder.id
   );
 

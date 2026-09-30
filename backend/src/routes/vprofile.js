@@ -89,9 +89,44 @@ router.get("/", async (req, res) => {
     WHERE vmm.validator_id = ? AND vmm.status = 'completed'
   `).get(v.id);
 
+  // "Top X% on platform" used to be a hardcoded "Top 5%" string shown to
+  // every validator regardless of standing. Real percentile now: rank this
+  // validator's own trust score (same formula the profile page itself
+  // displays -- rating half, accuracy half) against every OTHER validator
+  // who's also actually completed a mission, so a fresh zero-mission
+  // account can't pad the comparison pool and flatter everyone else's rank.
+  // Only meaningful once this validator has completed something themselves
+  // (the profile page shows trust score 0 otherwise) -- trustPercentile
+  // stays null until then.
+  let trustPercentile = null;
+  if (missionsDone > 0) {
+    const myTrustScore = Math.round(((v.rating || 5) / 5) * 50 + (accuracy / 100) * 50);
+    const pop = await db.prepare(`
+      WITH accuracy_by_validator AS (
+        SELECT validator_id,
+          SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+          COUNT(*) as graded
+        FROM responses
+        WHERE status IN ('approved', 'rejected')
+        GROUP BY validator_id
+      ),
+      scores AS (
+        SELECT ROUND(
+          ((COALESCE(vv.rating, 5) / 5.0) * 50) +
+          ((CASE WHEN ab.graded > 0 THEN (ab.approved::float / ab.graded) * 100 ELSE 100 END) / 100.0 * 50)
+        ) as trust_score
+        FROM validators vv
+        LEFT JOIN accuracy_by_validator ab ON ab.validator_id = vv.id
+        WHERE vv.missions_done > 0
+      )
+      SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE trust_score >= ?) as at_or_above FROM scores
+    `).get(myTrustScore);
+    if (pop && pop.total > 0) trustPercentile = Math.max(1, Math.ceil((Number(pop.at_or_above) / Number(pop.total)) * 100));
+  }
+
   res.json({
     id: v.id, name: v.name, handle: v.handle, email: v.email, level: lvl.n, levelName: lvl.name,
-    rating: v.rating, ratingCount: v.reviews_count || 0, accuracy: accuracy, streak: streak,
+    rating: v.rating, ratingCount: v.reviews_count || 0, accuracy: accuracy, streak: streak, trustPercentile,
     specialties: JSON.parse(v.specialties_json || "[]"),
     acceptRate: 100, completed: missionsDone, lifetime: earningsAgg?.lifetime || 0,
     levelPct: lvlPct, nextLevel: nextLvl,

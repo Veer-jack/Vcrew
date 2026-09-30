@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Btn } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
-import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD, audienceStepIssue } from "../data/personaConfig";
+import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
 import { PersonalFields } from "../components/OnboardingFields";
 import { isValidMobile } from "../data/onboarding";
 import { api } from "../api/client";
@@ -18,11 +18,23 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // persona's own personal-step component wraps, used directly (no persona
 // context needed) so editing identity here never depends on onboarding
 // having started.
-function GenericPersonalStep({ d, set, showErrors }) {
-  return <PersonalFields d={d} set={set} roleField={null} showErrors={showErrors} emailLocked />;
+function GenericPersonalStep({ d, set, showErrors, issue }) {
+  return <PersonalFields d={d} set={set} roleField={null} showErrors={showErrors} emailLocked issue={issue} />;
 }
 function genericPersonalValid(d) {
   return !!(d.fullName && d.fullName.trim().length > 1) && EMAIL_RE.test(d.email || "") && isValidMobile(d.mobile) && !!d.designation;
+}
+// Parallel to genericPersonalValid, same reasoning as personaConfig.jsx's
+// foStepIssue etc -- additive, never a source of truth for pass/fail.
+function genericPersonalStepIssue(d, t) {
+  const checks = [
+    { id: "fullName", ok: !!(d.fullName && d.fullName.trim().length > 1), label: t("onboardingFields.fullName", null, "Full name") },
+    { id: "email", ok: EMAIL_RE.test(d.email || ""), label: t("onboardingFields.email", null, "Email") },
+    { id: "mobile", ok: isValidMobile(d.mobile), label: t("onboardingFields.mobileNumber", null, "Mobile number") },
+    { id: "designation", ok: !!d.designation, label: t("onboardingFields.jobTitle", null, "Job title") },
+  ];
+  const bad = checks.find(c => !c.ok);
+  return bad ? { id: bad.id, message: t("onboarding.pleaseFillField", { field: bad.label }, `Please fill in ${bad.label}.`) } : null;
 }
 
 // The full step list for context ("show every step") -- d (the draft) now
@@ -132,6 +144,13 @@ export default function EditAccountStep() {
     base.fullName = builder?.name || base.fullName || "";
     base.designation = builder?.designation ?? base.designation ?? "";
     base.email = builder?.email || base.email || "";
+    // Same rule for mobile: once a number is actually verified, that's the
+    // real one -- show it here even if it differs from whatever's still
+    // sitting in the profile_json snapshot (e.g. the user changed the number
+    // inside the verify flow itself instead of the one they originally typed
+    // during onboarding). Unverified, there's no canonical column yet, so
+    // fall back to the declared value as before.
+    base.mobile = builder?.phoneVerified ? builder.phone : (base.mobile ?? "");
     try {
       const draft = JSON.parse(localStorage.getItem(onboardingDraftKey(builder?.id, activePersonaKey)));
       if (draft?.d) return { ...draft.d, ...base };
@@ -142,6 +161,9 @@ export default function EditAccountStep() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
+  // Same "which one field, scroll to it" state as OnboardingWizard's own
+  // goNext -- see there for the full reasoning.
+  const [issue, setIssue] = useState(null);
   const set = (k, v) => setD((s) => ({ ...s, [k]: v }));
 
   const dirty = useMemo(() => JSON.stringify(d) !== JSON.stringify(initial), [d, initial]);
@@ -171,17 +193,24 @@ export default function EditAccountStep() {
   const handleSave = async () => {
     const isValid = persona ? persona.validate(stepKey, d, REGION) : genericPersonalValid(d);
     if (!isValid) {
-      // Names the specific missing field on the Audience step (Age/Gender/
-      // Country/Occupation) instead of a generic "fill in the required
-      // fields" -- the other steps don't have a per-field breakdown like
-      // this yet, so they keep the generic message.
-      const specificIssue = stepKey === "audience" ? audienceStepIssue(d, t) : null;
-      setError(specificIssue || t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+      // Same "scroll to the one specific field" behavior as the onboarding
+      // wizard's own goNext -- see there for the full reasoning.
+      const foundIssue = persona ? (persona.getIssue ? persona.getIssue(stepKey, d, REGION, t) : null) : genericPersonalStepIssue(d, t);
       setShowErrors(true);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      if (foundIssue) {
+        setIssue(foundIssue);
+        setError("");
+        requestAnimationFrame(() => {
+          document.querySelector(`[data-field="${foundIssue.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+      } else {
+        setIssue(null);
+        setError(t("onboarding.fillRequiredFields", null, "Please fill in the required fields before continuing."));
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       return;
     }
-    setError(""); setShowErrors(false); setBusy(true);
+    setError(""); setShowErrors(false); setIssue(null); setBusy(true);
     try {
       // Usually just `profile` -- echoing name/org/website back unchanged
       // risks tripping their own validation (e.g. an incomplete profile can
@@ -246,7 +275,7 @@ export default function EditAccountStep() {
           handleSave();
         }}>
           {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} />
+          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} issue={issue} />
         </div>
       </div>
 

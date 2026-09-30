@@ -25,7 +25,7 @@ const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 // Realistic (not uniform) demographic weights for this platform's population: a
 // gig/panel audience skews younger + single vs. general census figures. [value, weight].
-export const GENDER_WEIGHTS = [["Male", 48], ["Female", 48], ["Non-binary", 2], ["Prefer not to say", 2]];
+export const GENDER_WEIGHTS = [["Male", 48], ["Female", 48], ["Prefer not to say", 4]];
 export const INCOME_WEIGHTS = [["Under Rs2.5L", 30], ["Rs2.5L-5L", 28], ["Rs5L-10L", 22], ["Rs10L-20L", 12], ["Rs20L-50L", 6], ["Above Rs50L", 2]];
 export const MARITAL_WEIGHTS = [["Single", 55], ["Married", 35], ["In a relationship", 6], ["Divorced", 3], ["Widowed", 1]];
 export const KIDS_WEIGHTS = [["No", 65], ["Yes", 35]];

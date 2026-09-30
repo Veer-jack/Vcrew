@@ -70,7 +70,6 @@ export const AUDIENCE_FILTER_LABEL_KEYS = {
   "Gender": "audience.filterGroups.demographics.gender",
   "Male": "audience.filterOptions.demographics.gender.0",
   "Female": "audience.filterOptions.demographics.gender.1",
-  "Non-binary": "audience.filterOptions.demographics.gender.2",
   "Prefer not to say": "audience.filterOptions.demographics.gender.3",
   "Income Bracket": "audience.filterGroups.demographics.incomeBracket",
   "Under Rs2.5L": "audience.filterOptions.demographics.incomeBracket.0",

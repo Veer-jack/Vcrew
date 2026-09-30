@@ -242,13 +242,16 @@ export default function AudienceExplorer() {
       } else {
         const profile = builder?.profile;
         setSel(defaultSelFromProfile(res.filters, profile));
-        // Free-text state/city from onboarding has no matching checkbox in
-        // this panel's curated city list — surface it as a placeholder hint
-        // in the search box rather than an applied filter, since silently
-        // filtering to a city string that doesn't exactly match any
-        // member's city field would zero out results with no explanation.
-        if (profile && (profile.district || profile.state)) {
-          setCitySuggestion(profile.district || profile.state);
+        // City/State from onboarding are multi-select arrays now (were
+        // free-text/single before) -- this is just a placeholder hint in
+        // the search box, not an applied filter (silently filtering to a
+        // city string that doesn't exactly match any member's city field
+        // would zero out results with no explanation), so the first pick
+        // is enough to suggest with, no need to list every one.
+        const first = (v) => Array.isArray(v) ? v[0] : v;
+        const suggestion = first(profile?.city) || first(profile?.district) || first(profile?.state);
+        if (suggestion) {
+          setCitySuggestion(suggestion);
           setUsingDefaults(true);
         }
       }
@@ -672,7 +675,8 @@ export default function AudienceExplorer() {
                 setTimeout(() => {
                   setSel(defaultSelFromProfile(filters, builder?.profile));
                   setQ("");
-                  setCitySuggestion(builder?.profile?.district || builder?.profile?.state || "");
+                  const first = (v) => Array.isArray(v) ? v[0] : v;
+                  setCitySuggestion(first(builder?.profile?.city) || first(builder?.profile?.district) || first(builder?.profile?.state) || "");
                   setUsingDefaults(true);
                   setIsLoading(false);
                 }, 400);

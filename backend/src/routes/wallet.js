@@ -35,8 +35,19 @@ router.get("/", async (req, res) => {
   });
 });
 
-// POST /api/wallet/topup { amount, stepUpToken? }
+// POST /api/wallet/topup { amount, stepUpToken? } -- credits the wallet with
+// NO real payment behind it. Only ever meant as a local-dev convenience for
+// testing without real Cashfree keys configured. Gated on an explicit env
+// flag rather than "Cashfree happens to not be configured" -- that exact
+// condition was already accidentally true on production once, which let
+// any authenticated builder call this endpoint directly (bypassing the UI
+// entirely) and credit themselves real money for free. Never set this flag
+// anywhere but a local .env.
 router.post("/topup", async (req, res) => {
+  if (process.env.ALLOW_DEMO_WALLET_TOPUP !== "true") {
+    return res.status(403).json({ error: "Direct wallet top-up isn't available. Use Pay with card / UPI instead." });
+  }
+
   const amount = Math.round(Number(req.body?.amount));
   if (!amount || amount <= 0) return res.status(400).json({ error: "amount must be a positive number" });
 
