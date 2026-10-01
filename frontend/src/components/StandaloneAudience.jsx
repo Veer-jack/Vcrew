@@ -7,7 +7,7 @@ import { BrandLogoFull } from './BrandMark';
 import { Field, Chips, FSection, ProfileChips, LocationFields, SelectAllToggle } from './OnboardingFields';
 import AudienceResults from './AudienceResults';
 
-export default function StandaloneAudience({ d, set, region, roleName, onSkip, onSubmit, onValidate, showErrors, issue, error, busy }) {
+export default function StandaloneAudience({ d, set, region, roleName, onSkip, onSubmit, onValidate, showErrors, issue, error, busy, isSettings }) {
   const { t } = useTranslation();
   const { filters } = useMeta();
   const { reach, firstLoad } = useAudienceReach(d);
@@ -20,8 +20,9 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
   }, [showErrors, issue]);
 
   return (
-    <div style={{ background: "#f8fafc", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+    <div style={isSettings ? {} : { background: "#f8fafc", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       {/* Top Navbar */}
+      {!isSettings && (
       <div style={{ position: "sticky", top: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 32px", background: "rgba(248, 250, 252, 0.85)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <BrandLogoFull height={28} />
@@ -36,13 +37,14 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
           {t("actions.skipForNow", null, "Skip")}
         </button>
       </div>
+      )}
 
       {/* Main Content */}
-      {viewState === "results" ? (
+      {viewState === "results" && !isSettings ? (
         <AudienceResults d={d} reach={reach} onBack={() => setViewState("form")} onCreate={onSubmit} busy={busy} />
       ) : (
-        <div style={{ flex: 1, padding: "16px 32px 64px" }}>
-          <div style={{ maxWidth: 960, margin: "0 auto" }}>
+        <div style={isSettings ? {} : { flex: 1, padding: "16px 32px 64px" }}>
+          <div style={isSettings ? {} : { maxWidth: 960, margin: "0 auto" }}>
           
           {error && (
             <div className="err-banner" style={{ marginBottom: 24 }}>
@@ -51,6 +53,7 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
           )}
           
           {/* Header */}
+          {!isSettings && (
           <div style={{ marginBottom: 40, textAlign: "center" }}>
             <p className="faint" style={{ textTransform: "uppercase", letterSpacing: "1.5px", fontSize: 11, fontWeight: 700, marginBottom: 16 }}>
               {t("matchingEngine.label", null, "The matching engine")}
@@ -62,6 +65,7 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
               {t("matchingEngine.desc", null, "Tell us whose opinion matters. Your reach updates live as you go — the sharper you are, the higher the signal.")}
             </p>
           </div>
+          )}
 
           {/* 2-column Layout */}
           <div style={{ display: "flex", gap: 64, alignItems: "flex-start" }}>
@@ -79,8 +83,8 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
               )}
 
               <div>
-                <FSection label="Validator Type" action={<SelectAllToggle options={["Validator", "Tester", "User"]} value={d.validatorType} onChange={(v) => set("validatorType", v)} />} />
-                <Chips options={["Validator", "Tester", "User"]} value={d.validatorType} onChange={(v) => set("validatorType", v)} />
+                <FSection label="Validator Type" action={<SelectAllToggle options={["Validator", "Tester", "User"]} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} />} />
+                <Chips options={["Validator", "Tester", "User"]} value={d.validatorTypes} onChange={(v) => set("validatorTypes", v)} />
               </div>
 
               <div>
@@ -103,8 +107,8 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
               <ProfileChips d={d} set={set} region={region} occOptions={filters.Professional} eduOptions={filters.Demographics?.Education} show={{ occupation: true, education: true }} showErrors={showErrors} issue={issue} requireOccupation />
 
               <div>
-                <FSection label="Income range (annual)" action={<SelectAllToggle options={["Under Rs2.5L", "Rs2.5L–5L", "Rs5L–10L", "Rs10L–20L", "Rs20L–50L", "Above Rs50L"]} value={d.income} onChange={(v) => set("income", v)} />} />
-                <Chips options={["Under Rs2.5L", "Rs2.5L–5L", "Rs5L–10L", "Rs10L–20L", "Rs20L–50L", "Above Rs50L"]} value={d.income} onChange={(v) => set("income", v)} />
+                <FSection label="Income range (annual)" action={<SelectAllToggle options={["Under Rs2.5L", "Rs2.5L–5L", "Rs5L–10L", "Rs10L–20L", "Rs20L–50L", "Above Rs50L"]} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />} />
+                <Chips options={["Under Rs2.5L", "Rs2.5L–5L", "Rs5L–10L", "Rs10L–20L", "Rs20L–50L", "Above Rs50L"]} value={d.incomeBands} onChange={(v) => set("incomeBands", v)} />
               </div>
 
               <div>
@@ -152,12 +156,14 @@ export default function StandaloneAudience({ d, set, region, roleName, onSkip, o
                   <span style={{ background: "#dcfce7", color: "#059669", padding: "4px 12px", borderRadius: 16, fontSize: 13, fontWeight: 600 }}>Precise</span>
                 </div>
 
+                {!isSettings && (
                 <button type="button" className="btn btn-primary" style={{ width: "100%", padding: "12px 16px", fontSize: 15, fontWeight: 600, borderRadius: 8 }} onClick={() => {
                   if (onValidate && !onValidate()) return;
                   setViewState("results");
                 }}>
                   {t("matchingEngine.findBtn", null, "Find my people →")}
                 </button>
+                )}
 
                 <div style={{ display: "flex", gap: 12, marginTop: 16, color: "#94a3b8", alignItems: "flex-start" }}>
                   <Icon name="shieldCheck" size={16} style={{ flexShrink: 0, marginTop: 2 }} />

@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Btn } from "../components/ui";
+import Icon from "../components/Icon";
 import { useAuth } from "../context/AuthContext";
 import { PERSONA_CONFIG, resolveActivePersonaKey, onboardingDraftKey, stepLabel, stepEditability, PERSONA_NAME_FIELD } from "../data/personaConfig";
 import { PersonalFields } from "../components/OnboardingFields";
@@ -37,71 +38,81 @@ function genericPersonalStepIssue(d, t) {
   return bad ? { id: bad.id, message: t("onboarding.pleaseFillField", { field: bad.label }, `Please fill in ${bad.label}.`) } : null;
 }
 
-// The full step list for context ("show every step") -- d (the draft) now
-// lives for the whole edit session, not reset per step (see the `initial`
-// useMemo below), so jumping between steps here carries edits along instead
-// of discarding them; Cancel is the only action that actually drops
-// anything. Locked steps render but aren't links into this page. Cancel
-// lives in this rail's own footer (wz-rail-foot), not the top header --
-// same spot the real onboarding wizard's own Start over/Skip/Back live in.
-function StepRail({ persona, currentKey, dirty, onNavigate, onCancel }) {
+// The new top progress bar matching the horizontal step segment design.
+function TopProgressBar({ steps, current, onJump }) {
   const { t } = useTranslation();
-  // Same Cancel/Back pair, same spot and styling, as the mission wizard's
-  // own rail footer -- jumping between steps via the list above already
-  // works, but a tester expected the same explicit Back affordance here.
-  const currentIndex = persona ? persona.steps.findIndex(s => s.key === currentKey) : -1;
-  const prevStep = currentIndex > 0 ? persona.steps[currentIndex - 1] : null;
-  // No persona yet (role never picked) -- there's nothing to rail-navigate
-  // between, just the one identity step this page is already showing.
-  if (!persona) {
-    return (
-      <aside className="wiz-rail scroll-hover">
-        <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
-        <div className="col gap-1">
-          <div className="wiz-step wiz-step-current">
-            <span className="wiz-step-dot">1</span>
-            <span>{stepLabel(t, "personal", "Your details")}</span>
-          </div>
-        </div>
-        <div className="wz-rail-foot">
-          <button className="backlink" onClick={onCancel} style={{ marginLeft: 8 }}>{t("actions.cancel", null, "Cancel")}</button>
-        </div>
-      </aside>
-    );
-  }
+  const pct = steps.length > 0 ? Math.round((current / steps.length) * 100) : 0;
+  
   return (
-    <aside className="wiz-rail scroll-hover">
-      <div className="eyebrow" style={{ marginBottom: 14 }}>{t("onboarding.yourSetup", null, "Your setup")}</div>
-      <div className="col gap-1">
-        {persona.steps.map((s, i) => {
-          const isCurrent = s.key === currentKey;
-          const label = stepLabel(t, s.key, s.label);
+    <div style={{ display: "flex", alignItems: "center", flex: 1, margin: "0 32px", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", flex: 1, gap: 12 }}>
+        {steps.map((s, i) => {
+          const state = i < current ? "done" : i === current ? "current" : "upcoming";
+          const isCompletedOrActive = i <= current;
+          
           return (
-            <button
-              key={s.key} type="button"
-              onClick={() => onNavigate(`/settings/edit-step/${s.key}`)}
-              className={`wiz-step ${isCurrent ? "wiz-step-current" : ""}`}
-            >
-              <span className="wiz-step-dot">{i + 1}</span>
-              <span>{label}</span>
-            </button>
+            <div key={s.key} style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div
+                style={{
+                  height: 3,
+                  borderRadius: 2,
+                  background: isCompletedOrActive ? "var(--accent, #4f46e5)" : "var(--border, #e2e8f0)",
+                  width: "100%",
+                  transition: "background 0.2s ease"
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => onJump(i)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  cursor: "pointer",
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                  color: state === "upcoming" ? "var(--text-muted, #94a3b8)" : "var(--text, #0f172a)",
+                  fontWeight: state === "current" ? 700 : state === "done" ? 600 : 500,
+                  fontSize: 13,
+                  whiteSpace: "nowrap",
+                  textAlign: "left"
+                }}
+              >
+                <div
+                  style={{
+                    width: 18,
+                    height: 18,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    background:
+                      state === "done"
+                        ? "var(--success, #16a34a)"
+                        : state === "current"
+                        ? "var(--accent, #4f46e5)"
+                        : "#ffffff",
+                    border: state === "upcoming" ? "1.5px solid #cbd5e1" : "none",
+                    color: state === "upcoming" ? "#94a3b8" : "#ffffff",
+                    fontSize: 11,
+                    fontWeight: 700
+                  }}
+                >
+                  {state === "done" ? <Icon name="check" size={11} strokeWidth={2.6} /> : i + 1}
+                </div>
+                <span>{stepLabel(t, s.key, s.label)}</span>
+              </button>
+            </div>
           );
         })}
       </div>
-      {dirty && <p className="faint" style={{ fontSize: 11.5, marginTop: 12, padding: "0 10px" }}>{t("settings.unsavedHint", null, "You have unsaved changes.")}</p>}
-      <div className="wz-rail-foot">
-        {!prevStep ? (
-          <button className="btn" onClick={onCancel} style={{ alignSelf: "flex-start", marginLeft: 10, border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
-        ) : (
-          <div className="row gap-2" style={{ alignItems: "center", marginLeft: 10 }}>
-            <button className="btn" onClick={onCancel} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>{t("actions.cancel", null, "Cancel")}</button>
-            <button className="btn" onClick={() => onNavigate(`/settings/edit-step/${prevStep.key}`)} style={{ color: "var(--accent)", background: "transparent", border: "none" }}>{t("actions.back", null, "Back")}</button>
-          </div>
-        )}
-      </div>
-    </aside>
+    </div>
   );
 }
+
+import StandaloneAudience from "../components/StandaloneAudience";
 
 // Editing an already-complete field here saves via the same PATCH /auth/profile
 // route Settings itself uses -- never the onboarding-completion route -- so this
@@ -120,8 +131,16 @@ export default function EditAccountStep() {
   const activePersonaKey = resolveActivePersonaKey(builder);
   const persona = PERSONA_CONFIG[activePersonaKey];
   const isPersonal = stepKey === "personal";
+  const isAudience = stepKey === "audience" || stepKey === "participants";
   const editability = persona ? stepEditability(stepKey) : (isPersonal ? "editable" : null);
-  const StepComponent = editability === "editable" ? (persona ? persona.components[stepKey] : (isPersonal ? GenericPersonalStep : null)) : null;
+  
+  const StepComponent = isAudience ? StandaloneAudience : (editability === "editable" ? (persona ? persona.components[stepKey] : (isPersonal ? GenericPersonalStep : null)) : null);
+
+  // Always scroll to top when changing steps in edit mode,
+  // preventing browser from remembering scroll position of Settings page
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [stepKey]);
 
   // Seeded from the local in-progress draft (if any), then whatever's
   // actually been saved server-side laid on top -- for an incomplete
@@ -244,54 +263,46 @@ export default function EditAccountStep() {
   };
 
   return (
-    <div className="wiz-shell">
-      <header className="wiz-top">
-        <span style={{ fontWeight: 800 }}>{t("actions.editProfile", null, "Edit profile")}</span>
-        <div style={{ flex: 1 }} />
-        {/* Every other LanguageSwitcher usage (AppLayout topbar, RoleSelect,
-            IntentFork) passes onSave to persist the choice server-side --
-            this one didn't, so switching here only changed the UI for the
-            current session and silently reverted on the next real reload. */}
-        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginRight: 16 }} />
-      </header>
-      <div className="wiz-body-grid">
-        {/* Direct navigate, not guarded -- d persists across steps now, so
-            jumping between them never risks losing anything (only Cancel,
-            wired to cancelToSettings, actually discards the draft). */}
-        <StepRail persona={persona} currentKey={stepKey} dirty={dirty} onNavigate={navigate} onCancel={cancelToSettings} />
-        {/* Enter-to-save on plain text fields (State/Region, City, GST, ...)
-            instead of requiring a mouse click on "Save changes". Delegated
-            here rather than a <form onSubmit> wrapper -- FilterGroup's own
-            chip buttons (Country/Occupation/etc.) don't all declare
-            type="button" explicitly, so a real <form> would turn every chip
-            click into an accidental submit. e.defaultPrevented skips the
-            "Add other" input, which already handles its own Enter (adds the
-            entry) via preventDefault -- without this check that same
-            keydown would also bubble up and trigger a save. */}
-        <div className="wiz-content" onKeyDown={(e) => {
-          if (e.key !== "Enter" || e.defaultPrevented || busy || !dirty) return;
-          if (e.target.tagName !== "INPUT" || e.target.type === "checkbox") return;
-          e.preventDefault();
-          handleSave();
-        }}>
-          {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
-          <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} issue={issue} />
+    <div className="wiz-shell" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#f8fafc" }}>
+      <header className="wiz-top" style={{ padding: "0 24px", height: 64, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", background: "#fff" }}>
+        <div style={{ flexShrink: 0, marginRight: 32, fontWeight: 800 }}>
+          {t("actions.editProfile", null, "Edit profile")}
         </div>
+        
+        {persona && !isAudience ? (
+          <TopProgressBar 
+            steps={persona.steps} 
+            current={persona.steps.findIndex(s => s.key === stepKey)} 
+            onJump={(i) => navigate(`/settings/edit-step/${persona.steps[i].key}`)} 
+          />
+        ) : <div style={{ flex: 1 }} />}
+
+        <LanguageSwitcher onSave={(lang) => api.setLanguage(lang).catch(() => {})} style={{ marginLeft: "auto" }} />
+      </header>
+
+      <div style={{ flex: 1, padding: "32px 40px", maxWidth: 1200, margin: "0 auto", width: "100%", paddingBottom: 100 }} onKeyDown={(e) => {
+        if (e.key !== "Enter" || e.defaultPrevented || busy || !dirty) return;
+        if (e.target.tagName !== "INPUT" || e.target.type === "checkbox") return;
+        e.preventDefault();
+        handleSave();
+      }}>
+        {error && <div className="err-banner" style={{ marginBottom: 16 }}>{error}</div>}
+        <StepComponent d={d} set={set} region={REGION} showErrors={showErrors} issue={issue} isSettings={true} />
       </div>
 
-      {/* Fixed to the right regardless of scroll, same corner-anchored
-          placement as the onboarding wizard's own Continue button, instead
-          of sitting inline after the step content (where its screen
-          position varied with how tall each step happened to be). right:110
-          (not a tighter 32) clears the support-chat bubble docked in the
-          same corner. */}
-      {dirty && (
-        <div style={{ position: "fixed", bottom: 28, right: 110, zIndex: 40 }}>
-          <Btn variant="primary" onClick={handleSave} disabled={busy} style={{ boxShadow: "var(--shadow-lg)" }}>
+      <footer style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 80, background: "#fff", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", padding: "0 40px", zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", flex: 1, maxWidth: 1120, margin: "0 auto" }}>
+          <button className="btn" onClick={cancelToSettings} style={{ border: "1.5px solid var(--accent)", color: "var(--accent)", background: "transparent", minWidth: 100 }}>
+            {t("actions.cancel", null, "Cancel")}
+          </button>
+          
+          <div style={{ flex: 1 }} />
+          
+          <Btn variant="primary" onClick={handleSave} disabled={busy || !dirty} style={{ boxShadow: "var(--shadow-lg)" }}>
             {busy ? t("actions.saving", null, "Saving…") : t("actions.saveChanges", null, "Save changes")}
           </Btn>
         </div>
-      )}
+      </footer>
     </div>
   );
 }
