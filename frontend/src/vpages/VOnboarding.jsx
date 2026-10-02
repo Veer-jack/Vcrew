@@ -193,6 +193,7 @@ function SearchableSelect({ value, onChange, options, placeholder }) {
         style={{ paddingRight: 36 }}
         value={open ? query : (value || "")}
         placeholder={placeholder}
+        autoComplete="off"
         onFocus={() => { setOpen(true); setQuery(""); setActiveIndex(0); }}
         onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
