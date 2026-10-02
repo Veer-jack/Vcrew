@@ -161,14 +161,14 @@ export default function VOnboardingLayout({ roleName, color, steps, currentStep,
         
         <VTopProgressBar steps={steps} current={currentStep} maxReached={maxReached} onJump={onJump} color={color} />
         
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 50, background: "#fff", color: "#1e293b", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", border: "1px solid #e2e8f0" }}>
-            <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <Icon name="star" size={13} fill={color} style={{ color }} />
-            </div>
-            {memberType}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 18px", borderRadius: 50, background: "#fff", color: "#1e293b", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", border: "1px solid #e2e8f0", flexShrink: 0 }}>
+          <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon name="star" size={13} fill={color} style={{ color }} />
           </div>
-          <div style={{ width: 44, height: 3, borderRadius: 2, background: color }} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+            <span>{memberType}</span>
+            <div style={{ width: 44, height: 3, borderRadius: 2, background: color }} />
+          </div>
         </div>
       </header>
 
