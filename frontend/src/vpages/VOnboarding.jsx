@@ -1,7 +1,7 @@
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams, useNavigate } from "react-router-dom";
 import VOnboardingLayout from "./VOnboardingLayout";
 /* eslint-disable react-refresh/only-export-components */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "react-hot-toast";
 
 import Icon from "../components/Icon";
@@ -10,18 +10,22 @@ import { vapi } from "../vapi/client";
 import { useVAuth } from "../vcontext/VAuthContext";
 import useUnsavedChangesWarning from "../hooks/useUnsavedChangesWarning";
 import { useTranslation } from "../i18n/index.jsx";
-import countryRegionData from "country-region-data/data.json";
+import { Country, State, City } from "country-state-city";
 import VOpportunitiesAnimation from "../components/VOpportunitiesAnimation";
 import VOpportunitiesResults from "../components/VOpportunitiesResults";
 
-const COUNTRY_NAMES = countryRegionData.map(c => c.countryName).sort((a, b) => a.localeCompare(b));
-const REGIONS_BY_COUNTRY = Object.fromEntries(countryRegionData.map(c => [c.countryName, c.regions.map(r => r.name)]));
-// Lets State be picked before Country (Profile's address block wants that
-// order) and still resolve which country it belongs to -- first country
-// wins for the rare state/province name that exists in more than one
-// country, since there's no other signal yet to disambiguate.
+const _allCountries = Country.getAllCountries();
+const COUNTRY_NAMES = _allCountries.map(c => c.name).sort((a, b) => a.localeCompare(b));
+const REGIONS_BY_COUNTRY = Object.fromEntries(_allCountries.map(c => [c.name, State.getStatesOfCountry(c.isoCode).map(r => r.name)]));
 const COUNTRY_BY_STATE = {};
-for (const c of countryRegionData) for (const r of c.regions) if (!(r.name in COUNTRY_BY_STATE)) COUNTRY_BY_STATE[r.name] = c.countryName;
+for (const c of _allCountries) {
+  const states = State.getStatesOfCountry(c.isoCode);
+  for (const r of states) {
+    if (!(r.name in COUNTRY_BY_STATE)) {
+      COUNTRY_BY_STATE[r.name] = c.name;
+    }
+  }
+}
 const ALL_STATE_NAMES = Object.keys(COUNTRY_BY_STATE).sort((a, b) => a.localeCompare(b));
 
 function isEmptyDraftValue(v) {
@@ -36,8 +40,9 @@ function isEmptyDraftValue(v) {
 // effect below writes on every mount, not just on an actual edit). Only
 // fields still empty in the resolved draft get backfilled, so anything the
 // user has genuinely typed is never touched.
-function useDraft(key, defaultState, backfill) {
+function useDraft(key, defaultState, backfill, forceValue) {
   const [val, setVal] = useState(() => {
+    if (forceValue !== undefined && forceValue !== null) return forceValue;
     let base = defaultState;
     try {
       const stored = localStorage.getItem(key);
@@ -178,7 +183,7 @@ export const Field = ({ label, required, hint, info, action, children, dataField
 // this was worth building once and reusing across all three. Same search-
 // box-over-a-list visual pattern Missions.jsx's own "Filter by Type"
 // popover already uses, just single-select-and-close instead of checkboxes.
-function SearchableSelect({ value, onChange, options, placeholder }) {
+function SearchableSelect({ value, onChange, options, placeholder, disabled }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -190,10 +195,11 @@ function SearchableSelect({ value, onChange, options, placeholder }) {
     <div style={{ position: "relative" }}>
       <input
         className="fin"
-        style={{ paddingRight: 36 }}
+        style={{ paddingRight: 36, opacity: disabled ? 0.6 : 1, cursor: disabled ? "not-allowed" : "text" }}
+        disabled={disabled}
         value={open ? query : (value || "")}
         placeholder={placeholder}
-        autoComplete="off"
+        autoComplete="new-password"
         onFocus={() => { setOpen(true); setQuery(""); setActiveIndex(0); }}
         onChange={e => { setQuery(e.target.value); setActiveIndex(0); }}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
@@ -295,19 +301,13 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
   // country/state data source) is exactly the signal to fall back to free
   // text -- same "no data, so it's just an input" pattern State already
   // uses when a country has no known regions.
-  const [cityOptions, setCityOptions] = useState([]);
-  const [cityLoading, setCityLoading] = useState(false);
-  useEffect(() => {
-    // eslint-disable-next-line
-    if (!withCity || !hasCountry || !hasState) { setCityOptions([]); return; }
-    let cancelled = false;
-    setTimeout(() => setCityLoading(true), 0);
-    fetch(`/api/geo/cities?country=${encodeURIComponent(d.country)}&state=${encodeURIComponent(d.state)}`)
-      .then(r => r.json())
-      .then(data => { if (!cancelled) setCityOptions(data.cities || []); })
-      .catch(() => { if (!cancelled) setCityOptions([]); })
-      .finally(() => { if (!cancelled) setCityLoading(false); });
-    return () => { cancelled = true; };
+  const cityOptions = useMemo(() => {
+    if (!withCity || !hasCountry || !hasState) return [];
+    const cData = Country.getAllCountries().find(c => c.name === d.country);
+    if (!cData) return [];
+    const sData = State.getStatesOfCountry(cData.isoCode).find(s => s.name === d.state);
+    if (!sData) return [];
+    return City.getCitiesOfState(cData.isoCode, sData.isoCode).map(c => c.name);
   }, [withCity, hasCountry, hasState, d.country, d.state]);
   // No country picked yet -- State still gets a real dropdown (the full,
   // cross-country list) rather than falling back to free text, so it can
@@ -373,13 +373,7 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
   );
   const cityField = withCity && (
     <Field key="city" label={t("onboardingFields.city", null, "City")}>
-      {cityLoading ? (
-        <input className="fin" disabled value={t("onboardingFields.loadingCities", null, "Loading cities…")} />
-      ) : cityOptions.length > 0 ? (
-        <SearchableSelect value={d.city} onChange={v => set("city", v)} options={[...cityOptions, otherLabel]} placeholder={t("onboardingFields.selectCity", null, "Select city")} />
-      ) : (
-        <input className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)} placeholder={t("onboardingFields.cityPlaceholder", null, "Bengaluru")} />
-      )}
+      <SearchableSelect value={d.city} onChange={v => set("city", v)} options={[...cityOptions, otherLabel]} placeholder={t("onboardingFields.selectCity", null, "Select city")} disabled={!d.country || !d.state} />
     </Field>
   );
   const cityOtherField = withCity && cityOptions.length > 0 && d.city === otherLabel && (
@@ -551,8 +545,8 @@ const getTesterIssue = (step, d) => {
 };
 
 function UserOnboarding({ step, onNext, vid, validator }) {
-  const [issue, setIssue] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
+  const issue = showErrors ? getUserIssue(step, d) : null;
   const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { 
     name: "", email: validator?.email || "", mobile: "", dob: "", gender: "", country: "", state: "", district: "", city: "",
     education: "", occupation: "", marital: "", children: "", income: "",
@@ -561,7 +555,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
     participation: [], reward_pref: "", upi_id: ""
   }, validatorToDraft(validator));
   
-  const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
+  const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
   
   
 
@@ -592,11 +586,11 @@ function UserOnboarding({ step, onNext, vid, validator }) {
   const err = getUserIssue(step, d);
   if (err) {
     setShowErrors(true);
-    setIssue(err);
     requestAnimationFrame(() => {
       document.querySelector(`[data-field="${err.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   } else {
+    setShowErrors(false);
     onNext(d);
   }
 }} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
@@ -630,7 +624,6 @@ function UserOnboarding({ step, onNext, vid, validator }) {
                 <span className="pre" style={{ fontWeight: 600 }}>+91</span>
                 <input className="fin" value={d.mobile} onChange={e => set("mobile", e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" style={{ background: "var(--panel-inset)", border: "none" }} />
               </div>
-              {showErrors && !d.mobile?.trim() && <div style={{color:"var(--danger)", fontSize:13, marginTop:4}}>* Please fill in Mobile number.</div>}
             </Field>
           </div>
 
@@ -1006,8 +999,8 @@ function UserOnboarding({ step, onNext, vid, validator }) {
 }
 
 function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
-  const [issue, setIssue] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
+  const issue = showErrors ? getValidatorIssue(step, d) : null;
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
@@ -1020,7 +1013,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
     expertise_areas: [],
     interests: [], participation: [], reward_pref: ""
   }, validatorToDraft(validator));
-  const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
+  const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
   
   
 
@@ -1074,11 +1067,11 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
   const err = getValidatorIssue(step, d);
   if (err) {
     setShowErrors(true);
-    setIssue(err);
     requestAnimationFrame(() => {
       document.querySelector(`[data-field="${err.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   } else {
+    setShowErrors(false);
     onNext(d);
   }
 }} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
@@ -1112,7 +1105,6 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
                 <span className="pre" style={{ fontWeight: 600 }}>+91</span>
                 <input className="fin" value={d.mobile} onChange={e => set("mobile", e.target.value)} placeholder="1234567890" style={{ background: "var(--panel-inset)", border: "none" }} />
               </div>
-              {showErrors && !d.mobile?.trim() && <div style={{color:"var(--danger)", fontSize:13, marginTop:4}}>* Please fill in Mobile number.</div>}
             </Field>
           </div>
           
@@ -1428,8 +1420,8 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
 }
 
 function TesterOnboarding({ step, onNext, error, vid, validator }) {
-  const [issue, setIssue] = useState(null);
   const [showErrors, setShowErrors] = useState(false);
+  const issue = showErrors ? getTesterIssue(step, d) : null;
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
@@ -1443,22 +1435,16 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
     interests: [], reward_pref: "", upi_id: ""
   }, validatorToDraft(validator));
   
-  const [cityOptions, setCityOptions] = useState([]);
-  const [cityLoading, setCityLoading] = useState(false);
-
-  useEffect(() => {
-    if (!d.country || !d.state) { setTimeout(() => setCityOptions([]), 0); return; }
-    let cancelled = false;
-    setTimeout(() => setCityLoading(true), 0);
-    fetch(`/api/geo/cities?country=${encodeURIComponent(d.country)}&state=${encodeURIComponent(d.state)}`)
-      .then(r => r.json())
-      .then(data => { if (!cancelled) setCityOptions(data.cities || []); })
-      .catch(() => { if (!cancelled) setCityOptions([]); })
-      .finally(() => { if (!cancelled) setCityLoading(false); });
-    return () => { cancelled = true; };
+  const cityOptions = useMemo(() => {
+    if (!d.country || !d.state) return [];
+    const cData = Country.getAllCountries().find(c => c.name === d.country);
+    if (!cData) return [];
+    const sData = State.getStatesOfCountry(cData.isoCode).find(s => s.name === d.state);
+    if (!sData) return [];
+    return City.getCitiesOfState(cData.isoCode, sData.isoCode).map(c => c.name);
   }, [d.country, d.state]);
 
-  const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
+  const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
   
   
 
@@ -1513,11 +1499,11 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
   const err = getTesterIssue(step, d);
   if (err) {
     setShowErrors(true);
-    setIssue(err);
     requestAnimationFrame(() => {
       document.querySelector(`[data-field="${err.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   } else {
+    setShowErrors(false);
     onNext(d);
   }
 }} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
@@ -1551,7 +1537,6 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
                 <span className="pre" style={{ fontWeight: 600, color: "var(--text-muted)" }}>+91</span>
                 <input className="fin" type="tel" value={d.mobile} onChange={e => set("mobile", e.target.value)} />
               </div>
-              {showErrors && !d.mobile?.trim() && <div style={{color:"var(--danger)", fontSize:13, marginTop:4}}>* Please fill in Mobile number.</div>}
             </Field>
           </div>
 
@@ -1573,16 +1558,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
                 <SearchableSelect value={d.state} onChange={v => { set("state", v); set("city", ""); }} options={REGIONS_BY_COUNTRY[d.country] || []} placeholder="" />
               </Field>
               <Field label="City optional" dataField="city">
-                {cityLoading ? (
-                  <div className="inw"><input className="fin" disabled value="Loading cities..." style={{ background: "var(--panel-inset)", border: "none" }} /></div>
-                ) : cityOptions.length > 0 ? (
-                  <SearchableSelect value={d.city} onChange={v => set("city", v)} options={cityOptions} placeholder="Select city" />
-                ) : (
-                  <div className="inw has-pre">
-                    <span className="pre"><Icon name="mapPin" size={14} /></span>
-                    <input className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)} placeholder="Type your city" style={{ background: "var(--panel-inset)", border: "none" }} />
-                  </div>
-                )}
+                  <SearchableSelect value={d.city} onChange={v => set("city", v)} options={cityOptions} placeholder="Select city" disabled={!d.country || !d.state} />
               </Field>
             </div>
           </div>
@@ -1937,11 +1913,13 @@ function PendingScreen({ onContinue }) {
 export default function VOnboarding() {
   const { t } = useTranslation();
   const { validator, refresh } = useVAuth();
-  const [validatorType, setValidatorType] = useDraft(`VC_V_TYPE_${validator?.id}`, null);
+  const [searchParams] = useSearchParams();
+  const initialRole = searchParams.get("role");
+  const [validatorType, setValidatorType] = useDraft(`VC_V_TYPE_${validator?.id}`, null, null, initialRole);
   const [showPending, setShowPending] = useState(false);
   const [error, setError] = useState("");
   const [phase, setPhase] = useState("form"); // "form" | "animation" | "opportunities"
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   useEffect(() => {
     const role = searchParams.get("role");
     if (role && role !== validatorType) {
@@ -1973,21 +1951,6 @@ export default function VOnboarding() {
   const isSwitchingRole = !!validatorType && validatorType !== currentRole;
   const isDirty = !!validatorType && !showPending && (!alreadyOnboarded || isSwitchingRole);
   useUnsavedChangesWarning(isDirty, t("vOnboarding.unsavedChangesWarning", null, "You're still setting up your account. Are you sure you want to leave and lose your progress?"));
-
-  // Fired unconditionally on every mount before, so it could show twice from
-  // any double-render, and would wrongly reappear on a later, unrelated visit
-  // to this same page (e.g. Settings' "Reapply for Verified Tester" routes
-  // back through here for an account that isn't new). A persisted per-account
-  // flag makes this genuinely once-ever, regardless of how many times the
-  // page happens to mount.
-  useEffect(() => {
-    if (!validator?.id) return;
-    const key = `vc_onboarding_toast_shown_${validator.id}`;
-    if (localStorage.getItem(key)) return;
-    localStorage.setItem(key, "1");
-    toast.success(t("onboarding.accountCreated", null, "Account created!"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validator?.id]);
 
   const handleDone = async (data, vtype, skipRedirect = false) => {
     setError("");
@@ -2033,7 +1996,13 @@ export default function VOnboarding() {
         .catch(console.error);
     }
   };
-  const goBack = () => (step > 0 ? setStep(s => s - 1) : setValidatorType(null));
+  const goBack = () => {
+    if (step > 0) setStep(s => s - 1);
+    else {
+      setValidatorType(null);
+      navigate("/validator/get-started", { replace: true });
+    }
+  };
   const jumpToStep = (i) => { if (i <= maxReached) setStep(i); };
 
 
@@ -2052,7 +2021,14 @@ export default function VOnboarding() {
 
   const finishFlow = () => {
     window.__bypassUnload = true;
-    window.location.href = "/validator";
+    if (validator?.id) {
+      const key = `vc_onboarding_toast_shown_${validator.id}`;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, "1");
+        toast.success(t("onboarding.accountCreated", null, "Account created!"));
+      }
+    }
+    navigate("/validator");
   };
 
   let memberType = "Basic Member";
@@ -2066,6 +2042,10 @@ export default function VOnboarding() {
 
   if (phase === "opportunities") {
     return <VOpportunitiesResults roleName={roleName} color={layoutColor} memberType={memberType} onComplete={finishFlow} onSkip={finishFlow} />;
+  }
+
+  if (!validatorType) {
+    return <Navigate to="/validator/get-started" replace />;
   }
 
   return (
@@ -2083,7 +2063,6 @@ export default function VOnboarding() {
       nextLabel={step === totalSteps - 1 ? (validatorType === "tester" || validatorType === "validator" ? t("vOnboarding.actions.seeMyOpportunities", null, "See my opportunities") : t("vOnboarding.actions.completeSetup", null, "Complete setup")) : t("vOnboarding.actions.continue", null, "Continue")}
     >
       {showPending ? <PendingScreen onContinue={() => window.location.href = "/validator"} />
-        : !validatorType ? <Navigate to="/validator/get-started" replace />
         : validatorType === "user" ? <UserOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} />
         : validatorType === "validator" ? <ValidatorOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} error={error} />
         : <TesterOnboarding vid={validator?.id} validator={validator} step={step} onNext={goNext} error={error} />}

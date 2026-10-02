@@ -276,3 +276,4 @@ body {
 [style*="grid"] > .fld {
   margin-bottom: 0;
 }
+@keyframes spin { 100% { transform: rotate(360deg); } }\n.spin { animation: spin 1s linear infinite; }
