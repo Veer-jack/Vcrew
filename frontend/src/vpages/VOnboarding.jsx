@@ -2007,7 +2007,7 @@ export default function VOnboarding() {
   const goBack = () => {
     if (step > 0) setStep(s => s - 1);
     else {
-      setValidatorType(null);
+      window.__bypassUnload = true;
       navigate("/validator/get-started", { replace: true });
     }
   };
