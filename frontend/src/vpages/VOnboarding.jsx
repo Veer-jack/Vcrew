@@ -158,7 +158,7 @@ export const Field = ({ label, required, hint, info, action, children, dataField
   return (
     <div className={`fld${isError ? " fld-invalid" : ""}`} style={{ marginBottom: 24 }} data-field={dataField}>
       <div className="row between" style={{ alignItems: "center" }}>
-        <label style={{ fontWeight: 800, color: "#1e293b" }}>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}
+        <label style={{ fontWeight: 700, color: "#1e293b" }}>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}
           {info && <Icon name="info" size={13} style={{ verticalAlign: -2, marginLeft: 5, color: "var(--text-faint)", cursor: "help" }} title={info} />}
         </label>
         {action}
@@ -213,21 +213,65 @@ function SearchableSelect({ value, onChange, options, placeholder }) {
       {open && (
         <div className="scroll-hover" style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, maxHeight: 260, overflowY: "auto",
-          background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-md)", padding: 6,
+          background: "var(--bg)", border: "1px solid var(--primary-weak)", borderRadius: 8, boxShadow: "var(--shadow-md)", padding: "4px 0",
         }}>
           {filtered.length === 0 && <div className="muted" style={{ padding: "8px 10px", fontSize: 13 }}>{placeholder}</div>}
           {filtered.map((o, i) => (
             <div key={o} className="menu-item" onMouseDown={e => e.preventDefault()} onClick={() => commit(o)}
               style={{
-                padding: "8px 10px", cursor: "pointer", borderRadius: "var(--radius-sm)", fontSize: 13.5,
-                background: i === activeIndex ? "var(--accent-weak)" : "transparent",
-                color: o === value ? "var(--accent)" : "var(--text)", fontWeight: o === value ? 700 : 500,
+                padding: "8px 16px", cursor: "pointer", fontSize: 14,
+                background: i === activeIndex ? "var(--primary)" : "transparent",
+                color: i === activeIndex ? "#fff" : "var(--text)", fontWeight: 400,
               }}>
               {o}
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function VerificationField({ icon, label, value, onChange, placeholder, description, defaultSubmitted }) {
+  const [input, setInput] = useState(value || '');
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(defaultSubmitted || !!value);
+
+  const handleSubmit = () => {
+    if (!input.trim()) return;
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setSubmitted(true);
+      onChange(input);
+    }, 1500);
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      <div style={{ width: 40, height: 40, borderRadius: 8, background: submitted ? 'var(--success-weak)' : 'var(--panel-inset)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+        <Icon name={submitted ? 'check' : icon} size={20} style={{ color: submitted ? 'var(--success)' : 'var(--text-muted)' }} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{label}</div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <input className="fin" value={input} onChange={e => { setInput(e.target.value); setSubmitted(false); }} placeholder={placeholder} style={{ flex: 1, background: 'var(--panel-inset)', border: 'none' }} />
+          {loading ? (
+            <button type="button" className="btn" disabled style={{ padding: '0 16px', background: '#fef3c7', color: '#d97706', border: 'none', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Icon name="loader" size={14} className="spin" /> Submitting...
+            </button>
+          ) : submitted ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 16px', borderRadius: 8, background: 'var(--warning-weak)', color: 'var(--warning)', fontWeight: 600, fontSize: 13 }}>
+              <Icon name="clock" size={14} /> Sent for review
+            </div>
+          ) : (
+            <button type="button" onClick={handleSubmit} className="btn" style={{ padding: '0 16px', background: '#f1f5f9', color: 'var(--text)', border: 'none', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+              Submit for review
+            </button>
+          )}
+        </div>
+        {description && <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 8 }}>{description}</div>}
+      </div>
     </div>
   );
 }
@@ -514,7 +558,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
     education: "", occupation: "", marital: "", children: "", income: "",
     interests: [], shopping_freq: "", platforms: [],
     height: "", weight: "", skin_type: "", diet: "", fitness: "",
-    participation: [], reward_pref: [], upi_id: ""
+    participation: [], reward_pref: "", upi_id: ""
   }, validatorToDraft(validator));
   
   const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
@@ -586,6 +630,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
                 <span className="pre" style={{ fontWeight: 600 }}>+91</span>
                 <input className="fin" value={d.mobile} onChange={e => set("mobile", e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" style={{ background: "var(--panel-inset)", border: "none" }} />
               </div>
+              {showErrors && !d.mobile?.trim() && <div style={{color:"var(--danger)", fontSize:13, marginTop:4}}>* Please fill in Mobile number.</div>}
             </Field>
           </div>
 
@@ -606,10 +651,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             </Field>
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>
-            <span style={{ display: "inline-block", marginRight: 12 }}>Location</span>
-            <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 70px)" }} />
-          </div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Location</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
@@ -976,7 +1018,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
     linkedin_url: "", resume_filename: "", professional_license: "", certification: "",
     current_role: "", industry: "", company: "", experience: "",
     expertise_areas: [],
-    interests: [], participation: [], reward_pref: []
+    interests: [], participation: [], reward_pref: ""
   }, validatorToDraft(validator));
   const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
   
@@ -1070,6 +1112,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
                 <span className="pre" style={{ fontWeight: 600 }}>+91</span>
                 <input className="fin" value={d.mobile} onChange={e => set("mobile", e.target.value)} placeholder="1234567890" style={{ background: "var(--panel-inset)", border: "none" }} />
               </div>
+              {showErrors && !d.mobile?.trim() && <div style={{color:"var(--danger)", fontSize:13, marginTop:4}}>* Please fill in Mobile number.</div>}
             </Field>
           </div>
           
@@ -1079,10 +1122,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
             </div>
           </Field>
           
-          <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginBottom: 12, marginTop: 24 }}>
-            <span style={{ display: "inline-block", marginRight: 12 }}>Location</span>
-            <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 90px)" }} />
-          </div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, marginTop: 24, gap: 12 }}><span>Location</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
               <SearchableSelect value={d.country} onChange={v => set("country", v)} options={["India", "United States", "United Kingdom", "Canada"]} placeholder="Select country" />
@@ -1115,30 +1155,20 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Add any one</div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Add any one</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 24, marginBottom: 24 }}>
-            <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 8, background: d.linkedin_url ? "var(--success-weak)" : "var(--panel-inset)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-                <Icon name={d.linkedin_url ? "check" : "link"} size={20} style={{ color: d.linkedin_url ? "var(--success)" : "var(--text-muted)" }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>LinkedIn profile</div>
-                <div style={{ display: "flex", gap: 12 }}>
-                  <input className="fin" value={d.linkedin_url} onChange={e => set("linkedin_url", e.target.value)} placeholder="linkedin.com/in/_" style={{ flex: 1, background: "var(--panel-inset)", border: "none" }} />
-                  {d.linkedin_url ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", borderRadius: 8, background: "var(--warning-weak)", color: "var(--warning)", fontWeight: 600, fontSize: 13 }}>
-                      <Icon name="clock" size={14} /> Sent for review
-                    </div>
-                  ) : (
-                    <button type="button" className="btn" style={{ padding: "0 16px", background: "#f1f5f9", color: "var(--text)", border: "none", fontWeight: 600, fontSize: 13 }}>Submit for review</button>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 8 }}>We confirm your role and experience from your public profile.</div>
-              </div>
-            </div>
+            <VerificationField
+              icon="link"
+              label="LinkedIn profile"
+              value={d.linkedin_url}
+              onChange={v => set("linkedin_url", v)}
+              placeholder="linkedin.com/in/_"
+              description="We confirm your role and experience from your public profile."
+              defaultSubmitted={!!d.linkedin_url}
+            />
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Resume / CV <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Resume / CV <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           {resumeUploaded ? (
             <div style={{ border: "1px solid var(--success)", borderRadius: 12, padding: 20, marginBottom: 32, background: "var(--success-weak)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -1149,7 +1179,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 2 }}>{resumeFile?.name || d.resume_filename || "Approval_Letter.pdf"}</div>
                   <div style={{ fontSize: 12, color: "var(--text-faint)" }}>Uploaded - {resumeFile ? Math.round(resumeFile.size / 1024) : 248} KB</div>
                 </div>
-                <button type="button" className="btn" style={{ padding: "0 16px", background: "#fff", color: "var(--text)", border: "1px solid var(--border)", fontWeight: 600, fontSize: 13 }} onClick={() => { setResumeFile(null); setResumeUploaded(false); set("resume_filename", ""); }}>Replace</button>
+                <button type="button" className="btn" style={{ padding: "8px 16px", background: "#fff", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, fontWeight: 600, fontSize: 13 }} onClick={() => { setResumeFile(null); setResumeUploaded(false); set("resume_filename", ""); }}>Replace</button>
               </div>
             </div>
           ) : (
@@ -1410,7 +1440,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
     products_tested: [], testing_areas: [], experience_years: "",
     job_title: "", company: "", industry: "", qualification: "",
     devices_mobile: [], devices_desktop: [], devices_browser: [],
-    interests: [], reward_pref: [], upi_id: ""
+    interests: [], reward_pref: "", upi_id: ""
   }, validatorToDraft(validator));
   
   const [cityOptions, setCityOptions] = useState([]);
@@ -1521,6 +1551,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
                 <span className="pre" style={{ fontWeight: 600, color: "var(--text-muted)" }}>+91</span>
                 <input className="fin" type="tel" value={d.mobile} onChange={e => set("mobile", e.target.value)} />
               </div>
+              {showErrors && !d.mobile?.trim() && <div style={{color:"var(--danger)", fontSize:13, marginTop:4}}>* Please fill in Mobile number.</div>}
             </Field>
           </div>
 
@@ -1533,10 +1564,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
 
           <div style={{ marginTop: 24 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>
-              <span style={{ display: "inline-block", marginRight: 12 }}>Location</span>
-              <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 90px)" }} />
-            </div>
+            <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Location</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
                 <SearchableSelect value={d.country} onChange={v => { set("country", v); set("state", ""); set("city", ""); }} options={COUNTRY_NAMES} placeholder="" />
@@ -1571,31 +1599,21 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Add any one</div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Add any one</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: 20, marginBottom: 24 }}>
-            <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 8, background: d.linkedin_url ? "var(--success-weak)" : "var(--panel-inset)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-                <Icon name={d.linkedin_url ? "check" : "link"} size={20} style={{ color: d.linkedin_url ? "var(--success)" : "var(--text-muted)" }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>LinkedIn profile</div>
-                <div style={{ display: "flex", gap: 12 }}>
-                  <input className="fin" value={d.linkedin_url} onChange={e => set("linkedin_url", e.target.value)} placeholder="linkedin.com/in/_" style={{ flex: 1, background: "var(--panel-inset)", border: "none" }} />
-                  {d.linkedin_url ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 16px", borderRadius: 8, background: "var(--warning-weak)", color: "var(--warning)", fontWeight: 600, fontSize: 13 }}>
-                      <Icon name="clock" size={14} /> Sent for review
-                    </div>
-                  ) : (
-                    <button type="button" className="btn" style={{ padding: "0 16px", background: "#f1f5f9", color: "var(--text)", border: "none", fontWeight: 600, fontSize: 13 }}>Submit for review</button>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--text-faint)", marginTop: 8 }}>We confirm your experience from your public profile.</div>
-              </div>
-            </div>
+            <VerificationField
+              icon="link"
+              label="LinkedIn profile"
+              value={d.linkedin_url}
+              onChange={v => set("linkedin_url", v)}
+              placeholder="linkedin.com/in/_"
+              description="We confirm your experience from your public profile."
+              defaultSubmitted={!!d.linkedin_url}
+            />
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Resume / CV <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Resume / CV <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           
           {resumeUploaded ? (
             <div style={{ border: "1px solid var(--success)", borderRadius: 12, padding: 20, marginBottom: 32, background: "var(--success-weak)" }}>
@@ -1607,7 +1625,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 2 }}>{resumeFile?.name || d.resume_filename || "Approval_Letter.pdf"}</div>
                   <div style={{ fontSize: 12, color: "var(--text-faint)" }}>Uploaded - {resumeFile ? Math.round(resumeFile.size / 1024) : 248} KB</div>
                 </div>
-                <button type="button" className="btn" style={{ padding: "0 16px", background: "#fff", color: "var(--text)", border: "1px solid var(--border)", fontWeight: 600, fontSize: 13 }} onClick={() => { setResumeFile(null); setResumeUploaded(false); set("resume_filename", ""); }}>Replace</button>
+                <button type="button" className="btn" style={{ padding: "8px 16px", background: "#fff", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 8, fontWeight: 600, fontSize: 13 }} onClick={() => { setResumeFile(null); setResumeUploaded(false); set("resume_filename", ""); }}>Replace</button>
               </div>
             </div>
           ) : (
@@ -1627,7 +1645,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           {resumeError && <div className="err-banner" style={{ marginTop: 8, marginBottom: 24 }}>{resumeError}</div>}
 
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 24px 0" }} />
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Optional links</div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Optional links</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label={<>Portfolio website <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
               <div className="inw has-pre">
@@ -1662,9 +1680,13 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Products you've tested</div>
-            <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.products_tested.length} selected</div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 16, gap: 12 }}>
+            <span>Products you've tested</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.products_tested.length} selected</span>
+            <button type="button" onClick={() => set("products_tested", d.products_tested.length === PROD_TESTED.length ? [] : PROD_TESTED.map(p => p.id))} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+              {d.products_tested.length === PROD_TESTED.length ? "Deselect all" : "Select all"}
+            </button>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
             {PROD_TESTED.map(p => {
@@ -1683,7 +1705,14 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
             })}
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Testing areas</div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}>
+            <span>Testing areas</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.testing_areas.length} selected</span>
+            <button type="button" onClick={() => set("testing_areas", d.testing_areas.length === TESTING_AREAS.length ? [] : [...TESTING_AREAS])} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+              {d.testing_areas.length === TESTING_AREAS.length ? "Deselect all" : "Select all"}
+            </button>
+          </div>
           <div data-field="testing_areas" style={{marginBottom:10}}>{showErrors && (!d.testing_areas || d.testing_areas.length===0) && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select Testing areas.</span>}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
             {TESTING_AREAS.map(a => {
@@ -1699,7 +1728,10 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
             })}
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Years of experience</div>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}>
+            <span>Years of experience</span>
+            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {EXP_YEARS.map(y => {
               const active = d.experience_years === y;
@@ -1751,10 +1783,11 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           <div style={{ marginBottom: 28 }}>
             <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Which devices can you test on?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
-              Some tests need specific devices or browsers. The more you have, the more you'll be matched to.
+              Some tests need specific devices or browsers. The more you have, the more you'll be<br />matched to.
             </p>
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
+          {showErrors && (!d.devices_mobile?.length && !d.devices_desktop?.length && !d.devices_browser?.length) && <div style={{color:"var(--danger)", fontSize:13, fontWeight:400, marginBottom: 24}}>* Please select at least one device or browser.</div>}
           
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Mobile</div>
@@ -1818,8 +1851,16 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
             </p>
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
+          {showErrors && (!d.interests || d.interests.length === 0) && <div style={{color:"var(--danger)", fontSize:13, fontWeight:400, marginBottom: 24}}>* Please select Areas of interest.</div>}
           
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Areas of interest</div>
+          <div style={{ display: 'flex', alignItems: 'center', fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 12, gap: 12 }}>
+    <span>Areas of Interest</span>
+    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+    <span style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 600 }}>{d.interests.length} selected</span>
+    <button type="button" onClick={() => set('interests', d.interests.length === INTERESTS.length ? [] : [...INTERESTS])} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }}>
+      {d.interests.length === INTERESTS.length ? 'Clear all' : 'Select all'}
+    </button>
+  </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {INTERESTS.map(m => {
               const active = d.interests.includes(m);
@@ -1845,20 +1886,27 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
             </p>
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
+          {showErrors && (!d.reward_pref || d.reward_pref.length === 0) && <div style={{color:"var(--danger)", fontSize:13, fontWeight:400, marginBottom: 24}}>* Please select Preferred reward.</div>}
           
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Preferred reward</div>
+          <div style={{ display: 'flex', alignItems: 'center', fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 12, gap: 12 }}>
+    <span>Preferred reward</span>
+    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+  </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
             {REWARD_PREFS.map(m => {
-              const active = d.reward_pref.includes(m);
+              const active = d.reward_pref === m;
               return (
-                <div key={m} onClick={() => set("reward_pref", toggle(d.reward_pref, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>
+                <div key={m} onClick={() => set("reward_pref", m)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>
                   {m}
                 </div>
               );
             })}
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Payout details</div>
+          <div style={{ display: 'flex', alignItems: 'center', fontSize: 14, fontWeight: 700, color: '#1e293b', marginBottom: 12, gap: 12 }}>
+    <span>Payout details</span>
+    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+  </div>
           <Field label={<>UPI ID <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>} hint="Where we'll send your rewards. You can add this later.">
             <div className="inw has-pre">
               <span className="pre"><Icon name="zap" size={14} /></span>
