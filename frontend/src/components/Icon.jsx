@@ -95,13 +95,17 @@ const PATHS = {
   info: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01",
   archive: "M21 8v13H3V8M1 3h22v5H1zM10 12h4",
   landmark: "M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2 21 9H3l9-7z",
+  monitor: "M2 3h20v14H2zM8 21h8M12 17v4",
+  smartphone: "M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 18h.01",
+  cloud: "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",
+  tag: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
+  zap: "M13 2 3 14h9l-1 8 10-12h-9l1-8Z",
 };
-
-export default function Icon({ name, size = 18, style, className, strokeWidth = 1.9 }) {
+export default function Icon({ name, size = 18, style, className, strokeWidth = 1.9, fill = "none" }) {
   const d = PATHS[name];
   if (!d) return null;
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor"
+    <svg viewBox="0 0 24 24" width={size} height={size} fill={fill} stroke="currentColor"
       strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" style={style} className={className} aria-hidden="true">
       {d.split("M").filter(Boolean).map((seg, i) => <path key={i} d={"M" + seg} />)}
     </svg>

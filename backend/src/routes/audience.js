@@ -5,6 +5,48 @@ import { FILTERS } from "../meta.js";
 import { BADGES, levelForCompleted, computeProfileCompletion } from "../vmeta.js";
 
 export const router = Router();
+
+router.post("/match-preview", async (req, res) => {
+  const audience = req.body || {};
+  const { clauses, params } = buildAudienceClauses(audience);
+  const where = clauses.length ? `AND ${clauses.join(" AND ")}` : "";
+  
+  const sql = `SELECT * FROM validators WHERE 1=1 ${where} ORDER BY id DESC LIMIT 4`;
+  const rows = await db.prepare(sql).all(params);
+  
+  const colors = ["#4f46e5", "#0ea5e9", "#d97706", "#db2777"];
+  
+  const mapped = rows.map((v, i) => {
+    let expertise = [];
+    try { expertise = JSON.parse(v.specialties_json || "[]"); } catch (e) {}
+
+    const rawType = v.validator_type ? v.validator_type.charAt(0).toUpperCase() + v.validator_type.slice(1) : "User";
+    const finalRole = v.role === "User" || !v.role ? rawType : (v.role || "User");
+
+    const completeness = (v.location ? 20 : 0) + (v.bio ? 20 : 0) + (expertise.length > 0 ? 30 : 0) + (v.verified ? 30 : 0);
+    const match_pct = Math.min(100, 50 + completeness);
+
+    const names = v.name.trim().split(/\s+/);
+    let initials = "?";
+    if (names.length > 1) {
+      initials = names[0][0] + names[names.length - 1][0];
+    } else if (names.length === 1 && names[0]) {
+      initials = names[0].slice(0, 2);
+    }
+
+    return {
+      initials: initials.toUpperCase(),
+      name: v.name,
+      role: `${finalRole} · ${v.city || v.location || "Unknown"}`,
+      tags: expertise.slice(0, 3),
+      match: match_pct,
+      color: colors[i % colors.length]
+    };
+  });
+
+  res.json({ members: mapped });
+});
+
 router.use(authMiddleware);
 
 router.get("/", async (req, res) => {

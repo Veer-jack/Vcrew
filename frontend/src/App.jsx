@@ -35,6 +35,7 @@ import VLogin from "./vpages/VLogin";
 import VOAuthCallback from "./vpages/OAuthCallback";
 import VOnboarding from "./vpages/VOnboarding";
 import VSettings from "./vpages/VSettings";
+import VRoleSelect from "./vpages/VRoleSelect";
 import VEditAccountStep from "./vpages/VEditAccountStep";
 import MissionBrief from "./vpages/MissionBrief";
 import DailyCheckin from "./vpages/DailyCheckin";
@@ -175,8 +176,8 @@ function RequireVAuth({ children }) {
   if (loading) return <div className="page rise"><div className="muted">Loading…</div></div>;
   if (!validator) { rememberPreLoginPath(location.pathname); return <Navigate to="/validator/login" replace />; }
   
-  if ((!validator.validator_type || !validator.city) && !location.pathname.includes("/validator/onboarding")) {
-    return <Navigate to="/validator/onboarding" replace />;
+  if ((!validator.validator_type || !validator.city) && !location.pathname.includes("/validator/onboarding") && !location.pathname.includes("/validator/get-started")) {
+    return <Navigate to="/validator/get-started" replace />;
   }
   
   return children;
@@ -189,7 +190,8 @@ function ValidatorRoutes() {
   return (
     <Routes>
       <Route path="login" element={<VLogin />} />
-        <Route path="onboarding" element={<RequireVAuth><VOnboarding /></RequireVAuth>} />
+      <Route path="get-started" element={<RequireVAuth><VRoleSelect /></RequireVAuth>} />
+      <Route path="onboarding" element={<RequireVAuth><VOnboarding /></RequireVAuth>} />
       {/* Standalone, outside VLayout -- same full-screen wizard treatment as
           the onboarding wizard itself and the builder side's own
           /settings/edit-step/:step. key={validator?.id} only (not the path,

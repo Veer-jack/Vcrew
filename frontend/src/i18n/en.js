@@ -1501,9 +1501,9 @@ const en = {
     createBuilderAccount: "Create your builder account",
     chooseDescFitsBest: "Choose the description that fits you best — we'll tailor every step that follows.",
     welcome: "Welcome to ValidationCrew",
-    whichBestDescribesYou: "Which best describes you?",
+    whichBestDescribesYou: "Pick your role",
     currentRole: "Current role",
-    chooseTypeDesc: "Choose your type to see the right missions for you.",
+    chooseTypeDesc: "Choose the description that fits you best — we'll tailor every step that follows.",
     missions: "Missions:",
     appSubmitted: "Application submitted!",
     appSubmittedDesc: "Our team will review your profile within 72 hours. In the meantime you have full Validator access.",
@@ -3065,9 +3065,15 @@ const en = {
   vOnboarding: {
     steps: {
       basicInfo: "Basic info",
+      education: "Education",
+      occupation: "Occupation",
+      household: "Household",
       demographics: "Demographics",
       physicalProfile: "Physical profile",
       lifestyle: "Lifestyle",
+      bonus: "Bonus",
+      participation: "Participation",
+      rewards: "Rewards",
       professional: "Professional",
       expertise: "Expertise",
       availability: "Availability",
@@ -3176,22 +3182,18 @@ const en = {
     types: {
       user: {
         title: "User",
-        tagline: "I use everyday products",
-        desc: "Perfect for testing physical products, food, packaging, fashion, and consumer apps. No tech experience needed.",
-        missions: "Surveys, taste tests, packaging reviews, lifestyle products",
+        desc: "Share your honest opinion as a real consumer, discover new products, and earn rewards.",
+        continue: "Continue as User"
       },
       validator: {
         title: "Validator",
-        tagline: "I have professional expertise",
-        desc: "For professionals, domain experts, and tech-savvy users who can evaluate apps, SaaS products, and digital experiences.",
-        missions: "App testing, UX evaluation, SaaS reviews, expert feedback",
+        desc: "Bring your professional judgment — review products in your domain and earn for high-signal feedback.",
+        continue: "Continue as Validator"
       },
       tester: {
-        title: "Verified Tester",
-        tagline: "I have QA / product testing experience",
-        desc: "For experienced testers and researchers. Submit your resume or LinkedIn for admin verification. Access premium high-pay missions.",
-        missions: "Premium missions, complex testing, research studies",
-        badge: "Admin verified 72hr review",
+        title: "Tester",
+        desc: "Run structured QA, mobile, web, SaaS, AI and beta tests — get paid for your testing expertise.",
+        continue: "Continue as Tester"
       },
     },
     options: {
