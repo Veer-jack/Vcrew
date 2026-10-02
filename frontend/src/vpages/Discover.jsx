@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "react-hot-toast";
 import Icon from "../components/Icon";
 import { Btn } from "../components/ui";
 import { VEmpty, VReward, VTypeTag } from "../vcomponents/vui";
@@ -373,7 +374,7 @@ export default function Discover() {
   // above only seeds the initial value on mount.
   useEffect(() => {
     if (STATUS_TAB_KEYS.includes(urlStatusTab) && urlStatusTab !== statusTab) {
-      setStatusTabState(urlStatusTab);
+      setTimeout(() => setStatusTabState(urlStatusTab), 0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlStatusTab]);
@@ -398,8 +399,15 @@ export default function Discover() {
     window.history.pushState(null, "", window.location.href);
     const onPop = () => window.history.pushState(null, "", window.location.href);
     window.addEventListener("popstate", onPop);
+    
+    // Check if we just completed onboarding
+    if (localStorage.getItem("vc_show_account_created") === "1") {
+      localStorage.removeItem("vc_show_account_created");
+      toast.success(t("onboarding.accountCreated", null, "Account created!"));
+    }
+    
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     setTimeout(() => setVisibleCount(20), 0);
@@ -418,7 +426,7 @@ export default function Discover() {
 
   // Status is filtered client-side over the already-fetched list (see
   // visibleTasks below), so switching tabs just resets the "Load more" cursor.
-  useEffect(() => { setVisibleCount(20); }, [statusTab]);
+  useEffect(() => { setTimeout(() => setVisibleCount(20), 0); }, [statusTab]);
 
   const onOpen = (task) => {
     if (task.myStatus === "completed") {
