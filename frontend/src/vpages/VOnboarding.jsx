@@ -158,7 +158,7 @@ export const Field = ({ label, required, hint, info, action, children, dataField
   return (
     <div className={`fld${isError ? " fld-invalid" : ""}`} style={{ marginBottom: 24 }} data-field={dataField}>
       <div className="row between" style={{ alignItems: "center" }}>
-        <label>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}
+        <label style={{ fontWeight: 800, color: "#1e293b" }}>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}
           {info && <Icon name="info" size={13} style={{ verticalAlign: -2, marginLeft: 5, color: "var(--text-faint)", cursor: "help" }} title={info} />}
         </label>
         {action}
@@ -208,7 +208,7 @@ function SearchableSelect({ value, onChange, options, placeholder }) {
           (background-image, see builder.css) -- this is a plain input, so
           that rule doesn't apply, and a selected value with no dropdown
           affordance at all reads as just a text field, not a select. */}
-      <Icon name="chevronDown" size={14} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} />
+      <svg width="10" height="7" viewBox="0 0 10 7" style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", fill: "#94a3b8", pointerEvents: "none" }}><path d="M0 0L5 6L10 0Z" /></svg>
       {open && (
         <div className="scroll-hover" style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 50, maxHeight: 260, overflowY: "auto",
@@ -256,7 +256,7 @@ export function CountryStateFields({ d, set, stateFirst = false, withCity = fals
     // eslint-disable-next-line
     if (!withCity || !hasCountry || !hasState) { setCityOptions([]); return; }
     let cancelled = false;
-    setCityLoading(true);
+    setTimeout(() => setCityLoading(true), 0);
     fetch(`/api/geo/cities?country=${encodeURIComponent(d.country)}&state=${encodeURIComponent(d.state)}`)
       .then(r => r.json())
       .then(data => { if (!cancelled) setCityOptions(data.cities || []); })
@@ -605,7 +605,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             </Field>
           </div>
 
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>
             <span style={{ display: "inline-block", marginRight: 12 }}>Location</span>
             <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 70px)" }} />
           </div>
@@ -1078,7 +1078,10 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
             </div>
           </Field>
           
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, marginTop: 24 }}>Location</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginBottom: 12, marginTop: 24 }}>
+            <span style={{ display: "inline-block", marginRight: 12 }}>Location</span>
+            <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 90px)" }} />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
               <SearchableSelect value={d.country} onChange={v => set("country", v)} options={["India", "United States", "United Kingdom", "Canada"]} placeholder="Select country" />
@@ -1409,6 +1412,21 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
     interests: [], reward_pref: [], upi_id: ""
   }, validatorToDraft(validator));
   
+  const [cityOptions, setCityOptions] = useState([]);
+  const [cityLoading, setCityLoading] = useState(false);
+
+  useEffect(() => {
+    if (!d.country || !d.state) { setTimeout(() => setCityOptions([]), 0); return; }
+    let cancelled = false;
+    setTimeout(() => setCityLoading(true), 0);
+    fetch(`/api/geo/cities?country=${encodeURIComponent(d.country)}&state=${encodeURIComponent(d.state)}`)
+      .then(r => r.json())
+      .then(data => { if (!cancelled) setCityOptions(data.cities || []); })
+      .catch(() => { if (!cancelled) setCityOptions([]); })
+      .finally(() => { if (!cancelled) setCityLoading(false); });
+    return () => { cancelled = true; };
+  }, [d.country, d.state]);
+
   const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
   
   
@@ -1514,7 +1532,10 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
 
           <div style={{ marginTop: 24 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Location</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "#1e293b", marginBottom: 12 }}>
+              <span style={{ display: "inline-block", marginRight: 12 }}>Location</span>
+              <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 90px)" }} />
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
                 <SearchableSelect value={d.country} onChange={v => { set("country", v); set("state", ""); set("city", ""); }} options={COUNTRY_NAMES} placeholder="" />
@@ -1522,11 +1543,17 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
                 <SearchableSelect value={d.state} onChange={v => { set("state", v); set("city", ""); }} options={REGIONS_BY_COUNTRY[d.country] || []} placeholder="" />
               </Field>
-              <Field label="City optional">
-                <div className="inw has-pre">
-                  <span className="pre"><Icon name="mapPin" size={14} /></span>
-                  <input className="fin" value={d.city} onChange={e => set("city", e.target.value)} />
-                </div>
+              <Field label="City optional" dataField="city">
+                {cityLoading ? (
+                  <div className="inw"><input className="fin" disabled value="Loading cities..." style={{ background: "var(--panel-inset)", border: "none" }} /></div>
+                ) : cityOptions.length > 0 ? (
+                  <SearchableSelect value={d.city} onChange={v => set("city", v)} options={cityOptions} placeholder="Select city" />
+                ) : (
+                  <div className="inw has-pre">
+                    <span className="pre"><Icon name="mapPin" size={14} /></span>
+                    <input className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)} placeholder="Type your city" style={{ background: "var(--panel-inset)", border: "none" }} />
+                  </div>
+                )}
               </Field>
             </div>
           </div>
