@@ -418,7 +418,92 @@ export function validatorToDraft(validator) {
   };
 }
 
+
+const getUserIssue = (step, d) => {
+  if (step === 0) {
+    if (!d.name?.trim()) return { id: "name", message: "Please fill in Full name." };
+    if (!d.email?.trim()) return { id: "email", message: "Please fill in Email address." };
+    if (!d.mobile?.trim()) return { id: "mobile", message: "Please fill in Mobile number." };
+    if (!d.dob) return { id: "dob", message: "Please fill in Date of birth." };
+    if (!d.gender) return { id: "gender", message: "Please fill in Gender." };
+    if (!d.country) return { id: "country", message: "Please fill in Country." };
+    if (!d.state) return { id: "state", message: "Please fill in State." };
+  } else if (step === 1) {
+    if (!d.education) return { id: "education", message: "Please fill in Highest qualification." };
+  } else if (step === 2) {
+    if (!d.occupation) return { id: "occupation", message: "Please fill in Occupation." };
+  } else if (step === 3) {
+    if (!d.marital) return { id: "marital", message: "Please fill in Marital status." };
+    if (!d.income) return { id: "income", message: "Please fill in Household income." };
+  } else if (step === 4) {
+    if (!d.interests?.length) return { id: "interests", message: "Please select Interests." };
+    if (!d.shopping_freq) return { id: "shopping_freq", message: "Please select Shopping frequency." };
+    if (!d.platforms?.length) return { id: "platforms", message: "Please select E-commerce platforms." };
+  } else if (step === 6) {
+    if (!d.participation?.length) return { id: "participation", message: "Please select Participation preferences." };
+  } else if (step === 7) {
+    if (!d.reward_pref?.length) return { id: "reward_pref", message: "Please select Reward preferences." };
+  }
+  return null;
+};
+
+const getValidatorIssue = (step, d) => {
+  if (step === 0) {
+    if (!d.name?.trim()) return { id: "name", message: "Please fill in Full name." };
+    if (!d.email?.trim()) return { id: "email", message: "Please fill in Email address." };
+    if (!d.mobile?.trim()) return { id: "mobile", message: "Please fill in Mobile number." };
+    if (!d.dob) return { id: "dob", message: "Please fill in Date of birth." };
+    if (!d.country) return { id: "country", message: "Please fill in Country." };
+    if (!d.state) return { id: "state", message: "Please fill in State." };
+  } else if (step === 1) {
+    if (!d.education) return { id: "education", message: "Please fill in Highest qualification." };
+    if (!d.occupation) return { id: "occupation", message: "Please fill in Current role." };
+    if (!d.industry) return { id: "industry", message: "Please fill in Industry." };
+  } else if (step === 2) {
+    if (!d.verification_method) return { id: "verification_method", message: "Please select Verification method." };
+  } else if (step === 3) {
+    if (!d.expertise_areas?.length) return { id: "expertise_areas", message: "Please select Expertise areas." };
+  } else if (step === 4) {
+    if (!d.interests?.length) return { id: "interests", message: "Please select Interests." };
+  } else if (step === 5) {
+    if (!d.participation?.length) return { id: "participation", message: "Please select Participation preferences." };
+  } else if (step === 6) {
+    if (!d.reward_pref?.length) return { id: "reward_pref", message: "Please select Reward preferences." };
+  }
+  return null;
+};
+
+const getTesterIssue = (step, d) => {
+  if (step === 0) {
+    if (!d.name?.trim()) return { id: "name", message: "Please fill in Full name." };
+    if (!d.email?.trim()) return { id: "email", message: "Please fill in Email address." };
+    if (!d.mobile?.trim()) return { id: "mobile", message: "Please fill in Mobile number." };
+    if (!d.dob) return { id: "dob", message: "Please fill in Date of birth." };
+    if (!d.country) return { id: "country", message: "Please fill in Country." };
+    if (!d.state) return { id: "state", message: "Please fill in State." };
+  } else if (step === 1) {
+    // verification is optional
+  } else if (step === 2) {
+    if (!d.products_tested?.length) return { id: "products_tested", message: "Please select Products you've tested." };
+    if (!d.testing_areas?.length) return { id: "testing_areas", message: "Please select Testing areas." };
+    if (!d.experience_years) return { id: "experience_years", message: "Please select Years of experience." };
+  } else if (step === 3) {
+    if (!d.job_title?.trim()) return { id: "job_title", message: "Please fill in Current job title." };
+    if (!d.industry) return { id: "industry", message: "Please fill in Industry." };
+    if (!d.qualification) return { id: "qualification", message: "Please fill in Highest qualification." };
+  } else if (step === 4) {
+    if (!d.devices_mobile?.length && !d.devices_desktop?.length && !d.devices_browser?.length) return { id: "devices_mobile", message: "Please select at least one device or browser." };
+  } else if (step === 5) {
+    if (!d.interests?.length) return { id: "interests", message: "Please select Interests." };
+  } else if (step === 6) {
+    if (!d.reward_pref?.length) return { id: "reward_pref", message: "Please select Reward preferences." };
+  }
+  return null;
+};
+
 function UserOnboarding({ step, onNext, vid, validator }) {
+  const [issue, setIssue] = useState(null);
+  const [showErrors, setShowErrors] = useState(false);
   const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { 
     name: "", email: validator?.email || "", mobile: "", dob: "", gender: "", country: "", state: "", district: "", city: "",
     education: "", occupation: "", marital: "", children: "", income: "",
@@ -427,18 +512,9 @@ function UserOnboarding({ step, onNext, vid, validator }) {
     participation: [], reward_pref: [], upi_id: ""
   }, validatorToDraft(validator));
   
-  const set = (k, v) => setD(p => ({ ...p, [k]: v }));
+  const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
   
-  const valid = [
-    d.name?.trim() && d.email?.trim() && d.mobile?.trim() && d.dob && d.gender && d.country,
-    d.education,
-    d.occupation,
-    d.marital && d.income,
-    d.interests?.length > 0 && d.shopping_freq && d.platforms?.length > 0,
-    true, // Bonus is optional
-    d.participation?.length > 0,
-    d.reward_pref?.length > 0
-  ];
+  
 
   const EDUCATION_ARR = ["School", "Diploma", "Graduate", "Postgraduate", "Doctorate"];
   const OCCUPATIONS_ARR = ["Student", "Working Professional", "Entrepreneur", "Homemaker", "Freelancer", "Retired", "Unemployed"];
@@ -462,7 +538,19 @@ function UserOnboarding({ step, onNext, vid, validator }) {
   const REWARDS_ARR = ["Cash", "Gift cards", "Coupons", "Product samples"];
 
   return (
-    <form id="v-onboarding-form" onSubmit={(e) => { e.preventDefault(); if (valid[step]) onNext(d); }} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
+    <form id="v-onboarding-form" onSubmit={(e) => { 
+  e.preventDefault(); 
+  const err = getUserIssue(step, d);
+  if (err) {
+    setShowErrors(true);
+    setIssue(err);
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-field="${err.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  } else {
+    onNext(d);
+  }
+}} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
       {step === 0 && (
         <>
           <div style={{ marginBottom: 28 }}>
@@ -473,7 +561,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
-          <Field label="Full name">
+          <Field label="Full name" required dataField="name" issue={issue} invalid={showErrors && !d.name?.trim()}>
             <div className="inw has-pre">
               <span className="pre"><Icon name="user" size={14} /></span>
               <input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder="Your full name" style={{ background: "var(--panel-inset)", border: "none" }} />
@@ -481,14 +569,14 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           </Field>
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Email address">
+            <Field label="Email address" required dataField="email" issue={issue} invalid={showErrors && !d.email?.trim()}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="mail" size={14} /></span>
                 <input className="fin" type="email" value={d.email} onChange={e => set("email", e.target.value)} placeholder="your@email.com" style={{ background: "var(--panel-inset)", border: "none" }} />
                 {d.email && <span className="suf"><Icon name="check" size={16} style={{ color: "var(--success)" }} /></span>}
               </div>
             </Field>
-            <Field label="Mobile number">
+            <Field label="Mobile number" required dataField="mobile" issue={issue} invalid={showErrors && !d.mobile?.trim()}>
               <div className="inw has-pre">
                 <span className="pre" style={{ fontWeight: 600 }}>+91</span>
                 <input className="fin" value={d.mobile} onChange={e => set("mobile", e.target.value.replace(/\D/g, '').slice(0, 10))} placeholder="9876543210" style={{ background: "var(--panel-inset)", border: "none" }} />
@@ -497,13 +585,13 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Date of birth">
+            <Field label="Date of birth" required dataField="dob" issue={issue} invalid={showErrors && !d.dob}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="calendar" size={14} /></span>
                 <input className="fin" type="date" value={d.dob} onChange={e => set("dob", e.target.value)} style={{ background: "var(--panel-inset)", border: "none" }} />
               </div>
             </Field>
-            <Field label="Gender">
+            <Field label="Gender" required dataField="gender" issue={issue} invalid={showErrors && !d.gender}>
               <select className="fin" value={d.gender} onChange={e => set("gender", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
                 <option value="" disabled>Select</option>
                 <option value="Male">Male</option>
@@ -519,13 +607,13 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           </div>
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Country">
+            <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
               <select className="fin" value={d.country} onChange={e => set("country", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
                 <option value="" disabled>Select country</option>
                 <option value="India">India</option>
               </select>
             </Field>
-            <Field label="State">
+            <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
               <select className="fin" value={d.state} onChange={e => set("state", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
                 <option value="" disabled>Select state</option>
                 <option value="Tamil Nadu">Tamil Nadu</option>
@@ -614,7 +702,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Marital status">
+            <Field label="Marital status" required dataField="marital" issue={issue} invalid={showErrors && !d.marital}>
               <select className="fin" value={d.marital} onChange={e => set("marital", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
                 <option value="" disabled>Select</option>
                 <option value="Single">Single</option>
@@ -661,6 +749,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             </div>
             <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600, background: "var(--panel)", paddingLeft: 8 }}>{d.interests.length} selected</div>
           </div>
+          <div data-field="interests" style={{marginBottom:10}}>{showErrors && (!d.interests || d.interests.length===0) && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select Interests.</span>}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
             {LIFESTYLE_INTERESTS.map(a => {
               const active = d.interests.includes(a);
@@ -682,6 +771,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             <span style={{ display: "inline-block", marginRight: 12 }}>How often do you shop online?</span>
             <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 220px)" }} />
           </div>
+          <div data-field="shopping_freq" style={{marginBottom:10}}>{showErrors && !d.shopping_freq && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select Shopping frequency.</span>}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
             {SHOPPING_FREQ.map(f => (
               <button
@@ -695,6 +785,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             <span style={{ display: "inline-block", marginRight: 12 }}>Platforms you use</span>
             <span style={{ height: 1, background: "var(--border)", display: "inline-block", verticalAlign: "middle", width: "calc(100% - 140px)" }} />
           </div>
+          <div data-field="platforms" style={{marginBottom:10}}>{showErrors && (!d.platforms || d.platforms.length===0) && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select E-commerce platforms.</span>}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {PLATFORMS.map(p => {
               const active = d.platforms.includes(p);
@@ -868,6 +959,8 @@ function UserOnboarding({ step, onNext, vid, validator }) {
 }
 
 function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
+  const [issue, setIssue] = useState(null);
+  const [showErrors, setShowErrors] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
@@ -880,17 +973,9 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
     expertise_areas: [],
     interests: [], participation: [], reward_pref: []
   }, validatorToDraft(validator));
-  const set = (k, v) => setD(p => ({ ...p, [k]: v }));
+  const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
   
-  const valid = [
-    d.name?.trim() && d.email?.trim() && d.mobile?.trim() && d.dob && d.country,
-    !!(d.linkedin_url?.trim() || resumeUploaded || d.professional_license?.trim() || d.certification?.trim()),
-    d.current_role && d.industry && d.experience,
-    d.expertise_areas?.length > 0,
-    d.interests?.length > 0,
-    d.participation?.length > 0,
-    d.reward_pref?.length > 0
-  ];
+  
 
   const pickResume = async (f) => {
     setResumeError("");
@@ -937,7 +1022,19 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
   const ROLES_ARR = ["Product Manager", "Designer", "Engineer", "Researcher", "Executive", "Other"];
 
   return (
-    <form id="v-onboarding-form" onSubmit={(e) => { e.preventDefault(); if (valid[step]) onNext(d); }} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
+    <form id="v-onboarding-form" onSubmit={(e) => { 
+  e.preventDefault(); 
+  const err = getValidatorIssue(step, d);
+  if (err) {
+    setShowErrors(true);
+    setIssue(err);
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-field="${err.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  } else {
+    onNext(d);
+  }
+}} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
       {step === 0 && (
         <>
           <div style={{ marginBottom: 28 }}>
@@ -948,7 +1045,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
-          <Field label="Full name" required>
+          <Field label="Full name" required dataField="name" issue={issue} invalid={showErrors && !d.name?.trim()}>
             <div className="inw has-pre">
               <span className="pre"><Icon name="user" size={14} /></span>
               <input className="fin" value={d.name} onChange={e => set("name", e.target.value)} placeholder="Your full name" style={{ background: "var(--panel-inset)", border: "none" }} />
@@ -956,14 +1053,14 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           </Field>
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Email address" required>
+            <Field label="Email address" required dataField="email" issue={issue} invalid={showErrors && !d.email?.trim()}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="mail" size={14} /></span>
                 <input className="fin" type="email" value={d.email} onChange={e => set("email", e.target.value)} placeholder="you@example.com" style={{ background: "var(--panel-inset)", border: "none" }} />
                 {d.email && <span style={{ position: "absolute", right: 12, top: 12, color: "var(--success)" }}><Icon name="check" size={14} /></span>}
               </div>
             </Field>
-            <Field label="Mobile number" required>
+            <Field label="Mobile number" required dataField="mobile" issue={issue} invalid={showErrors && !d.mobile?.trim()}>
               <div className="inw has-pre">
                 <span className="pre" style={{ fontWeight: 600 }}>+91</span>
                 <input className="fin" value={d.mobile} onChange={e => set("mobile", e.target.value)} placeholder="1234567890" style={{ background: "var(--panel-inset)", border: "none" }} />
@@ -971,7 +1068,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
             </Field>
           </div>
           
-          <Field label="Date of birth" required>
+          <Field label="Date of birth" required dataField="dob" issue={issue} invalid={showErrors && !d.dob}>
             <div className="inw has-pre" style={{ width: "50%" }}>
               <input className="fin" type="date" value={d.dob} onChange={e => set("dob", e.target.value)} style={{ background: "var(--panel-inset)", border: "none" }} />
             </div>
@@ -979,10 +1076,10 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, marginTop: 24 }}>Location</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Country" required>
+            <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
               <SearchableSelect value={d.country} onChange={v => set("country", v)} options={["India", "United States", "United Kingdom", "Canada"]} placeholder="Select country" />
             </Field>
-            <Field label="State" required>
+            <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
               <SearchableSelect value={d.state} onChange={v => set("state", v)} options={["Tamil Nadu", "Maharashtra", "Karnataka", "Delhi"]} placeholder="Select state" />
             </Field>
           </div>
@@ -1093,10 +1190,10 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Current role">
+            <Field label="Current role" required dataField="occupation" issue={issue} invalid={showErrors && !d.occupation}>
               <SearchableSelect value={d.current_role} onChange={v => set("current_role", v)} options={ROLES_ARR} placeholder="Select role" />
             </Field>
-            <Field label="Industry">
+            <Field label="Industry" required dataField="industry" issue={issue} invalid={showErrors && !d.industry}>
               <SearchableSelect value={d.industry} onChange={v => set("industry", v)} options={INDUSTRIES} placeholder="Select industry" />
             </Field>
           </div>
@@ -1140,6 +1237,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
             <div style={{ fontSize: 14, fontWeight: 700 }}>Expertise areas</div>
             <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.expertise_areas.length} selected</div>
           </div>
+          <div data-field="expertise_areas" style={{marginBottom:10}}>{showErrors && (!d.expertise_areas || d.expertise_areas.length===0) && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select Expertise areas.</span>}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {EXPERTISE_AREAS.map(a => {
               const active = d.expertise_areas.includes(a);
@@ -1292,6 +1390,8 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
 }
 
 function TesterOnboarding({ step, onNext, error, vid, validator }) {
+  const [issue, setIssue] = useState(null);
+  const [showErrors, setShowErrors] = useState(false);
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
@@ -1305,17 +1405,9 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
     interests: [], reward_pref: [], upi_id: ""
   }, validatorToDraft(validator));
   
-  const set = (k, v) => setD(p => ({ ...p, [k]: v }));
+  const set = (k, v) => { setIssue(null); setShowErrors(false); setD(p => ({ ...p, [k]: v })); };
   
-  const valid = [
-    d.name?.trim() && d.email?.trim() && d.mobile?.trim() && d.dob && d.city?.trim() && d.country,
-    !!(d.linkedin_url?.trim() || resumeUploaded),
-    d.products_tested?.length > 0 && d.testing_areas?.length > 0 && d.experience_years,
-    d.job_title?.trim() && d.industry && d.qualification,
-    d.devices_mobile?.length > 0 || d.devices_desktop?.length > 0 || d.devices_browser?.length > 0,
-    d.interests?.length > 0,
-    d.reward_pref?.length > 0
-  ];
+  
 
   const pickResume = async (f) => {
     setResumeError("");
@@ -1363,7 +1455,19 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
   const toggle = (arr, val) => arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val];
 
   return (
-    <form id="v-onboarding-form" onSubmit={(e) => { e.preventDefault(); if (valid[step]) onNext(d); }} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
+    <form id="v-onboarding-form" onSubmit={(e) => { 
+  e.preventDefault(); 
+  const err = getTesterIssue(step, d);
+  if (err) {
+    setShowErrors(true);
+    setIssue(err);
+    requestAnimationFrame(() => {
+      document.querySelector(`[data-field="${err.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  } else {
+    onNext(d);
+  }
+}} className="rise" style={{ maxWidth: 720, margin: "0 auto", background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", padding: "40px" }}>
       {step === 0 && (
         <>
           <div style={{ marginBottom: 28 }}>
@@ -1374,7 +1478,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
 
-          <Field label="Full name">
+          <Field label="Full name" required dataField="name" issue={issue} invalid={showErrors && !d.name?.trim()}>
             <div className="inw has-pre">
               <span className="pre"><Icon name="user" size={14} /></span>
               <input className="fin" value={d.name} onChange={e => set("name", e.target.value)} />
@@ -1382,14 +1486,14 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </Field>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Field label="Email address">
+            <Field label="Email address" required dataField="email" issue={issue} invalid={showErrors && !d.email?.trim()}>
               <div className="inw has-pre has-post">
                 <span className="pre"><Icon name="mail" size={14} /></span>
                 <input className="fin" type="email" value={d.email} onChange={e => set("email", e.target.value)} />
                 <span className="post"><Icon name="check" size={14} style={{ color: "var(--success)" }} /></span>
               </div>
             </Field>
-            <Field label="Mobile number">
+            <Field label="Mobile number" required dataField="mobile" issue={issue} invalid={showErrors && !d.mobile?.trim()}>
               <div className="inw has-pre">
                 <span className="pre" style={{ fontWeight: 600, color: "var(--text-muted)" }}>+91</span>
                 <input className="fin" type="tel" value={d.mobile} onChange={e => set("mobile", e.target.value)} />
@@ -1398,7 +1502,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
 
           <div style={{ maxWidth: "50%", paddingRight: 8 }}>
-            <Field label="Date of birth">
+            <Field label="Date of birth" required dataField="dob" issue={issue} invalid={showErrors && !d.dob}>
               <div className="inw has-post">
                 <input className="fin" type="date" value={d.dob} onChange={e => set("dob", e.target.value)} />
               </div>
@@ -1408,10 +1512,10 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           <div style={{ marginTop: 24 }}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Location</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Country">
+              <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
                 <SearchableSelect value={d.country} onChange={v => { set("country", v); set("state", ""); set("city", ""); }} options={COUNTRY_NAMES} placeholder="" />
               </Field>
-              <Field label="State">
+              <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
                 <SearchableSelect value={d.state} onChange={v => { set("state", v); set("city", ""); }} options={REGIONS_BY_COUNTRY[d.country] || []} placeholder="" />
               </Field>
               <Field label="City optional">
@@ -1548,6 +1652,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
 
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Testing areas</div>
+          <div data-field="testing_areas" style={{marginBottom:10}}>{showErrors && (!d.testing_areas || d.testing_areas.length===0) && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select Testing areas.</span>}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
             {TESTING_AREAS.map(a => {
               const active = d.testing_areas.includes(a);
@@ -1587,7 +1692,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Field label="Current job title">
+            <Field label="Current job title" required dataField="job_title" issue={issue} invalid={showErrors && !d.job_title?.trim()}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="briefcase" size={14} /></span>
                 <input className="fin" value={d.job_title} onChange={e => set("job_title", e.target.value)} />
@@ -1599,10 +1704,10 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
                 <input className="fin" value={d.company} onChange={e => set("company", e.target.value)} />
               </div>
             </Field>
-            <Field label="Industry">
+            <Field label="Industry" required dataField="industry" issue={issue} invalid={showErrors && !d.industry}>
               <SearchableSelect value={d.industry} onChange={v => set("industry", v)} options={INDUSTRIES.filter(o => o !== "Other")} placeholder="" />
             </Field>
-            <Field label="Highest qualification">
+            <Field label="Highest qualification" required dataField="education" issue={issue} invalid={showErrors && !d.education}>
               <SearchableSelect value={d.qualification} onChange={v => set("qualification", v)} options={QUALIFICATIONS} placeholder="" />
             </Field>
           </div>
