@@ -126,7 +126,7 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
         </div>
         <div>
           <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".08em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 6 }}>PROFILE STRENGTH</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: color }}>{memberType}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#059669" }}>{memberType}</div>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
@@ -134,7 +134,7 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
           const isDone = i < completedItems;
           return (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: i < displaySteps.length - 1 ? "1px solid var(--border)" : "none" }}>
-              <div style={{ width: 22, height: 22, borderRadius: "50%", border: isDone ? "none" : "1px solid #cbd5e1", background: isDone ? color : "transparent", color: isDone ? "#fff" : "#94a3b8", display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <div style={{ width: 22, height: 22, borderRadius: "50%", border: isDone ? "none" : "1px solid #cbd5e1", background: isDone ? "#059669" : "transparent", color: isDone ? "#fff" : "#94a3b8", display: "grid", placeItems: "center", flexShrink: 0 }}>
                 <Icon name="check" size={12} strokeWidth={isDone ? 3 : 2.5} />
               </div>
               <span style={{ fontSize: 14, fontWeight: isDone ? 700 : 600, color: isDone ? "var(--text)" : "var(--text-muted)" }}>{s}</span>
@@ -153,7 +153,7 @@ export default function VOnboardingLayout({ roleName, color, steps, currentStep,
   else if (roleName === "User") memberType = "Power Contributor";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#f8fafc", "--accent": color }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#f8fafc", "--accent": color, "--primary": color, "--primary-weak": color + "1a", "--primary-dark": color }}>
       <header style={{ padding: "0 24px", height: 64, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", background: "#fff", position: "sticky", top: 0, zIndex: 10 }}>
         <BrandLogoFull height={28} />
         <span style={{ color: "var(--border)", margin: "0 16px", fontSize: 18, fontWeight: 300 }}>|</span>

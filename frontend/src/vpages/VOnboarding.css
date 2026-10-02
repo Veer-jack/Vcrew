@@ -271,3 +271,8 @@ body {
 .fld {
   margin-bottom: 24px;
 }
+
+/* Remove bottom margin for fields inside grids to prevent double spacing */
+[style*="grid"] > .fld {
+  margin-bottom: 0;
+}
