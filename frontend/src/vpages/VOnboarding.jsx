@@ -153,18 +153,22 @@ export const Chips = ({ options, value, onChange, multi = true, getLabel }) => (
   </div>
 );
 
-export const Field = ({ label, required, hint, info, action, children }) => (
-  <div className="fld" style={{ marginBottom: 24 }}>
-    <div className="row between" style={{ alignItems: "center" }}>
-      <label>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}
-        {info && <Icon name="info" size={13} style={{ verticalAlign: -2, marginLeft: 5, color: "var(--text-faint)", cursor: "help" }} title={info} />}
-      </label>
-      {action}
+export const Field = ({ label, required, hint, info, action, children, dataField, issue, invalid }) => {
+  const isError = invalid || (issue && issue.id === dataField && dataField);
+  return (
+    <div className={`fld${isError ? " fld-invalid" : ""}`} style={{ marginBottom: 24 }} data-field={dataField}>
+      <div className="row between" style={{ alignItems: "center" }}>
+        <label>{label}{required && <span style={{ color: "var(--danger)", marginLeft: 3 }}>*</span>}
+          {info && <Icon name="info" size={13} style={{ verticalAlign: -2, marginLeft: 5, color: "var(--text-faint)", cursor: "help" }} title={info} />}
+        </label>
+        {action}
+      </div>
+      {children}
+      {isError && issue && issue.id === dataField && <p className="ferr" style={{ color: "var(--danger)", fontSize: 13, marginTop: 4, marginBottom: 0 }}>{issue.message}</p>}
+      {hint && <p className="fhint">{hint}</p>}
     </div>
-    {children}
-    {hint && <p className="fhint">{hint}</p>}
-  </div>
-);
+  );
+};
 
 // A single-value dropdown with filter-as-you-type -- checked first: nothing
 // like this already existed in the codebase (no combobox library installed
