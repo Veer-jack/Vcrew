@@ -161,8 +161,11 @@ export default function VOnboardingLayout({ roleName, color, steps, currentStep,
         
         <VTopProgressBar steps={steps} current={currentStep} maxReached={maxReached} onJump={onJump} color={color} />
         
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 8, background: "#1e293b", color: "#ffffff", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", borderBottom: `3px solid ${color}` }}>
-          <Icon name="star" size={14} fill={color} style={{ color }} /> {memberType}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 20px", borderRadius: 50, background: "#fff", color: "#1e293b", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", border: "1px solid #e2e8f0" }}>
+            <Icon name="star" size={14} fill={color} style={{ color }} /> {memberType}
+          </div>
+          <div style={{ width: 44, height: 3, borderRadius: 2, background: color }} />
         </div>
       </header>
 
