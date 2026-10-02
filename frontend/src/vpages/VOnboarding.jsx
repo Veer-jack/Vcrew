@@ -546,7 +546,6 @@ const getTesterIssue = (step, d) => {
 
 function UserOnboarding({ step, onNext, vid, validator }) {
   const [showErrors, setShowErrors] = useState(false);
-  const issue = showErrors ? getUserIssue(step, d) : null;
   const [d, setD] = useDraft(`VC_V_DRAFT_USER_${vid}`, { 
     name: "", email: validator?.email || "", mobile: "", dob: "", gender: "", country: "", state: "", district: "", city: "",
     education: "", occupation: "", marital: "", children: "", income: "",
@@ -554,6 +553,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
     height: "", weight: "", skin_type: "", diet: "", fitness: "",
     participation: [], reward_pref: "", upi_id: ""
   }, validatorToDraft(validator));
+  const issue = showErrors ? getUserIssue(step, d) : null;
   
   const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
   
@@ -1000,7 +1000,6 @@ function UserOnboarding({ step, onNext, vid, validator }) {
 
 function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
   const [showErrors, setShowErrors] = useState(false);
-  const issue = showErrors ? getValidatorIssue(step, d) : null;
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
@@ -1013,6 +1012,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
     expertise_areas: [],
     interests: [], participation: [], reward_pref: ""
   }, validatorToDraft(validator));
+  const issue = showErrors ? getValidatorIssue(step, d) : null;
   const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
   
   
@@ -1421,7 +1421,6 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
 
 function TesterOnboarding({ step, onNext, error, vid, validator }) {
   const [showErrors, setShowErrors] = useState(false);
-  const issue = showErrors ? getTesterIssue(step, d) : null;
   const [resumeFile, setResumeFile] = useState(null);
   const [resumeUploaded, setResumeUploaded] = useState(false);
   const [resumeUploading, setResumeUploading] = useState(false);
@@ -1434,6 +1433,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
     devices_mobile: [], devices_desktop: [], devices_browser: [],
     interests: [], reward_pref: "", upi_id: ""
   }, validatorToDraft(validator));
+  const issue = showErrors ? getTesterIssue(step, d) : null;
   
   const cityOptions = useMemo(() => {
     if (!d.country || !d.state) return [];
