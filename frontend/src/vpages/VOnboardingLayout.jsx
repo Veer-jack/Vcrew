@@ -167,7 +167,7 @@ export default function VOnboardingLayout({ roleName, color, steps, currentStep,
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
             <span>{memberType}</span>
-            <div style={{ width: 44, height: 3, borderRadius: 2, background: color }} />
+            <div style={{ width: 60, height: 4, borderRadius: 2, background: color }} />
           </div>
         </div>
       </header>
