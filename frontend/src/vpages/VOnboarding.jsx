@@ -1656,67 +1656,75 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           </div>
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
           
-          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 16, gap: 12 }}>
-            <span>Products you've tested</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.products_tested.length} selected</span>
-            <button type="button" onClick={() => set("products_tested", d.products_tested.length === PROD_TESTED.length ? [] : PROD_TESTED.map(p => p.id))} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-              {d.products_tested.length === PROD_TESTED.length ? "Deselect all" : "Select all"}
-            </button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-            {PROD_TESTED.map(p => {
-              const active = d.products_tested.includes(p.id);
-              return (
-                <div key={p.id} onClick={() => set("products_tested", toggle(d.products_tested, p.id))} style={{ border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", borderRadius: 12, padding: 16, cursor: "pointer", display: "flex", flexDirection: "column", position: "relative", gap: 32 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 8, background: active ? "var(--primary)" : "var(--panel-inset)", color: active ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center" }}>
-                    <Icon name={p.icon} size={20} />
+          <div data-field="products_tested">
+            <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: showErrors && !d.products_tested?.length ? "var(--danger)" : "#1e293b", marginBottom: 16, gap: 12 }}>
+              <span>Products you've tested <span className="req" style={{ color: "var(--danger)" }}>*</span></span>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.products_tested.length} selected</span>
+              <button type="button" onClick={() => set("products_tested", d.products_tested.length === PROD_TESTED.length ? [] : PROD_TESTED.map(p => p.id))} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+                {d.products_tested.length === PROD_TESTED.length ? "Deselect all" : "Select all"}
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: (showErrors && issue?.id === "products_tested") ? 8 : 32 }}>
+              {PROD_TESTED.map(p => {
+                const active = d.products_tested.includes(p.id);
+                return (
+                  <div key={p.id} onClick={() => set("products_tested", toggle(d.products_tested, p.id))} style={{ border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", borderRadius: 12, padding: 16, cursor: "pointer", display: "flex", flexDirection: "column", position: "relative", gap: 32 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: active ? "var(--primary)" : "var(--panel-inset)", color: active ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center" }}>
+                      <Icon name={p.icon} size={20} />
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{p.id}</div>
+                    <div style={{ position: "absolute", top: 12, right: 12, width: 20, height: 20, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
+                      {active && <Icon name="check" size={12} style={{ color: "#fff" }} />}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{p.id}</div>
-                  <div style={{ position: "absolute", top: 12, right: 12, width: 20, height: 20, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                    {active && <Icon name="check" size={12} style={{ color: "#fff" }} />}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {showErrors && issue?.id === "products_tested" && <p className="ferr" style={{ marginTop: 0, marginBottom: 32 }}><Icon name="alertCircle" size={12} /> {issue.message}</p>}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}>
-            <span>Testing areas</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-            <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.testing_areas.length} selected</span>
-            <button type="button" onClick={() => set("testing_areas", d.testing_areas.length === TESTING_AREAS.length ? [] : [...TESTING_AREAS])} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
-              {d.testing_areas.length === TESTING_AREAS.length ? "Deselect all" : "Select all"}
-            </button>
-          </div>
-          <div data-field="testing_areas" style={{marginBottom:10}}>{showErrors && (!d.testing_areas || d.testing_areas.length===0) && <span style={{color:"var(--danger)", fontSize:13, fontWeight:400, textTransform:"none"}}>* Please select Testing areas.</span>}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
-            {TESTING_AREAS.map(a => {
-              const active = d.testing_areas.includes(a);
-              return (
-                <div key={a} onClick={() => set("testing_areas", toggle(d.testing_areas, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                    {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
+          <div data-field="testing_areas">
+            <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: showErrors && !d.testing_areas?.length ? "var(--danger)" : "#1e293b", marginBottom: 12, gap: 12 }}>
+              <span>Testing areas <span className="req" style={{ color: "var(--danger)" }}>*</span></span>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+              <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.testing_areas.length} selected</span>
+              <button type="button" onClick={() => set("testing_areas", d.testing_areas.length === TESTING_AREAS.length ? [] : [...TESTING_AREAS])} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+                {d.testing_areas.length === TESTING_AREAS.length ? "Deselect all" : "Select all"}
+              </button>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: (showErrors && issue?.id === "testing_areas") ? 8 : 32 }}>
+              {TESTING_AREAS.map(a => {
+                const active = d.testing_areas.includes(a);
+                return (
+                  <div key={a} onClick={() => set("testing_areas", toggle(d.testing_areas, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
+                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{a}</span>
                   </div>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{a}</span>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            {showErrors && issue?.id === "testing_areas" && <p className="ferr" style={{ marginTop: 0, marginBottom: 32 }}><Icon name="alertCircle" size={12} /> {issue.message}</p>}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}>
-            <span>Years of experience</span>
-            <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {EXP_YEARS.map(y => {
-              const active = d.experience_years === y;
-              return (
-                <div key={y} onClick={() => set("experience_years", y)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>
-                  {y}
-                </div>
-              );
-            })}
+          <div data-field="experience_years">
+            <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: showErrors && !d.experience_years ? "var(--danger)" : "#1e293b", marginBottom: 12, gap: 12 }}>
+              <span>Years of experience <span className="req" style={{ color: "var(--danger)" }}>*</span></span>
+              <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: (showErrors && issue?.id === "experience_years") ? 8 : 0 }}>
+              {EXP_YEARS.map(y => {
+                const active = d.experience_years === y;
+                return (
+                  <div key={y} onClick={() => set("experience_years", y)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>
+                    {y}
+                  </div>
+                );
+              })}
+            </div>
+            {showErrors && issue?.id === "experience_years" && <p className="ferr" style={{ marginTop: 0 }}><Icon name="alertCircle" size={12} /> {issue.message}</p>}
           </div>
         </>
       )}
