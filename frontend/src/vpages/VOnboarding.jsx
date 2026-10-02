@@ -2033,7 +2033,10 @@ export default function VOnboarding() {
       const key = `vc_onboarding_toast_shown_${validator.id}`;
       if (!localStorage.getItem(key)) {
         localStorage.setItem(key, "1");
-        toast.success(t("onboarding.accountCreated", null, "Account created!"));
+        toast.success(t("onboarding.accountCreated", null, "Account created! 🎉"));
+        // Give the toast 1.2s to render before navigating away
+        setTimeout(() => navigate("/validator"), 1200);
+        return;
       }
     }
     navigate("/validator");
