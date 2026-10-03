@@ -669,26 +669,22 @@ function UserOnboarding({ step, onNext, vid, validator }) {
                 );
               })()}
             </Field>
-            {(() => {
-              const cData = d.country ? _allCountries.find(c => c.name === d.country) : null;
-              const sData = cData && d.state ? State.getStatesOfCountry(cData.isoCode).find(s => s.name === d.state) : null;
-              const districtOptions = sData ? City.getCitiesOfState(cData.isoCode, sData.isoCode).map(c => c.name) : [];
-              return (
-                <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-                  {districtOptions.length > 0 ? (
-                    <SearchableSelect
-                      value={d.district}
-                      onChange={v => set("district", v)}
-                      options={districtOptions}
-                      placeholder="Select district"
-                      disabled={!d.state}
-                    />
-                  ) : (
-                    <input className="fin" value={d.district || ""} onChange={e => set("district", e.target.value)} placeholder="Enter district" style={{ background: "var(--panel-inset)", border: "none" }} />
-                  )}
-                </Field>
-              );
-            })()}
+            <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
+              {(() => {
+                const cData = d.country ? _allCountries.find(c => c.name === d.country) : null;
+                const sData = cData && d.state ? State.getStatesOfCountry(cData.isoCode).find(s => s.name === d.state) : null;
+                const districtOptions = sData ? City.getCitiesOfState(cData.isoCode, sData.isoCode).map(c => c.name) : [];
+                return (
+                  <SearchableSelect
+                    value={d.district}
+                    onChange={v => set("district", v)}
+                    options={districtOptions}
+                    placeholder={!d.country ? "Select country first" : !d.state ? "Select state first" : "Select district"}
+                    disabled={!d.country || !d.state}
+                  />
+                );
+              })()}
+            </Field>
             <Field label={<>City <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="mapPin" size={14} /></span>
@@ -1161,16 +1157,46 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, marginTop: 24, gap: 12 }}><span>Location</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
-              <SearchableSelect value={d.country} onChange={v => set("country", v)} options={["India", "United States", "United Kingdom", "Canada"]} placeholder="Select country" />
+              <SearchableSelect
+                value={d.country}
+                onChange={v => { set("country", v); set("state", ""); set("district", ""); }}
+                options={COUNTRY_NAMES}
+                placeholder="Select country"
+              />
             </Field>
             <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
-              <SearchableSelect value={d.state} onChange={v => set("state", v)} options={["Tamil Nadu", "Maharashtra", "Karnataka", "Delhi"]} placeholder="Select state" />
+              {(() => {
+                const stateList = d.country ? (REGIONS_BY_COUNTRY[d.country] || []) : ALL_STATE_NAMES;
+                return stateList.length > 0 ? (
+                  <SearchableSelect
+                    value={d.state}
+                    onChange={v => { set("state", v); set("district", ""); }}
+                    options={stateList}
+                    placeholder="Select state"
+                  />
+                ) : (
+                  <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder="Enter state / region" style={{ background: "var(--panel-inset)", border: "none" }} />
+                );
+              })()}
             </Field>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <SearchableSelect value={d.district} onChange={v => set("district", v)} options={["Madurai", "Chennai", "Coimbatore"]} placeholder="Select district" />
-            </Field>
+            {(() => {
+              const cData = d.country ? _allCountries.find(c => c.name === d.country) : null;
+              const sData = cData && d.state ? State.getStatesOfCountry(cData.isoCode).find(s => s.name === d.state) : null;
+              const districtOptions = sData ? City.getCitiesOfState(cData.isoCode, sData.isoCode).map(c => c.name) : [];
+              return (
+                <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
+                  <SearchableSelect
+                    value={d.district}
+                    onChange={v => set("district", v)}
+                    options={districtOptions}
+                    placeholder={!d.country ? "Select country first" : !d.state ? "Select state first" : "Select district"}
+                    disabled={!d.country || !d.state}
+                  />
+                </Field>
+              );
+            })()}
             <Field label={<>City <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="mapPin" size={14} /></span>
@@ -1474,7 +1500,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
   const [resumeUploading, setResumeUploading] = useState(false);
   const [resumeError, setResumeError] = useState("");
   const [d, setD] = useDraft(`VC_V_DRAFT_TESTER_${vid}`, { 
-    name: "", email: validator?.email || "", mobile: "", dob: "", city: "", country: "", state: "", 
+    name: "", email: validator?.email || "", mobile: "", dob: "", district: "", city: "", country: "", state: "", 
     linkedin_url: "", portfolio_url: "", github_url: "", resume_filename: "",
     products_tested: [], testing_areas: [], experience_years: "",
     job_title: "", company: "", industry: "", qualification: "",
@@ -1598,15 +1624,46 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
 
           <div style={{ marginTop: 24 }}>
             <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: "#1e293b", marginBottom: 12, gap: 12 }}><span>Location</span><div style={{ flex: 1, height: 1, background: "var(--border)" }} /></div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
               <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
-                <SearchableSelect value={d.country} onChange={v => { set("country", v); set("state", ""); set("city", ""); }} options={COUNTRY_NAMES} placeholder="" />
+                <SearchableSelect
+                  value={d.country}
+                  onChange={v => { set("country", v); set("state", ""); set("district", ""); }}
+                  options={COUNTRY_NAMES}
+                  placeholder="Select country"
+                />
               </Field>
               <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
-                <SearchableSelect value={d.state} onChange={v => { set("state", v); set("city", ""); }} options={REGIONS_BY_COUNTRY[d.country] || []} placeholder="" />
+                {(() => {
+                  const stateList = d.country ? (REGIONS_BY_COUNTRY[d.country] || []) : ALL_STATE_NAMES;
+                  return stateList.length > 0 ? (
+                    <SearchableSelect
+                      value={d.state}
+                      onChange={v => { set("state", v); set("district", ""); }}
+                      options={stateList}
+                      placeholder="Select state"
+                    />
+                  ) : (
+                    <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder="Enter state / region" style={{ background: "var(--panel-inset)", border: "none" }} />
+                  );
+                })()}
               </Field>
-              <Field label="City optional" dataField="city">
-                  <SearchableSelect value={d.city} onChange={v => set("city", v)} options={cityOptions} placeholder="Select city" disabled={!d.country || !d.state} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
+                <SearchableSelect
+                  value={d.district}
+                  onChange={v => set("district", v)}
+                  options={cityOptions}
+                  placeholder={!d.country ? "Select country first" : !d.state ? "Select state first" : "Select district"}
+                  disabled={!d.country || !d.state}
+                />
+              </Field>
+              <Field label={<>City <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
+                <div className="inw has-pre">
+                  <span className="pre"><Icon name="mapPin" size={14} /></span>
+                  <input className="fin" value={d.city || ""} onChange={e => set("city", e.target.value)} placeholder="e.g. Madurai" style={{ background: "var(--panel-inset)", border: "none" }} />
+                </div>
               </Field>
             </div>
           </div>
