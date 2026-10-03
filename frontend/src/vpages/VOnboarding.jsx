@@ -437,11 +437,31 @@ export function resolveOnboardingOther(data, t) {
 // VSettings.jsx's edit form already does (occupation/industry/etc "Other"
 // values aren't stored separately -- reconstruct by checking whether the
 // saved value matches a known option).
-export function validatorToDraft(validator) {
-  if (!validator) return {};
+export function validatorToDraft(validator, vid) {
+  let extraBackfill = {};
+  try {
+    const roles = ["USER", "VALIDATOR", "TESTER"];
+    for (const r of roles) {
+      const stored = localStorage.getItem(`VC_V_DRAFT_${r}_${vid}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === "object") {
+          for (const k in parsed) {
+            const val = parsed[k];
+            if (val !== "" && val !== null && val !== undefined && !(Array.isArray(val) && val.length === 0)) {
+               extraBackfill[k] = val;
+            }
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  if (!validator) return extraBackfill;
+
   const savedOccupation = validator.occupation || "";
   const isCustomOccupation = savedOccupation && !OCCUPATIONS.includes(savedOccupation) && !ROLES.includes(savedOccupation);
-  return {
+  const dbBackfill = {
     name: validator.name || "", handle: validator.handle || "", city: validator.city || "",
     country: validator.country || "", state: validator.state || "",
     language: validator.languages || [], languageOther: (validator.languages || []).filter(v => !LANGUAGES.includes(v)),
@@ -459,6 +479,7 @@ export function validatorToDraft(validator) {
     certifications: validator.certifications || [], certificationsOther: (validator.certifications || []).filter(v => !CERT.includes(v)),
     linkedin_url: validator.linkedinUrl || "", portfolio_url: validator.portfolioUrl || "", testing_bio: validator.testingBio || "",
   };
+  return { ...dbBackfill, ...extraBackfill };
 }
 
 
@@ -553,7 +574,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
     interests: [], shopping_freq: "", platforms: [],
     height: "", weight: "", skin_type: "", diet: "", fitness: "",
     participation: [], reward_pref: [], upi_id: ""
-  }, validatorToDraft(validator));
+  }, validatorToDraft(validator, vid));
   const issue = showErrors ? getUserIssue(step, d) : null;
   
   const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
@@ -1099,7 +1120,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           <Field label={<>UPI ID <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>} hint="Where we'll send your rewards. You can add this later.">
             <div className="inw has-pre">
               <span className="pre"><Icon name="zap" size={14} /></span>
-              <input className="fin" value={d.upi_id || ""} onChange={e => set("upi_id", e.target.value)} placeholder="yourname@upi" style={{ background: "var(--panel-inset)", border: "none" }} />
+              <input autoComplete="off" name="upi_id" className="fin" value={d.upi_id || ""} onChange={e => set("upi_id", e.target.value)} placeholder="yourname@upi" style={{ background: "var(--panel-inset)", border: "none" }} />
             </div>
           </Field>
         </>
@@ -1121,7 +1142,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
     current_role: "", current_roleOther: "", industry: "", industryOther: "", company: "", experience: "",
     expertise_areas: [],
     interests: [], participation: [], reward_pref: []
-  }, validatorToDraft(validator));
+  }, validatorToDraft(validator, vid));
   const issue = showErrors ? getValidatorIssue(step, d) : null;
   const set = (k, v) => { setD(p => ({ ...p, [k]: v })); };
   
@@ -1569,7 +1590,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           <Field label={<>UPI ID <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>} hint="Where we'll send your rewards. You can add this later.">
             <div className="inw has-pre">
               <span className="pre"><Icon name="zap" size={14} /></span>
-              <input className="fin" value={d.upi_id || ""} onChange={e => set("upi_id", e.target.value)} placeholder="yourname@upi" style={{ background: "var(--panel-inset)", border: "none" }} />
+              <input autoComplete="off" name="upi_id" className="fin" value={d.upi_id || ""} onChange={e => set("upi_id", e.target.value)} placeholder="yourname@upi" style={{ background: "var(--panel-inset)", border: "none" }} />
             </div>
           </Field>
         </>
@@ -1593,7 +1614,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
     job_title: "", company: "", industry: "", qualification: "",
     devices_mobile: [], devices_desktop: [], devices_browser: [],
     interests: [], reward_pref: "", upi_id: ""
-  }, validatorToDraft(validator));
+  }, validatorToDraft(validator, vid));
   const issue = showErrors ? getTesterIssue(step, d) : null;
   
   const cityOptions = useMemo(() => {
@@ -1947,10 +1968,10 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               </div>
             </Field>
             <Field label="Industry" required dataField="industry" issue={issue} invalid={showErrors && !d.industry}>
-              <SearchableSelect value={d.industry} onChange={v => set("industry", v)} options={INDUSTRIES.filter(o => o !== "Other")} placeholder="" />
+              <SearchableSelect value={d.industry} onChange={v => set("industry", v)} options={INDUSTRIES.filter(o => o !== "Other")} placeholder="Select industry" />
             </Field>
             <Field label="Highest qualification" required dataField="education" issue={issue} invalid={showErrors && !d.education}>
-              <SearchableSelect value={d.qualification} onChange={v => set("qualification", v)} options={QUALIFICATIONS} placeholder="" />
+              <SearchableSelect value={d.qualification} onChange={v => set("qualification", v)} options={QUALIFICATIONS} placeholder="Select qualification" />
             </Field>
           </div>
         </>
@@ -2096,7 +2117,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
           <Field label={<>UPI ID <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>} hint="Where we'll send your rewards. You can add this later.">
             <div className="inw has-pre">
               <span className="pre"><Icon name="zap" size={14} /></span>
-              <input className="fin" value={d.upi_id} onChange={e => set("upi_id", e.target.value)} />
+              <input autoComplete="off" name="upi_id" className="fin" value={d.upi_id || ""} onChange={e => set("upi_id", e.target.value)} placeholder="yourname@upi" style={{ background: "var(--panel-inset)", border: "none" }} />
             </div>
           </Field>
         </>

@@ -1,16 +1,22 @@
+import { useEffect, useState } from 'react';
 import Icon from './Icon';
 import { BrandLogoFull } from './BrandMark';
-
-const MOCK_OPPORTUNITIES = [
-  { id: 1, title: "Onboarding test — fintech app", type: "App testing", tags: ["Fintech", "Mobile"], reward: "₹800", match: 96, icon: "box", color: "#4f46e5" },
-  { id: 2, title: "Review an AI writing assistant", type: "Product review", tags: ["AI", "SaaS"], reward: "₹600", match: 94, icon: "box", color: "#059669" },
-  { id: 3, title: "Usability testing for e-commerce", type: "Usability", tags: ["E-commerce", "UX"], reward: "₹1,200", match: 92, icon: "box", color: "#d97706" },
-  { id: 4, title: "Beta test a SaaS analytics dashboard", type: "Beta testing", tags: ["SaaS", "Beta"], reward: "₹1,000", match: 92, icon: "box", color: "#db2777" },
-  { id: 5, title: "Expert opinion — telehealth product", type: "Expert opinion", tags: ["Healthcare", "Expert"], reward: "₹2,500", match: 90, icon: "box", color: "#2563eb" },
-  { id: 6, title: "Focus group — new beverage launch", type: "Focus group", tags: ["FMCG", "Panel"], reward: "₹1,500", match: 86, icon: "box", color: "#8b5cf6" },
-];
+import { vapi } from '../vapi/client';
+import { TYPES } from '../vpages/VOnboarding.jsx';
 
 export default function VOpportunitiesResults({ roleName, color, memberType, strengthPct = 85, onComplete, onSkip }) {
+  const [tasks, setTasks] = useState([]);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    vapi.marketplace({ sort: "match" })
+      .then(d => {
+        setTasks((d.tasks || []).slice(0, 6));
+        setTotal(d.total || 0);
+      })
+      .catch(e => console.error("Failed to load opportunities:", e));
+  }, [roleName]);
+
   // SVG circular gauge logic
   const size = 64;
   const stroke = 6;
@@ -44,7 +50,7 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
             <Icon name="check" size={24} strokeWidth={3} />
           </div>
           <h1 style={{ fontSize: 36, fontWeight: 800, margin: "0 0 16px 0", color: "#0f172a", letterSpacing: "-0.02em" }}>
-            You match <span style={{ color }}>47</span> open opportunities
+            You match <span style={{ color }}>{total}</span> open opportunities
           </h1>
           <p style={{ fontSize: 16, color: "#64748b", maxWidth: 640, margin: "0 auto", lineHeight: 1.5 }}>
             Based on your profile, here's a preview of what's waiting — and what you could earn. New opportunities arrive every week.
@@ -91,32 +97,32 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>Top matched opportunities</h3>
             <div style={{ fontSize: 11, fontWeight: 600, color: color, background: `${color}15`, padding: "4px 10px", borderRadius: 12 }}>
-              6 <span style={{ margin: "0 2px" }}>of</span> 47
+              {tasks.length} <span style={{ margin: "0 2px" }}>of</span> {total}
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {MOCK_OPPORTUNITIES.map(opp => (
+            {tasks.map(opp => (
               <div key={opp.id} style={{ background: "#ffffff", border: "1px solid var(--border)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: opp.color, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon name={opp.icon} size={22} />
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: color, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon name="box" size={22} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 2 }}>{opp.title}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 2 }}>{opp.product || opp.company || opp.title}</div>
                     <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 8 }}>{opp.type}</div>
                     <div style={{ display: "flex", gap: 6 }}>
-                      {opp.tags.map(tag => (
-                        <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "4px 8px", borderRadius: 10 }}>
-                          {tag}
+                      {opp.category && (
+                        <span style={{ fontSize: 10, fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "4px 8px", borderRadius: 10 }}>
+                          {opp.category}
                         </span>
-                      ))}
+                      )}
                     </div>
                   </div>
                 </div>
                 
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#16a34a" }}>{opp.reward}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#16a34a" }}>₹{opp.reward}</div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: color, background: `${color}15`, padding: "4px 8px", borderRadius: 10 }}>
                     {opp.match}% match
                   </div>

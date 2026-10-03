@@ -3079,6 +3079,10 @@ const en = {
       availability: "Availability",
       proof: "Proof",
       declaration: "Declaration",
+      aboutYou: "About you",
+      verification: "Verification",
+      background: "Background",
+      interests: "Interests",
     },
     headers: {
       tellUsAboutYourself: "Tell us about yourself",
@@ -3165,6 +3169,7 @@ const en = {
       remove: "Remove",
       clickToUploadResume: "Click to upload resume",
       submitForVerification: "Submit for verification",
+      seeMyOpportunities: "See my opportunities",
     },
     errors: {
       onlyPdfAccepted: "Only PDF files are accepted.",
