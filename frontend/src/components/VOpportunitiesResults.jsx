@@ -12,9 +12,9 @@ const MOCK_OPPORTUNITIES = [
 
 export default function VOpportunitiesResults({ roleName, color, memberType, strengthPct = 85, onComplete, onSkip }) {
   // SVG circular gauge logic
-  const radius = 24;
-  const stroke = 4.5;
-  const normalizedRadius = radius - stroke * 2;
+  const size = 64;
+  const stroke = 6;
+  const normalizedRadius = (size / 2) - (stroke / 2);
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - (strengthPct / 100) * circumference;
 
@@ -69,13 +69,13 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
 
           <div style={{ flex: 1, background: "#ffffff", border: "1px solid var(--border)", borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20, boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
             <div style={{ position: "relative", width: 64, height: 64, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="64" height="64" viewBox="0 0 48 48" style={{ transform: "rotate(-90deg)" }}>
-                <circle cx="24" cy="24" r={normalizedRadius} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
-                <circle cx="24" cy="24" r={normalizedRadius} fill="none" stroke={color} strokeWidth={stroke} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease-out" }} />
+              <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: "rotate(-90deg)" }}>
+                <circle cx="32" cy="32" r={normalizedRadius} fill="none" stroke="#f1f5f9" strokeWidth={stroke} />
+                <circle cx="32" cy="32" r={normalizedRadius} fill="none" stroke={color} strokeWidth={stroke} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease-out" }} />
               </svg>
               <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
-                <span style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>{strengthPct}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", marginTop: 2 }}>/ 100</span>
+                <span style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>{strengthPct}</span>
+                <span style={{ fontSize: 10, fontWeight: 500, color: "var(--text-faint)", marginTop: 2 }}>/100</span>
               </div>
             </div>
             <div>

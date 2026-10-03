@@ -88,9 +88,9 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
   const completedItems = steps.length > 0 ? current : 0;
   const pct = displaySteps.length > 0 ? Math.round((completedItems / displaySteps.length) * 100) : 0;
   
-  const radius = 42;
+  const size = 84;
   const stroke = 8;
-  const normalizedRadius = radius - stroke * 2;
+  const normalizedRadius = (size / 2) - (stroke / 2);
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - (pct / 100) * circumference;
 
@@ -98,7 +98,7 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
     <div style={{ background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", width: 320, alignSelf: "flex-start", padding: "32px 24px", position: "sticky", top: 24 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <div style={{ position: "relative", width: 84, height: 84, display: "grid", placeItems: "center", flexShrink: 0 }}>
-          <svg height={84} width={84} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
+          <svg height={84} width={84} viewBox="0 0 84 84" style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
             <circle
               stroke="var(--panel-inset)"
               fill="transparent"
@@ -119,14 +119,14 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
               cy={42}
             />
           </svg>
-          <div style={{ textAlign: "center", marginTop: -2 }}>
-            <div style={{ fontSize: 32, fontWeight: 600, lineHeight: 1, letterSpacing: "-1px" }}>{pct}</div>
-            <div style={{ fontSize: 10, color: "var(--text-faint)", fontWeight: 600, marginTop: 4 }}>/100</div>
+          <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: "#0f172a" }}>{pct}</span>
+            <span style={{ fontSize: 10, fontWeight: 500, color: "var(--text-faint)", marginTop: 2 }}>/100</span>
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".1em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 4 }}>PROFILE STRENGTH</div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: color }}>{memberType}</div>
+          <div style={{ fontSize: 10, fontWeight: 500, letterSpacing: ".2em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 4 }}>PROFILE STRENGTH</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: color, letterSpacing: "-0.5px" }}>{memberType}</div>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>

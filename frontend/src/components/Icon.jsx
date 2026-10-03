@@ -100,6 +100,9 @@ const PATHS = {
   cloud: "M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z",
   tag: "M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82zM7 7h.01",
   zap: "M13 2 3 14h9l-1 8 10-12h-9l1-8Z",
+  flaskConical: "M10 2v7.31L2 21.5a1 1 0 0 0 .85 1.5h18.3a1 1 0 0 0 .85-1.5L14 9.31V2h-4zM8.5 2h7M14 9.31L19.5 20H4.5l5.5-10.69V2",
+  package: "M16.5 9.4 7.5 4.21M21 16V8a2 2 0 0 0-1-1.73L13 2.27a2 2 0 0 0-2 0L4 4.27A2 2 0 0 0 3 6v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
+  volume2: "M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"
 };
 export default function Icon({ name, size = 18, style, className, strokeWidth = 1.9, fill = "none" }) {
   const d = PATHS[name];

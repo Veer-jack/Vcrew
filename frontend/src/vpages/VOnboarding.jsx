@@ -598,7 +598,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 0 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Let's get to know you</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Let's get to know you</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               This stays private. We use it to match you with products and studies that actually fit your life — and to send your rewards.
             </p>
@@ -636,12 +636,19 @@ function UserOnboarding({ step, onNext, vid, validator }) {
               </div>
             </Field>
             <Field label="Gender" required dataField="gender" issue={issue} invalid={showErrors && !d.gender}>
-              <select className="fin" value={d.gender} onChange={e => set("gender", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="" disabled>Select</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.gender || ""} onChange={e => set("gender", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: (showErrors && !d.gender) ? "1px solid var(--danger)" : "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.gender ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="" disabled>Select</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Other">Other</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
           </div>
 
@@ -701,7 +708,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 1 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Your education</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Your education</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               A quick one — it helps with relevant matching.
             </p>
@@ -729,7 +736,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 2 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What do you do?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What do you do?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Pick what fits best — we'll ask one or two follow-ups based on your choice.
             </p>
@@ -757,7 +764,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 3 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Your household</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Your household</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Brands often match by household profile — this unlocks family and lifestyle studies.
             </p>
@@ -766,20 +773,36 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label="Marital status" required dataField="marital" issue={issue} invalid={showErrors && !d.marital}>
-              <select className="fin" value={d.marital} onChange={e => set("marital", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="" disabled>Select</option>
-                <option value="Single">Single</option>
-                <option value="Married">Married</option>
-                <option value="Divorced">Divorced</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.marital || ""} onChange={e => set("marital", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: (showErrors && !d.marital) ? "1px solid var(--danger)" : "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.marital ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="" disabled>Select</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Prefer not to say">Prefer not to say</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
             <Field label={<>Number of children <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.children} onChange={e => set("children", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="">None</option>
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3+">3+</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.children || ""} onChange={e => set("children", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.children ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="" disabled>Select</option>
+                  <option value="0">0</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4+">4+</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
           </div>
 
@@ -804,7 +827,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 4 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What are you into?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What are you into?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               The more we know about your tastes and habits, the better the products we'll match you with.
             </p>
@@ -888,66 +911,108 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 5 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Unlock better matches</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Unlock better matches</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Completely optional — share a little more and we'll match you to higher-paying fashion, beauty, food and fitness studies. Skip anything you'd rather not answer.
             </p>
           </div>
-          
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, background: "var(--success-weak)", border: "1px solid var(--success)", padding: "16px", borderRadius: 12, marginBottom: 28 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--success)", display: "grid", placeItems: "center", flexShrink: 0, color: "#fff" }}>
-              <Icon name="zap" size={16} />
+          <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, background: "linear-gradient(to right, #ecfdf5, #f8fafc)", border: "1px solid #6ee7b7", padding: "16px", borderRadius: 12, marginBottom: 28 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--primary)", display: "grid", placeItems: "center", flexShrink: 0, color: "#fff" }}>
+              <Icon name="zap" size={16} fill="currentColor" />
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>Unlock better-paid matches</div>
-              <div style={{ fontSize: 12, color: "var(--text-faint)" }}>These are used only for matching and are never shown to brands as personal data.</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>Unlock better-paid matches</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>These are used only for matching and are never shown to brands as personal data.</div>
             </div>
-            <div style={{ background: "#fff", border: "1px solid var(--success)", color: "var(--success)", fontWeight: 700, fontSize: 12, padding: "4px 12px", borderRadius: 20 }}>Optional</div>
+            <div style={{ background: "#fff", border: "1px solid #e2e8f0", color: "var(--primary)", fontWeight: 700, fontSize: 12, padding: "4px 12px", borderRadius: 20, boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>Optional</div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
             <Field label={<>Height range <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.height} onChange={e => set("height", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="">Prefer not to say</option>
-                <option value="< 5'0&quot;">&lt; 5'0&quot;</option>
-                <option value="5'0&quot; - 5'5&quot;">5'0&quot; - 5'5&quot;</option>
-                <option value="5'5&quot; - 6'0&quot;">5'5&quot; - 6'0&quot;</option>
-                <option value="> 6'0&quot;">&gt; 6'0&quot;</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.height || ""} onChange={e => set("height", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.height ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="">Prefer not to say</option>
+                  <option value="< 150 cm">&lt; 150 cm</option>
+                  <option value="150–160 cm">150–160 cm</option>
+                  <option value="160–170 cm">160–170 cm</option>
+                  <option value="170–180 cm">170–180 cm</option>
+                  <option value="180+ cm">180+ cm</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
             <Field label={<>Weight range <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.weight} onChange={e => set("weight", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="">Prefer not to say</option>
-                <option value="< 50kg">&lt; 50kg</option>
-                <option value="50-70kg">50-70kg</option>
-                <option value="70-90kg">70-90kg</option>
-                <option value="> 90kg">&gt; 90kg</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.weight || ""} onChange={e => set("weight", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.weight ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="">Prefer not to say</option>
+                  <option value="< 50 kg">&lt; 50 kg</option>
+                  <option value="50–65 kg">50–65 kg</option>
+                  <option value="65–80 kg">65–80 kg</option>
+                  <option value="80–95 kg">80–95 kg</option>
+                  <option value="95+ kg">95+ kg</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
             <Field label={<>Skin type <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.skin_type} onChange={e => set("skin_type", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="">Prefer not to say</option>
-                <option value="Oily">Oily</option>
-                <option value="Dry">Dry</option>
-                <option value="Combination">Combination</option>
-                <option value="Normal">Normal</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.skin_type || ""} onChange={e => set("skin_type", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.skin_type ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="">Prefer not to say</option>
+                  <option value="Oily">Oily</option>
+                  <option value="Dry">Dry</option>
+                  <option value="Combination">Combination</option>
+                  <option value="Sensitive">Sensitive</option>
+                  <option value="Normal">Normal</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
             <Field label={<>Dietary preference <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.diet} onChange={e => set("diet", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="">Prefer not to say</option>
-                <option value="Vegetarian">Vegetarian</option>
-                <option value="Non-Vegetarian">Non-Vegetarian</option>
-                <option value="Vegan">Vegan</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.diet || ""} onChange={e => set("diet", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.diet ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="">Prefer not to say</option>
+                  <option value="Vegetarian">Vegetarian</option>
+                  <option value="Vegan">Vegan</option>
+                  <option value="Non-vegetarian">Non-vegetarian</option>
+                  <option value="Eggetarian">Eggetarian</option>
+                  <option value="Jain">Jain</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
             <Field label={<>Fitness level <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.fitness} onChange={e => set("fitness", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="">Prefer not to say</option>
-                <option value="Beginner">Beginner</option>
-                <option value="Intermediate">Intermediate</option>
-                <option value="Advanced">Advanced</option>
-              </select>
+              <div style={{ position: "relative" }}>
+                <select className="fin" value={d.fitness || ""} onChange={e => set("fitness", e.target.value)} style={{ appearance: "none", background: "var(--panel-inset)", border: "1px solid transparent", width: "100%", padding: "12px 16px", borderRadius: 8, color: d.fitness ? "#0f172a" : "var(--text-muted)", outline: "none" }}>
+                  <option value="">Prefer not to say</option>
+                  <option value="Sedentary">Sedentary</option>
+                  <option value="Lightly active">Lightly active</option>
+                  <option value="Active">Active</option>
+                  <option value="Very active">Very active</option>
+                  <option value="Athlete">Athlete</option>
+                </select>
+                <div style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", display: "flex", alignItems: "center" }}>
+                  <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M0 0L5 6L10 0H0Z" fill="#94a3b8"/>
+                  </svg>
+                </div>
+              </div>
             </Field>
           </div>
         </>
@@ -956,7 +1021,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 6 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What would you like to take part in?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What would you like to take part in?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Pick everything you're open to — you can change this anytime.
             </p>
@@ -967,25 +1032,26 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             <div style={{ display: "flex", alignItems: "center", fontSize: 14, fontWeight: 700, color: showErrors && !d.participation?.length ? "var(--danger)" : "#1e293b", marginBottom: 16, gap: 12 }}>
               <span>Participation preferences <span style={{ color: "var(--danger)" }}>*</span></span>
               <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.participation.length} selected</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.participation?.length || 0} selected</span>
+                <button type="button" onClick={() => set("participation", PARTICIPATION_CARDS.map(c => c.id))} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0 }}>Select all</button>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: showErrors && issue?.id === "participation" ? 8 : 0 }}>
               {PARTICIPATION_CARDS.map(f => {
-                const active = d.participation.includes(f.id);
+                const active = d.participation?.includes(f.id);
                 return (
                   <button
-                    key={f.id} type="button" onClick={() => set("participation", toggle(d.participation, f.id))}
+                    key={f.id} type="button" onClick={() => set("participation", toggle(d.participation || [], f.id))}
                     style={{ textAlign: "left", padding: "16px", borderRadius: 12, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <div style={{ color: active ? "var(--primary)" : "var(--text-muted)" }}>
-                        <Icon name={f.icon} size={20} />
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 8, background: active ? "var(--primary)" : "var(--panel-inset)", color: active ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center" }}>
+                        <Icon name={f.icon} size={16} />
                       </div>
-                      {active && (
-  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
-    <Icon name="check" size={10} style={{ color: "#fff" }} />
-  </div>
-)}
+                      <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "1px solid #cbd5e1", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
+                        {active && <Icon name="check" size={10} style={{ color: "#fff", strokeWidth: 3 }} />}
+                      </div>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{f.name}</div>
                   </button>
@@ -1000,7 +1066,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
       {step === 7 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>How would you like to be rewarded?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>How would you like to be rewarded?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Every survey, trial and review pays. Choose how you'd like to receive it.
             </p>
@@ -1122,7 +1188,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 0 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Tell us about yourself</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Tell us about yourself</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               This stays private. We use it to match you with opportunities where your judgment is valuable.
             </p>
@@ -1214,7 +1280,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 1 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Verify your expertise</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Verify your expertise</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Your credibility is the product. Verified experts are matched to higher-value, better-paid opportunities.
             </p>
@@ -1286,7 +1352,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 2 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Your professional background</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Your professional background</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               This places you in the right domain so you only see opportunities that fit your authority.
             </p>
@@ -1338,7 +1404,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 3 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What can you speak to with authority?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What can you speak to with authority?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Select the topics you can give meaningful, professional feedback on. This is the heart of your match quality.
             </p>
@@ -1377,7 +1443,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 4 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What interests you?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What interests you?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               We'll prioritise opportunities aligned with what you enjoy.
             </p>
@@ -1416,7 +1482,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 5 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>How would you like to contribute?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>How would you like to contribute?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Pick the formats you're open to. Different formats pay differently — experts opinions and interviews pay the most.
             </p>
@@ -1468,7 +1534,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
       {step === 6 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>How would you like to be rewarded?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>How would you like to be rewarded?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Every contribution pays. Choose how you'd like to receive it — or donate it.
             </p>
@@ -1605,7 +1671,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 0 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Tell us about yourself</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Tell us about yourself</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               This stays private. We use it to match you with testing opportunities near you and send your rewards.
             </p>
@@ -1694,7 +1760,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 1 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Verify your experience</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Verify your experience</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Add at least one — it's the single biggest boost to your profile strength and the opportunities you'll be offered.
             </p>
@@ -1775,7 +1841,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 2 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What have you tested?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What have you tested?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Pick everything you've worked on. We use this to route you only to tests you'll do well.
             </p>
@@ -1860,7 +1926,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 3 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Your professional background</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Your professional background</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Helps us match you with tests in domains you know.
             </p>
@@ -1893,7 +1959,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 4 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>Which devices can you test on?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>Which devices can you test on?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Some tests need specific devices or browsers. The more you have, the more you'll be<br />matched to.
             </p>
@@ -1963,7 +2029,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 5 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>What are you into?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>What are you into?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               We'll prioritise tests in the areas you care about.
             </p>
@@ -2000,7 +2066,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
       {step === 6 && (
         <>
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px" }}>How would you like to be rewarded?</h2>
+            <h2 style={{ fontSize: 26, fontWeight: 700, color: "#1e293b", margin: "0 0 8px", letterSpacing: "-0.02em" }}>How would you like to be rewarded?</h2>
             <p style={{ color: "var(--text-muted)", fontSize: 14, margin: 0 }}>
               Every completed test pays. Choose how you'd like to receive it.
             </p>
