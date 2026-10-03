@@ -647,29 +647,48 @@ function UserOnboarding({ step, onNext, vid, validator }) {
           
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Field label="Country" required dataField="country" issue={issue} invalid={showErrors && !d.country}>
-              <select className="fin" value={d.country} onChange={e => set("country", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="" disabled>Select country</option>
-                <option value="India">India</option>
-              </select>
+              <SearchableSelect
+                value={d.country}
+                onChange={v => { set("country", v); set("state", ""); set("district", ""); }}
+                options={COUNTRY_NAMES}
+                placeholder="Select country"
+              />
             </Field>
             <Field label="State" required dataField="state" issue={issue} invalid={showErrors && !d.state}>
-              <select className="fin" value={d.state} onChange={e => set("state", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="" disabled>Select state</option>
-                <option value="Tamil Nadu">Tamil Nadu</option>
-                <option value="Maharashtra">Maharashtra</option>
-                <option value="Karnataka">Karnataka</option>
-                <option value="Delhi">Delhi</option>
-              </select>
+              {(() => {
+                const stateList = d.country ? (REGIONS_BY_COUNTRY[d.country] || []) : ALL_STATE_NAMES;
+                return stateList.length > 0 ? (
+                  <SearchableSelect
+                    value={d.state}
+                    onChange={v => { set("state", v); set("district", ""); }}
+                    options={stateList}
+                    placeholder="Select state"
+                  />
+                ) : (
+                  <input className="fin" value={d.state || ""} onChange={e => set("state", e.target.value)} placeholder="Enter state / region" style={{ background: "var(--panel-inset)", border: "none" }} />
+                );
+              })()}
             </Field>
-            <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-              <select className="fin" value={d.district} onChange={e => set("district", e.target.value)} style={{ background: "var(--panel-inset)", border: "none", width: "100%", padding: "12px 16px", borderRadius: 8 }}>
-                <option value="" disabled>Select district</option>
-                <option value="Madurai">Madurai</option>
-                <option value="Chennai">Chennai</option>
-                <option value="Mumbai">Mumbai</option>
-                <option value="Bengaluru">Bengaluru</option>
-              </select>
-            </Field>
+            {(() => {
+              const cData = d.country ? _allCountries.find(c => c.name === d.country) : null;
+              const sData = cData && d.state ? State.getStatesOfCountry(cData.isoCode).find(s => s.name === d.state) : null;
+              const districtOptions = sData ? City.getCitiesOfState(cData.isoCode, sData.isoCode).map(c => c.name) : [];
+              return (
+                <Field label={<>District <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
+                  {districtOptions.length > 0 ? (
+                    <SearchableSelect
+                      value={d.district}
+                      onChange={v => set("district", v)}
+                      options={districtOptions}
+                      placeholder="Select district"
+                      disabled={!d.state}
+                    />
+                  ) : (
+                    <input className="fin" value={d.district || ""} onChange={e => set("district", e.target.value)} placeholder="Enter district" style={{ background: "var(--panel-inset)", border: "none" }} />
+                  )}
+                </Field>
+              );
+            })()}
             <Field label={<>City <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
               <div className="inw has-pre">
                 <span className="pre"><Icon name="mapPin" size={14} /></span>
@@ -677,6 +696,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
               </div>
             </Field>
           </div>
+
         </>
       )}
 
