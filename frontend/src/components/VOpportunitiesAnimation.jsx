@@ -80,21 +80,21 @@ export default function VOpportunitiesAnimation({ roleName, color, onFinish, onS
           {SCAN_DOTS.map((dot, i) => (
             <div key={i} style={{
               "--tx": dot.tx + "px", "--ty": dot.ty + "px",
-              position: 'absolute', top: '50%', left: '50%', width: 44, height: 44, marginLeft: -22, marginTop: -22,
-              borderRadius: '50%', background: '#ffffff', color: dot.color, border: '2px solid transparent', 
-              boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+              position: 'absolute', top: '50%', left: '50%', width: 56, height: 56, marginLeft: -28, marginTop: -28,
+              borderRadius: '50%', background: dot.color, color: '#ffffff', border: 'none', 
+              boxShadow: `0 8px 16px ${dot.color}40`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               animation: `popInOp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${dot.delay}s both`
             }}>
-              <Icon name="box" size={24} strokeWidth={2.5} />
+              <Icon name="box" size={28} strokeWidth={2.5} />
             </div>
           ))}
           
           {/* Center Target */}
-          <div style={{ position: 'relative', zIndex: 10, width: 80, height: 80, borderRadius: '50%', background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 24px ${color}50` }}>
+          <div style={{ position: 'relative', zIndex: 10, width: 56, height: 56, borderRadius: '50%', background: color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 8px 24px ${color}50` }}>
             <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: color, animation: 'pulseRingOp 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
             <div style={{ position: 'absolute', inset: -24, borderRadius: '50%', background: color, opacity: 0.08 }} />
-            <Icon name="zap" size={36} fill="#ffffff" strokeWidth={1} />
+            <Icon name="zap" size={28} fill="#ffffff" strokeWidth={1} />
           </div>
         </div>
         

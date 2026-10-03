@@ -54,16 +54,16 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
         {/* 2-column Stat Cards */}
         <div style={{ display: "flex", gap: 24, marginBottom: 48 }}>
           
-          <div style={{ flex: 1, background: `${color}08`, border: `1px solid ${color}20`, borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ flex: 1, background: `linear-gradient(90deg, ${color}15 0%, #ffffff 100%)`, border: `1px solid ${color}20`, borderRadius: 16, padding: 24, display: "flex", alignItems: "center", gap: 20 }}>
             <div style={{ width: 56, height: 56, borderRadius: 16, background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 4px 12px ${color}40` }}>
-              <Icon name="zap" size={28} />
+              <Icon name="zap" size={28} fill="#ffffff" />
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 800, color: "#0f172a" }}>₹8,150<span style={{ fontSize: 16, color: "#64748b", fontWeight: 700 }}>+</span></span>
+                <span style={{ fontSize: 26, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.5px" }}>₹8,150<span style={{ fontSize: 20, color: "#0f172a" }}>+</span></span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#64748b" }}>/ mo</span>
               </div>
-              <div style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>Projected earning potential</div>
+              <div style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>Projected earning potential</div>
             </div>
           </div>
 
@@ -74,13 +74,13 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
                 <circle cx="24" cy="24" r={normalizedRadius} fill="none" stroke={color} strokeWidth={stroke} strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ transition: "stroke-dashoffset 1s ease-out" }} />
               </svg>
               <div style={{ position: "absolute", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
-                <span style={{ fontSize: 18, fontWeight: 800, color: "#0f172a" }}>{strengthPct}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#64748b", marginTop: 2 }}>/ 100</span>
+                <span style={{ fontSize: 22, fontWeight: 700, color: "#0f172a" }}>{strengthPct}</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", marginTop: 2 }}>/ 100</span>
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 13, color: "#64748b", fontWeight: 500, marginBottom: 4 }}>Profile strength</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#16a34a" }}>{memberType}</div>
+              <div style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 500, marginBottom: 4 }}>Profile strength</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#16a34a" }}>{memberType}</div>
             </div>
           </div>
           
@@ -88,26 +88,26 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
 
         {/* Opportunities List */}
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", margin: 0 }}>Top matched opportunities</h3>
-            <div style={{ fontSize: 12, fontWeight: 700, color: color, background: `${color}15`, padding: "4px 12px", borderRadius: 12 }}>
-              6 <span style={{ color: "#64748b", margin: "0 2px" }}>of</span> 47
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: 0 }}>Top matched opportunities</h3>
+            <div style={{ fontSize: 11, fontWeight: 600, color: color, background: `${color}15`, padding: "4px 10px", borderRadius: 12 }}>
+              6 <span style={{ margin: "0 2px" }}>of</span> 47
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {MOCK_OPPORTUNITIES.map(opp => (
-              <div key={opp.id} style={{ background: "#ffffff", border: "1px solid var(--border)", borderRadius: 16, padding: "20px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 20px rgba(0,0,0,0.02)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 12, background: opp.color, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon name={opp.icon} size={24} />
+              <div key={opp.id} style={{ background: "#ffffff", border: "1px solid var(--border)", borderRadius: 12, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: opp.color, color: "#ffffff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <Icon name={opp.icon} size={22} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 4 }}>{opp.title}</div>
-                    <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>{opp.type}</div>
-                    <div style={{ display: "flex", gap: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a", marginBottom: 2 }}>{opp.title}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 8 }}>{opp.type}</div>
+                    <div style={{ display: "flex", gap: 6 }}>
                       {opp.tags.map(tag => (
-                        <span key={tag} style={{ fontSize: 11, fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "4px 10px", borderRadius: 12 }}>
+                        <span key={tag} style={{ fontSize: 10, fontWeight: 600, color: "#475569", background: "#f1f5f9", padding: "4px 8px", borderRadius: 10 }}>
                           {tag}
                         </span>
                       ))}
@@ -115,9 +115,9 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
                   </div>
                 </div>
                 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>{opp.reward}</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: color, background: `${color}15`, padding: "4px 10px", borderRadius: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#16a34a" }}>{opp.reward}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: color, background: `${color}15`, padding: "4px 8px", borderRadius: 10 }}>
                     {opp.match}% match
                   </div>
                 </div>
@@ -127,16 +127,16 @@ export default function VOpportunitiesResults({ roleName, color, memberType, str
         </div>
 
         {/* Footer Actions */}
-        <div style={{ marginTop: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+        <div style={{ marginTop: 48, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
           <button 
             onClick={onComplete}
-            style={{ width: "100%", maxWidth: 400, background: color, color: "#fff", border: "none", padding: "16px 24px", borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: `0 8px 24px ${color}40` }}
+            style={{ background: color, color: "#fff", border: "none", padding: "12px 32px", borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}
           >
-            Go to my dashboard <Icon name="arrowRight" size={18} />
+            Go to my dashboard <Icon name="arrowRight" size={14} />
           </button>
           
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", fontSize: 13, fontWeight: 500 }}>
-            <Icon name="shieldCheck" size={14} style={{ color: "#94a3b8" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-faint)", fontSize: 12, fontWeight: 400 }}>
+            <Icon name="shieldCheck" size={12} style={{ color: "var(--text-faint)" }} />
             Your profile is live. Companies can now invite you to matched opportunities.
           </div>
         </div>

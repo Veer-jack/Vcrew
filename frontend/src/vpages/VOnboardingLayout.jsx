@@ -96,7 +96,7 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
 
   return (
     <div style={{ background: "var(--panel)", borderRadius: 16, border: "1px solid var(--border)", width: 320, alignSelf: "flex-start", padding: "32px 24px", position: "sticky", top: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
         <div style={{ position: "relative", width: 84, height: 84, display: "grid", placeItems: "center", flexShrink: 0 }}>
           <svg height={84} width={84} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
             <circle
@@ -120,13 +120,13 @@ export function VProfileStrengthCard({ steps, current, color, memberType = "Basi
             />
           </svg>
           <div style={{ textAlign: "center", marginTop: -2 }}>
-            <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{pct}</div>
+            <div style={{ fontSize: 32, fontWeight: 600, lineHeight: 1, letterSpacing: "-1px" }}>{pct}</div>
             <div style={{ fontSize: 10, color: "var(--text-faint)", fontWeight: 600, marginTop: 4 }}>/100</div>
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".08em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 6 }}>PROFILE STRENGTH</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: "#059669" }}>{memberType}</div>
+          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: ".1em", color: "var(--text-faint)", textTransform: "uppercase", marginBottom: 4 }}>PROFILE STRENGTH</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: color }}>{memberType}</div>
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>

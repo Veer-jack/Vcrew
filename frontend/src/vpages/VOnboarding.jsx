@@ -92,7 +92,7 @@ export const FOOD_PREF = ["Vegetarian","Eggetarian","Non-vegetarian","Vegan","Ja
 export const LIFESTYLE = ["Fitness","Yoga","Outdoor activities","Cooking","Travel","Gaming","Reading","Music","Fashion","Parenting","Pets","Tech","Cinema","Sports","Social media"];
 export const ROLES = ["Product Manager","UX / UI Designer","Software Engineer","Data Scientist","QA / Test Engineer","DevOps","Founder","CXO","Business Analyst","Consultant","Marketer","Content Creator","Sales","Customer Success","Doctor","Lawyer","Finance","HR","Teacher","Researcher","Freelancer","Student","Other"];
 export const EXP = ["0-1 year","1-3 years","3-7 years","7-12 years","12+ years"];
-export const INDUSTRIES = ["SaaS / B2B Software","Fintech","Healthcare","EdTech","E-commerce","FMCG","Automotive","Real Estate","Media","Gaming","AI / ML","Logistics","Manufacturing","Government","Non-profit","Other"];
+export const INDUSTRIES = ["Technology", "Healthcare", "Education", "Finance", "Manufacturing", "Government", "Retail", "Other"];
 export const PRODUCT_TYPES = ["Mobile apps iOS","Mobile apps Android","Web apps / SaaS","AI / LLM products","Fintech products","Healthcare apps","E-commerce","Developer tools","Enterprise software","Consumer apps","Physical products","Packaging","Marketing campaigns","Websites","Games"];
 export const TECH_TOOLS = ["Figma","Sketch","Notion","JIRA","Postman","Selenium","VS Code","Git","SQL","Python","JavaScript","React","Node.js","AWS","Docker","Tableau","Salesforce","Google Analytics","Excel"];
 export const TESTER_DOMAINS = ["Mobile app testing","Web app testing","API testing","Performance testing","Security testing","Accessibility testing","UX research","AI product evaluation","Cross-browser testing","Regression testing","Exploratory testing","Physical product evaluation","Market research","Other"];
@@ -227,7 +227,7 @@ function SearchableSelect({ value, onChange, options, placeholder, disabled }) {
               style={{
                 padding: "8px 16px", cursor: "pointer", fontSize: 14,
                 background: i === activeIndex ? "var(--primary)" : "transparent",
-                color: i === activeIndex ? "#fff" : "var(--text)", fontWeight: 400,
+                color: i === activeIndex ? "#fff" : "var(--text-muted)", fontWeight: 400,
               }}>
               {o}
             </div>
@@ -502,7 +502,9 @@ const getValidatorIssue = (step, d) => {
     // Verification step — no required fields (LinkedIn is "add any one", all optional)
   } else if (step === 2) {
     if (!d.current_role) return { id: "current_role", message: "Please fill in Current role." };
+    if (d.current_role === "Other" && !d.current_roleOther?.trim()) return { id: "current_roleOther", message: "Please specify your role." };
     if (!d.industry) return { id: "industry", message: "Please fill in Industry." };
+    if (d.industry === "Other" && !d.industryOther?.trim()) return { id: "industryOther", message: "Please specify your industry." };
   } else if (step === 3) {
     if (!d.expertise_areas?.length) return { id: "expertise_areas", message: "Please select Expertise areas." };
   } else if (step === 4) {
@@ -715,7 +717,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
               {EDUCATION_ARR.map(e => (
                 <button
                   key={e} type="button" onClick={() => set("education", e)}
-                  style={{ padding: "8px 16px", borderRadius: 20, border: d.education === e ? "2px solid var(--primary)" : "1px solid var(--border)", background: d.education === e ? "var(--primary-weak)" : "#fff", color: d.education === e ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: d.education === e ? "1px solid var(--primary)" : "1px solid var(--border)", background: d.education === e ? "var(--primary-weak)" : "#fff", color: d.education === e ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
                 >{e}</button>
               ))}
             </div>
@@ -743,7 +745,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
               {OCCUPATIONS_ARR.map(o => (
                 <button
                   key={o} type="button" onClick={() => set("occupation", o)}
-                  style={{ padding: "8px 16px", borderRadius: 20, border: d.occupation === o ? "2px solid var(--primary)" : "1px solid var(--border)", background: d.occupation === o ? "var(--primary-weak)" : "#fff", color: d.occupation === o ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: d.occupation === o ? "1px solid var(--primary)" : "1px solid var(--border)", background: d.occupation === o ? "var(--primary-weak)" : "#fff", color: d.occupation === o ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
                 >{o}</button>
               ))}
             </div>
@@ -790,7 +792,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
               {INCOME_ARR.map(i => (
                 <button
                   key={i} type="button" onClick={() => set("income", i)}
-                  style={{ padding: "8px 16px", borderRadius: 20, border: d.income === i ? "2px solid var(--primary)" : "1px solid var(--border)", background: d.income === i ? "var(--primary-weak)" : "#fff", color: d.income === i ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: d.income === i ? "1px solid var(--primary)" : "1px solid var(--border)", background: d.income === i ? "var(--primary-weak)" : "#fff", color: d.income === i ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
                 >{i}</button>
               ))}
             </div>
@@ -824,9 +826,9 @@ function UserOnboarding({ step, onNext, vid, validator }) {
                 return (
                   <button
                     key={a} type="button" onClick={() => set("interests", toggle(d.interests, a))}
-                    style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", color: active ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                    style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", color: active ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
                   >
-                    <div style={{ width: 14, height: 14, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", border: active ? "none" : "1px solid var(--border)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
                       {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
                     </div>
                     {a}
@@ -846,7 +848,7 @@ function UserOnboarding({ step, onNext, vid, validator }) {
               {SHOPPING_FREQ.map(f => (
                 <button
                   key={f} type="button" onClick={() => set("shopping_freq", f)}
-                  style={{ padding: "8px 16px", borderRadius: 20, border: d.shopping_freq === f ? "2px solid var(--primary)" : "1px solid var(--border)", background: d.shopping_freq === f ? "var(--primary-weak)" : "#fff", color: d.shopping_freq === f ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: d.shopping_freq === f ? "1px solid var(--primary)" : "1px solid var(--border)", background: d.shopping_freq === f ? "var(--primary-weak)" : "#fff", color: d.shopping_freq === f ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
                 >{f}</button>
               ))}
             </div>
@@ -868,9 +870,9 @@ function UserOnboarding({ step, onNext, vid, validator }) {
                 return (
                   <button
                     key={p} type="button" onClick={() => set("platforms", toggle(d.platforms, p))}
-                    style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", color: active ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                    style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", color: active ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
                   >
-                    <div style={{ width: 14, height: 14, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
+                    <div style={{ width: 14, height: 14, borderRadius: "50%", border: active ? "none" : "1px solid var(--border)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
                       {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
                     </div>
                     {p}
@@ -973,15 +975,17 @@ function UserOnboarding({ step, onNext, vid, validator }) {
                 return (
                   <button
                     key={f.id} type="button" onClick={() => set("participation", toggle(d.participation, f.id))}
-                    style={{ textAlign: "left", padding: "16px", borderRadius: 12, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}
+                    style={{ textAlign: "left", padding: "16px", borderRadius: 12, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ color: active ? "var(--primary)" : "var(--text-muted)" }}>
                         <Icon name={f.icon} size={20} />
                       </div>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--border)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                        {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                      </div>
+                      {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{f.name}</div>
                   </button>
@@ -1011,8 +1015,8 @@ function UserOnboarding({ step, onNext, vid, validator }) {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: showErrors && issue?.id === "reward_pref" ? 8 : 32 }}>
               {REWARDS_ARR.map(r => (
                 <button
-                  key={r} type="button" onClick={() => set("reward_pref", toggle(d.reward_pref, r))}
-                  style={{ padding: "8px 16px", borderRadius: 20, border: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "2px solid var(--primary)" : "1px solid var(--border)", background: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary-weak)" : "#fff", color: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  key={r} type="button" onClick={() => set("reward_pref", d.reward_pref.includes(r) ? [] : [r])}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "1px solid var(--primary)" : "1px solid var(--border)", background: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary-weak)" : "#fff", color: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
                 >
                   {r}
                 </button>
@@ -1048,7 +1052,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
   const [d, setD] = useDraft(`VC_V_DRAFT_VALIDATOR_${vid}`, { 
     name: "", email: validator?.email || "", mobile: "", dob: "", country: "", state: "", district: "", city: "",
     linkedin_url: "", resume_filename: "", professional_license: "", certification: "",
-    current_role: "", industry: "", company: "", experience: "",
+    current_role: "", current_roleOther: "", industry: "", industryOther: "", company: "", experience: "",
     expertise_areas: [],
     interests: [], participation: [], reward_pref: []
   }, validatorToDraft(validator));
@@ -1099,7 +1103,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
 
   const REWARDS_ARR = ["Cash", "Gift cards", "Donations", "Product samples"];
 
-  const ROLES_ARR = ["Product Manager", "Designer", "Engineer", "Researcher", "Executive", "Other"];
+  const ROLES_ARR = ["Product Manager", "Doctor", "Teacher", "Engineer", "HR Professional", "Entrepreneur", "Finance Professional", "Marketing Professional", "Lawyer", "Consultant", "Other"];
 
   return (
     <form id="v-onboarding-form" onSubmit={(e) => { 
@@ -1290,19 +1294,27 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
           <hr style={{ border: 0, borderTop: "1px solid var(--border)", margin: "0 0 28px 0" }} />
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Field label="Current role" required dataField="current_role" issue={issue} invalid={showErrors && !d.current_role}>
+            <Field label="Current role" required dataField="current_role" issue={issue} invalid={showErrors && (!d.current_role || (d.current_role === "Other" && !d.current_roleOther?.trim()))}>
               <SearchableSelect value={d.current_role} onChange={v => set("current_role", v)} options={ROLES_ARR} placeholder="Select role" />
+              {d.current_role === "Other" && (
+                <input className="fin" style={{ marginTop: 8 }} value={d.current_roleOther || ""} onChange={e => set("current_roleOther", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } }} placeholder="Please specify" />
+              )}
             </Field>
-            <Field label="Industry" required dataField="industry" issue={issue} invalid={showErrors && !d.industry}>
+            <Field label="Industry" required dataField="industry" issue={issue} invalid={showErrors && (!d.industry || (d.industry === "Other" && !d.industryOther?.trim()))}>
               <SearchableSelect value={d.industry} onChange={v => set("industry", v)} options={INDUSTRIES} placeholder="Select industry" />
+              {d.industry === "Other" && (
+                <input className="fin" style={{ marginTop: 8 }} value={d.industryOther || ""} onChange={e => set("industryOther", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } }} placeholder="Please specify" />
+              )}
             </Field>
           </div>
-          <Field label={<>Current company <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
-            <div className="inw has-pre">
-              <span className="pre"><Icon name="home" size={14} /></span>
-              <input className="fin" value={d.company} onChange={e => set("company", e.target.value)} placeholder="e.g. Google" style={{ background: "var(--panel-inset)", border: "none" }} />
-            </div>
-          </Field>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <Field label={<>Current company <span style={{ color: "var(--text-faint)", fontWeight: 400 }}>optional</span></>}>
+              <div className="inw has-pre">
+                <span className="pre"><Icon name="fileText" size={14} /></span>
+                <input className="fin" value={d.company} onChange={e => set("company", e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } }} placeholder="e.g. Google" style={{ background: "var(--panel-inset)", border: "none" }} />
+              </div>
+            </Field>
+          </div>
           
           <div style={{ fontSize: 14, fontWeight: 700, marginTop: 32, marginBottom: 12 }}>
             <span style={{ display: "inline-block", marginRight: 12 }}>Experience</span>
@@ -1314,7 +1326,7 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
                 key={y}
                 type="button"
                 onClick={() => set("experience", y)}
-                style={{ padding: "8px 16px", borderRadius: 20, border: d.experience === y ? "2px solid var(--primary)" : "1px solid var(--border)", background: d.experience === y ? "var(--primary-weak)" : "#fff", color: d.experience === y ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                style={{ padding: "8px 16px", borderRadius: 20, border: d.experience === y ? "1px solid var(--primary)" : "1px solid var(--border)", background: d.experience === y ? "var(--primary-weak)" : "#fff", color: d.experience === y ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
               >
                 {y}
               </button>
@@ -1346,11 +1358,13 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
               {EXPERTISE_AREAS.map(a => {
                 const active = d.expertise_areas.includes(a);
                 return (
-                  <div key={a} onClick={() => set("expertise_areas", toggle(d.expertise_areas, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{a}</span>
+                  <div key={a} onClick={() => set("expertise_areas", toggle(d.expertise_areas, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                    <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{a}</span>
                   </div>
                 );
               })}
@@ -1383,11 +1397,13 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
               {INTERESTS_ARR.map(a => {
                 const active = d.interests.includes(a);
                 return (
-                  <div key={a} onClick={() => set("interests", toggle(d.interests, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{a}</span>
+                  <div key={a} onClick={() => set("interests", toggle(d.interests, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                    <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{a}</span>
                   </div>
                 );
               })}
@@ -1412,6 +1428,9 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
               <span>Participation preferences <span style={{ color: "var(--danger)" }}>*</span></span>
               <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
               <span style={{ fontSize: 12, color: "var(--text-faint)", fontWeight: 600 }}>{d.participation.length} selected</span>
+              <button type="button" onClick={() => set("participation", d.participation.length === PARTICIPATION_FORMATS.length ? [] : PARTICIPATION_FORMATS.map(f => f.id))} style={{ background: "none", border: "none", color: "var(--primary)", fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0 }}>
+                {d.participation.length === PARTICIPATION_FORMATS.length ? "Clear all" : "Select all"}
+              </button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: showErrors && issue?.id === "participation" ? 8 : 0 }}>
               {PARTICIPATION_FORMATS.map(f => {
@@ -1421,15 +1440,17 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
                     key={f.id}
                     type="button"
                     onClick={() => set("participation", toggle(d.participation, f.id))}
-                    style={{ textAlign: "left", padding: "16px", borderRadius: 12, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}
+                    style={{ textAlign: "left", padding: "16px", borderRadius: 12, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                       <div style={{ color: active ? "var(--primary)" : "var(--text-muted)" }}>
                         <Icon name={f.icon} size={20} />
                       </div>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--border)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                        {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                      </div>
+                      {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginBottom: 4 }}>{f.name}</div>
@@ -1464,8 +1485,8 @@ function ValidatorOnboarding({ step, onNext, error, vid, validator }) {
                 <button
                   key={r}
                   type="button"
-                  onClick={() => set("reward_pref", toggle(d.reward_pref, r))}
-                  style={{ padding: "8px 16px", borderRadius: 20, border: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "2px solid var(--primary)" : "1px solid var(--border)", background: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary-weak)" : "#fff", color: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary)" : "var(--text)", fontWeight: 600, fontSize: 14, cursor: "pointer" }}
+                  onClick={() => set("reward_pref", d.reward_pref.includes(r) ? [] : [r])}
+                  style={{ padding: "8px 16px", borderRadius: 20, border: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "1px solid var(--primary)" : "1px solid var(--border)", background: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary-weak)" : "#fff", color: Array.isArray(d.reward_pref) && d.reward_pref.includes(r) ? "var(--primary)" : "var(--text-muted)", fontWeight: 500, fontSize: 14, cursor: "pointer" }}
                 >
                   {r}
                 </button>
@@ -1774,12 +1795,12 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               {PROD_TESTED.map(p => {
                 const active = d.products_tested.includes(p.id);
                 return (
-                  <div key={p.id} onClick={() => set("products_tested", toggle(d.products_tested, p.id))} style={{ border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", borderRadius: 12, padding: 16, cursor: "pointer", display: "flex", flexDirection: "column", position: "relative", gap: 32 }}>
+                  <div key={p.id} onClick={() => set("products_tested", toggle(d.products_tested, p.id))} style={{ border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", borderRadius: 12, padding: 16, cursor: "pointer", display: "flex", flexDirection: "column", position: "relative", gap: 32 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 8, background: active ? "var(--primary)" : "var(--panel-inset)", color: active ? "#fff" : "var(--text-muted)", display: "grid", placeItems: "center" }}>
                       <Icon name={p.icon} size={20} />
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{p.id}</div>
-                    <div style={{ position: "absolute", top: 12, right: 12, width: 20, height: 20, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
+                    <div style={{ position: "absolute", top: 12, right: 12, width: 20, height: 20, borderRadius: "50%", border: active ? "none" : "1px solid var(--border)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
                       {active && <Icon name="check" size={12} style={{ color: "#fff" }} />}
                     </div>
                   </div>
@@ -1802,11 +1823,13 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               {TESTING_AREAS.map(a => {
                 const active = d.testing_areas.includes(a);
                 return (
-                  <div key={a} onClick={() => set("testing_areas", toggle(d.testing_areas, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{a}</span>
+                  <div key={a} onClick={() => set("testing_areas", toggle(d.testing_areas, a))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                    <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{a}</span>
                   </div>
                 );
               })}
@@ -1823,7 +1846,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               {EXP_YEARS.map(y => {
                 const active = d.experience_years === y;
                 return (
-                  <div key={y} onClick={() => set("experience_years", y)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>
+                  <div key={y} onClick={() => set("experience_years", y)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>
                     {y}
                   </div>
                 );
@@ -1884,11 +1907,13 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               {["Android phone", "iPhone", "Android tablet", "iPad"].map(m => {
                 const active = d.devices_mobile.includes(m);
                 return (
-                  <div key={m} onClick={() => set("devices_mobile", toggle(d.devices_mobile, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{m}</span>
+                  <div key={m} onClick={() => set("devices_mobile", toggle(d.devices_mobile, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                    <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{m}</span>
                   </div>
                 );
               })}
@@ -1901,11 +1926,13 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               {["Windows", "Mac", "Linux"].map(m => {
                 const active = d.devices_desktop.includes(m);
                 return (
-                  <div key={m} onClick={() => set("devices_desktop", toggle(d.devices_desktop, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{m}</span>
+                  <div key={m} onClick={() => set("devices_desktop", toggle(d.devices_desktop, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                    <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{m}</span>
                   </div>
                 );
               })}
@@ -1918,11 +1945,13 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
               {["Chrome", "Safari", "Firefox", "Edge"].map(m => {
                 const active = d.devices_browser.includes(m);
                 return (
-                  <div key={m} onClick={() => set("devices_browser", toggle(d.devices_browser, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                      {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{m}</span>
+                  <div key={m} onClick={() => set("devices_browser", toggle(d.devices_browser, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                    {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                    <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{m}</span>
                   </div>
                 );
               })}
@@ -1954,11 +1983,13 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
             {INTERESTS.map(m => {
               const active = d.interests.includes(m);
               return (
-                <div key={m} onClick={() => set("interests", toggle(d.interests, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 16, height: 16, borderRadius: "50%", border: active ? "none" : "2px solid var(--panel-inset)", background: active ? "var(--primary)" : "transparent", display: "grid", placeItems: "center" }}>
-                    {active && <Icon name="check" size={10} style={{ color: "#fff" }} />}
-                  </div>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>{m}</span>
+                <div key={m} onClick={() => set("interests", toggle(d.interests, m))} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                  {active && (
+  <div style={{ width: 16, height: 16, borderRadius: "50%", background: "var(--primary)", display: "grid", placeItems: "center" }}>
+    <Icon name="check" size={10} style={{ color: "#fff" }} />
+  </div>
+)}
+                  <span style={{ fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>{m}</span>
                 </div>
               );
             })}
@@ -1985,7 +2016,7 @@ function TesterOnboarding({ step, onNext, error, vid, validator }) {
             {REWARD_PREFS.map(m => {
               const active = d.reward_pref === m;
               return (
-                <div key={m} onClick={() => set("reward_pref", m)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "2px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 600, color: active ? "var(--primary-dark)" : "var(--text)" }}>
+                <div key={m} onClick={() => set("reward_pref", m)} style={{ padding: "8px 16px", borderRadius: 20, border: active ? "1px solid var(--primary)" : "1px solid var(--border)", background: active ? "var(--primary-weak)" : "#fff", cursor: "pointer", fontSize: 14, fontWeight: 500, color: active ? "var(--primary)" : "var(--text-muted)" }}>
                   {m}
                 </div>
               );
